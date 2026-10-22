@@ -34,7 +34,8 @@ export function scanValue(value, file = "(value)", allowHandles = publicHandles(
     for (const cat of Object.keys(hits)) {
       // Citation fields hold public URLs and publisher names: only FB links/CDN images and contact PII count there.
       if (/\.(url|by|title)$/.test(p) && !["facebook", "fb_cdn_image", "email", "phone", "national_id"].includes(cat)) continue;
-      if (key === "$comment" && cat === "english_name") continue;
+      // English metadata (comments, review notes, licence) is not user-facing Thai text: capitalised words there are not names.
+      if (["$comment", "notes", "licence"].includes(key) && cat === "english_name") continue;
       out.push({ file, path: p, category: cat });
     }
   }
