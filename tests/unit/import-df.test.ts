@@ -1,0 +1,136 @@
+import { describe, it, expect, beforeAll } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+// @ts-ignore plain JS modules shared with the Node scripts
+import { readExport, mergeExports, cleanMessages, stripLinks, medicalFlags, toQueueItem, normPhrase, topicFor } from "../../scripts/bank/df-lib.mjs";
+// @ts-ignore
+import { runImport } from "../../scripts/bank/import-df.mjs";
+// @ts-ignore
+import { triggerOverlap } from "../../scripts/bank/check-triggers.mjs";
+
+// SYNTHETIC fixtures only (tests/fixtures/df/make-fixtures.mjs). No real export or user text.
+const FX = path.resolve(__dirname, "../fixtures/df");
+const REPO = path.resolve(__dirname, "../..");
+let out: string;
+let res: any;
+
+beforeAll(() => {
+  out = fs.mkdtempSync(path.join(os.tmpdir(), "jane-queue-test-"));
+  res = runImport({ bot: path.join(FX, "bot"), jane: path.join(FX, "jane"), out, now: new Date("2026-10-22T14:00:00Z") });
+});
+
+describe("import + merge (synthetic exports)", () => {
+  it("counts: unique, overlap, identical, conflicts, jane-only", () => {
+    const s = res.summary;
+    expect(s.intents).toEqual({ bot: 8, jane: 4, unique: 9, overlap: 3, identical: 1, bot_only: 5, jane_only: 1 });
+    expect(s.conflicts).toEqual(["Default Fallback Intent", "Default Welcome Intent"]);
+    expect(s.jane_only).toEqual(["test.janeonly.000"]);
+  });
+  it("conflicting intents keep both versions for the reviewer", () => {
+    const w = res.queue.find((q: any) => q.intent === "Default Welcome Intent");
+    expect(w.review.conflict).toBe(true);
+    expect(Object.keys(w.conflict_variants)).toEqual(["bot", "jane"]);
+  });
+  it("phrases: union per intent; whitespace-insensitive duplicates across context-free intents are phrase conflicts", () => {
+    const { merged, stats } = mergeExports(readExport(path.join(FX, "bot"), "bot"), readExport(path.join(FX, "jane"), "jane"));
+    const w = merged.find((r: any) => r.name === "Default Welcome Intent");
+    expect(w.phrases.map(normPhrase).sort()).toEqual(["ดีจ้า", "สวัสดี", "หวัดดี"].sort());
+    expect(stats.phraseConflicts).toBe(1);
+    expect(merged.find((r: any) => r.name === "test.dup.000").phraseConflicts).toEqual([["test.pii.000"]]);
+    // context-dependent yes/no replies are kept, scoped to their parent, and are not conflicts
+    expect(merged.find((r: any) => r.name === "test.ec.000 - yes").phraseConflicts).toEqual([]);
+  });
+  it("every queue item is needs-review with a draft card that has no copied triggers", () => {
+    expect(res.queue).toHaveLength(9);
+    for (const q of res.queue) {
+      expect(q.status).toBe("needs-review");
+      expect(q.proposed_card.review.status).toBe("draft");
+      expect(q.proposed_card.triggers).toEqual([]);
+      expect(q.proposed_card.flags).toContain("fb_payload_removed");
+    }
+  });
+});
+
+describe("stripping payloads, images and links", () => {
+  const ec = () => res.queue.find((q: any) => q.intent === "test.ec.000");
+  it("drops FB cards, buttons, images; quick replies become chips; LINE text counted", () => {
+    const q = ec();
+    expect(q.stripped).toMatchObject({ cards: 1, buttons: 2, images: 2, linePayloads: 1, shortLinks: 1, facebookLinks: 1, linkCandidates: 1 });
+    expect(q.chips_th).toEqual(["ใช่", "ไม่ใช่"]);
+  });
+  it("no URL, short link, FB or image host survives in the text", () => {
+    const blob = JSON.stringify(res.queue.map((q: any) => [q.responses_th, q.chips_th, q.conflict_variants]));
+    expect(blob).not.toMatch(/https?:|tinyurl|facebook\.com|fbcdn|giphy|m\.me\//);
+  });
+  it("allow-listed links are kept aside as candidates to re-check", () => expect(ec().link_candidates).toEqual(["https://rsathai.org/test"]));
+  it("stripLinks counts by kind", () => {
+    const c = { shortLinks: 0, imageLinks: 0, facebookLinks: 0, otherLinks: 0, linkCandidates: 0 };
+    const r = stripLinks("ก bit.ly/x ข https://example.com/y ค https://i.giphy.com/a.gif", c);
+    expect(r.text).toBe("ก ข ค");
+    expect(c).toMatchObject({ shortLinks: 1, otherLinks: 1, imageLinks: 1 });
+  });
+  it("cleanMessages de-duplicates text across platforms", () => {
+    const m = (platform: string) => ({ platform, type: "text", speech: ["ซ้ำ"], replies: [], title: "", subtitle: "", imageUrl: "", buttons: [], payload: null });
+    expect(cleanMessages([m("facebook"), m("default")]).texts).toEqual(["ซ้ำ"]);
+  });
+});
+
+describe("PII scrub and review flags", () => {
+  it("PII in responses is redacted in the queue and counted; hits go to a private file", () => {
+    const q = res.queue.find((q: any) => q.intent === "test.pii.000");
+    expect(q.pii.count).toBeGreaterThan(0);
+    expect(q.pii.categories).toEqual(expect.arrayContaining(["phone", "school"]));
+    expect(q.responses_th.join(" ")).not.toMatch(/081|ทดสอบวิทยา/);
+    expect(q.responses_th.join(" ")).toContain("[ลบข้อมูลส่วนตัว]");
+    const st = fs.statSync(path.join(out, "pii-hits.jsonl"));
+    expect(st.mode & 0o077).toBe(0); // owner-only
+  });
+  it("training phrases in the staging copy are scrubbed too", () => {
+    const rows = fs.readFileSync(path.join(out, "intents.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    expect(JSON.stringify(rows)).not.toContain("ทดลอง");
+  });
+  it("medical-review flags (same categories as the scan)", () => {
+    expect(medicalFlags("x", ["ยาคุมฉุกเฉิน ภายใน 72 ชั่วโมง"])).toEqual(expect.arrayContaining(["emergency_contraception", "contraception_dosing"]));
+    expect(medicalFlags("info.how_abort.1", ["ข้อความ"])).toContain("abortion_info");
+    expect(medicalFlags("x", ["สวัสดี"])).toEqual([]);
+    const jo = res.queue.find((q: any) => q.intent === "test.janeonly.000");
+    expect(jo.review.medical_review).toBe(true);
+    expect(jo.proposed_card.flags).toEqual(expect.arrayContaining(["medical", "hotline"]));
+    expect(jo.proposed_card.reword).toBe(false); // hotline → verbatim only
+  });
+  it("topic guess from intent names", () => {
+    expect(topicFor("20200708.urgent.pills.0000")).toBe("emergency_contraception");
+    expect(topicFor("disease.HIV.001")).toBe("sti_hiv");
+    expect(topicFor("default.ending.byejane")).toBe("ending");
+  });
+});
+
+describe("output stays outside git", () => {
+  it("refuses to write the queue inside the repo", () => {
+    expect(() => runImport({ bot: path.join(FX, "bot"), jane: path.join(FX, "jane"), out: path.join(REPO, "tmp-queue") })).toThrow(/outside/);
+    expect(fs.existsSync(path.join(REPO, "tmp-queue"))).toBe(false);
+  });
+  it("writes the four staging files with owner-only permissions", () => {
+    for (const f of ["intents.jsonl", "review-queue.jsonl", "pii-hits.jsonl", "summary.json"]) expect(fs.statSync(path.join(out, f)).mode & 0o077).toBe(0);
+  });
+  it(".gitignore covers the exports and the private queue", () => {
+    const gi = fs.readFileSync(path.join(REPO, ".gitignore"), "utf8");
+    expect(gi).toMatch(/^jane-df\*\/$/m);
+    expect(gi).toMatch(/^jane-private\/$/m);
+  });
+  it("trigger check flags a trigger equal to an export phrase (whitespace-insensitive)", () => {
+    const keys = new Set(["ลืมกินยา"]);
+    expect(triggerOverlap([{ id: "a.000", triggers: ["ลืม กินยา"] }, { id: "b.000", triggers: ["ยาคุม"] }], keys)).toEqual(["a.000"]);
+  });
+});
+
+// Optional: the real exports, counts only. Runs when JANE_DF_DIR points at the off-repo export folder.
+const DF = process.env.JANE_DF_DIR;
+describe.skipIf(!DF)("real exports (local only, counts only)", () => {
+  it("405 unique, 127 overlap (125 identical), 2 conflicts, 18 jane-only", () => {
+    const { stats } = mergeExports(readExport(path.join(DF!, "sex-safe-safe-bot"), "bot"), readExport(path.join(DF!, "sex-safe-safe-jane"), "jane"));
+    expect([stats.unique, stats.overlap, stats.identical, stats.janeOnly.length]).toEqual([405, 127, 125, 18]);
+    expect(stats.conflicts).toEqual(["Default Fallback Intent", "Default Welcome Intent"]);
+  });
+});
