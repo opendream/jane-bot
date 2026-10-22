@@ -32,3 +32,35 @@ export const POLISH_SYSTEM =
 export function cleanPolished(raw: string): string {
   return raw.replace(/<think>[\s\S]*?<\/think>/g, "").replace(/^["'“”\s]+|["'“”\s]+$/g, "").split("\n")[0].trim();
 }
+
+/* ---- chat (plan v2 §4): pick a card from a shortlist; reword one card. DRAFT prompts. ---- */
+export const NONE_ID = "none";
+export const PICK_SYSTEM =
+  "เลือกหัวข้อที่ตรงกับข้อความของผู้ใช้ที่สุดจากรายการ ตอบเป็น JSON เท่านั้น รูปแบบ {\"id\":\"...\"} ถ้าไม่มีข้อไหนตรง ตอบ {\"id\":\"none\"}";
+export const PICK_MAX_TOKENS = 32;
+
+export function pickSchema(ids: readonly string[]) {
+  return { type: "object", properties: { id: { type: "string", enum: [...ids, NONE_ID] } }, required: ["id"] };
+}
+export function pickUser(text: string, shortlist: { id: string; title_th: string }[], previousTitle: string | null): string {
+  const list = shortlist.map((s) => `${s.id} = ${s.title_th}`).join("\n");
+  return `${previousTitle ? `หัวข้อก่อนหน้า: ${previousTitle}\n` : ""}รายการ:\n${list}\nข้อความ: ${text}`;
+}
+/** Only an id from the shortlist counts; "none", unknown ids and junk all mean "no pick". */
+export function parsePick(raw: string, ids: readonly string[]): string | null {
+  const s = raw.replace(/<think>[\s\S]*?<\/think>/g, "");
+  const m = s.match(/"id"\s*:\s*"([^"]+)"/);
+  const id = m?.[1];
+  return id && id !== NONE_ID && ids.includes(id) ? id : null;
+}
+
+export const REWORD_SYSTEM =
+  "เรียบเรียงข้อความต่อไปนี้ใหม่ให้อ่านง่าย อบอุ่น เป็นภาษาไทย ย่อหน้าเดียว ความยาวใกล้เคียงเดิม " +
+  "ห้ามเพิ่มหรือเปลี่ยนตัวเลข เบอร์โทร เวลา ลิงก์ ชื่อยา หรือข้อมูลทางการแพทย์ ห้ามตัดข้อมูลสำคัญ ตอบเฉพาะข้อความที่เรียบเรียงแล้ว";
+export const REWORD_MAX_TOKENS = 160;
+export function rewordUser(card: { answer_th: string; key_facts: string[] }): string {
+  return `ข้อมูลที่ต้องคงไว้: ${card.key_facts.join(", ")}\nข้อความ: ${card.answer_th}`;
+}
+export function cleanReword(raw: string): string {
+  return raw.replace(/<think>[\s\S]*?<\/think>/g, "").replace(/^\s*(ข้อความ\s*[:：])?\s*["'“”]?|["'“”]?\s*$/g, "").trim();
+}

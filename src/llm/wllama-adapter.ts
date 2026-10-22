@@ -3,7 +3,7 @@ import wasmUrl from "@wllama/wllama/esm/wasm/wllama.wasm?url";
 import type { LLMAdapter } from "./adapter";
 import type { Intent } from "../core/types";
 import { cachedBlob } from "./weights-cache";
-import { CLASSIFY_SCHEMA, CLASSIFY_SYSTEM, POLISH_SYSTEM, cleanPolished, parseIntent } from "./prompts";
+import { CLASSIFY_SCHEMA, CLASSIFY_SYSTEM, POLISH_SYSTEM, PICK_SYSTEM, PICK_MAX_TOKENS, REWORD_SYSTEM, REWORD_MAX_TOKENS, cleanPolished, cleanReword, parseIntent, pickSchema, pickUser, rewordUser } from "./prompts";
 import { replaceNeedLine, needLine } from "./summary-lines";
 
 /** llama.cpp compiled to WASM, CPU only (n_gpu_layers 0). Works with no GPU at all. */
@@ -29,6 +29,7 @@ export async function loadWllama(file: string, label: string, onProgress: (p: nu
   onProgress(1);
   return {
     name: `${label} (WASM)`,
+    runtime: "wasm" as const,
     classifyRaw,
     ready: () => true,
     classify: async (text, signal) => parseIntent(await classifyRaw(text, signal)) as Intent[] | null,
@@ -41,6 +42,22 @@ export async function loadWllama(file: string, label: string, onProgress: (p: nu
       } as any);
       const out = cleanPolished(r.choices?.[0]?.message?.content ?? "");
       return out ? replaceNeedLine(draft, out) : null;
+    }),
+    pickCard: (text, shortlist, prev, signal) => serial(async () => {
+      const r: any = await w.createChatCompletion({
+        messages: [{ role: "system", content: PICK_SYSTEM }, { role: "user", content: `${pickUser(text, shortlist, prev)} /no_think` }],
+        max_tokens: PICK_MAX_TOKENS, temperature: 0, abortSignal: signal,
+        response_format: { type: "json_schema", json_schema: { name: "pick", schema: pickSchema(shortlist.map((s) => s.id)) } },
+      } as any);
+      return String(r.choices?.[0]?.message?.content ?? "");
+    }),
+    // Defined for completeness; off on WASM by default (REWORD_RUNTIMES, p90 3.3 s on the studio Mac).
+    rewordCard: (card, signal) => serial(async () => {
+      const r: any = await w.createChatCompletion({
+        messages: [{ role: "system", content: REWORD_SYSTEM }, { role: "user", content: `${rewordUser(card)} /no_think` }],
+        max_tokens: REWORD_MAX_TOKENS, temperature: 0, abortSignal: signal,
+      } as any);
+      return cleanReword(String(r.choices?.[0]?.message?.content ?? "")) || null;
     }),
   };
 }
