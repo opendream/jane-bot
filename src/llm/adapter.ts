@@ -46,7 +46,10 @@ export function acceptPolished(draft: string, polished: string | null): string {
   if (a.length !== b.length) return draft;
   const prefixes = a.map((l) => l.split(":")[0]);
   if (!b.every((l, i) => l.startsWith(prefixes[i]))) return draft;
-  if (/\d{3,}|@|https?:/.test(polished) && !/\d{3,}|@|https?:/.test(draft)) return draft;
+  // No new numbers, handles or links that were not already in the draft.
+  const tokens = (x: string) => new Set(x.match(/\d{3,}|@[\w.\-]+|https?:\S+/g) ?? []);
+  const known = tokens(draft);
+  for (const t of tokens(polished)) if (!known.has(t)) return draft;
   if (detectCrisis(polished).crisis && !detectCrisis(draft).crisis) return draft;
   return polished;
 }
