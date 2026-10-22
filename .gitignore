@@ -9,3 +9,7 @@ spike/*.log
 models/
 dist-bundle/
 dist-eval/
+# Answer bank v2: raw Dialogflow exports, staging and the review queue never enter git (plan §2)
+jane-df*/
+jane-private/
+*.dfexport.zip
