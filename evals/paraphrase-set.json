@@ -1,0 +1,30 @@
+{
+  "$comment": "Keyword-poor paraphrases (synthetic, DRAFT, Thai review pending). Written to avoid the rule keywords, so they show what the on-device model adds over rules. 'intent' = the single best intent; 'ok' = other intents that are also acceptable.",
+  "version": "0.1-draft",
+  "items": [
+    { "id": "p01", "text": "เดือนนี้รอบมันเลื่อนไปนานแล้ว ใจไม่ดีเลย", "intent": "pregnancy" },
+    { "id": "p02", "text": "ถ้าตอนนี้มีเด็กในท้องจริงๆ หนูจะทำยังไง", "intent": "pregnancy" },
+    { "id": "p03", "text": "ซื้อที่ตรวจมาแล้วมันขึ้นสองเส้น", "intent": "pregnancy" },
+    { "id": "p04", "text": "เมื่อคืนไม่ได้ใส่อะไรป้องกันเลย วันนี้ยังทันไหม", "intent": "emergency_contraception", "ok": ["pregnancy", "contraception"] },
+    { "id": "p05", "text": "ของมันหลุดตอนกำลังทำ กลัวมากเลย", "intent": "emergency_contraception", "ok": ["pregnancy"] },
+    { "id": "p06", "text": "มียาที่กินหลังวันนั้นได้ไหม ต้องกินภายในกี่ชั่วโมง", "intent": "emergency_contraception", "ok": ["contraception"] },
+    { "id": "p07", "text": "อยากหาวิธีกันไว้ระยะยาว แบบไม่ต้องจำกินทุกวัน", "intent": "contraception" },
+    { "id": "p08", "text": "แบบฝังที่แขนกับแบบฉีด อันไหนเหมาะกับเด็กมหาลัย", "intent": "contraception" },
+    { "id": "p09", "text": "เริ่มกินเม็ดแรกวันไหนดี แผงแรก", "intent": "contraception" },
+    { "id": "p10", "text": "ข้างล่างคันๆ มีตุ่มขึ้น ต้องไปหาใครดี", "intent": "sti_hiv" },
+    { "id": "p11", "text": "แฟนเก่าเพิ่งบอกว่าเขามีเชื้อ หนูต้องทำอะไรบ้าง", "intent": "sti_hiv" },
+    { "id": "p12", "text": "อยากเช็กร่างกายหลังจากมีคนใหม่ แบบไม่ต้องให้พ่อแม่เซ็น", "intent": "sti_hiv" },
+    { "id": "p13", "text": "เขาชอบขอแต่หนูยังไม่อยาก ไม่รู้จะพูดยังไงให้เขาไม่โกรธ", "intent": "relationship_consent" },
+    { "id": "p14", "text": "คบกันมาสามเดือน เขาบอกว่าถ้ารักจริงต้องยอม", "intent": "relationship_consent" },
+    { "id": "p15", "text": "เขาขอดูโทรศัพท์ทุกวัน ห้ามคุยกับเพื่อนผู้ชาย แบบนี้ปกติไหม", "intent": "relationship_consent", "ok": ["violence"] },
+    { "id": "p16", "text": "ช่วงนี้ไม่มีแรงทำอะไรเลย เบื่อทุกอย่าง", "intent": "mental_health" },
+    { "id": "p17", "text": "ตื่นมาก็ไม่อยากลุกจากเตียง ไม่อยากเจอใคร", "intent": "mental_health" },
+    { "id": "p18", "text": "ใจเต้นแรงทุกครั้งที่ต้องไปโรงเรียน กินข้าวไม่ลง", "intent": "mental_health" },
+    { "id": "p19", "text": "รู้สึกว่าตัวเองไม่มีค่า ทำอะไรก็ผิดไปหมด", "intent": "mental_health" },
+    { "id": "p20", "text": "มีคนเอารูปหนูไปโพสต์ แล้วบอกว่าถ้าไม่โอนเงินจะส่งให้ทุกคนดู", "intent": "violence" },
+    { "id": "p21", "text": "พ่อเลี้ยงชอบเข้ามาในห้องตอนกลางคืน หนูไม่สบายใจ", "intent": "violence" },
+    { "id": "p22", "text": "เพื่อนในห้องรุมแกล้ง ถ่ายคลิปแล้วเอาไปลงกลุ่ม", "intent": "violence", "ok": ["mental_health"] },
+    { "id": "p23", "text": "ร้านชานมแถวนี้ร้านไหนอร่อย", "intent": "other" },
+    { "id": "p24", "text": "พรุ่งนี้สอบคณิต ช่วยติวให้หน่อย", "intent": "other", "ok": ["mental_health"] }
+  ]
+}

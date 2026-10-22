@@ -46,6 +46,8 @@ export async function classifyWithFallback(text: string, adapter: LLMAdapter | n
   const out = await withTimeout((s) => adapter.classify(text, s), timeoutMs);
   const clean = (out ?? []).filter((i) => VALID_INTENTS.includes(i)).slice(0, 3);
   if (!clean.length) return rules;
+  // The model saying "other" never overrides a rule match.
+  if (clean[0] === "other" && rules.intents[0] !== "other") return rules;
   const merged = [...clean, ...rules.intents.filter((i) => i !== "other" && !clean.includes(i))].slice(0, 3);
   return { intents: merged, scores: rules.scores, source: "model" };
 }

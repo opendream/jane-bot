@@ -87,6 +87,11 @@ describe("LLM adapter fallback", () => {
     const r = await classifyWithFallback("ช่วงนี้กังวล", good); // weak mental_health only
     expect(r.intents).toEqual(["contraception", "mental_health"]);
   });
+  it("a model 'other' never overrides a weak rule match", async () => {
+    const otherM: LLMAdapter = { name: "o", ready: () => true, classify: async () => ["other"], polishSummary: async () => null };
+    const r = await classifyWithFallback("ช่วงนี้กังวล", otherM);
+    expect(r.source).toBe("rules"); expect(r.intents[0]).toBe("mental_health");
+  });
   it("polished summary must keep the template, else the draft is used", async () => {
     const d = draftSummary({ service: s1663, needText: "กลัวท้อง", intent: "pregnancy", ageBand: "unspecified" });
     expect(await polishWithFallback(d, broken)).toBe(d);

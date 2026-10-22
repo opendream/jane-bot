@@ -212,7 +212,7 @@ function suggestScreen() {
   return h("main", { class: "screen", "data-testid": "screen-suggest" },
     state.crisisBanner.length > 0 && crisisStrip(state.crisisBanner),
     h("p", { class: "support", "data-testid": "support-line" }, SUPPORT_LINE_TH[top]),
-    h("p", { class: "intent", "data-testid": "intent-label", "data-intent": top },
+    h("p", { class: "intent", "data-testid": "intent-label", "data-intent": top, "data-source": r.source },
       "เรื่องที่เราเข้าใจ: ", h("strong", {}, r.intents.slice(0, 2).map((i) => INTENT_LABEL_TH[i]).join(" · "))),
     h("h2", {}, "ที่ที่คุยต่อได้กับเจ้าหน้าที่ตัวจริง"),
     ...state.suggestions.map((s, i) =>

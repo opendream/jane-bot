@@ -7,25 +7,31 @@ import { CLASSIFY_SCHEMA, CLASSIFY_SYSTEM, POLISH_SYSTEM, cleanPolished, parseIn
 import { replaceNeedLine, needLine } from "./summary-lines";
 
 /** llama.cpp compiled to WASM, CPU only (n_gpu_layers 0). Works with no GPU at all. */
-export async function loadWllama(file: string, label: string, onProgress: (p: number) => void): Promise<LLMAdapter> {
+export async function loadWllama(file: string, label: string, onProgress: (p: number) => void): Promise<LLMAdapter & { classifyRaw(text: string, signal?: AbortSignal): Promise<string> }> {
   const blob = await cachedBlob(file, (l, t) => onProgress(t ? (0.9 * l) / t : 0));
   onProgress(0.92);
   const w = new Wllama({ default: wasmUrl }, { suppressNativeLog: true, logger: { debug() {}, log() {}, warn() {}, error() {} } as any });
   await w.loadModel([blob], { n_ctx: 1024, n_gpu_layers: 0, n_threads: Math.max(1, Math.min(8, navigator.hardwareConcurrency || 4)) });
-  onProgress(1);
+  onProgress(0.96);
   let busy: Promise<unknown> = Promise.resolve();
   const serial = <T>(fn: () => Promise<T>): Promise<T> => { const p = busy.then(fn, fn); busy = p.catch(() => null); return p; };
+  const classifyRaw = (text: string, signal?: AbortSignal) => serial(async () => {
+    const r: any = await w.createChatCompletion({
+      messages: [{ role: "system", content: CLASSIFY_SYSTEM }, { role: "user", content: `${text} /no_think` }],
+      max_tokens: 24, temperature: 0, abortSignal: signal,
+      response_format: { type: "json_schema", json_schema: { name: "intent", schema: CLASSIFY_SCHEMA } },
+    } as any);
+    return String(r.choices?.[0]?.message?.content ?? "");
+  });
+  // Warm-up on a fixed synthetic string (never user text): the first inference is ~4x slower and
+  // would otherwise hit the 8 s classify timeout on her first message.
+  await classifyRaw("สวัสดี").catch(() => "");
+  onProgress(1);
   return {
     name: `${label} (WASM)`,
+    classifyRaw,
     ready: () => true,
-    classify: (text, signal) => serial(async () => {
-      const r: any = await w.createChatCompletion({
-        messages: [{ role: "system", content: CLASSIFY_SYSTEM }, { role: "user", content: `${text} /no_think` }],
-        max_tokens: 20, temperature: 0, abortSignal: signal,
-        response_format: { type: "json_schema", json_schema: { name: "intent", schema: CLASSIFY_SCHEMA } },
-      } as any);
-      return parseIntent(r.choices?.[0]?.message?.content ?? "") as Intent[] | null;
-    }),
+    classify: async (text, signal) => parseIntent(await classifyRaw(text, signal)) as Intent[] | null,
     polishSummary: (draft, signal) => serial(async () => {
       const line = needLine(draft);
       if (!line) return null;
