@@ -5,3 +5,4 @@ playwright-report/
 e2e-shots/
 spike/models/
 spike/node_modules/
+spike/*.log

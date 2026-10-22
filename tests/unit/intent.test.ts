@@ -24,7 +24,8 @@ describe("classifyNeed (rules)", () => {
 
   it("does not read stomach ache (ปวดท้อง) as pregnancy", () => {
     expect(classifyNeed("ปวดท้องมาสองวัน").intents).not.toContain("pregnancy");
-    expect(classifyNeed("ปวด ท้อง เมนส์").intents[0]).toBe("pregnancy"); // เมนส์ still counts (weak)
+    expect(classifyNeed("ปวด ท้อง เมนส์").intents).not.toContain("pregnancy"); // period cramps
+    expect(classifyNeed("ปวดท้อง แต่เมนส์ไม่มา").intents[0]).toBe("pregnancy");
   });
 
   it("short Latin keywords need word boundaries (question ≠ STI)", () => {

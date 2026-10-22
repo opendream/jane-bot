@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="th"><head><meta charset="utf-8"><title>WebLLM spike (local only)</title></head>
+<body><pre id="log">starting…</pre>
+<script type="module">
+import * as webllm from "./node_modules/@mlc-ai/web-llm/lib/index.js";
+const log = (m) => { document.getElementById("log").textContent += "\n" + m; window.__log = (window.__log||[]).concat(m); };
+const params = new URLSearchParams(location.search);
+const MID = params.get("model") || "Qwen3-1.7B-q4f32_1-MLC";
+const base = location.origin + "/models/";
+const appConfig = { useIndexedDBCache: false, model_list: [{
+  model: base + MID, model_id: MID,
+  model_lib: base + "libs/" + MID.replace(/-MLC$/, "") + "_cs1k-webgpu.wasm",
+  overrides: { context_window_size: 1024 },
+}]};
+window.__result = null;
+(async () => {
+  try {
+    const t0 = performance.now();
+    const engine = await webllm.CreateMLCEngine(MID, { appConfig, initProgressCallback: (p) => log("init: " + p.text) });
+    const tLoad = performance.now() - t0;
+    log("loaded in " + (tLoad/1000).toFixed(1) + " s");
+    const sys = 'จัดหมวดความต้องการของผู้ใช้เป็น JSON เท่านั้น เช่น {"intent":"pregnancy"} เลือกจาก: pregnancy, emergency_contraception, contraception, sti_hiv, relationship_consent, mental_health, violence, other';
+    const t1 = performance.now();
+    const r = await engine.chat.completions.create({
+      messages: [{ role: "system", content: sys }, { role: "user", content: "ประจำเดือนมาช้าไปสองอาทิตย์ กลัวท้อง" }],
+      max_tokens: 24, temperature: 0, extra_body: { enable_thinking: false },
+    });
+    const tGen = performance.now() - t1;
+    const out = r.choices[0].message.content;
+    log("output: " + out);
+    log("usage: " + JSON.stringify(r.usage));
+    window.__result = { ok: true, model: MID, load_s: tLoad/1000, gen_s: tGen/1000, out, usage: r.usage };
+  } catch (e) {
+    log("ERROR " + (e && e.stack || e));
+    window.__result = { ok: false, error: String(e && e.message || e) };
+  }
+})();
+</script></body></html>
