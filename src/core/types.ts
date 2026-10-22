@@ -13,6 +13,16 @@ export type Hours =
   | { type: "varies" }
   | { type: "daily"; open: string; close: string };
 
+export interface HoursSource {
+  hours: Hours;
+  /** Short publisher label shown on the card, e.g. "RSATHAI". */
+  by: string;
+  url: string;
+  /** Year (or date) the source's information dates from, when known; shown as "source 2022". */
+  as_of?: string;
+  checked: string;
+}
+
 export interface Source { url: string; title: string; checked: string; note?: string }
 export interface Channel { type: string; label_th: string; value: string; href?: string }
 
@@ -22,6 +32,9 @@ export interface Service {
   name_en: string;
   description_th: string;
   channels: Channel[];
+  /** What each source says about the hours. */
+  hours_sources: HoursSource[];
+  /** Effective hours used for open-now: the narrowest window across hours_sources (derived at load). */
   hours: Hours;
   intents: Intent[];
   youth_friendly: boolean;

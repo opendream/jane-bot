@@ -4,7 +4,7 @@ import markSvg from "./assets/mark.svg?raw";
 import type { AgeBand, CrisisCategory, Intent, IntentResult } from "./core/types";
 import { detectCrisis, crisisOrder } from "./core/crisis";
 import { suggestServices, CRISIS_LINES, DATA_VERSION, INTENT_LABEL_TH, SUPPORT_LINE_TH, type Suggestion } from "./core/referral";
-import { hoursLabel } from "./core/openNow";
+import { hoursLabel, hoursCitation } from "./core/openNow";
 import { draftSummary, finalizeSummary } from "./core/summary";
 import { classifyWithFallback, polishWithFallback, type LLMAdapter } from "./llm/adapter";
 import { startModel, type ModelStatus } from "./llm/runtime";
@@ -204,6 +204,16 @@ function sourceLine(src: { url: string; checked: string }[]) {
   return h("p", { class: "src" }, "ที่มา: ", ...src.slice(0, 1).map((x) => h("span", { class: "url" }, `${x.url} (ตรวจ ${x.checked})`)));
 }
 
+/** Hours with their sources; on conflict the narrower window is used and every source is cited. */
+function hoursBlock(svc: Suggestion["service"]) {
+  const c = hoursCitation(svc);
+  return h("div", { class: "hours", "data-testid": `hours-${svc.id}`, "data-conflict": String(c.conflict) },
+    h("p", { class: "hours-eff" }, `เวลา: ${c.effective_th}`),
+    c.conflict_note_th && h("p", { class: "note" }, c.conflict_note_th),
+    h("ul", { class: "hours-src" }, ...c.lines.map((l) => h("li", {}, l))),
+  );
+}
+
 function channelEl(ch: { type: string; label_th: string; href?: string }) {
   return ch.href
     ? h("a", { class: "btn-call small", href: ch.href }, ch.label_th)
@@ -230,7 +240,7 @@ function suggestScreen() {
       h("section", { class: "card", "data-testid": `service-${s.service.id}`, "data-rank": i },
         h("div", { class: "card-head" }, h("h3", {}, s.service.name_th), statusBadge(s)),
         h("p", {}, s.service.description_th),
-        h("p", { class: "hours" }, `เวลา: ${hoursLabel(s.service.hours)}`),
+        hoursBlock(s.service),
         h("div", { class: "chans" }, ...s.service.channels.map(channelEl)),
         s.service.verification !== "verified" && h("p", { class: "warn" }, "⚠ เวลาให้บริการยังยืนยันไม่ได้ทั้งหมด"),
         sourceLine(s.service.sources),

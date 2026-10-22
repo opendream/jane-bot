@@ -18,6 +18,14 @@ test("S1 pregnancy worry at 19:00 BKK → 1663 (open) → edit → approve → D
   await expect(page.getByTestId("status-hotline_1663")).toHaveAttribute("data-state", "open");
   await expect(page.getByTestId("status-teen_club")).toHaveAttribute("data-state", "open");
   await expect(page.locator('a[href="tel:1663"]').first()).toBeVisible();
+  // Hours with sources: 1663 sources disagree → narrower window, both cited; Teen Club labelled "source 2022".
+  const h1663 = page.getByTestId("hours-hotline_1663");
+  await expect(h1663).toHaveAttribute("data-conflict", "true");
+  await expect(h1663).toContainText("เวลา: ทุกวัน 10:00–20:00 น.");
+  await expect(h1663).toContainText("RSATHAI: ทุกวัน 09:00–21:00 น.");
+  await expect(h1663).toContainText("GCC Call Center ภาครัฐ: ทุกวัน 10:00–20:00 น.");
+  await expect(h1663).toContainText("ช่วงเวลาที่แคบกว่า");
+  await expect(page.getByTestId("hours-teen_club")).toContainText("17:00–23:00 น. (source 2022)");
   await shot(page, "s1-03-suggestions");
 
   await page.getByTestId("pick-hotline_1663").click();
@@ -56,9 +64,9 @@ test("S2 condom broke at 08:30 BKK, with name + phone typed → PII stripped, op
   await page.getByTestId("need-submit").click();
 
   await expect(page.getByTestId("intent-label")).toHaveAttribute("data-intent", "emergency_contraception");
-  // 08:30: 1663 (09:00) and Teen Club (17:00) closed; closed services show when they open.
+  // 08:30: 1663 (10:00, narrower of the two cited windows) and Teen Club (17:00) closed; closed services show when they open.
   await expect(page.getByTestId("status-hotline_1663")).toHaveAttribute("data-state", "closed");
-  await expect(page.getByTestId("status-hotline_1663")).toContainText("09:00");
+  await expect(page.getByTestId("status-hotline_1663")).toContainText("10:00");
   await shot(page, "s2-02-suggestions-0830");
 
   await page.getByTestId("pick-hotline_1663").click();

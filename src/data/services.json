@@ -1,5 +1,5 @@
 {
-  "$comment": "Public information only. Every entry cites a public source and the date it was checked (BKK). Re-check the day before filming. 'verification' says how sure we are.",
+  "$comment": "Public information only. Every entry cites a public source and the date it was checked (BKK). Re-check the day before filming. 'verification' says how sure we are. Hours: each service lists hours_sources (what each source says). Where sources disagree, the app uses the NARROWER window for open-now and cites every source on the card.",
   "data_version": "2026-10-22",
   "checked_tz": "Asia/Bangkok",
   "services": [
@@ -21,11 +21,29 @@
           "value": "1663 สายด่วนปรึกษาเอดส์และท้องไม่พร้อม"
         }
       ],
-      "hours": {
-        "type": "daily",
-        "open": "09:00",
-        "close": "21:00"
-      },
+      "hours_sources": [
+        {
+          "hours": {
+            "type": "daily",
+            "open": "09:00",
+            "close": "21:00"
+          },
+          "by": "RSATHAI",
+          "url": "https://rsathai.org/qrcode",
+          "checked": "2026-10-22"
+        },
+        {
+          "hours": {
+            "type": "daily",
+            "open": "10:00",
+            "close": "20:00"
+          },
+          "by": "GCC Call Center ภาครัฐ",
+          "url": "https://gcontact.gcc.go.th/index.php?Itemid=30&id=40609&option=com_content&view=article",
+          "as_of": "2025",
+          "checked": "2026-10-22"
+        }
+      ],
       "intents": [
         "pregnancy",
         "emergency_contraception",
@@ -44,7 +62,7 @@
           "url": "https://gcontact.gcc.go.th/index.php?Itemid=30&id=40609&option=com_content&view=article",
           "title": "GCC Call Center ภาครัฐ (last update 2025-11-14) lists 1663 as 10.00–20.00 daily, operator Thai Red Cross AIDS Research Centre",
           "checked": "2026-10-22",
-          "note": "CONFLICT with RSATHAI hours. We use RSATHAI 09:00–21:00 (Dept of Health service page). Confirm by phone before filming."
+          "note": "CONFLICT with RSATHAI hours (09:00–21:00). No phone check (Keng, 22 Oct 19:53 BKK): open-now uses the narrower window 10:00–20:00 and the card cites both."
         }
       ]
     },
@@ -60,9 +78,16 @@
           "value": "rsathai.org/qrcode"
         }
       ],
-      "hours": {
-        "type": "24h"
-      },
+      "hours_sources": [
+        {
+          "hours": {
+            "type": "24h"
+          },
+          "by": "RSATHAI",
+          "url": "https://rsathai.org/qrcode",
+          "checked": "2026-10-22"
+        }
+      ],
       "intents": [
         "pregnancy"
       ],
@@ -88,11 +113,18 @@
           "value": "@tamtang"
         }
       ],
-      "hours": {
-        "type": "daily",
-        "open": "10:00",
-        "close": "22:00"
-      },
+      "hours_sources": [
+        {
+          "hours": {
+            "type": "daily",
+            "open": "10:00",
+            "close": "22:00"
+          },
+          "by": "RSATHAI",
+          "url": "https://rsathai.org/qrcode",
+          "checked": "2026-10-22"
+        }
+      ],
       "intents": [
         "pregnancy"
       ],
@@ -118,11 +150,19 @@
           "value": "@teen_club"
         }
       ],
-      "hours": {
-        "type": "daily",
-        "open": "17:00",
-        "close": "23:00"
-      },
+      "hours_sources": [
+        {
+          "hours": {
+            "type": "daily",
+            "open": "17:00",
+            "close": "23:00"
+          },
+          "by": "RSATHAI",
+          "url": "https://rsathai.org/contents/23639",
+          "as_of": "2022",
+          "checked": "2026-10-22"
+        }
+      ],
       "intents": [
         "contraception",
         "emergency_contraception",
@@ -134,7 +174,7 @@
       ],
       "youth_friendly": true,
       "verification": "partial",
-      "verification_note": "LINE OA is active in Oct 2026 (Dept of Health ran 'Teen Club Challenge 2026', closing 31 Oct 2569). Live-chat hours 17:00–23:00 only found in a Sep 2022 RSATHAI post; no 2026 source for hours. Confirm before filming.",
+      "verification_note": "LINE OA is active in Oct 2026 (Dept of Health ran 'Teen Club Challenge 2026', closing 31 Oct 2569). Live-chat hours 17:00–23:00 only found in a Sep 2022 RSATHAI post; no 2026 source for hours. No phone check (Keng, 22 Oct 19:53 BKK): the card labels these hours 'source 2022'.",
       "sources": [
         {
           "url": "https://rsathai.org/contents/23639",
@@ -165,9 +205,16 @@
           "value": "rh.anamai.moph.go.th/th/yfhs"
         }
       ],
-      "hours": {
-        "type": "varies"
-      },
+      "hours_sources": [
+        {
+          "hours": {
+            "type": "varies"
+          },
+          "by": "กรมอนามัย (YFHS)",
+          "url": "https://rh.anamai.moph.go.th/th/yfhs",
+          "checked": "2026-10-22"
+        }
+      ],
       "intents": [
         "sti_hiv",
         "contraception",
@@ -198,9 +245,16 @@
           "href": "tel:1323"
         }
       ],
-      "hours": {
-        "type": "24h"
-      },
+      "hours_sources": [
+        {
+          "hours": {
+            "type": "24h"
+          },
+          "by": "กรมสุขภาพจิต",
+          "url": "https://dmh.go.th/",
+          "checked": "2026-10-22"
+        }
+      ],
       "intents": [
         "mental_health",
         "relationship_consent"
@@ -228,9 +282,26 @@
           "href": "tel:1300"
         }
       ],
-      "hours": {
-        "type": "24h"
-      },
+      "hours_sources": [
+        {
+          "hours": {
+            "type": "24h"
+          },
+          "by": "กระทรวง พม.",
+          "url": "https://www.m-society.go.th/news_view.php?nid=41550",
+          "as_of": "2025",
+          "checked": "2026-10-22"
+        },
+        {
+          "hours": {
+            "type": "24h"
+          },
+          "by": "GCC Call Center ภาครัฐ",
+          "url": "https://gcontact.gcc.go.th/index.php?Itemid=30&id=40609&option=com_content&view=article",
+          "as_of": "2025",
+          "checked": "2026-10-22"
+        }
+      ],
       "intents": [
         "violence",
         "relationship_consent"

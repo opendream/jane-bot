@@ -52,7 +52,9 @@ textarea { width: 100%; font: inherit; padding: 12px; border-radius: var(--radiu
 .badge.open { background: #e5f4ea; color: var(--open); }
 .badge.closed { background: #fbeee6; color: var(--closed); }
 .badge.unknown { background: #eee; color: #555; }
-.hours { font-size: 15px; }
+.hours { font-size: 15px; margin: 6px 0; }
+.hours p { margin: 0; }
+.hours-src { list-style: none; padding: 0; margin: 2px 0 0; font-size: 12px; color: var(--muted); word-break: break-word; }
 .chans { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 .chan { font-size: 14px; padding: 4px 8px; border-radius: 8px; background: #f3efe9; }
 .btn-call { display: inline-block; background: var(--brand); color: #fff; text-decoration: none; padding: 10px 14px; font-weight: 700; }

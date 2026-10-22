@@ -14,7 +14,8 @@ describe("open now (Asia/Bangkok)", () => {
   });
 
   const table: [string, string, "open" | "closed"][] = [
-    ["hotline_1663", "08:59", "closed"], ["hotline_1663", "09:00", "open"], ["hotline_1663", "20:59", "open"], ["hotline_1663", "21:00", "closed"],
+    // 1663: RSATHAI 09–21 vs GCC 10–20 → narrower 10–20
+    ["hotline_1663", "09:30", "closed"], ["hotline_1663", "09:59", "closed"], ["hotline_1663", "10:00", "open"], ["hotline_1663", "19:59", "open"], ["hotline_1663", "20:00", "closed"], ["hotline_1663", "20:30", "closed"],
     ["tamtang", "09:59", "closed"], ["tamtang", "10:00", "open"], ["tamtang", "21:59", "open"], ["tamtang", "22:00", "closed"],
     ["teen_club", "16:59", "closed"], ["teen_club", "17:00", "open"], ["teen_club", "22:59", "open"], ["teen_club", "23:00", "closed"],
     ["teen_club", "00:30", "closed"], ["hotline_1323", "03:00", "open"], ["rsa_online", "04:00", "open"],
@@ -25,7 +26,7 @@ describe("open now (Asia/Bangkok)", () => {
 
   it("labels say when it opens", () => {
     expect(openStatus(svc("teen_club").hours, bkk("12:00")).label_th).toContain("17:00");
-    expect(openStatus(svc("hotline_1663").hours, bkk("12:00")).label_th).toContain("21:00");
+    expect(openStatus(svc("hotline_1663").hours, bkk("12:00")).label_th).toContain("20:00");
   });
 
   it("varies → unknown", () => {

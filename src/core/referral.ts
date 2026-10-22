@@ -1,9 +1,12 @@
 import type { Intent, Service, CrisisLine } from "./types";
-import { openStatus, type OpenStatus } from "./openNow";
+import { openStatus, narrowestHours, type OpenStatus } from "./openNow";
 import { MAX_SUGGESTIONS } from "../config";
 import data from "../data/services.json";
 
-export const SERVICES = data.services as unknown as Service[];
+/** Effective hours = narrowest window across the cited sources (see narrowestHours). */
+export const SERVICES: Service[] = (data.services as unknown as Omit<Service, "hours">[]).map((s) => ({
+  ...s, hours: narrowestHours(s.hours_sources.map((x) => x.hours)),
+}));
 export const CRISIS_LINES = data.crisis_lines as unknown as CrisisLine[];
 export const DATA_VERSION = data.data_version;
 

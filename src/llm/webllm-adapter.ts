@@ -7,7 +7,7 @@ import { CLASSIFY_SYSTEM, POLISH_SYSTEM, cleanPolished, parseIntent } from "./pr
 import { needLine, replaceNeedLine } from "./summary-lines";
 
 /** WebLLM on WebGPU, in a Web Worker. Weights and the WebGPU library come from our own origin only. */
-export async function loadWebLLM(build: WebGpuBuild, label: string, onProgress: (p: number) => void): Promise<LLMAdapter> {
+export async function loadWebLLM(build: WebGpuBuild, label: string, onProgress: (p: number) => void): Promise<LLMAdapter & { classifyRaw(t: string): Promise<{ content: string; usage: any }>; polishRaw(t: string): Promise<{ content: string; usage: any }> }> {
   const appConfig: AppConfig = {
     cacheBackend: "cache" as any, // Cache Storage, model files only
     model_list: [{
@@ -20,15 +20,21 @@ export async function loadWebLLM(build: WebGpuBuild, label: string, onProgress: 
     appConfig, initProgressCallback: (r) => onProgress(r.progress ?? 0),
   });
   onProgress(1);
-  const ask = async (system: string, user: string, max: number) => {
-    const r = await engine.chat.completions.create({
+  const askRaw = async (system: string, user: string, max: number) => {
+    const r: any = await engine.chat.completions.create({
       messages: [{ role: "system", content: system }, { role: "user", content: user }],
       max_tokens: max, temperature: 0, extra_body: { enable_thinking: false },
     } as any);
-    return (r as any).choices?.[0]?.message?.content ?? "";
+    return { content: String(r.choices?.[0]?.message?.content ?? ""), usage: r.usage ?? null };
   };
+  const ask = async (system: string, user: string, max: number) => (await askRaw(system, user, max)).content;
+  // Warm-up on a fixed synthetic string (never user text): first call compiles shaders.
+  await ask(CLASSIFY_SYSTEM, "สวัสดี", 8).catch(() => "");
   return {
     name: `${label} (WebGPU)`,
+    /** Eval only: raw output + WebLLM usage stats (prefill/decode tokens per second). */
+    classifyRaw: async (text: string) => askRaw(CLASSIFY_SYSTEM, text, 20),
+    polishRaw: async (line: string) => askRaw(POLISH_SYSTEM, line, 60),
     ready: () => true,
     classify: async (text) => parseIntent(await ask(CLASSIFY_SYSTEM, text, 20)) as Intent[] | null,
     polishSummary: async (draft) => {

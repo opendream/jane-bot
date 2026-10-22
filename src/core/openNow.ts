@@ -50,3 +50,56 @@ export function hoursLabel(hours: Hours): string {
   if (hours.type === "varies") return "แตกต่างกันแต่ละแห่ง";
   return `ทุกวัน ${hours.open}–${hours.close} น.`;
 }
+
+const minutesOpen = (h: { open: string; close: string }) => {
+  const o = toMin(h.open), c = toMin(h.close);
+  return o === c ? 1440 : (c - o + 1440) % 1440;
+};
+
+/**
+ * Where sources disagree, use the NARROWER window (Keng, 22 Oct 2026): never claim "open" when any source says closed.
+ * - "24h" is the widest; it only wins if every source says 24h.
+ * - "varies" sources carry no window; if all sources vary, the result varies.
+ * - Same-day windows are intersected (latest open, earliest close). If a window crosses midnight or the
+ *   intersection is empty, the shortest single window is used instead (still conservative, never wider).
+ */
+export function narrowestHours(list: Hours[]): Hours {
+  const daily = list.filter((h): h is { type: "daily"; open: string; close: string } => h.type === "daily");
+  if (!daily.length) return list.some((h) => h.type === "24h") ? { type: "24h" } : { type: "varies" };
+  if (daily.length === 1) return daily[0];
+  const sameDay = daily.every((h) => toMin(h.open) < toMin(h.close));
+  if (sameDay) {
+    const o = Math.max(...daily.map((h) => toMin(h.open))), c = Math.min(...daily.map((h) => toMin(h.close)));
+    if (o < c) {
+      const hh = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+      return { type: "daily", open: hh(o), close: hh(c) };
+    }
+  }
+  return [...daily].sort((a, b) => minutesOpen(a) - minutesOpen(b))[0];
+}
+
+const sameHours = (a: Hours, b: Hours) => hoursLabel(a) === hoursLabel(b);
+
+export interface HoursCitation {
+  /** e.g. "ทุกวัน 10:00–20:00 น." */
+  effective_th: string;
+  /** Sources disagree, so the narrower window is in use. */
+  conflict: boolean;
+  /** Shown under the card when there is a conflict. */
+  conflict_note_th: string | null;
+  /** One line per source: "RSATHAI: ทุกวัน 09:00–21:00 น. (source 2022) · rsathai.org/qrcode · ตรวจ 2026-10-22" */
+  lines: string[];
+}
+
+export function hoursCitation(s: { hours_sources: { hours: Hours; by: string; url: string; as_of?: string; checked: string }[] }): HoursCitation {
+  const eff = narrowestHours(s.hours_sources.map((x) => x.hours));
+  const conflict = s.hours_sources.some((x) => !sameHours(x.hours, s.hours_sources[0].hours));
+  const host = (u: string) => u.replace(/^https?:\/\/(www\.)?/, "").replace(/[?#].*$/, "").replace(/\/$/, "");
+  return {
+    effective_th: hoursLabel(eff),
+    conflict,
+    conflict_note_th: conflict ? "แหล่งข้อมูลระบุเวลาไม่ตรงกัน จึงใช้ช่วงเวลาที่แคบกว่าในการบอกว่าเปิดอยู่หรือไม่" : null,
+    lines: s.hours_sources.map((x) =>
+      `${x.by}: ${hoursLabel(x.hours)}${x.as_of ? ` (source ${x.as_of})` : ""} · ${host(x.url)} · ตรวจ ${x.checked}`),
+  };
+}

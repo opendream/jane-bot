@@ -12,7 +12,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
 const root = path.resolve(arg("--root", path.join(here, "..")));
 const port = Number(arg("--port", process.env.PORT || 4173));
-const DIST = path.join(root, "dist");
+const DIST = path.resolve(arg("--dist", path.join(root, "dist")));
 const MODELS = path.resolve(arg("--models", path.join(root, "models")));
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
   ".json": "application/json", ".wasm": "application/wasm", ".png": "image/png", ".svg": "image/svg+xml", ".txt": "text/plain; charset=utf-8" };
