@@ -7,3 +7,4 @@ spike/models/
 spike/node_modules/
 spike/*.log
 models/
+dist-bundle/

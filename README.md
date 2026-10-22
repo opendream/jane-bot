@@ -1,4 +1,4 @@
-# SRH referral demo (placeholder name), milestone 1
+# SRH referral demo (placeholder name), milestones 1–2
 
 Private prototype. Not published, no remote, no deploy. Apache-2.0 (see `LICENSE`).
 Product name is a placeholder: change `PRODUCT_NAME` in `src/config.ts`. Minimum age: `MIN_AGE` (default 15).
@@ -14,13 +14,34 @@ Product name is a placeholder: change `PRODUCT_NAME` in `src/config.ts`. Minimum
 4. Approve → simulated handoff screen labelled **DEMO — nothing was sent**, plus the real public channel.
 5. Crisis phrases override everything: 1323 / 1300 / 1669 / 191 with tap-to-call (`tel:`).
 
-Model hook: `src/llm/adapter.ts` (`LLMAdapter`). A model may rank intents and reword the summary; output is
-validated and the rules are the fallback on error, timeout or invalid output. Crisis detection never uses the model.
+6. Five acceptance scenarios: S1 pregnancy, S2 emergency contraception, S3 HIV test, S4 consent (Teen Club / 1323 / 1300;
+   being forced → crisis, 1300 first), S5 mental health (1323 first; suicidal wording → crisis override).
+7. Crisis detection has two levels: **override** (full crisis screen) and **banner** (topic/fiction/news or resolved mild
+   wording: normal flow plus a crisis strip with the numbers). False-positive probe: `evals/crisis-fp-set.json` → `evals/crisis-scorecard.md`.
+
+## On-device model (optional; the app works without it)
+
+Qwen3 (Apache-2.0) only. Typhoon is on hold until the OpenTyphoon terms are cleared. Order: **WebGPU** via WebLLM (real GPU only;
+SwiftShader is ignored) → **WASM** via wllama (CPU) → **rules**. Choose in `src/config.ts` (`MODEL`) or with `?model=` / `?runtime=`.
+
+| `MODEL` | WebGPU | WASM (CPU) |
+| --- | --- | --- |
+| `qwen3-1.7b` (default) | q4f16 0.99 GB (q4f32 0.99 GB if no shader-f16) | GGUF Q4_K_M 1.11 GB |
+| `qwen3-4b` | q4f16 / q4f32 2.29 GB | no build (GGUF 2.5 GB > wllama 2 GB limit) → falls back to 1.7B |
+
+- Rules decide when confident; the model is consulted only for low-confidence text (8 s timeout) and its answer is validated.
+  Summary polish runs in the background, only touches her own line, and is discarded if it adds numbers, crisis words or length.
+  Crisis detection is rules-only and always runs first.
+- Weights are self-hosted: `node scripts/fetch-weights.mjs` downloads pinned revisions (`scripts/weights-manifest.json`) from the
+  original sources, checks sha256, and writes `models/` (gitignored). The app loads them from `/models/` on 127.0.0.1 into
+  Cache Storage (`model-weights-v1`, model files only), after which it runs fully offline.
+- Header pill shows the state: loading (flow usable meanwhile) / "โมเดลในเครื่อง: <name> · ออฟไลน์" / rules only.
+- Eval: `node scripts/eval-model.mjs` → `evals/model-scorecard.md` (rules vs model vs combined).
 
 ## Privacy guarantees (checked by the e2e tests)
 
 - No `fetch`/XHR in the app; strict CSP (`default-src 'self'`); no external fonts, scripts or links (source URLs are text).
-- State is in memory only: nothing in localStorage, sessionStorage, IndexedDB, cookies or Cache Storage.
+- State is in memory only: nothing in localStorage, sessionStorage, IndexedDB or cookies. Cache Storage holds model files only.
 - No logging of user text; the static server never receives chat content.
 
 ## Run locally (bound to 127.0.0.1 only)
@@ -28,15 +49,17 @@ validated and the rules are the fallback on error, timeout or invalid output. Cr
 ```bash
 npm ci
 npm run dev        # http://127.0.0.1:5173  (dev, hot reload)
-# or, closest to filming:
-npm run build && npm run preview   # http://127.0.0.1:4173
+node scripts/fetch-weights.mjs     # once, ~2.1 GB (optional: app works on rules without it)
+# closest to filming (same server as the run bundle):
+npm run build && node scripts/serve.mjs   # http://127.0.0.1:4173
 ```
 
 ## Tests
 
 ```bash
 npm test           # unit tests + seed set scorecard (writes evals/scorecard.md)
-npm run e2e        # builds, serves on 127.0.0.1:4173, headless Chrome; 3 Thai scenarios + crisis + under-age
+npm run e2e        # builds, serves on 127.0.0.1:4173, headless Chrome; 5 scenarios, crisis, banner, under-age,
+                   # and the WASM model test (persistent profile; zero weight/flow requests once warm; skipped without weights)
 ```
 E2E uses `/usr/bin/google-chrome` (override with `CHROME_PATH`). Step screenshots go to `e2e-shots/`; key ones are in `shots/`.
 The e2e run fixes the browser clock (Playwright clock API) to set BKK times.
@@ -51,3 +74,8 @@ WebGPU adapter (`--enable-unsafe-webgpu`) can run the q4f32_1 build on CPU (very
 
 Every service and crisis line cites a public source with a check date (BKK) in `src/data/services.json`.
 Items marked `"verification": "partial"` need re-checking before filming (Teen Club hours, YFHS list, 1663 hours conflict).
+
+## Run bundle for the filming laptop
+
+`python3 scripts/make-bundle.py` → `dist-bundle/srh-demo-run-bundle-<stamp>.zip` (prebuilt app + Node-only scripts; no weights).
+On the laptop: unzip, `./start.sh` (or `start.command`). See `bundle/README-RUN.md` and `bundle/FILMING-CHECKLIST.md`.
