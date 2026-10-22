@@ -1,0 +1,16 @@
+{
+  "$comment": "PLACEHOLDER quiz shell only. D7 (quiz content and whether to ship a quiz) is pending; these questions are written for this build, are not ThaiHealth content, and must never ship.",
+  "questions": [
+    {
+      "id": "quiz.p001",
+      "placeholder": true,
+      "question_th": "PLACEHOLDER · คำถามตัวอย่าง ข้อความจริงรอผู้เชี่ยวชาญตรวจ",
+      "options": [
+        { "label_th": "ตัวเลือกตัวอย่าง ก", "correct": true },
+        { "label_th": "ตัวเลือกตัวอย่าง ข", "correct": false }
+      ],
+      "explain_card_id": "contraception.p000",
+      "review": { "status": "draft" }
+    }
+  ]
+}
