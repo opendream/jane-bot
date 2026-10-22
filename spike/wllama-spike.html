@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="th"><head><meta charset="utf-8"><title>wllama spike (local only)</title></head>
+<body><pre id="log">starting…</pre>
+<script type="module">
+import { Wllama } from "./node_modules/@wllama/wllama/esm/index.js";
+const log = (m) => { document.getElementById("log").textContent += "\n" + m; window.__log = (window.__log||[]).concat(m); };
+window.__result = null;
+(async () => {
+  try {
+    log("crossOriginIsolated=" + self.crossOriginIsolated + " cores=" + navigator.hardwareConcurrency);
+    const w = new Wllama({ default: "./node_modules/@wllama/wllama/esm/wasm/wllama.wasm" }, { allowOffline: true });
+    const t0 = performance.now();
+    await w.loadModelFromUrl(location.origin + "/models/Qwen3-1.7B-Q4_K_M.gguf", { n_ctx: 1024, n_gpu_layers: 0, n_threads: navigator.hardwareConcurrency });
+    const load = (performance.now() - t0) / 1000;
+    log("loaded in " + load.toFixed(1) + " s");
+    const sys = 'จัดหมวดความต้องการของผู้ใช้ ตอบเป็น JSON บรรทัดเดียวเท่านั้น เช่น {"intent":"pregnancy"} เลือกจาก: pregnancy, emergency_contraception, contraception, sti_hiv, relationship_consent, mental_health, violence, other';
+    const cases = ["ประจำเดือนมาช้าไปสองอาทิตย์ กลัวท้อง", "เมื่อคืนถุงยางแตก", "อยากไปตรวจเอชไอวี"];
+    const outs = [];
+    for (const c of cases) {
+      const t1 = performance.now();
+      const r = await w.createChatCompletion({
+        messages: [{ role: "system", content: sys }, { role: "user", content: c + " /no_think" }],
+        max_tokens: 24, temperature: 0,
+      });
+      const s = (performance.now() - t1) / 1000;
+      const out = r.choices[0].message.content;
+      log(`[${s.toFixed(1)}s] ${c} → ${out}`);
+      outs.push({ input: c, out, s });
+    }
+    window.__result = { ok: true, load_s: load, outs, isolated: self.crossOriginIsolated };
+  } catch (e) {
+    log("ERROR " + (e && e.stack || e));
+    window.__result = { ok: false, error: String(e && e.message || e) };
+  }
+})();
+</script></body></html>
