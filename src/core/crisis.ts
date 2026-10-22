@@ -1,37 +1,72 @@
 import type { CrisisCategory, CrisisResult } from "./types";
-import { findPhrases } from "./text";
+import { findPhrases, normalize } from "./text";
 
 /**
  * DRAFT crisis phrase list — must be reviewed by a qualified Thai SRH/safety reviewer before filming.
- * Bias: false positives are acceptable (crisis card is shown with an option to continue);
- * false negatives are not. Runs before any model and never depends on it.
+ * Runs before any model and never depends on it.
+ *
+ * Two tiers:
+ *  - "override": full-screen crisis card, the referral flow stops.
+ *  - "banner":   the phrase appears only in a benign context (fiction/news/school topic, a mild qualifier,
+ *                or "ไม่อยากอยู่แล้ว + place"). The referral flow continues, but a crisis strip with
+ *                1323 / 1300 / 1669 / 191 stays on top. Nothing is ever hidden.
+ * ALWAYS phrases (first-person desire to die, victim forms of sexual violence) override even in a benign context.
  */
-export const CRISIS_PHRASES: Record<CrisisCategory, readonly string[]> = {
-  self_harm: [
-    "อยากตาย", "ฆ่าตัวตาย", "ไม่อยากมีชีวิตอยู่", "ไม่อยากอยู่แล้ว", "ไม่อยากอยู่บนโลก",
-    "จบชีวิต", "ทำร้ายตัวเอง", "กรีดแขน", "กรีดข้อมือ", "กินยาเกินขนาด", "กินยาตาย",
-    "อยากหายไปจากโลก", "ตายไปซะ", "โดดตึก", "ผูกคอ",
-    "kill myself", "suicide", "self harm", "self-harm", "want to die",
-  ],
-  sexual_violence: [
-    "ข่มขืน", "ถูกข่มขืน", "โดนข่มขืน", "ถูกบังคับมีเซ็กส์", "โดนบังคับมีเซ็กส์",
-    "ถูกบังคับให้มีเพศสัมพันธ์", "บังคับให้มีเพศสัมพันธ์", "ถูกล่วงละเมิดทางเพศ", "โดนล่วงละเมิด",
-    "ล่วงละเมิดทางเพศ", "ถูกลวนลาม", "โดนลวนลาม", "ถูกมอมยา", "โดนมอมยา",
-    "rape", "raped", "sexually assaulted",
-  ],
-  violence_danger: [
-    "ถูกทำร้าย", "โดนทำร้าย", "ถูกตบ", "โดนตบ", "ถูกตี", "โดนตี", "ทุบตี", "ถูกต่อย", "โดนต่อย",
-    "ขู่จะฆ่า", "ขู่ฆ่า", "ถูกขังไว้", "โดนขังไว้", "ไม่ปลอดภัยตอนนี้", "กำลังตามมา", "กลัวเขาจะทำร้าย",
-    "in danger", "being hurt", "he hits me",
-  ],
-  medical_emergency: [
-    "เลือดออกเยอะมาก", "เลือดออกมาก", "เลือดไม่หยุด", "ตกเลือด", "หมดสติ", "เป็นลม",
-    "ปวดท้องรุนแรง", "ปวดท้องมากจนทนไม่ไหว", "หายใจไม่ออก", "ชักเกร็ง",
-    "heavy bleeding", "unconscious", "can't breathe",
-  ],
+interface CategoryRules {
+  /** Override in any context. */
+  always: readonly string[];
+  /** Override unless a benign context applies to this category, then banner. */
+  contextual: readonly string[];
+}
+
+export const CRISIS_RULES: Record<CrisisCategory, CategoryRules> = {
+  self_harm: {
+    always: [
+      "อยากตาย", "ไม่อยากมีชีวิตอยู่", "ไม่อยากอยู่บนโลก", "คิดจะฆ่าตัวตาย", "อยากฆ่าตัวตาย", "จะฆ่าตัวตาย",
+      "ทำร้ายตัวเอง", "กรีดแขน", "กรีดข้อมือ", "กินยาเกินขนาด", "กินยาตาย", "อยากหายไปจากโลก", "ผูกคอตาย",
+      "kill myself", "want to die", "self harm", "self-harm",
+    ],
+    contextual: ["ฆ่าตัวตาย", "ไม่อยากอยู่แล้ว", "จบชีวิต", "ตายไปซะ", "โดดตึก", "suicide"],
+  },
+  sexual_violence: {
+    always: [
+      "ถูกข่มขืน", "โดนข่มขืน", "ถูกบังคับมีเซ็กส์", "โดนบังคับมีเซ็กส์", "ถูกบังคับให้มีเพศสัมพันธ์",
+      "ถูกล่วงละเมิดทางเพศ", "โดนล่วงละเมิด", "ถูกลวนลาม", "โดนลวนลาม", "ถูกมอมยา", "โดนมอมยา",
+      "raped", "sexually assaulted",
+    ],
+    contextual: ["ข่มขืน", "บังคับให้มีเพศสัมพันธ์", "ล่วงละเมิดทางเพศ", "ลวนลาม", "มอมยา", "rape"],
+  },
+  violence_danger: {
+    always: ["ไม่ปลอดภัยตอนนี้", "มีคนกำลังตามมา", "เขากำลังตามมา", "กลัวเขาจะทำร้าย", "in danger", "he hits me"],
+    contextual: [
+      "ถูกทำร้าย", "โดนทำร้าย", "ถูกตบ", "โดนตบ", "ถูกตี", "โดนตี", "ทุบตี", "ถูกต่อย", "โดนต่อย",
+      "ขู่จะฆ่า", "ขู่ฆ่า", "ถูกขังไว้", "โดนขังไว้", "being hurt",
+      // active forms ("แฟนตบหน้าหนู") — added after the held-out check missed one
+      "ตบหน้า", "ตบหัว", "ต่อยหน้า", "บีบคอ", "ทำร้ายร่างกาย", "ตบหนู", "ตีหนู", "ทำร้ายหนู", "ตบฉัน", "ตีฉัน", "ทำร้ายฉัน",
+    ],
+  },
+  medical_emergency: {
+    always: ["เลือดไม่หยุด", "เลือดออกเยอะมาก", "ตกเลือด", "หมดสติ", "ชักเกร็ง", "heavy bleeding", "unconscious"],
+    contextual: ["เลือดออกมาก", "ปวดท้องรุนแรง", "ปวดท้องมากจนทนไม่ไหว", "หายใจไม่ออก", "can't breathe"],
+  },
 };
 
-/** Ordered numbers to show first for each category. All four lines are always shown. */
+/** Back-compat flat view (all phrases per category). */
+export const CRISIS_PHRASES: Record<CrisisCategory, readonly string[]> = Object.fromEntries(
+  Object.entries(CRISIS_RULES).map(([k, v]) => [k, [...v.always, ...v.contextual]]),
+) as unknown as Record<CrisisCategory, readonly string[]>;
+
+/** Fiction, news, school or game context: the text is about a topic, not (necessarily) about her. */
+export const TOPIC_MARKERS = [
+  "ซีรีส์", "ซีรี่ส์", "หนัง", "ละคร", "นิยาย", "การ์ตูน", "อนิเมะ", "เกม", "ตัวละคร", "ฉาก", "ตัวร้าย", "พระเอก", "นางเอก",
+  "รายงาน", "การบ้าน", "วิชา", "ครูสอน", "เรียนเรื่อง", "ข่าว", "คืออะไร", "แบบไหนเรียกว่า", "หมายถึงอะไร", "กฎหมาย",
+  "ความรู้", "มวย", "กีฬา", "squad", "movie", "series", "game",
+];
+/** Mild qualifiers: only downgrade physical-danger and medical phrases. */
+export const MILD_MARKERS = ["นิดหน่อย", "นิดนึง", "เล็กน้อย", "แป๊บเดียว", "เกือบ", "หายแล้ว", "หยุดแล้ว", "ดีขึ้นแล้ว", "ออกมาแล้ว", "ทุกเดือน", "กว่าปกติ"];
+/** "ไม่อยากอยู่แล้ว" followed by a place/group = wants to move, not to die. */
+const PLACE_AFTER_NOT_WANT_STAY = /ไม่อยากอยู่แล้ว\s*(หอ|ห้อง|ที่นี่|บ้านนี้|บริษัท|โรงเรียน|ทีม|กลุ่ม|ชมรม|คณะ|ไลน์กลุ่ม)/;
+
 export const CRISIS_PRIORITY: Record<CrisisCategory, readonly string[]> = {
   self_harm: ["1323", "1669", "1300", "191"],
   sexual_violence: ["1300", "191", "1669", "1323"],
@@ -39,12 +74,41 @@ export const CRISIS_PRIORITY: Record<CrisisCategory, readonly string[]> = {
   medical_emergency: ["1669", "191", "1323", "1300"],
 };
 
+/**
+ * Word-order-tolerant forms the phrase lists missed in e2e ("ถูกบังคับให้มีเซ็กส์").
+ * Matched on whitespace-stripped text. `always` = victim form; `contextual` = any "forced sex" wording.
+ */
+const SEX_ACT = "(มีเซ็กส์|มีเซ็ก|มีเพศสัมพันธ์|มีอะไรด้วย|นอนด้วย|ร่วมเพศ|ทำเรื่องอย่างว่า|sex)";
+const PATTERNS: Partial<Record<CrisisCategory, { always?: RegExp; contextual?: RegExp }>> = {
+  sexual_violence: {
+    always: new RegExp(`(ถูก|โดน)[^ ]{0,8}?บังคับ(ให้)?(ต้อง)?${SEX_ACT}`),
+    contextual: new RegExp(`บังคับ(ให้)?(ต้อง)?${SEX_ACT}`),
+  },
+};
+
 export function detectCrisis(text: string): CrisisResult {
-  const categories: CrisisCategory[] = [];
-  (Object.keys(CRISIS_PHRASES) as CrisisCategory[]).forEach((cat) => {
-    if (findPhrases(text, CRISIS_PHRASES[cat]).length) categories.push(cat);
+  const norm = normalize(text);
+  const topic = findPhrases(text, TOPIC_MARKERS).length > 0;
+  const mild = findPhrases(text, MILD_MARKERS).length > 0;
+  const override: CrisisCategory[] = [];
+  const banner: CrisisCategory[] = [];
+  (Object.keys(CRISIS_RULES) as CrisisCategory[]).forEach((cat) => {
+    const r = CRISIS_RULES[cat];
+    // "การถูก…/การโดน…" is a noun phrase ("being harassed" as a topic), so it is only contextual.
+    const forAlways = topic ? text.replace(/การ\s*(ถูก|โดน)/g, "การ") : text;
+    const pat = PATTERNS[cat];
+    const squash = (t: string) => normalize(t).replace(/\s+/g, "");
+    if (findPhrases(forAlways, r.always).length || pat?.always?.test(squash(forAlways))) { override.push(cat); return; }
+    const hits = findPhrases(text, r.contextual);
+    if (!hits.length && pat?.contextual?.test(squash(text))) hits.push("บังคับ…(pattern)");
+    if (!hits.length) return;
+    let benign = topic;
+    if (cat === "violence_danger" || cat === "medical_emergency") benign = benign || mild;
+    if (cat === "self_harm" && hits.every((h) => h === "ไม่อยากอยู่แล้ว") && PLACE_AFTER_NOT_WANT_STAY.test(norm.replace(/\s+/g, ""))) benign = true;
+    (benign ? banner : override).push(cat);
   });
-  return { crisis: categories.length > 0, categories };
+  const categories = [...override, ...banner];
+  return { crisis: override.length > 0, level: override.length ? "override" : banner.length ? "banner" : "none", categories };
 }
 
 export function crisisOrder(categories: CrisisCategory[]): string[] {

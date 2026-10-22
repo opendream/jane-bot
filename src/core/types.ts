@@ -45,6 +45,11 @@ export interface IntentResult {
 }
 
 export type CrisisCategory = "self_harm" | "sexual_violence" | "violence_danger" | "medical_emergency";
-export interface CrisisResult { crisis: boolean; categories: CrisisCategory[] }
+export interface CrisisResult {
+  /** true = full crisis override (flow stops). */
+  crisis: boolean;
+  level: "override" | "banner" | "none";
+  categories: CrisisCategory[];
+}
 
 export type AgeBand = "15-17" | "18-24" | "25+" | "unspecified";
