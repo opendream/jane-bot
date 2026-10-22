@@ -5,7 +5,8 @@ import { detectCrisis, crisisOrder } from "./core/crisis";
 import { suggestServices, CRISIS_LINES, DATA_VERSION, INTENT_LABEL_TH, SUPPORT_LINE_TH, type Suggestion } from "./core/referral";
 import { hoursLabel } from "./core/openNow";
 import { draftSummary, finalizeSummary } from "./core/summary";
-import { classifyWithFallback, polishWithFallback, NO_MODEL, type LLMAdapter } from "./llm/adapter";
+import { classifyWithFallback, polishWithFallback, type LLMAdapter } from "./llm/adapter";
+import { startModel, type ModelStatus } from "./llm/runtime";
 
 /* ------------------------------------------------------------------------------------------
  * Privacy rules enforced here:
@@ -26,15 +27,21 @@ interface State {
   summary: string;
   crisisCategories: CrisisCategory[];
   crisisFrom: Screen;
+  /** Crisis words seen in a benign context: flow continues, crisis strip stays on top. */
+  crisisBanner: CrisisCategory[];
 }
 
 const fresh = (): State => ({
   screen: "start", ageBand: "unspecified", needText: "", result: null, suggestions: [],
-  selected: null, summary: "", crisisCategories: [], crisisFrom: "describe",
+  selected: null, summary: "", crisisCategories: [], crisisFrom: "describe", crisisBanner: [],
 });
 
 let state: State = fresh();
-const model: LLMAdapter | null = NO_MODEL; // milestone 2: in-browser model plugs in here
+/** In-browser model (optional). Loads in the background; the flow uses rules until it is ready. */
+let model: LLMAdapter | null = null;
+let modelStatus: ModelStatus = { state: "loading", runtime: "rules", label: "", progress: 0 };
+let busy = false; // waiting for the model on a classify call
+let polishNote = false; // summary line was reworded by the model
 
 const app = document.getElementById("app")!;
 document.title = `${PRODUCT_NAME} (เดโม)`;
@@ -83,7 +90,25 @@ function header() {
         h("button", { class: "btn-sos", "data-testid": "sos", onclick: () => go({ screen: "crisis", crisisCategories: [], crisisFrom: state.screen }) }, "ช่วยด่วน"),
       state.screen !== "start" && h("button", { class: "btn-ghost", "data-testid": "erase", onclick: () => eraseAll("start") }, "ลบแชท"),
       h("button", { class: "btn-exit", "data-testid": "quick-exit", "aria-label": "ออกด่วน (quick exit)", onclick: quickExit }, "ออกด่วน ✕"),
-    ));
+    ),
+    modelPill());
+}
+
+function modelPill() {
+  const m = modelStatus;
+  let text: string, title: string;
+  if (m.state === "ready") {
+    text = `🔒 โมเดลในเครื่อง: ${m.label} · ออฟไลน์`;
+    title = `On-device model: ${m.label} (${m.runtime === "webgpu" ? "WebGPU" : "WASM, CPU"}) / offline`;
+  } else if (m.state === "loading" && m.runtime !== "rules") {
+    text = `⏳ กำลังโหลดโมเดล ${m.label} ${Math.round(m.progress * 100)}% · ใช้งานได้ตามปกติระหว่างนี้`;
+    title = `Loading on-device model ${m.label}; the referral flow works meanwhile (rules)`;
+  } else if (m.state === "loading") {
+    text = "⏳ กำลังตรวจหาโมเดลในเครื่อง · ใช้งานได้ตามปกติ"; title = "Checking for an on-device model";
+  } else {
+    text = "🔒 ใช้กฎพื้นฐาน (ไม่มีโมเดล) · ออฟไลน์"; title = "Rules only, no model / offline";
+  }
+  return h("div", { class: `model-pill ${m.state}`, "data-testid": "model-status", "data-state": m.state, "data-runtime": m.runtime, title }, text);
 }
 
 function footer() {
@@ -135,6 +160,7 @@ function describeScreen() {
     id: "need", "data-testid": "need-input", rows: 5, maxlength: 600, autocomplete: "off", spellcheck: "false",
     placeholder: "เล่าสั้น ๆ ว่ากังวลเรื่องอะไร เช่น “ประจำเดือนมาช้า กลัวท้อง ไม่กล้าบอกใคร”", value: state.needText,
   }) as HTMLTextAreaElement;
+  ta.addEventListener("input", () => { state.needText = ta.value; });
   const submit = async () => {
     const text = ta.value.trim();
     if (!text) { ta.focus(); return; }
@@ -144,7 +170,7 @@ function describeScreen() {
     h("h1", {}, "อยากคุยเรื่องอะไร"),
     h("p", { class: "lead" }, "พิมพ์ภาษาไทยได้เลย ไม่ต้องบอกชื่อ เบอร์โทร หรือโรงเรียน"),
     h("label", { for: "need", class: "sr" }, "เรื่องที่อยากปรึกษา"), ta,
-    h("button", { class: "btn-primary", "data-testid": "need-submit", onclick: submit }, "หาที่ปรึกษา"),
+    h("button", { class: "btn-primary", "data-testid": "need-submit", onclick: submit, disabled: busy }, busy ? "กำลังคิด…" : "หาที่ปรึกษา"),
   );
 }
 
@@ -152,9 +178,10 @@ async function handleNeed(text: string) {
   // Safety first: rule-based crisis check, before and independent of any model.
   const c = detectCrisis(text);
   if (c.crisis) { go({ needText: "", screen: "crisis", crisisCategories: c.categories, crisisFrom: "describe" }); return; }
-  const result = await classifyWithFallback(text, model);
+  busy = true; render();
+  const result = await classifyWithFallback(text, model).finally(() => { busy = false; });
   const suggestions = suggestServices(result.intents, new Date());
-  go({ needText: text, result, suggestions, screen: "suggest" });
+  go({ needText: text, result, suggestions, screen: "suggest", crisisBanner: c.level === "banner" ? c.categories : [] });
 }
 
 function statusBadge(s: Suggestion) {
@@ -172,10 +199,18 @@ function channelEl(ch: { type: string; label_th: string; href?: string }) {
     : h("span", { class: "chan" }, ch.label_th);
 }
 
+function crisisStrip(categories: CrisisCategory[]) {
+  return h("aside", { class: "crisis-strip", "data-testid": "crisis-banner" },
+    h("p", {}, h("strong", {}, "ถ้าเรื่องนี้เกิดกับคุณ หรือคุณไม่ปลอดภัยตอนนี้ "), "โทรฟรี 24 ชั่วโมง:"),
+    h("div", { class: "chans" }, ...crisisOrder(categories).map((n) => h("a", { class: "btn-call small danger", href: `tel:${n}` }, `โทร ${n}`))),
+  );
+}
+
 function suggestScreen() {
   const r = state.result!;
   const top = r.intents[0] as Intent;
   return h("main", { class: "screen", "data-testid": "screen-suggest" },
+    state.crisisBanner.length > 0 && crisisStrip(state.crisisBanner),
     h("p", { class: "support", "data-testid": "support-line" }, SUPPORT_LINE_TH[top]),
     h("p", { class: "intent", "data-testid": "intent-label", "data-intent": top },
       "เรื่องที่เราเข้าใจ: ", h("strong", {}, r.intents.slice(0, 2).map((i) => INTENT_LABEL_TH[i]).join(" · "))),
@@ -196,8 +231,15 @@ function suggestScreen() {
 
 async function pick(s: Suggestion) {
   const draft = draftSummary({ service: s.service, needText: state.needText, intent: state.result!.intents[0], ageBand: state.ageBand });
-  const summary = await polishWithFallback(draft, model);
-  go({ selected: s, summary, screen: "summary" });
+  polishNote = false;
+  go({ selected: s, summary: draft, screen: "summary" });
+  // Non-blocking: if a model is ready, reword her line in the background; only applied if she hasn't edited yet.
+  if (model?.ready()) {
+    const polished = await polishWithFallback(draft, model);
+    if (state.screen === "summary" && state.summary === draft && polished !== draft) {
+      state.summary = polished; polishNote = true; render();
+    }
+  }
 }
 
 function summaryScreen() {
@@ -207,6 +249,8 @@ function summaryScreen() {
     h("h1", {}, "ร่างข้อความสั้น ๆ ถึงเจ้าหน้าที่"),
     h("p", { class: "lead" }, "แก้ไขได้ทุกบรรทัด ลบส่วนที่ไม่อยากบอกได้ ชื่อ เบอร์โทร โรงเรียน และที่อยู่จะถูกลบออกอัตโนมัติ"),
     ta,
+    polishNote && h("p", { class: "note", "data-testid": "polish-note" }, "เรียบเรียงโดยโมเดลในเครื่อง ตรวจและแก้ได้ ",
+      h("button", { class: "link", "data-testid": "polish-undo", onclick: () => { polishNote = false; go({ summary: draftSummary({ service: state.selected!.service, needText: state.needText, intent: state.result!.intents[0], ageBand: state.ageBand }) }); } }, "ใช้ข้อความเดิม")),
     h("div", { class: "row" },
       h("button", { class: "btn-primary", "data-testid": "approve", onclick: () => approve(ta.value) }, "ฉันยืนยัน"),
       h("button", { class: "btn-ghost", "data-testid": "cancel", onclick: () => go({ summary: "", selected: null, screen: "suggest" }) }, "ยกเลิก"),
@@ -278,3 +322,9 @@ function render() {
 }
 
 render();
+// Status updates only swap the small indicator, so typing is never interrupted.
+startModel((st) => {
+  modelStatus = st;
+  const old = app.querySelector('[data-testid="model-status"]');
+  if (old) old.replaceWith(modelPill());
+}).then((a) => { model = a; });

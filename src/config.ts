@@ -15,3 +15,13 @@ export const SERVICE_TZ = "Asia/Bangkok";
 
 /** Max services suggested per need. */
 export const MAX_SUGGESTIONS = 3;
+
+/**
+ * On-device model (Qwen3, plain Apache-2.0). Typhoon is on hold pending Keng's ruling on the OpenTyphoon terms.
+ *  - "qwen3-1.7b": WebGPU ~0.99 GB (q4f16_1 or q4f32_1), WASM ~1.11 GB (GGUF Q4_K_M). Default.
+ *  - "qwen3-4b":   WebGPU only, ~2.29 GB; on machines without WebGPU the WASM path falls back to qwen3-1.7b.
+ *  - "off":        rules only.
+ * The rules always decide crisis handling; the model only refines need detection and summary wording.
+ * Testing/filming override via URL: ?model=off | ?runtime=webgpu | ?runtime=wasm
+ */
+export const MODEL: "qwen3-1.7b" | "qwen3-4b" | "off" = "qwen3-1.7b";

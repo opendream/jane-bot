@@ -9,7 +9,7 @@
 * { box-sizing: border-box; }
 body { margin: 0; }
 #app { max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
-.bar { position: sticky; top: 0; z-index: 5; display: flex; justify-content: space-between; align-items: center;
+.bar { flex-wrap: wrap; position: sticky; top: 0; z-index: 5; display: flex; justify-content: space-between; align-items: center;
   gap: 8px; padding: 10px 14px; background: var(--card); border-bottom: 1px solid var(--line); }
 .brand { font-weight: 700; color: var(--brand); white-space: nowrap; }
 .tag { margin-left: 6px; font-size: 12px; padding: 1px 6px; border-radius: 6px; background: var(--brand-2); color: var(--brand); }
@@ -67,3 +67,11 @@ textarea { width: 100%; font: inherit; padding: 12px; border-radius: var(--radiu
 .draft { color: var(--warn); }
 .neutral { padding: 24px; font-family: Georgia, serif; }
 .sr { position: absolute; left: -9999px; }
+.crisis-strip { background: var(--danger-bg); border: 1px solid #f3c3bf; border-radius: var(--radius); padding: 10px 12px; margin-bottom: 12px; }
+.crisis-strip p { margin: 0 0 6px; color: var(--danger); }
+.btn-call.danger { background: var(--danger); }
+.model-pill { flex-basis: 100%; font-size: 12px; color: var(--brand); background: var(--brand-2); border-radius: 8px; padding: 3px 8px; }
+.model-pill.loading { color: #6b4d00; background: #fff4d6; }
+.model-pill.off, .model-pill.failed { color: #555; background: #eee; }
+.note { font-size: 13px; color: var(--brand); margin: 6px 0 0; }
+.note .link { font-size: 13px; padding: 0; }

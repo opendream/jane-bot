@@ -17,5 +17,9 @@
     "typescript": "^7.0.2",
     "vite": "^6.4.5",
     "vitest": "^3.2.7"
+  },
+  "dependencies": {
+    "@mlc-ai/web-llm": "^0.2.86",
+    "@wllama/wllama": "^3.8.1"
   }
 }

@@ -69,15 +69,23 @@ describe("LLM adapter fallback", () => {
     expect((await classifyWithFallback("กลัวท้อง", null)).source).toBe("rules");
   });
   it("rules used when the model throws", async () => {
-    const r = await classifyWithFallback("กลัวท้อง", broken);
+    const r = await classifyWithFallback("ท้องหรือเปล่าไม่รู้", broken);
     expect(r.source).toBe("rules"); expect(r.intents[0]).toBe("pregnancy");
   });
   it("rules used when the model is too slow", async () => {
-    expect((await classifyWithFallback("กลัวท้อง", slow, 50)).source).toBe("rules");
+    expect((await classifyWithFallback("มีเรื่องอยากถาม", slow, 50)).source).toBe("rules");
   });
-  it("model output is validated (unknown intents dropped)", async () => {
-    const r = await classifyWithFallback("กลัวท้อง", good);
+  it("model output is validated (unknown intents dropped) when rules are not confident", async () => {
+    const r = await classifyWithFallback("มีเรื่องอยากถาม ไม่รู้จะเริ่มยังไง", good);
     expect(r.source).toBe("model"); expect(r.intents).toEqual(["contraception"]);
+  });
+  it("confident rules are not overridden by the model", async () => {
+    const r = await classifyWithFallback("กลัวท้อง ประจำเดือนไม่มา", good);
+    expect(r.source).toBe("rules"); expect(r.intents[0]).toBe("pregnancy");
+  });
+  it("model answer is merged with weak rule hits as backups", async () => {
+    const r = await classifyWithFallback("ช่วงนี้กังวล", good); // weak mental_health only
+    expect(r.intents).toEqual(["contraception", "mental_health"]);
   });
   it("polished summary must keep the template, else the draft is used", async () => {
     const d = draftSummary({ service: s1663, needText: "กลัวท้อง", intent: "pregnancy", ageBand: "unspecified" });

@@ -31,12 +31,23 @@ async function withTimeout<T>(fn: (s: AbortSignal) => Promise<T>, ms: number): P
   }
 }
 
-export async function classifyWithFallback(text: string, adapter: LLMAdapter | null, timeoutMs = 4000): Promise<IntentResult> {
+/**
+ * Merge policy:
+ *  - Rules are confident (a strong phrase matched, score >= 2): use rules, don't wait for the model.
+ *  - Otherwise ask the model (if ready) within the timeout; a valid answer wins, rules' other intents are kept as backups.
+ *  - Model missing / slow / invalid: rules.
+ * Crisis detection happens before this and never involves the model.
+ */
+export const CONFIDENT_SCORE = 2;
+export async function classifyWithFallback(text: string, adapter: LLMAdapter | null, timeoutMs = 8000): Promise<IntentResult> {
   const rules = classifyNeed(text);
-  if (!adapter || !adapter.ready()) return rules;
+  const topScore = rules.scores[rules.intents[0]] ?? 0;
+  if (!adapter || !adapter.ready() || topScore >= CONFIDENT_SCORE) return rules;
   const out = await withTimeout((s) => adapter.classify(text, s), timeoutMs);
   const clean = (out ?? []).filter((i) => VALID_INTENTS.includes(i)).slice(0, 3);
-  return clean.length ? { intents: clean, scores: rules.scores, source: "model" } : rules;
+  if (!clean.length) return rules;
+  const merged = [...clean, ...rules.intents.filter((i) => i !== "other" && !clean.includes(i))].slice(0, 3);
+  return { intents: merged, scores: rules.scores, source: "model" };
 }
 
 /** Validates model output: same line count/prefixes as the template, no new crisis or PII-like content. */
@@ -50,11 +61,12 @@ export function acceptPolished(draft: string, polished: string | null): string {
   const tokens = (x: string) => new Set(x.match(/\d{3,}|@[\w.\-]+|https?:\S+/g) ?? []);
   const known = tokens(draft);
   for (const t of tokens(polished)) if (!known.has(t)) return draft;
-  if (detectCrisis(polished).crisis && !detectCrisis(draft).crisis) return draft;
+  if (detectCrisis(polished).level !== "none" && detectCrisis(draft).level === "none") return draft;
+  if (polished.length > draft.length + 80) return draft;
   return polished;
 }
 
-export async function polishWithFallback(draft: string, adapter: LLMAdapter | null, timeoutMs = 6000): Promise<string> {
+export async function polishWithFallback(draft: string, adapter: LLMAdapter | null, timeoutMs = 20000): Promise<string> {
   if (!adapter || !adapter.ready()) return draft;
   const out = await withTimeout((s) => adapter.polishSummary(draft, s), timeoutMs);
   return acceptPolished(draft, out);

@@ -16,7 +16,7 @@ export default defineConfig({
     launchOptions: { executablePath: process.env.CHROME_PATH || "/usr/bin/google-chrome" },
   },
   webServer: {
-    command: "npx vite preview --host 127.0.0.1 --port 4173 --strictPort",
+    command: "node scripts/serve.mjs --port 4173",
     url: "http://127.0.0.1:4173",
     reuseExistingServer: false,
     stdout: "ignore",
