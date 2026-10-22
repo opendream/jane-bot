@@ -8,6 +8,7 @@ import { hoursLabel, hoursCitation } from "./core/openNow";
 import { draftSummary, finalizeSummary } from "./core/summary";
 import { classifyWithFallback, polishWithFallback, type LLMAdapter } from "./llm/adapter";
 import { startModel, type ModelStatus } from "./llm/runtime";
+import { toDialogModel } from "./llm/dialogModel";
 import { h } from "./ui/dom";
 import { newChat, chatView, type ChatState } from "./ui/chat";
 
@@ -177,7 +178,7 @@ function describeScreen() {
 
 /* --------------------------------------- chat (v2) --------------------------------------- */
 function openChat() {
-  if (!state.chat) state.chat = newChat(state.ageBand, null);
+  if (!state.chat) state.chat = newChat(state.ageBand, toDialogModel(model));
   go({ screen: "chat" });
 }
 
@@ -354,4 +355,4 @@ startModel((st) => {
   modelStatus = st;
   const old = app.querySelector('[data-testid="model-status"]');
   if (old) old.replaceWith(modelPill());
-}).then((a) => { model = a; });
+}).then((a) => { model = a; state.chat?.session.setModel(toDialogModel(a)); });
