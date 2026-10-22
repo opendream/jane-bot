@@ -85,3 +85,15 @@ textarea { width: 100%; font: inherit; padding: 12px; border-radius: var(--radiu
 .model-pill.off, .model-pill.failed { color: #555; background: #eee; }
 .note { font-size: 13px; color: var(--brand); margin: 6px 0 0; }
 .note .link { font-size: 13px; padding: 0; }
+
+/* v2 chat */
+.chat-log { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+.msg { max-width: 92%; border-radius: var(--radius); padding: 10px 12px; }
+.msg p { margin: 4px 0; }
+.msg.user { align-self: flex-end; background: var(--brand); color: #fff; }
+.msg.jane { align-self: flex-start; background: var(--card); border: 1px solid var(--line); }
+.tag.placeholder { margin-left: 0; background: #fff4e0; color: var(--warn); display: inline-block; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.chip { background: var(--brand-2); color: var(--brand); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 15px; }
+.chat-form { display: grid; gap: 6px; position: sticky; bottom: 0; background: var(--bg); padding-top: 6px; }
+.chat-form .btn-primary { margin-top: 0; }

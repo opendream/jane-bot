@@ -8,6 +8,8 @@ import { hoursLabel, hoursCitation } from "./core/openNow";
 import { draftSummary, finalizeSummary } from "./core/summary";
 import { classifyWithFallback, polishWithFallback, type LLMAdapter } from "./llm/adapter";
 import { startModel, type ModelStatus } from "./llm/runtime";
+import { h } from "./ui/dom";
+import { newChat, chatView, type ChatState } from "./ui/chat";
 
 /* ------------------------------------------------------------------------------------------
  * Privacy rules enforced here:
@@ -16,7 +18,7 @@ import { startModel, type ModelStatus } from "./llm/runtime";
  *  - No fetch/XHR anywhere in the app. Source URLs are shown as text, not links.
  * ---------------------------------------------------------------------------------------- */
 
-type Screen = "start" | "underage" | "describe" | "suggest" | "summary" | "handoff" | "crisis" | "neutral";
+type Screen = "start" | "underage" | "describe" | "suggest" | "summary" | "handoff" | "crisis" | "neutral" | "chat";
 
 interface State {
   screen: Screen;
@@ -30,11 +32,13 @@ interface State {
   crisisFrom: Screen;
   /** Crisis words seen in a benign context: flow continues, crisis strip stays on top. */
   crisisBanner: CrisisCategory[];
+  /** Multi-turn chat (v2), memory only; erase and quick exit drop it with the rest of the state. */
+  chat: ChatState | null;
 }
 
 const fresh = (): State => ({
   screen: "start", ageBand: "unspecified", needText: "", result: null, suggestions: [],
-  selected: null, summary: "", crisisCategories: [], crisisFrom: "describe", crisisBanner: [],
+  selected: null, summary: "", crisisCategories: [], crisisFrom: "describe", crisisBanner: [], chat: null,
 });
 
 let state: State = fresh();
@@ -51,21 +55,6 @@ document.title = `${PRODUCT_NAME} · ${PRODUCT_NAME_EN} (เดโม)`;
 function mark(cls: string): HTMLElement {
   const el = h("span", { class: `mark ${cls}`, "aria-hidden": "true", "data-testid": `mark-${cls}` });
   el.innerHTML = markSvg;
-  return el;
-}
-
-/* ---------- tiny DOM helper (textContent only, never innerHTML with user text) ---------- */
-type Child = Node | string | null | false | undefined;
-function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Record<string, any> = {}, ...children: Child[]) {
-  const el = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) {
-    if (v == null || v === false) continue;
-    if (k.startsWith("on") && typeof v === "function") el.addEventListener(k.slice(2).toLowerCase(), v);
-    else if (k === "class") el.className = v;
-    else if (k === "value") (el as any).value = v;
-    else el.setAttribute(k, String(v));
-  }
-  for (const c of children) if (c != null && c !== false) el.append(c instanceof Node ? c : document.createTextNode(c));
   return el;
 }
 
@@ -182,7 +171,24 @@ function describeScreen() {
     h("p", { class: "lead" }, "พิมพ์ภาษาไทยได้เลย ไม่ต้องบอกชื่อ เบอร์โทร หรือโรงเรียน"),
     h("label", { for: "need", class: "sr" }, "เรื่องที่อยากปรึกษา"), ta,
     h("button", { class: "btn-primary", "data-testid": "need-submit", onclick: submit, disabled: busy }, busy ? "กำลังคิด…" : "หาที่ปรึกษา"),
+    h("button", { class: "btn-ghost", "data-testid": "open-chat", onclick: openChat }, "หรือคุยกับพี่เจนแบบแชท (ทดลอง)"),
   );
+}
+
+/* --------------------------------------- chat (v2) --------------------------------------- */
+function openChat() {
+  if (!state.chat) state.chat = newChat(state.ageBand, null);
+  go({ screen: "chat" });
+}
+
+const chatHooks = {
+  rerender: () => { if (state.screen === "chat") render(); },
+  // Crisis rules decided this before any model step; show the existing crisis screen.
+  crisis: (categories: CrisisCategory[]) => go({ screen: "crisis", crisisCategories: categories, crisisFrom: "chat" }),
+};
+
+function chatScreen() {
+  return chatView(state.chat!, chatHooks);
 }
 
 async function handleNeed(text: string) {
@@ -318,7 +324,7 @@ function crisisScreen() {
     callList(order),
     h("p", {}, "ถ้ากำลังอยู่ในอันตรายตอนนี้ โทร 191 หรือ 1669 ทันที เรื่องท้องหรือเอชไอวีโทร 1663 (09:00–21:00 น.)"),
     h("p", { class: "src" }, "ที่มา: กรมสุขภาพจิต, กระทรวง พม., GCC Call Center ภาครัฐ, ศูนย์รับแจ้งเหตุ 191 (ตรวจ 2026-10-22)"),
-    h("button", { class: "btn-ghost", "data-testid": "crisis-continue", onclick: () => go({ screen: state.crisisFrom === "start" ? "start" : "describe" }) },
+    h("button", { class: "btn-ghost", "data-testid": "crisis-continue", onclick: () => go({ screen: state.crisisFrom === "start" ? "start" : state.crisisFrom === "chat" && state.chat ? "chat" : "describe" }) },
       "ฉันปลอดภัยแล้ว กลับไปต่อ"),
   );
 }
@@ -333,7 +339,7 @@ function neutralScreen() {
 
 const SCREENS: Record<Screen, () => HTMLElement> = {
   start: startScreen, underage: underageScreen, describe: describeScreen, suggest: suggestScreen,
-  summary: summaryScreen, handoff: handoffScreen, crisis: crisisScreen, neutral: neutralScreen,
+  summary: summaryScreen, handoff: handoffScreen, crisis: crisisScreen, neutral: neutralScreen, chat: chatScreen,
 };
 
 function render() {
