@@ -22,33 +22,30 @@ export const PREFERENCE: Record<Intent, string[]> = {
 export interface Suggestion { service: Service; status: OpenStatus; reasonIntent: Intent }
 
 /**
- * Pick 1–3 services for the ranked intents. Order: preference for the top intent, then
- * secondary intents; then open-now services move ahead of closed ones (stable), "unknown" in between.
+ * Pick 1–3 services for the ranked intents.
+ * Pool: every preferred service for the top intent, plus the first preferred service of each
+ * secondary intent. Then open-now services move ahead (stable: preference order otherwise kept).
+ * Only if the pool is smaller than `max` do we fill from the secondary intents' other services.
  */
 export function suggestServices(intents: Intent[], now: Date = new Date(), max = MAX_SUGGESTIONS): Suggestion[] {
   const byId = new Map(SERVICES.map((s) => [s.id, s]));
-  const picked: Suggestion[] = [];
-  const seen = new Set<string>();
   const list = intents.length ? intents : (["other"] as Intent[]);
-  // Round-robin: top intent's first two picks, then one from each secondary intent.
-  const queue: { id: string; intent: Intent }[] = [];
+  const seen = new Set<string>();
+  const pool: Suggestion[] = [];
+  const add = (id: string, intent: Intent) => {
+    const s = byId.get(id);
+    if (!s || seen.has(id)) return;
+    seen.add(id);
+    pool.push({ service: s, status: openStatus(s.hours, now), reasonIntent: intent });
+  };
   list.forEach((intent, idx) => {
     const pref = PREFERENCE[intent] ?? PREFERENCE.other;
-    pref.slice(0, idx === 0 ? 3 : 1).forEach((id) => queue.push({ id, intent }));
+    (idx === 0 ? pref : pref.slice(0, 1)).forEach((id) => add(id, intent));
   });
-  for (const intent of list) for (const id of PREFERENCE[intent] ?? []) queue.push({ id, intent });
-  for (const q of queue) {
-    if (picked.length >= max + 2) break;
-    if (seen.has(q.id)) continue;
-    const s = byId.get(q.id);
-    if (!s) continue;
-    seen.add(q.id);
-    picked.push({ service: s, status: openStatus(s.hours, now), reasonIntent: q.intent });
-  }
-  const rank = { open: 0, unknown: 1, closed: 2 } as const;
-  return picked
+  if (pool.length < max) for (const intent of list) for (const id of PREFERENCE[intent] ?? []) add(id, intent);
+  return pool
     .map((p, i) => ({ p, i }))
-    .sort((a, b) => rank[a.p.status.state] - rank[b.p.status.state] || a.i - b.i)
+    .sort((a, b) => Number(a.p.status.state !== "open") - Number(b.p.status.state !== "open") || a.i - b.i)
     .slice(0, max)
     .map((x) => x.p);
 }

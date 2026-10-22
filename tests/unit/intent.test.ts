@@ -60,6 +60,12 @@ describe("suggestServices", () => {
     expect(s[0].service.id).toBe("rsa_online");
     expect(s[0].status.state).toBe("open");
   });
+  it("emergency contraception at 08:30 keeps 1663 first even though closed (shows opening time)", () => {
+    const s = suggestServices(["emergency_contraception", "pregnancy"], at("08:30"));
+    expect(s[0].service.id).toBe("hotline_1663");
+    expect(s[0].status.state).toBe("closed");
+    expect(s[0].status.label_th).toContain("09:00");
+  });
   it("mental health → 1323 (24h) first", () => {
     expect(suggestServices(["mental_health"], at("03:00"))[0].service.id).toBe("hotline_1323");
   });

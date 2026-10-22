@@ -80,7 +80,7 @@ function header() {
     h("div", { class: "brand" }, PRODUCT_NAME, h("span", { class: "tag" }, "เดโม")),
     h("div", { class: "bar-actions" },
       state.screen !== "start" && state.screen !== "crisis" &&
-        h("button", { class: "btn-sos", "data-testid": "sos", onclick: () => go({ screen: "crisis", crisisCategories: [], crisisFrom: state.screen }) }, "ขอความช่วยเหลือด่วน"),
+        h("button", { class: "btn-sos", "data-testid": "sos", onclick: () => go({ screen: "crisis", crisisCategories: [], crisisFrom: state.screen }) }, "ช่วยด่วน"),
       state.screen !== "start" && h("button", { class: "btn-ghost", "data-testid": "erase", onclick: () => eraseAll("start") }, "ลบแชท"),
       h("button", { class: "btn-exit", "data-testid": "quick-exit", "aria-label": "ออกด่วน (quick exit)", onclick: quickExit }, "ออกด่วน ✕"),
     ));
@@ -201,7 +201,7 @@ async function pick(s: Suggestion) {
 }
 
 function summaryScreen() {
-  const ta = h("textarea", { "data-testid": "summary-input", rows: 8, spellcheck: "false", value: state.summary }) as HTMLTextAreaElement;
+  const ta = h("textarea", { "data-testid": "summary-input", rows: 10, spellcheck: "false", value: state.summary }) as HTMLTextAreaElement;
   ta.addEventListener("input", () => { state.summary = ta.value; });
   return h("main", { class: "screen", "data-testid": "screen-summary" },
     h("h1", {}, "ร่างข้อความสั้น ๆ ถึงเจ้าหน้าที่"),

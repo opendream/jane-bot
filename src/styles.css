@@ -11,9 +11,10 @@ body { margin: 0; }
 #app { max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
 .bar { position: sticky; top: 0; z-index: 5; display: flex; justify-content: space-between; align-items: center;
   gap: 8px; padding: 10px 14px; background: var(--card); border-bottom: 1px solid var(--line); }
-.brand { font-weight: 700; color: var(--brand); }
+.brand { font-weight: 700; color: var(--brand); white-space: nowrap; }
 .tag { margin-left: 6px; font-size: 12px; padding: 1px 6px; border-radius: 6px; background: var(--brand-2); color: var(--brand); }
-.bar-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.bar-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.bar button { white-space: nowrap; }
 button, .btn-call { font: inherit; cursor: pointer; border-radius: 10px; border: 1px solid transparent; }
 .btn-exit { background: #333; color: #fff; padding: 6px 10px; font-size: 15px; font-weight: 700; }
 .btn-sos { background: var(--danger-bg); color: var(--danger); border-color: #f3c3bf; padding: 6px 10px; font-size: 14px; }
@@ -48,7 +49,7 @@ textarea { width: 100%; font: inherit; padding: 12px; border-radius: var(--radiu
 .chan { font-size: 14px; padding: 4px 8px; border-radius: 8px; background: #f3efe9; }
 .btn-call { display: inline-block; background: var(--brand); color: #fff; text-decoration: none; padding: 10px 14px; font-weight: 700; }
 .btn-call.small { padding: 4px 10px; font-size: 14px; }
-.btn-call.big { font-size: 22px; padding: 10px 16px; min-width: 120px; text-align: center; background: var(--danger); }
+.btn-call.big { font-size: 20px; padding: 10px 12px; min-width: 116px; white-space: nowrap; text-align: center; background: var(--danger); }
 .warn { color: var(--warn); font-size: 14px; }
 .src { font-size: 12px; color: var(--muted); word-break: break-all; }
 .row { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; align-items: end; }

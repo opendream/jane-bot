@@ -25,8 +25,8 @@ export function stripPII(input: string): string {
     [/(?:โรงเรียน|ร\.ร\.|รร\.|มหาวิทยาลัย|ม\.\s?[ก-๙A-Za-z]{2,}|วิทยาลัย)\s*[^\s,.!?]*/g, REDACTED],
     [/(?:บ้านเลขที่|เลขที่|หมู่บ้าน|หมู่ที่|ซอย|ซ\.|ถนน|ถ\.|ตำบล|ต\.|แขวง|อำเภอ|อ\.|เขต)\s*[^\s,.!?]+/g, REDACTED],
   ];
-  for (const [re, rep] of rules) s = s.replace(re, rep);
-  return s.replace(new RegExp(`(?:${escape(REDACTED)}\\s*)+`, "g"), REDACTED + " ").replace(/\s+/g, " ").trim();
+  for (const [re, rep] of rules) s = s.replace(re, ` ${rep} `);
+  return s.replace(new RegExp(`(?:${escape(REDACTED)}\\s*)+`, "g"), REDACTED + " ").replace(/\s+/g, " ").replace(/\s+([,.!?])/g, "$1").trim();
 }
 
 function escape(x: string) { return x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
