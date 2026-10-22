@@ -9,16 +9,43 @@
       "name_en": "1663 hotline (unplanned pregnancy and HIV counselling)",
       "description_th": "ปรึกษาเรื่องท้องไม่พร้อม เอชไอวีและโรคติดต่อทางเพศ ส่งต่อบริการในเครือข่ายที่ปลอดภัยได้",
       "channels": [
-        { "type": "phone", "label_th": "โทร 1663", "value": "1663", "href": "tel:1663" },
-        { "type": "facebook", "label_th": "แชทเฟซบุ๊กเพจ 1663 สายด่วนปรึกษาเอดส์และท้องไม่พร้อม", "value": "1663 สายด่วนปรึกษาเอดส์และท้องไม่พร้อม" }
+        {
+          "type": "phone",
+          "label_th": "โทร 1663",
+          "value": "1663",
+          "href": "tel:1663"
+        },
+        {
+          "type": "facebook",
+          "label_th": "แชทเฟซบุ๊กเพจ 1663 สายด่วนปรึกษาเอดส์และท้องไม่พร้อม",
+          "value": "1663 สายด่วนปรึกษาเอดส์และท้องไม่พร้อม"
+        }
       ],
-      "hours": { "type": "daily", "open": "09:00", "close": "21:00" },
-      "intents": ["pregnancy", "emergency_contraception", "contraception", "sti_hiv"],
+      "hours": {
+        "type": "daily",
+        "open": "09:00",
+        "close": "21:00"
+      },
+      "intents": [
+        "pregnancy",
+        "emergency_contraception",
+        "contraception",
+        "sti_hiv"
+      ],
       "youth_friendly": true,
       "verification": "verified",
       "sources": [
-        { "url": "https://rsathai.org/qrcode", "title": "RSATHAI: ปรึกษาท้องไม่พร้อมที่ไหนได้บ้าง (โทร 1663 ทุกวัน 9.00–21.00 น.; แชทเฟซบุ๊ก 1663 9.00–21.00 น.)", "checked": "2026-10-22" },
-        { "url": "https://gcontact.gcc.go.th/index.php?Itemid=30&id=40609&option=com_content&view=article", "title": "GCC Call Center ภาครัฐ (last update 2025-11-14) lists 1663 as 10.00–20.00 daily, operator Thai Red Cross AIDS Research Centre", "checked": "2026-10-22", "note": "CONFLICT with RSATHAI hours. We use RSATHAI 09:00–21:00 (Dept of Health service page). Confirm by phone before filming." }
+        {
+          "url": "https://rsathai.org/qrcode",
+          "title": "RSATHAI: ปรึกษาท้องไม่พร้อมที่ไหนได้บ้าง (โทร 1663 ทุกวัน 9.00–21.00 น.; แชทเฟซบุ๊ก 1663 9.00–21.00 น.)",
+          "checked": "2026-10-22"
+        },
+        {
+          "url": "https://gcontact.gcc.go.th/index.php?Itemid=30&id=40609&option=com_content&view=article",
+          "title": "GCC Call Center ภาครัฐ (last update 2025-11-14) lists 1663 as 10.00–20.00 daily, operator Thai Red Cross AIDS Research Centre",
+          "checked": "2026-10-22",
+          "note": "CONFLICT with RSATHAI hours. We use RSATHAI 09:00–21:00 (Dept of Health service page). Confirm by phone before filming."
+        }
       ]
     },
     {
@@ -27,14 +54,26 @@
       "name_en": "RSA Online (automated counselling)",
       "description_th": "ระบบตอบคำถามอัตโนมัติเรื่องท้องไม่พร้อม ใช้ได้ตลอด 24 ชั่วโมง",
       "channels": [
-        { "type": "web", "label_th": "เว็บไซต์ RSA Online (ผ่านหน้า rsathai.org/qrcode)", "value": "rsathai.org/qrcode" }
+        {
+          "type": "web",
+          "label_th": "เว็บไซต์ RSA Online (ผ่านหน้า rsathai.org/qrcode)",
+          "value": "rsathai.org/qrcode"
+        }
       ],
-      "hours": { "type": "24h" },
-      "intents": ["pregnancy"],
+      "hours": {
+        "type": "24h"
+      },
+      "intents": [
+        "pregnancy"
+      ],
       "youth_friendly": true,
       "verification": "verified",
       "sources": [
-        { "url": "https://rsathai.org/qrcode", "title": "RSATHAI: RSA Online ตลอด 24 ชั่วโมง", "checked": "2026-10-22" }
+        {
+          "url": "https://rsathai.org/qrcode",
+          "title": "RSATHAI: RSA Online ตลอด 24 ชั่วโมง",
+          "checked": "2026-10-22"
+        }
       ]
     },
     {
@@ -43,14 +82,28 @@
       "name_en": "Tamtang Foundation (LINE chat)",
       "description_th": "ปรึกษาท้องไม่พร้อมออนไลน์ทางไลน์",
       "channels": [
-        { "type": "line", "label_th": "LINE @tamtang", "value": "@tamtang" }
+        {
+          "type": "line",
+          "label_th": "LINE @tamtang",
+          "value": "@tamtang"
+        }
       ],
-      "hours": { "type": "daily", "open": "10:00", "close": "22:00" },
-      "intents": ["pregnancy"],
+      "hours": {
+        "type": "daily",
+        "open": "10:00",
+        "close": "22:00"
+      },
+      "intents": [
+        "pregnancy"
+      ],
       "youth_friendly": true,
       "verification": "verified",
       "sources": [
-        { "url": "https://rsathai.org/qrcode", "title": "RSATHAI: แชทกับมูลนิธิทำทาง LINE @tamtang 10.00–22.00 น.", "checked": "2026-10-22" }
+        {
+          "url": "https://rsathai.org/qrcode",
+          "title": "RSATHAI: แชทกับมูลนิธิทำทาง LINE @tamtang 10.00–22.00 น.",
+          "checked": "2026-10-22"
+        }
       ]
     },
     {
@@ -59,17 +112,45 @@
       "name_en": "Teen Club, Dept of Health (LINE OA)",
       "description_th": "ห้องแชทสดสำหรับวัยรุ่น เรื่องเพศ คุมกำเนิด ท้องไม่พร้อม ความเครียด สุขภาพจิต เก็บเป็นความลับ",
       "channels": [
-        { "type": "line", "label_th": "LINE @teen_club", "value": "@teen_club" }
+        {
+          "type": "line",
+          "label_th": "LINE @teen_club",
+          "value": "@teen_club"
+        }
       ],
-      "hours": { "type": "daily", "open": "17:00", "close": "23:00" },
-      "intents": ["contraception", "emergency_contraception", "pregnancy", "sti_hiv", "relationship_consent", "mental_health", "other"],
+      "hours": {
+        "type": "daily",
+        "open": "17:00",
+        "close": "23:00"
+      },
+      "intents": [
+        "contraception",
+        "emergency_contraception",
+        "pregnancy",
+        "sti_hiv",
+        "relationship_consent",
+        "mental_health",
+        "other"
+      ],
       "youth_friendly": true,
       "verification": "partial",
       "verification_note": "LINE OA is active in Oct 2026 (Dept of Health ran 'Teen Club Challenge 2026', closing 31 Oct 2569). Live-chat hours 17:00–23:00 only found in a Sep 2022 RSATHAI post; no 2026 source for hours. Confirm before filming.",
       "sources": [
-        { "url": "https://rsathai.org/contents/23639", "title": "RSATHAI, 12 Sep 2022: Line Teen Club ห้องแชทสด ทุกวัน 5 โมงเย็น – 5 ทุ่ม", "checked": "2026-10-22" },
-        { "url": "https://multimedia.anamai.moph.go.th/video-knowledges/video_appication_1/", "title": "อนามัยมีเดีย: Line Teen Club @Teen_club, Live Chat และ Chat bot (no hours given)", "checked": "2026-10-22" },
-        { "url": "https://contest-thailand.com/teen-club-challenge-2026/", "title": "Teen Club Challenge 2026 by สำนักอนามัยการเจริญพันธุ์ (shows the OA is active in 2026)", "checked": "2026-10-22" }
+        {
+          "url": "https://rsathai.org/contents/23639",
+          "title": "RSATHAI, 12 Sep 2022: Line Teen Club ห้องแชทสด ทุกวัน 5 โมงเย็น – 5 ทุ่ม",
+          "checked": "2026-10-22"
+        },
+        {
+          "url": "https://multimedia.anamai.moph.go.th/video-knowledges/video_appication_1/",
+          "title": "อนามัยมีเดีย: Line Teen Club @Teen_club, Live Chat และ Chat bot (no hours given)",
+          "checked": "2026-10-22"
+        },
+        {
+          "url": "https://contest-thailand.com/teen-club-challenge-2026/",
+          "title": "Teen Club Challenge 2026 by สำนักอนามัยการเจริญพันธุ์ (shows the OA is active in 2026)",
+          "checked": "2026-10-22"
+        }
       ]
     },
     {
@@ -78,15 +159,30 @@
       "name_en": "Youth-friendly health services (YFHS) clinics",
       "description_th": "คลินิกในโรงพยาบาลรัฐที่ผ่านมาตรฐานบริการที่เป็นมิตรกับวัยรุ่น สำหรับตรวจ รักษา และคุมกำเนิด",
       "channels": [
-        { "type": "web", "label_th": "รายชื่อคลินิกจากกรมอนามัย (rh.anamai.moph.go.th/th/yfhs)", "value": "rh.anamai.moph.go.th/th/yfhs" }
+        {
+          "type": "web",
+          "label_th": "รายชื่อคลินิกจากกรมอนามัย (rh.anamai.moph.go.th/th/yfhs)",
+          "value": "rh.anamai.moph.go.th/th/yfhs"
+        }
       ],
-      "hours": { "type": "varies" },
-      "intents": ["sti_hiv", "contraception", "pregnancy"],
+      "hours": {
+        "type": "varies"
+      },
+      "intents": [
+        "sti_hiv",
+        "contraception",
+        "pregnancy"
+      ],
       "youth_friendly": true,
       "verification": "partial",
-      "verification_note": "Clinic list is published as downloads; hours vary by clinic. Demo links to the list only, no geocoding.",
+      "verification_note": "Clinic lists are downloads, latest dated Sep 2022; hours vary by clinic and are not published on the page. Demo links to the page only, no geocoding.",
       "sources": [
-        { "url": "https://rh.anamai.moph.go.th/th/yfhs", "title": "กรมอนามัย สำนักอนามัยการเจริญพันธุ์: YFHS", "checked": "2026-10-22", "note": "Page not re-fetched in this session; carried over from the 22 Oct spec research." }
+        {
+          "url": "https://rh.anamai.moph.go.th/th/yfhs",
+          "title": "กรมอนามัย สำนักอนามัยการเจริญพันธุ์: YFHS",
+          "checked": "2026-10-22",
+          "note": "Re-fetched 22 Oct 2026: page lists certified-hospital downloads (xlsx/docx/pdf); newest dated list is 'ข้อมูล ณ วันที่ 30 ก.ย. 65' (30 Sep 2022) plus an undated integrated-standard list. No hours on the page."
+        }
       ]
     },
     {
@@ -95,14 +191,28 @@
       "name_en": "1323 mental health hotline",
       "description_th": "ปรึกษาปัญหาสุขภาพจิตฟรี 24 ชั่วโมง เน้นการรับฟังและเก็บเป็นความลับ",
       "channels": [
-        { "type": "phone", "label_th": "โทร 1323", "value": "1323", "href": "tel:1323" }
+        {
+          "type": "phone",
+          "label_th": "โทร 1323",
+          "value": "1323",
+          "href": "tel:1323"
+        }
       ],
-      "hours": { "type": "24h" },
-      "intents": ["mental_health", "relationship_consent"],
+      "hours": {
+        "type": "24h"
+      },
+      "intents": [
+        "mental_health",
+        "relationship_consent"
+      ],
       "youth_friendly": true,
       "verification": "verified",
       "sources": [
-        { "url": "https://dmh.go.th/", "title": "กรมสุขภาพจิต: 1323 สายด่วนสุขภาพจิต บริการปรึกษาฟรีตลอด 24 ชั่วโมง", "checked": "2026-10-22" }
+        {
+          "url": "https://dmh.go.th/",
+          "title": "กรมสุขภาพจิต: 1323 สายด่วนสุขภาพจิต บริการปรึกษาฟรีตลอด 24 ชั่วโมง",
+          "checked": "2026-10-22"
+        }
       ]
     },
     {
@@ -111,57 +221,130 @@
       "name_en": "1300 MSDHS social assistance hotline",
       "description_th": "แจ้งและขอความช่วยเหลือเมื่อถูกกระทำความรุนแรงหรือมีปัญหาสังคม ฟรี 24 ชั่วโมง",
       "channels": [
-        { "type": "phone", "label_th": "โทร 1300", "value": "1300", "href": "tel:1300" }
+        {
+          "type": "phone",
+          "label_th": "โทร 1300",
+          "value": "1300",
+          "href": "tel:1300"
+        }
       ],
-      "hours": { "type": "24h" },
-      "intents": ["violence", "relationship_consent"],
+      "hours": {
+        "type": "24h"
+      },
+      "intents": [
+        "violence",
+        "relationship_consent"
+      ],
       "youth_friendly": false,
       "verification": "verified",
       "sources": [
-        { "url": "https://www.m-society.go.th/news_view.php?nid=41550", "title": "กระทรวง พม., 8 ม.ค. 2568: สายด่วน พม. โทร 1300 บริการฟรี 24 ชั่วโมง", "checked": "2026-10-22" },
-        { "url": "https://gcontact.gcc.go.th/index.php?Itemid=30&id=40609&option=com_content&view=article", "title": "GCC Call Center ภาครัฐ: 1300 ฟรี 24 ชม.", "checked": "2026-10-22" }
+        {
+          "url": "https://www.m-society.go.th/news_view.php?nid=41550",
+          "title": "กระทรวง พม., 8 ม.ค. 2568: สายด่วน พม. โทร 1300 บริการฟรี 24 ชั่วโมง",
+          "checked": "2026-10-22"
+        },
+        {
+          "url": "https://gcontact.gcc.go.th/index.php?Itemid=30&id=40609&option=com_content&view=article",
+          "title": "GCC Call Center ภาครัฐ: 1300 ฟรี 24 ชม.",
+          "checked": "2026-10-22"
+        }
       ]
     }
   ],
   "crisis_lines": [
     {
-      "id": "crisis_1323", "number": "1323", "href": "tel:1323",
-      "name_th": "สายด่วนสุขภาพจิต", "name_en": "Mental health hotline",
-      "when_th": "คิดทำร้ายตัวเอง อยากตาย หรือรู้สึกไม่ไหว", "hours_th": "ฟรี 24 ชั่วโมง",
-      "verification": "verified",
-      "sources": [ { "url": "https://dmh.go.th/", "title": "กรมสุขภาพจิต: 1323 ฟรีตลอด 24 ชั่วโมง", "checked": "2026-10-22" } ]
-    },
-    {
-      "id": "crisis_1300", "number": "1300", "href": "tel:1300",
-      "name_th": "สายด่วน พม. (ความรุนแรง ถูกล่วงละเมิด)", "name_en": "MSDHS social assistance (violence, abuse)",
-      "when_th": "ถูกทำร้าย ถูกล่วงละเมิด หรือถูกบังคับ", "hours_th": "ฟรี 24 ชั่วโมง",
+      "id": "crisis_1323",
+      "number": "1323",
+      "href": "tel:1323",
+      "name_th": "สายด่วนสุขภาพจิต",
+      "name_en": "Mental health hotline",
+      "when_th": "คิดทำร้ายตัวเอง อยากตาย หรือรู้สึกไม่ไหว",
+      "hours_th": "ฟรี 24 ชั่วโมง",
       "verification": "verified",
       "sources": [
-        { "url": "https://www.m-society.go.th/news_view.php?nid=41550", "title": "กระทรวง พม., 8 ม.ค. 2568: 1300 ฟรี 24 ชั่วโมง", "checked": "2026-10-22" },
-        { "url": "https://gcontact.gcc.go.th/index.php?Itemid=30&id=40609&option=com_content&view=article", "title": "GCC Call Center ภาครัฐ: 1300 ฟรี 24 ชม.", "checked": "2026-10-22" }
+        {
+          "url": "https://dmh.go.th/",
+          "title": "กรมสุขภาพจิต: 1323 ฟรีตลอด 24 ชั่วโมง",
+          "checked": "2026-10-22"
+        }
       ]
     },
     {
-      "id": "crisis_1669", "number": "1669", "href": "tel:1669",
-      "name_th": "เจ็บป่วยฉุกเฉิน (การแพทย์ฉุกเฉิน)", "name_en": "Emergency medical services",
-      "when_th": "บาดเจ็บ เลือดออกมาก หมดสติ หรือต้องการรถพยาบาล", "hours_th": "ฟรี 24 ชั่วโมง",
+      "id": "crisis_1300",
+      "number": "1300",
+      "href": "tel:1300",
+      "name_th": "สายด่วน พม. (ความรุนแรง ถูกล่วงละเมิด)",
+      "name_en": "MSDHS social assistance (violence, abuse)",
+      "when_th": "ถูกทำร้าย ถูกล่วงละเมิด หรือถูกบังคับ",
+      "hours_th": "ฟรี 24 ชั่วโมง",
+      "verification": "verified",
+      "sources": [
+        {
+          "url": "https://www.m-society.go.th/news_view.php?nid=41550",
+          "title": "กระทรวง พม., 8 ม.ค. 2568: 1300 ฟรี 24 ชั่วโมง",
+          "checked": "2026-10-22"
+        },
+        {
+          "url": "https://gcontact.gcc.go.th/index.php?Itemid=30&id=40609&option=com_content&view=article",
+          "title": "GCC Call Center ภาครัฐ: 1300 ฟรี 24 ชม.",
+          "checked": "2026-10-22"
+        }
+      ]
+    },
+    {
+      "id": "crisis_1669",
+      "number": "1669",
+      "href": "tel:1669",
+      "name_th": "เจ็บป่วยฉุกเฉิน (การแพทย์ฉุกเฉิน)",
+      "name_en": "Emergency medical services",
+      "when_th": "บาดเจ็บ เลือดออกมาก หมดสติ หรือต้องการรถพยาบาล",
+      "hours_th": "ฟรี 24 ชั่วโมง",
       "verification": "verified",
       "verification_note": "niems.go.th timed out from the box on 22 Oct (504 / TLS error); verified via the GCC government call-centre list and info.go.th instead.",
       "sources": [
-        { "url": "https://gcontact.gcc.go.th/index.php?Itemid=30&id=40609&option=com_content&view=article", "title": "GCC Call Center ภาครัฐ: 1669 ฟรี 24 ชม. กระทรวงสาธารณสุข", "checked": "2026-10-22" },
-        { "url": "https://info.go.th/emergency-number", "title": "ศูนย์รวมข้อมูลเพื่อติดต่อราชการ: เจ็บป่วยฉุกเฉิน (1669)", "checked": "2026-10-22" },
-        { "url": "https://www.niems.go.th/", "title": "NIEMS (not reachable on 22 Oct 2026; carried from spec research)", "checked": "2026-10-22" }
+        {
+          "url": "https://gcontact.gcc.go.th/index.php?Itemid=30&id=40609&option=com_content&view=article",
+          "title": "GCC Call Center ภาครัฐ: 1669 ฟรี 24 ชม. กระทรวงสาธารณสุข",
+          "checked": "2026-10-22"
+        },
+        {
+          "url": "https://info.go.th/emergency-number",
+          "title": "ศูนย์รวมข้อมูลเพื่อติดต่อราชการ: เจ็บป่วยฉุกเฉิน (1669)",
+          "checked": "2026-10-22"
+        },
+        {
+          "url": "https://www.niems.go.th/",
+          "title": "NIEMS (not reachable on 22 Oct 2026; carried from spec research)",
+          "checked": "2026-10-22"
+        }
       ]
     },
     {
-      "id": "crisis_191", "number": "191", "href": "tel:191",
-      "name_th": "ตำรวจ เหตุด่วนเหตุร้าย", "name_en": "Police emergency",
-      "when_th": "อยู่ในอันตรายตอนนี้ หรือมีคนกำลังทำร้าย", "hours_th": "ฟรี 24 ชั่วโมง",
+      "id": "crisis_191",
+      "number": "191",
+      "href": "tel:191",
+      "name_th": "ตำรวจ เหตุด่วนเหตุร้าย",
+      "name_en": "Police emergency",
+      "when_th": "อยู่ในอันตรายตอนนี้ หรือมีคนกำลังทำร้าย",
+      "hours_th": "ฟรี 24 ชั่วโมง",
       "verification": "verified",
       "sources": [
-        { "url": "https://gcontact.gcc.go.th/index.php?Itemid=30&id=40609&option=com_content&view=article", "title": "GCC Call Center ภาครัฐ: 191 บริการรับแจ้งเหตุด่วนเหตุร้าย ฟรี 24 ชม. สำนักงานตำรวจแห่งชาติ", "checked": "2026-10-22" },
-        { "url": "https://www.191.go.th/th", "title": "ศูนย์รับแจ้งเหตุฉุกเฉิน 191 (กก.ศูนย์รวมข่าว ผ่านฟ้า บช.น.): โทร 191 สายฟรี ตลอด 24 ชม.", "checked": "2026-10-22", "note": "This site is the Bangkok Metropolitan Police 191 centre; nationwide coverage is from the GCC list." },
-        { "url": "https://info.go.th/emergency-number", "title": "ศูนย์รวมข้อมูลเพื่อติดต่อราชการ: เหตุด่วนเหตุร้าย (191)", "checked": "2026-10-22" }
+        {
+          "url": "https://gcontact.gcc.go.th/index.php?Itemid=30&id=40609&option=com_content&view=article",
+          "title": "GCC Call Center ภาครัฐ: 191 บริการรับแจ้งเหตุด่วนเหตุร้าย ฟรี 24 ชม. สำนักงานตำรวจแห่งชาติ",
+          "checked": "2026-10-22"
+        },
+        {
+          "url": "https://www.191.go.th/th",
+          "title": "ศูนย์รับแจ้งเหตุฉุกเฉิน 191 (กก.ศูนย์รวมข่าว ผ่านฟ้า บช.น.): โทร 191 สายฟรี ตลอด 24 ชม.",
+          "checked": "2026-10-22",
+          "note": "This site is the Bangkok Metropolitan Police 191 centre; nationwide coverage is from the GCC list."
+        },
+        {
+          "url": "https://info.go.th/emergency-number",
+          "title": "ศูนย์รวมข้อมูลเพื่อติดต่อราชการ: เหตุด่วนเหตุร้าย (191)",
+          "checked": "2026-10-22"
+        }
       ]
     }
   ]
