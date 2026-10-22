@@ -1,8 +1,11 @@
 // Single place for product-level settings. Change here, nowhere else.
 
-/** Neutral placeholder name. Not "Jane" / "พี่เจน" (ThaiHealth IP question open). */
-export const PRODUCT_NAME = "ผู้ช่วยเดโม";
-export const PRODUCT_NAME_EN = "Demo Helper";
+/**
+ * Product name (Keng's ruling, 22 Oct 2026 19:49 BKK): keep the Jane / พี่เจน name, with new art only.
+ * Never use the 2019 Jane artwork; the mark in src/assets/mark.svg was drawn from scratch for this build.
+ */
+export const PRODUCT_NAME = "พี่เจน";
+export const PRODUCT_NAME_EN = "Jane";
 
 /** Lowest age for the demo. Open question for Keng; default 15+. */
 export const MIN_AGE = 15;

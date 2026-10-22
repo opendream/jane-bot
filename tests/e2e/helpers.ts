@@ -48,6 +48,12 @@ export async function assertNetwork(page: Page, rec: Awaited<ReturnType<typeof o
 
 export async function startAs(page: Page, band: string) {
   await expect(page.getByTestId("screen-start")).toBeVisible();
+  await expect(page).toHaveTitle(/พี่เจน/);
+  await expect(page.getByTestId("brand")).toContainText("พี่เจน");
+  await expect(page.getByTestId("brand")).toContainText("Jane");
+  await expect(page.getByTestId("mark-small").locator("svg")).toBeVisible();
+  await expect(page.getByTestId("mark-hero").locator("svg")).toBeVisible();
+  await expect(page.getByTestId("promise-medical")).toContainText("พี่เจน เป็น AI");
   await expect(page.getByTestId("promise-medical")).toContainText("ไม่ใช่คำแนะนำทางการแพทย์");
   await expect(page.getByTestId("promise-privacy")).toContainText("ไม่มีอะไรถูกส่งออกไป");
   await expect(page.getByTestId("promise-age")).toContainText("15 ปีขึ้นไป");

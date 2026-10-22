@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Dev-only: builds dist-bundle/srh-demo-run-bundle-<date>.zip. Weights are NOT included (fetched by start.sh)."""
+"""Dev-only: builds dist-bundle/jane-demo-run-bundle-<date>.zip. Weights are NOT included (fetched by start.sh)."""
 import hashlib, os, subprocess, sys, zipfile, datetime, pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 os.chdir(ROOT)
 if "--no-build" not in sys.argv:
     subprocess.run(["npm", "run", "build"], check=True)
-NAME = "srh-demo-run-bundle"
+NAME = "jane-demo-run-bundle"
 stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M")
 out_dir = ROOT / "dist-bundle"; out_dir.mkdir(exist_ok=True)
 out = out_dir / f"{NAME}-{stamp}.zip"

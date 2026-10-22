@@ -1,0 +1,19 @@
+import { describe, it, expect } from "vitest";
+import fs from "node:fs";
+import { PRODUCT_NAME, PRODUCT_NAME_EN } from "../../src/config";
+
+describe("brand", () => {
+  it("name is พี่เจน / Jane", () => {
+    expect(PRODUCT_NAME).toBe("พี่เจน");
+    expect(PRODUCT_NAME_EN).toBe("Jane");
+  });
+  it("mark is a self-contained, code-drawn SVG (no images, links, scripts or fonts)", () => {
+    const svg = fs.readFileSync("src/assets/mark.svg", "utf8");
+    expect(svg).toMatch(/^<svg[^>]+viewBox="0 0 64 64"/);
+    expect(svg).not.toMatch(/<image|href=|<script|<text|@import|url\(|base64/i);
+    expect(svg.length).toBeLessThan(2000);
+  });
+  it("no leftover placeholder name in user-facing code", () => {
+    for (const f of ["src/main.ts", "index.html", "src/config.ts"]) expect(fs.readFileSync(f, "utf8")).not.toMatch(/ผู้ช่วยเดโม|Demo Helper/);
+  });
+});

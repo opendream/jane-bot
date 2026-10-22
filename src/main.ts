@@ -1,5 +1,6 @@
 import "./styles.css";
 import { PRODUCT_NAME, PRODUCT_NAME_EN, MIN_AGE, THAI_COPY_STATUS } from "./config";
+import markSvg from "./assets/mark.svg?raw";
 import type { AgeBand, CrisisCategory, Intent, IntentResult } from "./core/types";
 import { detectCrisis, crisisOrder } from "./core/crisis";
 import { suggestServices, CRISIS_LINES, DATA_VERSION, INTENT_LABEL_TH, SUPPORT_LINE_TH, type Suggestion } from "./core/referral";
@@ -44,7 +45,14 @@ let busy = false; // waiting for the model on a classify call
 let polishNote = false; // summary line was reworded by the model
 
 const app = document.getElementById("app")!;
-document.title = `${PRODUCT_NAME} (เดโม)`;
+document.title = `${PRODUCT_NAME} · ${PRODUCT_NAME_EN} (เดโม)`;
+
+/** The brand mark (constant, project-drawn SVG; never user content). */
+function mark(cls: string): HTMLElement {
+  const el = h("span", { class: `mark ${cls}`, "aria-hidden": "true", "data-testid": `mark-${cls}` });
+  el.innerHTML = markSvg;
+  return el;
+}
 
 /* ---------- tiny DOM helper (textContent only, never innerHTML with user text) ---------- */
 type Child = Node | string | null | false | undefined;
@@ -77,6 +85,8 @@ function quickExit() {
   state = { ...fresh(), screen: "neutral" };
   try { history.replaceState(null, "", location.pathname); } catch { /* ignore */ }
   document.title = "บันทึก";
+  // Discreet: the tab icon goes neutral too.
+  document.querySelectorAll('link[rel="icon"]').forEach((l) => l.setAttribute("href", "data:,"));
   render();
 }
 
@@ -84,7 +94,7 @@ function quickExit() {
 function header() {
   if (state.screen === "neutral") return null;
   return h("header", { class: "bar" },
-    h("div", { class: "brand" }, PRODUCT_NAME, h("span", { class: "tag" }, "เดโม")),
+    h("div", { class: "brand", "data-testid": "brand" }, mark("small"), PRODUCT_NAME, h("span", { class: "en-name" }, PRODUCT_NAME_EN), h("span", { class: "tag" }, "เดโม")),
     h("div", { class: "bar-actions" },
       state.screen !== "start" && state.screen !== "crisis" &&
         h("button", { class: "btn-sos", "data-testid": "sos", onclick: () => go({ screen: "crisis", crisisCategories: [], crisisFrom: state.screen }) }, "ช่วยด่วน"),
@@ -125,7 +135,8 @@ function startScreen() {
   const band = (b: AgeBand, label: string) =>
     h("button", { class: "btn-choice", "data-testid": `age-${b}`, onclick: () => go({ ageBand: b, screen: "describe" }) }, label);
   return h("main", { class: "screen start", "data-testid": "screen-start" },
-    h("h1", {}, `สวัสดี เราคือ ${PRODUCT_NAME}`),
+    h("div", { class: "hero" }, mark("hero"),
+      h("h1", {}, `สวัสดี เราคือ ${PRODUCT_NAME}`, h("span", { class: "en-name" }, PRODUCT_NAME_EN))),
     h("p", { class: "lead" }, "ผู้ช่วยหาที่ปรึกษาเรื่องเพศและอนามัยเจริญพันธุ์ ที่เป็นมิตรกับวัยรุ่น"),
     h("ul", { class: "promises" },
       h("li", { "data-testid": "promise-medical" }, h("strong", {}, "ไม่ใช่คำแนะนำทางการแพทย์ "),

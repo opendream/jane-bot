@@ -1,7 +1,8 @@
-# SRH referral demo (placeholder name), milestones 1–2
+# พี่เจน · Jane: SRH referral demo, milestones 1–2
 
 Private prototype. Not published, no remote, no deploy. Apache-2.0 (see `LICENSE`).
-Product name is a placeholder: change `PRODUCT_NAME` in `src/config.ts`. Minimum age: `MIN_AGE` (default 15).
+Name: **พี่เจน** (Thai) / **Jane** (English), `PRODUCT_NAME` / `PRODUCT_NAME_EN` in `src/config.ts` (Keng, 22 Oct 19:49 BKK).
+Art: new mark only (`src/assets/mark.svg`, drawn in code for this build; also the favicon). Never use the 2019 Jane art. Minimum age: `MIN_AGE` (default 15).
 **All Thai copy and the crisis phrase list are DRAFT** until a Thai SRH/safety reviewer signs off.
 
 ## What it does (works without any model)
@@ -77,5 +78,5 @@ Items marked `"verification": "partial"` need re-checking before filming (Teen C
 
 ## Run bundle for the filming laptop
 
-`python3 scripts/make-bundle.py` → `dist-bundle/srh-demo-run-bundle-<stamp>.zip` (prebuilt app + Node-only scripts; no weights).
+`python3 scripts/make-bundle.py` → `dist-bundle/jane-demo-run-bundle-<stamp>.zip` (prebuilt app + Node-only scripts; no weights).
 On the laptop: unzip, `./start.sh` (or `start.command`). See `bundle/README-RUN.md` and `bundle/FILMING-CHECKLIST.md`.

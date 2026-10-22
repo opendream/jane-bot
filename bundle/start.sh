@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SRH referral demo: run bundle. Needs only Node 18+ (no npm install, no GPU required).
+# พี่เจน · Jane demo: run bundle. Needs only Node 18+ (no npm install, no GPU required).
 #   ./start.sh                     # fetch weights once (~2.1 GB, sha256-checked), serve on 127.0.0.1:4173, open Chrome
 #   ./start.sh --model qwen3-4b    # optional bigger model (WebGPU only, ~2.3 GB more)
 #   ./start.sh --no-fetch          # serve only (after the first run, works with Wi-Fi off)

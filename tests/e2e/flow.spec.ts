@@ -129,6 +129,11 @@ test("C1 crisis phrase overrides the flow → 1323 first, 1300/1669/191 tap-to-c
   await page.getByTestId("quick-exit").click();
   await expect(page.getByTestId("screen-neutral")).toBeVisible();
   expect(await page.locator("body").innerText()).not.toContain("ไม่อยากมีชีวิต");
+  // Discreet: no name, mark or icon on the neutral page.
+  expect(await page.locator("body").innerText()).not.toMatch(/พี่เจน|Jane/);
+  await expect(page.locator(".mark")).toHaveCount(0);
+  expect(await page.title()).not.toMatch(/พี่เจน|Jane/);
+  expect(await page.locator('link[rel="icon"]').getAttribute("href")).toBe("data:,");
   await shot(page, "c1-02-quick-exit-neutral");
 
   await assertNoStorage(page);
