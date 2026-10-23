@@ -86,10 +86,17 @@ export function scanFile(f, allowHandles) {
   }
 }
 
-export function scanDir(dir = path.join(root, "src/data/bank")) {
-  if (!fs.existsSync(dir)) throw new Error(`bank dir missing: ${path.relative(root, dir) || dir}`);
+export function scanDir(dir = path.join(root, "src/data/bank"), opts = {}) {
+  const requireFiles = opts.requireFiles !== false;
+  if (!fs.existsSync(dir)) {
+    if (requireFiles) throw new Error(`bank dir missing: ${path.relative(root, dir) || dir}`);
+    return [];
+  }
   const files = fs.readdirSync(dir).filter((f) => f.endsWith(".json"));
-  if (!files.length) throw new Error(`bank dir empty: ${path.relative(root, dir) || dir}`);
+  if (!files.length) {
+    if (requireFiles) throw new Error(`bank dir empty: ${path.relative(root, dir) || dir}`);
+    return [];
+  }
   const handles = publicHandles();
   return files.flatMap((f) => scanFile(path.join(dir, f), handles));
 }
@@ -97,7 +104,9 @@ export function scanDir(dir = path.join(root, "src/data/bank")) {
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     const dirs = process.argv.slice(2);
-    const found = (dirs.length ? dirs : [path.join(root, "src/data/bank")]).flatMap((d) => scanDir(path.resolve(d)));
+    const defaultDir = path.join(root, "src/data/bank");
+    const found = (dirs.length ? dirs : [defaultDir]).flatMap((d) =>
+      scanDir(path.resolve(d), { requireFiles: dirs.length > 0 }));
     for (const x of found) console.log(formatFinding(x));
     console.log(found.length ? `guard: ${found.length} finding(s)` : "guard: clean");
     process.exit(found.length ? 1 : 0);
