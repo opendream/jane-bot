@@ -18,10 +18,45 @@ export function publicHandles() {
   return s.services.flatMap((x) => x.channels.filter((c) => c.type === "line" && String(c.value).startsWith("@")).map((c) => c.value));
 }
 
+/** Replace a key that itself looks like PII so it never appears in a reported path. */
+export function pathSeg(k) {
+  return Object.keys(findPII(String(k))).length ? "[redacted]" : String(k);
+}
+
+export function formatFinding(x) {
+  return `${x.file} ${x.path} ${x.category}`;
+}
+
+export function jsonParseLocation(err, raw) {
+  const msg = String(err?.message ?? "");
+  const lc = msg.match(/line\s+(\d+)\s+column\s+(\d+)/i);
+  if (lc) return { line: Number(lc[1]), column: Number(lc[2]) };
+  const posM = msg.match(/position\s+(\d+)/i);
+  const index = posM ? Number(posM[1]) : 0;
+  let line = 1, column = 1;
+  const text = String(raw ?? "");
+  for (let i = 0; i < index && i < text.length; i++) {
+    if (text[i] === "\n") { line++; column = 1; } else column++;
+  }
+  return { line, column };
+}
+
+/** Parse-error message: file plus line/column only. Never source text. */
+export function jsonParseError(file, err, raw) {
+  const { line, column } = jsonParseLocation(err, raw);
+  return new Error(`JSON parse error in ${file} at line ${line} column ${column}`);
+}
+
 function* walk(v, p = "$") {
-  if (typeof v === "string") yield [p, v];
+  if (typeof v === "string" || typeof v === "number" || typeof v === "bigint") yield [p, String(v)];
   else if (Array.isArray(v)) for (let i = 0; i < v.length; i++) yield* walk(v[i], `${p}[${i}]`);
-  else if (v && typeof v === "object") for (const [k, x] of Object.entries(v)) { yield [`${p}.${k}`, k]; yield* walk(x, `${p}.${k}`); }
+  else if (v && typeof v === "object") {
+    for (const [k, x] of Object.entries(v)) {
+      const next = `${p}.${pathSeg(k)}`;
+      yield [next, String(k)];
+      yield* walk(x, next);
+    }
+  }
 }
 
 /** Scan one parsed JSON value. Source URLs in `url` fields are checked for FB links only (they cite public pages). */
@@ -44,19 +79,31 @@ export function scanValue(value, file = "(value)", allowHandles = publicHandles(
 
 export function scanFile(f, allowHandles) {
   const raw = fs.readFileSync(f, "utf8");
-  return scanValue(JSON.parse(raw), path.relative(root, f), allowHandles);
+  const rel = path.relative(root, f);
+  try {
+    return scanValue(JSON.parse(raw), rel, allowHandles);
+  } catch (e) {
+    throw jsonParseError(rel, e, raw);
+  }
 }
 
 export function scanDir(dir = path.join(root, "src/data/bank")) {
-  if (!fs.existsSync(dir)) return [];
+  if (!fs.existsSync(dir)) throw new Error(`bank dir missing: ${path.relative(root, dir) || dir}`);
+  const files = fs.readdirSync(dir).filter((f) => f.endsWith(".json"));
+  if (!files.length) throw new Error(`bank dir empty: ${path.relative(root, dir) || dir}`);
   const handles = publicHandles();
-  return fs.readdirSync(dir).filter((f) => f.endsWith(".json")).flatMap((f) => scanFile(path.join(dir, f), handles));
+  return files.flatMap((f) => scanFile(path.join(dir, f), handles));
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const dirs = process.argv.slice(2);
-  const found = (dirs.length ? dirs : [path.join(root, "src/data/bank")]).flatMap((d) => scanDir(path.resolve(d)));
-  for (const x of found) console.log(`${x.file} ${x.path} ${x.category}`);
-  console.log(found.length ? `guard: ${found.length} finding(s)` : "guard: clean");
-  process.exit(found.length ? 1 : 0);
+  try {
+    const dirs = process.argv.slice(2);
+    const found = (dirs.length ? dirs : [path.join(root, "src/data/bank")]).flatMap((d) => scanDir(path.resolve(d)));
+    for (const x of found) console.log(formatFinding(x));
+    console.log(found.length ? `guard: ${found.length} finding(s)` : "guard: clean");
+    process.exit(found.length ? 1 : 0);
+  } catch (e) {
+    console.error(e instanceof Error ? e.message : "guard error");
+    process.exit(1);
+  }
 }
