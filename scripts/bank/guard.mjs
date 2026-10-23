@@ -59,20 +59,37 @@ function* walk(v, p = "$") {
   }
 }
 
+/** Reviewer-only quiz fields. User-facing prompt_th / options / explanation_th stay scanned. */
+const QUIZ_REVIEWER_EN_FIELDS = new Set([
+  "prompt_en", "explanation_en", "correct_answer_text", "fact_check", "suggested_audience", "source",
+]);
+/** Review-pack parentheticals that sit on otherwise-Thai option buttons (Fact/Myth/Send/Don't). */
+const QUIZ_OPTION_EN_TOKENS = new Set(["fact", "myth", "send", "don"]);
+
+export function jsonField(p) {
+  return String(p).replace(/\[\d+\]/g, "").split(".").filter((s) => s && s !== "$").pop() ?? "";
+}
+
 /** Scan one parsed JSON value. Source URLs in `url` fields are checked for FB links only (they cite public pages). */
 export function scanValue(value, file = "(value)", allowHandles = publicHandles()) {
   const out = [];
+  const quizFile = String(file).endsWith("quiz.json");
   for (const [p, s] of walk(value)) {
-    const key = p.split(".").pop();
+    const field = jsonField(p);
     if (DF_EXPORT_KEYS.includes(s) && p.endsWith(`.${s}`)) { out.push({ file, path: p, category: "dialogflow_export_key" }); continue; }
     const hits = findPII(s, { allowHandles });
     for (const cat of Object.keys(hits)) {
       // Citation fields hold public URLs and publisher names: only FB links/CDN images and contact PII count there.
       if (/\.(url|by|title)$/.test(p) && !["facebook", "fb_cdn_image", "email", "phone", "national_id"].includes(cat)) continue;
       // English metadata (comments, review notes, licence) is not user-facing Thai text: capitalised words there are not names.
-      if (["$comment", "notes", "licence"].includes(key) && cat === "english_name") continue;
-      // Quiz review-pack fields (prompt_en, Fact/Myth labels, Judies ids) are reviewer English, not names.
-      if (String(file).endsWith("quiz.json") && (cat === "english_name" || (key === "fact_check" && cat === "line_id"))) continue;
+      if (["$comment", "notes", "licence"].includes(field) && cat === "english_name") continue;
+      if (quizFile && QUIZ_REVIEWER_EN_FIELDS.has(field) && cat === "english_name") continue;
+      // "legal line about …" in a fact-check note is not a Line id.
+      if (quizFile && field === "fact_check" && cat === "line_id") continue;
+      if (quizFile && field === "options" && cat === "english_name") {
+        const leftover = (hits.english_name ?? []).filter((w) => !QUIZ_OPTION_EN_TOKENS.has(String(w).toLowerCase()));
+        if (!leftover.length) continue;
+      }
       out.push({ file, path: p, category: cat });
     }
   }
