@@ -1,9 +1,13 @@
-/* System/local fonts only: nothing is downloaded. Sarabun/Noto Sans Thai if installed. */
+@import "./assets/jane/tokens.css";
+@import "./assets/fonts/mitr.css";
+
+/* Self-hosted Mitr only: nothing is downloaded at runtime. */
 :root {
-  --bg: #fbf8f4; --fg: #1f1d1a; --muted: #6b645c; --card: #fff; --line: #e7e0d6;
-  --brand: #2f6f6a; --brand-2: #e7f2f0; --warn: #9a5b00; --danger: #b3261e; --danger-bg: #fdecea;
+  --bg: var(--bg-welcome); --fg: var(--text); --muted: var(--text-muted); --card: var(--surface);
+  --line: #c5dff0; --brand: var(--primary); --brand-2: var(--bubble-bot);
+  --warn: #9a5b00; --danger: #b3261e; --danger-bg: #fdecea;
   --open: #1b7a3a; --closed: #8a3b12; --radius: 14px;
-  font-family: "Sarabun", "Noto Sans Thai", "Leelawadee UI", "Thonburi", system-ui, sans-serif;
+  font-family: Mitr, "Noto Sans Thai", "Leelawadee UI", "Thonburi", system-ui, sans-serif;
   font-size: 17px; line-height: 1.55; color: var(--fg); background: var(--bg);
 }
 * { box-sizing: border-box; }
@@ -16,7 +20,7 @@ body { margin: 0; }
 .mark svg { width: 100%; height: 100%; display: block; }
 .mark.small { width: 26px; height: 26px; }
 .mark.hero { width: 72px; height: 72px; }
-.hero { display: flex; align-items: center; gap: 14px; margin: 6px 0 4px; }
+.hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; margin: 6px 0 8px; position: relative; }
 .hero h1 { margin: 0; }
 .en-name { margin-left: 6px; font-size: 0.6em; font-weight: 600; color: var(--muted); }
 .brand .en-name { font-size: 13px; margin-left: 0; }
@@ -28,7 +32,7 @@ button, .btn-call { font: inherit; cursor: pointer; border-radius: 10px; border:
 .btn-sos { background: var(--danger-bg); color: var(--danger); border-color: #f3c3bf; padding: 6px 10px; font-size: 14px; }
 .btn-ghost { background: transparent; color: var(--brand); border-color: var(--line); padding: 10px 14px; margin-top: 10px; }
 .bar .btn-ghost { margin: 0; padding: 6px 10px; font-size: 14px; }
-.btn-primary { background: var(--brand); color: #fff; padding: 12px 16px; width: 100%; font-weight: 700; margin-top: 10px; }
+.btn-primary { background: var(--primary); color: var(--on-primary); padding: 12px 16px; width: 100%; font-weight: 700; margin-top: 10px; }
 .btn-choice { background: var(--card); border-color: var(--line); padding: 12px; font-weight: 600; }
 .link { background: none; border: none; color: var(--muted); text-decoration: underline; padding: 8px 0; }
 .screen { padding: 18px 16px 8px; flex: 1; }
@@ -57,7 +61,7 @@ textarea { width: 100%; font: inherit; padding: 12px; border-radius: var(--radiu
 .hours-src { list-style: none; padding: 0; margin: 2px 0 0; font-size: 12px; color: var(--muted); word-break: break-word; }
 .chans { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 .chan { font-size: 14px; padding: 4px 8px; border-radius: 8px; background: #f3efe9; }
-.btn-call { display: inline-block; background: var(--brand); color: #fff; text-decoration: none; padding: 10px 14px; font-weight: 700; }
+.btn-call { display: inline-block; background: var(--primary); color: var(--on-primary); text-decoration: none; padding: 10px 14px; font-weight: 700; }
 .btn-call.small { padding: 4px 10px; font-size: 14px; }
 .btn-call.big { font-size: 20px; padding: 10px 12px; min-width: 116px; white-space: nowrap; text-align: center; background: var(--danger); }
 .warn { color: var(--warn); font-size: 14px; }
@@ -73,6 +77,7 @@ textarea { width: 100%; font: inherit; padding: 12px; border-radius: var(--radiu
 .calls span { color: var(--muted); font-size: 14px; }
 .foot { padding: 10px 16px 18px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
 .foot p { margin: 2px 0; }
+.art-credit { color: var(--text-muted); }
 .nmad { font-weight: 700; color: var(--fg); }
 .draft { color: var(--warn); }
 .neutral { padding: 24px; font-family: Georgia, serif; }
@@ -90,11 +95,20 @@ textarea { width: 100%; font: inherit; padding: 12px; border-radius: var(--radiu
 .chat-log { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
 .msg { max-width: 92%; border-radius: var(--radius); padding: 10px 12px; }
 .msg p { margin: 4px 0; }
-.msg.user { align-self: flex-end; background: var(--brand); color: #fff; }
-.msg.jane { align-self: flex-start; background: var(--card); border: 1px solid var(--line); }
+.msg.user { align-self: flex-end; background: var(--bubble-user); color: var(--on-bubble-user); }
+.msg.jane { align-self: flex-start; display: flex; gap: 8px; align-items: flex-start; background: var(--bubble-bot); border: 1px solid var(--line); }
+.msg-body { min-width: 0; flex: 1; }
+.jane-avatar, .jane-avatar-lg {
+  display: block; border-radius: 50%; flex: none; object-fit: cover;
+  box-shadow: 0 0 0 2px var(--jane-line); background: var(--bg-welcome);
+}
+.jane-avatar { width: 40px; height: 40px; }
+.jane-avatar-lg { width: 64px; height: 64px; }
+.empty-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; }
+.jane-empty { display: block; width: 100%; height: auto; max-height: 200px; object-fit: contain; margin: 0 auto; }
 .tag.placeholder { margin-left: 0; background: #fff4e0; color: var(--warn); display: inline-block; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-.chip { background: var(--brand-2); color: var(--brand); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 15px; }
+.chip { background: var(--bubble-bot); color: var(--primary); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 15px; }
 .chat-form { display: grid; gap: 6px; position: sticky; bottom: 0; background: var(--bg); padding-top: 6px; }
 .chat-form .btn-primary { margin-top: 0; }
 
@@ -103,15 +117,28 @@ textarea { width: 100%; font: inherit; padding: 12px; border-radius: var(--radiu
 .quiz-opts { display: grid; gap: 8px; }
 .quiz-opt, .quiz-bubble { min-height: 44px; text-align: left; white-space: normal; overflow-wrap: break-word; }
 .quiz-chat { justify-items: end; }
-.quiz-bubble { background: var(--brand); color: #fff; border-radius: 18px 18px 4px 18px; padding: 10px 14px; border: none; font-weight: 600; }
+.quiz-bubble { background: var(--bubble-user); color: var(--on-bubble-user); border-radius: 18px 18px 4px 18px; padding: 10px 14px; border: none; font-weight: 600; }
 .quiz-order { display: grid; gap: 8px; }
-.quiz-order-row { display: grid; grid-template-columns: 28px 1fr auto; gap: 8px; align-items: center; background: #fbf8f4; border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; }
-.quiz-order-n { font-weight: 700; color: var(--brand); }
+.quiz-order-row { display: grid; grid-template-columns: 28px 1fr auto; gap: 8px; align-items: center; background: var(--bg-welcome); border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; }
+.quiz-order-n { font-weight: 700; color: var(--primary); }
 .quiz-order-text { margin: 0; }
 .quiz-order-btns { display: flex; gap: 4px; }
-.quiz-arrow { min-height: 44px; min-width: 44px; background: var(--brand-2); border: 1px solid var(--line); font-weight: 700; }
+.quiz-arrow { min-height: 44px; min-width: 44px; background: var(--bubble-bot); border: 1px solid var(--line); font-weight: 700; }
 .quiz-arrow:disabled { opacity: 0.4; }
 .quiz-result { font-weight: 700; margin: 8px 0 0; }
 .quiz-result[data-ok="true"] { color: var(--open); }
 .quiz-result[data-ok="false"] { color: var(--danger); }
 .quiz-stop { margin-top: 8px; }
+.quiz-thinking, .quiz-success { display: flex; flex-direction: column; align-items: center; position: relative; margin: 4px 0 8px; }
+.jane-quiz-img { display: block; width: auto; height: auto; max-height: 168px; object-fit: contain; }
+.quiz-stars { display: flex; gap: 8px; justify-content: center; margin-top: 6px; }
+.quiz-back-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px; margin: 4px 0 8px; display: flex; justify-content: center; }
+.jane-quiz-back-img { display: block; width: auto; height: auto; max-height: 180px; object-fit: contain; object-position: top; }
+
+.screen.start { position: relative; }
+.jane-header { display: block; width: 168px; height: auto; max-height: 236px; object-fit: contain; flex: none; }
+.welcome-stars { position: absolute; inset: 0; pointer-events: none; }
+.jane-star { width: 22px; height: 22px; object-fit: contain; }
+.welcome-star-a { position: absolute; top: 4px; right: 14%; }
+.welcome-star-b { position: absolute; top: 38%; left: 10%; width: 16px; height: 16px; }
+.welcome-star-c { position: absolute; top: 10%; left: 16%; width: 18px; height: 18px; }

@@ -67,7 +67,8 @@ export async function startAs(page: Page, band: string) {
   await expect(page.getByTestId("brand")).toContainText("พี่เจน");
   await expect(page.getByTestId("brand")).toContainText("Jane");
   await expect(page.getByTestId("mark-small").locator("svg")).toBeVisible();
-  await expect(page.getByTestId("mark-hero").locator("svg")).toBeVisible();
+  await expect(page.getByTestId("jane-header")).toBeVisible();
+  await expect(page.getByTestId("art-credit")).toHaveText("Illustration © Opendream, 2018");
   await expect(page.getByTestId("promise-medical")).toContainText("พี่เจน เป็น AI");
   await expect(page.getByTestId("promise-medical")).toContainText("ไม่ใช่คำแนะนำทางการแพทย์");
   await expect(page.getByTestId("promise-privacy")).toContainText("ไม่มีอะไรถูกส่งออกไป");
