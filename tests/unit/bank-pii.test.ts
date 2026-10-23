@@ -7,8 +7,8 @@ import { spawnSync } from "node:child_process";
 import { findPII, scrubPII, nationalIdChecksumOk, toArabic } from "../../scripts/bank/pii-patterns.mjs";
 // @ts-ignore
 import { scanDir, scanValue, scanFile, formatFinding, jsonParseError } from "../../scripts/bank/guard.mjs";
-import { validateBank, type BankCard } from "../../src/core/bank";
-import { bankContext } from "../../src/core/bankData";
+import { validateBank, walkStrings, type BankCard } from "../../src/core/bank";
+import { bankContext, BANK, BANK_FILES, isProductionBankFile } from "../../src/core/bankData";
 import { stripPII } from "../../src/core/summary";
 import fixture from "../fixtures/bank/valid-bank.json";
 
@@ -48,28 +48,33 @@ function expectNoSynthetic(haystack: unknown, extra: string[] = []) {
 }
 
 describe("committed bank files contain no PII and no Dialogflow export data", () => {
-  it("fails loudly when the bank dir is missing or empty", () => {
+  it("fails loudly when a required bank dir is missing or empty", () => {
     const missing = path.join(os.tmpdir(), `jane-bank-missing-${Date.now()}`);
-    expect(() => scanDir(missing)).toThrow(/missing|empty/i);
+    expect(() => scanDir(missing, { requireFiles: true })).toThrow(/missing|empty/i);
     const empty = fs.mkdtempSync(path.join(os.tmpdir(), "jane-bank-empty-"));
-    expect(() => scanDir(empty)).toThrow(/missing|empty/i);
+    expect(() => scanDir(empty, { requireFiles: true })).toThrow(/missing|empty/i);
   });
 
-  it("src/data/bank exists, has JSON files, and the scan is clean", () => {
-    expect(fs.existsSync(BANK_DIR), "src/data/bank is missing — PII gate cannot run").toBe(true);
-    const files = fs.readdirSync(BANK_DIR);
-    expect(files.filter((f) => f.endsWith(".json")).length, "src/data/bank has no JSON files — PII gate cannot run").toBeGreaterThan(0);
-    expect(files.filter((f) => !f.endsWith(".json"))).toEqual([]);
-    const found = scanDir(BANK_DIR);
-    expect(found.map((f: any) => formatFinding(f))).toEqual([]);
-  });
-
-  it("committed synthetic fixture bank directory scans clean", () => {
-    expect(fs.existsSync(FIXTURE_BANK)).toBe(true);
+  it("the synthetic fixture bank directory exists, has JSON, and the scan is clean", () => {
+    expect(fs.existsSync(FIXTURE_BANK), "tests/fixtures/bank/pii-gate is missing — PII gate cannot run").toBe(true);
     const files = fs.readdirSync(FIXTURE_BANK).filter((f) => f.endsWith(".json"));
-    expect(files.length).toBeGreaterThan(0);
-    const found = scanDir(FIXTURE_BANK);
+    expect(files.length, "pii-gate fixture dir is empty — PII gate cannot run").toBeGreaterThan(0);
+    const found = scanDir(FIXTURE_BANK, { requireFiles: true });
     expect(found.map((f: any) => formatFinding(f))).toEqual([]);
+  });
+
+  it("src/data/bank, when it has JSON files, scans clean", () => {
+    if (!fs.existsSync(BANK_DIR)) return;
+    const files = fs.readdirSync(BANK_DIR);
+    expect(files.filter((f) => !f.endsWith(".json"))).toEqual([]);
+    if (!files.some((f) => f.endsWith(".json"))) return;
+    const found = scanDir(BANK_DIR, { requireFiles: true });
+    expect(found.map((f: any) => formatFinding(f))).toEqual([]);
+  });
+
+  it("BANK never contains fixture or test cards", () => {
+    expect(BANK_FILES.every((f) => isProductionBankFile(f))).toBe(true);
+    expect(BANK.every((c) => !/fixture|piigate|pii-gate|\.test\./i.test(c.id))).toBe(true);
   });
 });
 
@@ -113,6 +118,23 @@ describe("PII detector self-test (synthetic strings only)", () => {
     expect(findPII("ทักไลน์ @teen_club", { allowHandles: ["@teen_club"] })).toEqual({});
     expect(findPII("โทร 1663 หรือ 1323 ฟรี 24 ชั่วโมง")).toEqual({});
     expect(findPII("โทร 1300 หรือ 1413")).toEqual({});
+  });
+  it("dotted / colon hour ranges (Arabic and Thai, single or back-to-back) are not phones", () => {
+    const hours = [
+      "09.00-21.00",
+      "09.00–21.00",
+      "09:00–21:00",
+      "9.00-21.00 น.",
+      "09.00–21.00 10.00-20.00",
+      "09.00-21.00 10.00-20.00",
+      "เวลา ๐๙.๐๐-๒๑.๐๐ น.",
+      "๐๙.๐๐–๒๑.๐๐ ๑๐.๐๐-๒๐.๐๐",
+      "09:00–21:00 10:00-20:00",
+    ];
+    for (const h of hours) {
+      expect(findPII(h), h).toEqual({});
+      expect(Object.keys(findPII(`โทร 1663 เวลา ${h}`)), h).toEqual([]);
+    }
   });
   it("toArabic maps Thai digits 1:1 onto ASCII", () => {
     expect(toArabic(SYN.thaiMobile)).toBe("0812345678");
@@ -219,6 +241,56 @@ describe("validator and logs never include matched PII", () => {
     expect(printed).not.toContain(leak);
     expect(printed).not.toContain("secret99");
     expect(printed).not.toContain("user:");
+  });
+});
+
+describe("every string field of a card is scanned and never echoed", () => {
+  const ctx = bankContext(undefined, "draft", "2026-10-22");
+  const plantedValues = [SYN.mobile, SYN.email, SYN.id];
+
+  function fillOptional(c: BankCard) {
+    c.variants_th = c.variants_th?.length ? c.variants_th : ["นี่คือข้อความทดสอบอีกแบบ โทร 1663 ได้"];
+    c.source_intents = c.source_intents?.length ? c.source_intents : ["sti_hiv"];
+    if (!c.source.length) {
+      c.source = [{ by: "Test", url: "https://rsathai.org/qrcode", title: "fixture", as_of: "2026", checked: "2026-10-22" }];
+    } else {
+      c.source[0] = { ...c.source[0], as_of: c.source[0].as_of ?? "2026" };
+    }
+    c.review = { ...c.review, notes: c.review.notes ?? "ok", reviewer: c.review.reviewer ?? "Test Reviewer" };
+    if (!c.links.length) c.links = [{ url: "https://rsathai.org/qrcode", label_th: "ทดสอบลิงก์" }];
+  }
+
+  function setAt(root: unknown, jsonPath: string, value: string) {
+    const segs = [...jsonPath.matchAll(/\.([^.\[]+)|\[(\d+)\]/g)].map((m) => (m[1] !== undefined ? m[1] : Number(m[2])));
+    let cur: any = root;
+    for (let i = 0; i < segs.length - 1; i++) cur = cur[segs[i]];
+    cur[segs[segs.length - 1]] = value;
+  }
+
+  it("plants a synthetic phone, email and national ID in every string field", () => {
+    const template = JSON.parse(JSON.stringify(fixture.cards[1])) as BankCard;
+    fillOptional(template);
+    const paths = [...walkStrings(template)].map((x) => x.path);
+    expect(paths.length).toBeGreaterThan(10);
+    expect(paths).toEqual(expect.arrayContaining([
+      "$.title_th", "$.answer_th", "$.key_facts[0]", "$.triggers[0]",
+      "$.next[0].label_th", "$.source[0].title", "$.review.notes", "$.licence",
+    ]));
+
+    for (const p of paths) {
+      for (const planted of plantedValues) {
+        const cards: BankCard[] = JSON.parse(JSON.stringify(fixture.cards));
+        fillOptional(cards[1]);
+        setAt(cards[1], p, planted);
+        const issues = validateBank(cards, ctx);
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), "jane-bank-plant-"));
+        fs.writeFileSync(path.join(dir, "planted.json"), JSON.stringify({ topic_file: "x", cards: [cards[1]] }));
+        const r = spawnSync(process.execPath, ["scripts/bank/guard.mjs", dir], { encoding: "utf8", cwd: ROOT });
+        const printed = `${issues.map(formatIssue).join("\n")}\n${r.stdout}\n${r.stderr}`;
+        expect(issues.length > 0 || r.status === 1, p).toBe(true);
+        expect(printed).not.toContain(planted);
+      }
+    }
   });
 });
 

@@ -17,12 +17,23 @@ export const ENGLISH_ALLOW = new Set(("Jane Dialogflow Facebook Messenger Line G
   "English Doctor Demo Placeholder Online Club Teen Rsa Yfhs General Information Not Medical Advice Qwen Webgpu Wasm Opendream Thaihealth")
   .toLowerCase().split(/\s+/));
 
-/** Optional grouping between digits: space, hyphen, or dot. */
-const DSEP = String.raw`[\s.\-]*`;
+/** At most one space, hyphen or dot between digit groups (not a run of dots that can chain clock times). */
+const DSEP = String.raw`[\s.\-]`;
 /** Thai mobile: 10 digits starting 06/08/09. Optional +66 / 66, with or without a trunk 0. */
-export const PHONE_MOBILE = new RegExp(String.raw`(?<!\d)(?:\+?66${DSEP}0?${DSEP}|0${DSEP})[689](?:${DSEP}\d){8}(?!\d)`, "g");
+export const PHONE_MOBILE = new RegExp(String.raw`(?<!\d)(?:\+?66${DSEP}?0?${DSEP}?|0${DSEP}?)[689](?:${DSEP}?\d){8}(?!\d)`, "g");
 /** Thai landline: 9 digits starting 0[2-7]. Optional +66 / 66. */
-export const PHONE_LANDLINE = new RegExp(String.raw`(?<!\d)(?:\+?66${DSEP}0?${DSEP}|0${DSEP})[2-7](?:${DSEP}\d){7}(?!\d)`, "g");
+export const PHONE_LANDLINE = new RegExp(String.raw`(?<!\d)(?:\+?66${DSEP}?0?${DSEP}?|0${DSEP}?)[2-7](?:${DSEP}?\d){7}(?!\d)`, "g");
+/** HH:MM / HH.MM that is not the start of a longer dotted number (08.1234…). */
+export const TIME_TOKEN = /(?<!\d)\d{1,2}[:.]\d{2}(?!\d)/g;
+/** A time range "09.00-21.00", "9:00–21:00 น.", "๐๙.๐๐ ถึง ๒๑.๐๐". */
+export const TIME_RANGE = /(?<!\d)\d{1,2}[:.]\d{2}\s*(?:น\.)?\s*(?:[-–—]|ถึง)\s*\d{1,2}[:.]\d{2}(?!\d)/g;
+
+/** Replace clock times / ranges with same-length spaces so match indices still map to the original. */
+export function blankTimes(s) {
+  return String(s ?? "")
+    .replace(new RegExp(TIME_RANGE.source, "g"), (m) => " ".repeat(m.length))
+    .replace(new RegExp(TIME_TOKEN.source, "g"), (m) => " ".repeat(m.length));
+}
 export const EMAIL = /[\w.+-]+@[\w-]+\.[\w.]+/g;
 export const LINE_ID = /(?:line\s*(?:id)?|ไลน์\s*(?:ไอดี)?|ไอดีไลน์)\s*[:：]?\s*@?[a-z0-9._-]{3,}/gi;
 export const AT_HANDLE = /(?<![\w.])@[a-z0-9._]{3,}/gi;
@@ -62,6 +73,19 @@ function all(re, original) {
   return [...s.matchAll(rx)].map((m) => src.slice(m.index, m.index + m[0].length));
 }
 
+/** Phone spans in the original text. Times / time ranges are blanked first so "09.00-21.00 10.00-20.00" is not a number. */
+export function findPhoneSpans(original) {
+  const src = String(original ?? "");
+  const s = blankTimes(toArabic(src));
+  const out = [];
+  for (const re of [PHONE_MOBILE, PHONE_LANDLINE]) {
+    for (const m of s.matchAll(new RegExp(re.source, "g"))) {
+      out.push(src.slice(m.index, m.index + m[0].length));
+    }
+  }
+  return out;
+}
+
 /**
  * Category → matches for one string. Name candidates drop the known generic forms.
  * `opts.allowHandles` lets service handles that are already in services.json (e.g. "@teen_club") pass.
@@ -74,7 +98,7 @@ export function findPII(text, opts = {}) {
   const put = (k, arr) => { if (arr.length) out[k] = arr; };
   put("thai_name", all(THAI_NAME, s).filter((m) => !THAI_NAME_GENERIC.test(m) && !NAI_PRONOUN.test(m)));
   put("english_name", [...all(ENGLISH_NAME_PHRASE, s), ...all(ENGLISH_CAPITALISED, s).filter((w) => !ENGLISH_ALLOW.has(w.toLowerCase()))]);
-  put("phone", [...all(PHONE_MOBILE, s), ...all(PHONE_LANDLINE, s)]);
+  put("phone", findPhoneSpans(s));
   put("email", all(EMAIL, s));
   put("line_id", all(LINE_ID, s).filter((m) => !allow.has(m.replace(/^.*?(@?[a-z0-9._-]{3,})$/i, "$1").toLowerCase())));
   put("handle", all(AT_HANDLE, s).filter((m) => !allow.has(m.toLowerCase())));
