@@ -1,5 +1,7 @@
 import type { AgeBand, Intent, Service } from "./types";
 import { INTENT_LABEL_TH } from "./referral";
+// @ts-ignore shared phone matcher (blanks clock times so hour ranges are not phones)
+import { findPhoneSpans } from "../../scripts/bank/pii-patterns.mjs";
 
 /** Max characters kept from her own words (≈ one line). */
 export const MAX_NEED_CHARS = 140;
@@ -35,7 +37,6 @@ export function stripPII(input: string): string {
   const rules: [RegExp, string][] = [
     [/https?:\/\/\S+|www\.\S+/gi, REDACTED],
     [/[\w.+-]+@[\w-]+\.[\w.]+/g, REDACTED],                          // email
-    [/(?:\+?66[\s.\-]*0?[\s.\-]*|0[\s.\-]*)\d(?:[\s.\-]*\d){7,8}/g, REDACTED], // Thai mobile/landline, any grouping
     [/\d[\d\s-]{4,}\d/g, REDACTED],                                    // any long digit run (ID, phone); no dots — those are times like 10.00-20.00
     [/(?<![A-Za-z])(?:ไลน์|ไอดีไลน์|line\s*id|line|ig|ไอจี|เฟส|facebook|fb)(?![A-Za-z])\s*[:：]?\s*@?[\w.\-]+/gi, REDACTED],
     [/@[\w.\-]{2,}/g, REDACTED],                                       // any handle
@@ -44,6 +45,7 @@ export function stripPII(input: string): string {
     [/(?:โรงเรียน|ร\.ร\.|รร\.|มหาวิทยาลัย|ม\.\s?[ก-๙A-Za-z]{2,}|วิทยาลัย)\s*[^\s,.!?]*/g, REDACTED],
     [/(?:บ้านเลขที่|เลขที่|หมู่บ้าน|หมู่ที่|ซอย|ซ\.|ถนน|ถ\.|ตำบล|ต\.|แขวง|อำเภอ|อ\.|เขต)\s*[^\s,.!?]+/g, REDACTED],
   ];
+  for (const span of findPhoneSpans(s) as string[]) s = s.split(span).join(` ${REDACTED} `);
   for (const [re, rep] of rules) s = replaceOnArabic(s, re, ` ${rep} `);
   return s.replace(new RegExp(`(?:${escape(REDACTED)}\\s*)+`, "g"), REDACTED + " ").replace(/\s+/g, " ").replace(/\s+([,.!?])/g, "$1").trim();
 }
