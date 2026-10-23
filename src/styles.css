@@ -101,7 +101,7 @@ textarea { width: 100%; font: inherit; padding: 12px; border-radius: var(--radiu
 .quiz { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; margin: 8px 0 12px; }
 .quiz-prompt { font-weight: 700; margin: 8px 0; }
 .quiz-opts { display: grid; gap: 8px; }
-.quiz-opt, .quiz-bubble { min-height: 44px; text-align: left; }
+.quiz-opt, .quiz-bubble { min-height: 44px; text-align: left; white-space: normal; overflow-wrap: break-word; }
 .quiz-chat { justify-items: end; }
 .quiz-bubble { background: var(--brand); color: #fff; border-radius: 18px 18px 4px 18px; padding: 10px 14px; border: none; font-weight: 600; }
 .quiz-order { display: grid; gap: 8px; }

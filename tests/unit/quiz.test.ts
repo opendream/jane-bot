@@ -53,6 +53,14 @@ describe("validator rules", () => {
     expect(validateQuizItems([bad]).map((i) => i.rule)).toContain("hours_1663");
     expect(validateQuizItems([byId("QZ-04")])).toEqual([]);
   });
+  it("QZ-04 ships the canonical 1663 hours and never 120 h, ulipristal, or a price", () => {
+    const q = byId("QZ-04");
+    const blob = [q.prompt_th, q.prompt_en, q.explanation_th, q.explanation_en, q.correct_answer_text, ...(q.options ?? [])].join("\n");
+    expect(q.explanation_th).toContain(QUIZ_HOURS_1663);
+    expect(QUIZ_HOURS_1663).toBe("ปรึกษาฟรี ทุกวัน 09:00–21:00 น. รวมวันหยุด");
+    expect(q.options[2]).toBe("ค) หลังมีเพศสัมพันธ์ที่ไม่ได้ป้องกัน กินให้เร็วที่สุด ภายใน 72 ชม.");
+    expect(blob).not.toMatch(/120\s*h|120\s*ชม|ulipristal|บาท|฿/i);
+  });
   it("QZ-02 and QZ-03 cannot drop to age_min 15", () => {
     expect(validateQuizItems([clone("QZ-02", { age_min: 15 })]).map((i) => i.rule)).toContain("age_min");
     expect(validateQuizItems([clone("QZ-03", { age_min: 15 })]).map((i) => i.rule)).toContain("age_min");

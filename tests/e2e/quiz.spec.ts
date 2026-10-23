@@ -88,6 +88,8 @@ test("D7 ordering uses up/down buttons (18+ contraception session)", async ({ pa
   await page.getByTestId("quiz-confirm").click();
   await expect(page.getByTestId("quiz-explain")).toHaveText(q("QZ-03").explanation_th);
   await page.getByTestId("quiz-next").click();
+  await expect(page.getByTestId("quiz-panel")).toHaveAttribute("data-id", "QZ-07");
+  await shot(page, "d7-05-qz07-long-option");
   await page.getByTestId("quiz-opt-3").click();
   await page.getByTestId("quiz-next").click();
   await expect(page.getByTestId("quiz-wrap")).toHaveText(QUIZ_WRAP);
