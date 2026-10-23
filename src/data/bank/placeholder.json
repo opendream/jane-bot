@@ -1,6 +1,7 @@
 {
   "$comment": "PLACEHOLDER cards only. Written for the build to exercise the chat; NOT ThaiHealth content and NOT reviewed. Topic scope (D4) and copy are pending. Every card is draft and can never be approved while placeholder is true.",
   "topic_file": "placeholder",
+  "licence": "CC-BY-SA-4.0",
   "cards": [
     {
       "id": "general.welcome.000",
@@ -51,7 +52,7 @@
       "links": [],
       "age_min": 15,
       "reword": false,
-      "licence": "PLACEHOLDER: written for this build, not ThaiHealth content; licence TBD (D2)",
+      "licence": "CC-BY-SA-4.0",
       "placeholder": true
     },
     {
@@ -90,7 +91,7 @@
       "links": [],
       "age_min": 15,
       "reword": false,
-      "licence": "PLACEHOLDER: written for this build, not ThaiHealth content; licence TBD (D2)",
+      "licence": "CC-BY-SA-4.0",
       "placeholder": true
     },
     {
@@ -127,7 +128,7 @@
       "links": [],
       "age_min": 15,
       "reword": false,
-      "licence": "PLACEHOLDER: written for this build, not ThaiHealth content; licence TBD (D2)",
+      "licence": "CC-BY-SA-4.0",
       "placeholder": true
     },
     {
@@ -171,7 +172,7 @@
       "links": [],
       "age_min": 15,
       "reword": true,
-      "licence": "PLACEHOLDER: written for this build, not ThaiHealth content; licence TBD (D2)",
+      "licence": "CC-BY-SA-4.0",
       "placeholder": true
     },
     {
@@ -215,7 +216,7 @@
       "links": [],
       "age_min": 15,
       "reword": true,
-      "licence": "PLACEHOLDER: written for this build, not ThaiHealth content; licence TBD (D2)",
+      "licence": "CC-BY-SA-4.0",
       "placeholder": true
     },
     {
@@ -254,7 +255,7 @@
       "links": [],
       "age_min": 15,
       "reword": true,
-      "licence": "PLACEHOLDER: written for this build, not ThaiHealth content; licence TBD (D2)",
+      "licence": "CC-BY-SA-4.0",
       "placeholder": true
     },
     {
@@ -295,7 +296,7 @@
       "links": [],
       "age_min": 15,
       "reword": false,
-      "licence": "PLACEHOLDER: written for this build, not ThaiHealth content; licence TBD (D2)",
+      "licence": "CC-BY-SA-4.0",
       "placeholder": true
     },
     {
@@ -333,7 +334,7 @@
       "links": [],
       "age_min": 15,
       "reword": true,
-      "licence": "PLACEHOLDER: written for this build, not ThaiHealth content; licence TBD (D2)",
+      "licence": "CC-BY-SA-4.0",
       "placeholder": true
     },
     {
@@ -374,7 +375,7 @@
       "links": [],
       "age_min": 15,
       "reword": false,
-      "licence": "PLACEHOLDER: written for this build, not ThaiHealth content; licence TBD (D2)",
+      "licence": "CC-BY-SA-4.0",
       "placeholder": true
     }
   ]

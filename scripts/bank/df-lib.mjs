@@ -247,7 +247,7 @@ export function toQueueItem(rec, scrubOpts = {}) {
       id: null, topic: topicFor(rec.name), title_th: "", answer_th: texts[0] ?? "", key_facts: [], triggers: [],
       next: [], source_intents: [rec.name], source: [], review: { status: "draft", reviewer: null, reviewed_on: null },
       last_reviewed: null, flags, referral: { offer: "soft", intents: [] }, links: [], age_min: 15,
-      reword: !(flags.includes("hotline") || flags.includes("legal")), licence: "TBD (D2)",
+      reword: !(flags.includes("hotline") || flags.includes("legal")), licence: "CC-BY-SA-4.0",
     },
   };
 }

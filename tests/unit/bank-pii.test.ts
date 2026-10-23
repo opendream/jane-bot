@@ -66,7 +66,7 @@ describe("committed bank files contain no PII and no Dialogflow export data", ()
   it("src/data/bank, when it has JSON files, scans clean", () => {
     if (!fs.existsSync(BANK_DIR)) return;
     const files = fs.readdirSync(BANK_DIR);
-    expect(files.filter((f) => !f.endsWith(".json"))).toEqual([]);
+    expect(files.filter((f) => !f.endsWith(".json") && !/^(LICENSE|NOTICE)$/.test(f))).toEqual([]);
     if (!files.some((f) => f.endsWith(".json"))) return;
     const found = scanDir(BANK_DIR, { requireFiles: true });
     expect(found.map((f: any) => formatFinding(f))).toEqual([]);

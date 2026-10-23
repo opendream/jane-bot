@@ -9,7 +9,7 @@ describe("committed bank cards (placeholders until review)", () => {
       expect(c.placeholder, c.id).toBe(true);
       expect(c.answer_th.startsWith(PLACEHOLDER_MARK), c.id).toBe(true);
       expect(c.review.status, c.id).toBe("draft");
-      expect(c.licence, c.id).toMatch(/not ThaiHealth content/);
+      expect(c.licence, c.id).toBe("CC-BY-SA-4.0");
     }
   });
   it("no card states opening hours for 1663 (hours live in services.json)", () => {
