@@ -39,6 +39,15 @@ export function bankContext(services: ServicesJson = data, copyStatus: "draft" |
 
 const files = import.meta.glob("../data/bank/*.json", { eager: true }) as Record<string, unknown>;
 
-/** Every card in the bundled bank (quiz.json excluded). */
-export const BANK: BankCard[] = cardsFromFiles(files);
-export const BANK_FILES: string[] = Object.keys(files);
+/** Files that ship in the app. Fixture/test JSON and quiz.json never enter BANK. */
+export function isProductionBankFile(name: string): boolean {
+  const base = name.split("/").pop() ?? name;
+  if (/quiz\.json$/i.test(base)) return false;
+  return !/(?:^|[-_.])(?:fixture|pii-gate|test)(?:[-_.]|$)/i.test(base);
+}
+
+const production = Object.fromEntries(Object.entries(files).filter(([n]) => isProductionBankFile(n)));
+
+/** Every card in the bundled bank (quiz.json and test fixtures excluded). */
+export const BANK: BankCard[] = cardsFromFiles(production);
+export const BANK_FILES: string[] = Object.keys(production);
