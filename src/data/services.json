@@ -7,7 +7,7 @@
       "id": "hotline_1663",
       "name_th": "สายด่วน 1663 (ปรึกษาท้องไม่พร้อมและเอชไอวี)",
       "name_en": "1663 hotline (unplanned pregnancy and HIV counselling)",
-      "description_th": "ปรึกษาเรื่องท้องไม่พร้อม เอชไอวีและโรคติดต่อทางเพศ ส่งต่อบริการในเครือข่ายที่ปลอดภัยได้",
+      "description_th": "ปรึกษาเรื่องเอชไอวี (กด 1) และท้องไม่พร้อม (กด 2) ปรึกษาฟรี ทุกวันรวมวันหยุดนักขัตฤกษ์ ส่งต่อบริการที่ปลอดภัยได้",
       "channels": [
         {
           "type": "phone",
@@ -61,6 +61,7 @@
       ],
       "youth_friendly": true,
       "verification": "verified",
+      "verification_note": "Free = counselling (PRD 2025); GCC: call at normal rate.",
       "sources": [
         {
           "url": "https://th.aidsid.or.th/consulting-service/",
@@ -286,7 +287,7 @@
       "id": "hotline_1300",
       "name_th": "สายด่วน พม. 1300 (ศูนย์ช่วยเหลือสังคม)",
       "name_en": "1300 MSDHS social assistance hotline",
-      "description_th": "แจ้งและขอความช่วยเหลือเมื่อถูกกระทำความรุนแรงหรือมีปัญหาสังคม ฟรี 24 ชั่วโมง",
+      "description_th": "ศูนย์ช่วยเหลือสังคม กระทรวง พม. โทรฟรี 24 ชั่วโมง ปรึกษาปัญหาสังคม ความรุนแรง ท้องไม่พร้อม และช่วยส่งต่อหน่วยงานที่เกี่ยวข้อง",
       "channels": [
         {
           "type": "phone",
@@ -331,6 +332,53 @@
           "url": "https://gcontact.gcc.go.th/index.php?Itemid=30&id=40609&option=com_content&view=article",
           "title": "GCC Call Center ภาครัฐ: 1300 ฟรี 24 ชม.",
           "checked": "2026-10-22"
+        },
+        {
+          "url": "https://secretary.prd.go.th/th/content/category/detail/id/9/iid/524212",
+          "title": "กรมประชาสัมพันธ์ (PRD), 21 ก.ค. 2569: พม. ยกระดับสายด่วน 1300 ตลอด 24 ชั่วโมง",
+          "checked": "2026-10-23"
+        }
+      ]
+    },
+    {
+      "id": "oscc_hospital",
+      "name_th": "ศูนย์พึ่งได้ (OSCC) ในโรงพยาบาลรัฐ",
+      "name_en": "OSCC (One Stop Crisis Centre) in public hospitals",
+      "description_th": "หน่วยในโรงพยาบาลรัฐของกระทรวงสาธารณสุข ดูแลด้านการแพทย์ ให้คำปรึกษา และช่วยด้านสังคมและกฎหมาย สำหรับเด็กและผู้หญิงที่ถูกกระทำรุนแรง รวมถึงความรุนแรงทางเพศ",
+      "channels": [
+        {
+          "type": "in_person",
+          "label_th": "ติดต่อศูนย์พึ่งได้ที่โรงพยาบาลรัฐใกล้บ้าน",
+          "value": "hospital"
+        }
+      ],
+      "hours_sources": [
+        {
+          "hours": {
+            "type": "unpublished"
+          },
+          "by": "โรงพยาบาลระนอง (สธ.)",
+          "url": "https://www.rnh.go.th/main/index.php/oscc",
+          "as_of": "2016",
+          "checked": "2026-10-23"
+        }
+      ],
+      "intents": [
+        "violence"
+      ],
+      "youth_friendly": false,
+      "verification": "partial",
+      "verification_note": "Hours not found (FC): never print hours.",
+      "sources": [
+        {
+          "url": "https://www.rnh.go.th/main/index.php/oscc",
+          "title": "โรงพยาบาลระนอง (สธ.): ศูนย์พึ่งได้ (OSCC) ในโรงพยาบาล",
+          "checked": "2026-10-23"
+        },
+        {
+          "url": "https://rsathai.org/wp-content/uploads/2019/04/pregnant-final-1.pdf",
+          "title": "คู่มือการช่วยเหลือผู้หญิงตั้งครรภ์ไม่พร้อมของศูนย์พึ่งได้ (สธ., พิมพ์ครั้งที่ 1 ธ.ค. 2557)",
+          "checked": "2026-10-23"
         }
       ]
     }

@@ -27,7 +27,7 @@ function toMin(hhmm: string): number {
 /** Open is inclusive, close is exclusive. Supports windows that cross midnight (e.g. 20:00–02:00). */
 export function isOpenAt(hours: Hours, minutes: number): boolean | null {
   if (hours.type === "24h") return true;
-  if (hours.type === "varies") return null;
+  if (hours.type === "varies" || hours.type === "unpublished") return null;
   const o = toMin(hours.open);
   const c = toMin(hours.close);
   if (o === c) return true;
@@ -36,6 +36,7 @@ export function isOpenAt(hours: Hours, minutes: number): boolean | null {
 
 export function openStatus(hours: Hours, now: Date = new Date(), tz = SERVICE_TZ): OpenStatus {
   const minutesNow = minutesInZone(now, tz);
+  if (hours.type === "unpublished") return { state: "unknown", label_th: "ไม่ระบุเวลาเปิด", minutesNow };
   const open = isOpenAt(hours, minutesNow);
   if (open === null) return { state: "unknown", label_th: "เวลาเปิดแตกต่างกันแต่ละแห่ง", minutesNow };
   if (hours.type === "24h") return { state: "open", label_th: "เปิด 24 ชั่วโมง", minutesNow };
@@ -48,6 +49,7 @@ export function openStatus(hours: Hours, now: Date = new Date(), tz = SERVICE_TZ
 export function hoursLabel(hours: Hours): string {
   if (hours.type === "24h") return "ตลอด 24 ชั่วโมง";
   if (hours.type === "varies") return "แตกต่างกันแต่ละแห่ง";
+  if (hours.type === "unpublished") return "ไม่ระบุเวลาเปิด สอบถามที่โรงพยาบาล";
   return `ทุกวัน ${hours.open}–${hours.close} น.`;
 }
 
@@ -65,7 +67,11 @@ const minutesOpen = (h: { open: string; close: string }) => {
  */
 export function narrowestHours(list: Hours[]): Hours {
   const daily = list.filter((h): h is { type: "daily"; open: string; close: string } => h.type === "daily");
-  if (!daily.length) return list.some((h) => h.type === "24h") ? { type: "24h" } : { type: "varies" };
+  if (!daily.length) {
+    if (list.some((h) => h.type === "24h")) return { type: "24h" };
+    if (list.length && list.every((h) => h.type === "unpublished")) return { type: "unpublished" };
+    return { type: "varies" };
+  }
   if (daily.length === 1) return daily[0];
   const sameDay = daily.every((h) => toMin(h.open) < toMin(h.close));
   if (sameDay) {

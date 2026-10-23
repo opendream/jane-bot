@@ -122,7 +122,7 @@ test("C1 crisis phrase overrides the flow → 1323 first, 1300/1669/191 tap-to-c
   const t0 = Date.now();
   await expect(page.getByTestId("screen-crisis")).toBeVisible();
   expect(Date.now() - t0).toBeLessThan(1000);
-  await expect(page.getByTestId("screen-crisis")).toContainText(`โทร 1663 (${effectiveHoursLabel("hotline_1663")})`);
+  await expect(page.getByTestId("screen-crisis")).toContainText(`โทร 1663 ปรึกษาฟรี (${effectiveHoursLabel("hotline_1663")} รวมวันหยุด)`);
   await expect(page.getByTestId("screen-suggest")).toHaveCount(0);
   const order = await page.locator('[data-testid^="crisis-"] a').evaluateAll((as) => as.map((a) => a.getAttribute("href")));
   expect(order[0]).toBe("tel:1323");
@@ -154,7 +154,7 @@ test("Under-age path and static guarantees (no image upload, no external links)"
   const rec = await open(page, "12:00");
   await page.getByTestId("age-under").click();
   await expect(page.getByTestId("screen-underage")).toContainText("15 ปีขึ้นไป");
-  await expect(page.getByTestId("screen-underage")).toContainText(`โทร 1663 (${effectiveHoursLabel("hotline_1663")})`);
+  await expect(page.getByTestId("screen-underage")).toContainText(`โทร 1663 ปรึกษาฟรี (${effectiveHoursLabel("hotline_1663")} รวมวันหยุด)`);
   await shot(page, "u1-underage");
   expect(await page.locator('input[type="file"]').count()).toBe(0);
   const hrefs = await page.locator("a[href]").evaluateAll((as) => as.map((a) => a.getAttribute("href")!));

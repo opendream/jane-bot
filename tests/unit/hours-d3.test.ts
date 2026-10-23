@@ -22,7 +22,12 @@ describe("D3: 1663 hours 09:00–21:00, operator cited first", () => {
     expect(s1663.hours_sources[2].url).toMatch(/nhso\.go\.th/);
     expect(s1663.hours_sources.every((h: any) => h.checked === "2026-10-22")).toBe(true);
     expect(s1663.sources.map((x: any) => x.url)).toEqual(s1663.hours_sources.map((h: any) => h.url));
-    const blob = JSON.stringify(s1663);
+    expect(s1663.description_th).not.toMatch(/โทรฟรี|สายฟรี/);
+    expect(s1663.description_th).toContain("ปรึกษาฟรี");
+    expect(s1663.description_th).not.toMatch(/ศูนย์วิจัยโรคเอดส์|สภากาชาดไทย|โดย/);
+    const hoursFields = { ...s1663 };
+    delete (hoursFields as { verification_note?: string }).verification_note;
+    const blob = JSON.stringify(hoursFields);
     expect(blob).not.toMatch(/GCC|gcontact\.gcc|10:00|20:00|10–20|10-20/);
   });
 

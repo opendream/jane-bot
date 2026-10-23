@@ -76,7 +76,7 @@ export interface SummaryInput {
 
 export function preferredChannel(service: Service): string {
   const t = service.channels[0]?.type;
-  return t === "phone" ? "โทรศัพท์" : t === "line" ? "แชท LINE" : t === "facebook" ? "แชทเฟซบุ๊ก" : "ออนไลน์";
+  return t === "phone" ? "โทรศัพท์" : t === "line" ? "แชท LINE" : t === "facebook" ? "แชทเฟซบุ๊ก" : t === "in_person" ? "ไปที่โรงพยาบาลด้วยตนเอง" : "ออนไลน์";
 }
 
 /** Shorten on a word-ish boundary (Thai has no spaces, so fall back to a hard cut). */

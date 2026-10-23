@@ -11,6 +11,7 @@ export type Intent =
 export type Hours =
   | { type: "24h" }
   | { type: "varies" }
+  | { type: "unpublished" }
   | { type: "daily"; open: string; close: string };
 
 export interface HoursSource {

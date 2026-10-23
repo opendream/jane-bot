@@ -29,7 +29,7 @@ export const PREFERENCE: Record<Intent, string[]> = {
   sti_hiv: ["hotline_1663", "yfhs", "teen_club"],
   relationship_consent: ["teen_club", "hotline_1323", "hotline_1300"],
   mental_health: ["hotline_1323", "teen_club"],
-  violence: ["hotline_1300", "hotline_1323", "teen_club"],
+  violence: ["hotline_1300", "hotline_1323", "oscc_hospital", "teen_club"],
   other: ["teen_club", "hotline_1663", "hotline_1323"],
 };
 

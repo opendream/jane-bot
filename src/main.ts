@@ -150,9 +150,9 @@ function startScreen() {
 function underageScreen() {
   return h("main", { class: "screen", "data-testid": "screen-underage" },
     h("h1", {}, "ขอบคุณที่บอกเรา"),
-    h("p", {}, `เดโมนี้ทำสำหรับอายุ ${MIN_AGE} ปีขึ้นไป แต่คุณยังขอความช่วยเหลือได้เสมอ โทรฟรี:`),
+    h("p", {}, `เดโมนี้ทำสำหรับอายุ ${MIN_AGE} ปีขึ้นไป แต่คุณยังขอความช่วยเหลือได้เสมอ:`),
     callList(["1323", "1300"]),
-    h("p", {}, `เรื่องท้องหรือเอชไอวี โทร 1663 (${serviceHoursLabel("hotline_1663")})`),
+    h("p", {}, `เรื่องท้องหรือเอชไอวี โทร 1663 ปรึกษาฟรี (${serviceHoursLabel("hotline_1663")} รวมวันหยุด)`),
     h("a", { class: "btn-call", href: "tel:1663" }, "โทร 1663"),
     h("button", { class: "btn-ghost", onclick: () => eraseAll("start") }, "กลับหน้าแรก"),
   );
@@ -336,10 +336,11 @@ function crisisScreen() {
   const order = crisisOrder(state.crisisCategories);
   return h("main", { class: "screen crisis", "data-testid": "screen-crisis" },
     h("h1", {}, "ตอนนี้ความปลอดภัยของคุณสำคัญที่สุด"),
-    h("p", { class: "lead" }, "คุณไม่ได้อยู่คนเดียว มีคนพร้อมช่วยตอนนี้ โทรฟรี กดที่เบอร์เพื่อโทรได้ทันที"),
+    h("p", { class: "lead" }, "คุณไม่ได้อยู่คนเดียว มีคนพร้อมช่วยตอนนี้ กดที่เบอร์เพื่อโทรได้ทันที"),
     callList(order),
-    h("p", {}, `ถ้ากำลังอยู่ในอันตรายตอนนี้ โทร 191 หรือ 1669 ทันที เรื่องท้องหรือเอชไอวีโทร 1663 (${serviceHoursLabel("hotline_1663")})`),
-    h("p", { class: "src" }, "ที่มา: กรมสุขภาพจิต, กระทรวง พม., GCC Call Center ภาครัฐ, ศูนย์รับแจ้งเหตุ 191 (ตรวจ 2026-10-22)"),
+    state.crisisCategories.includes("sexual_violence") && h("p", {}, "ถ้าถูกล่วงละเมิดทางเพศ ไปที่ศูนย์พึ่งได้ (OSCC) ในโรงพยาบาลรัฐได้ ดูแลด้านการแพทย์ ให้คำปรึกษา และช่วยด้านสังคมและกฎหมาย"),
+    h("p", {}, `ถ้ากำลังอยู่ในอันตรายตอนนี้ โทร 191 หรือ 1669 ทันที เรื่องท้องหรือเอชไอวี โทร 1663 ปรึกษาฟรี (${serviceHoursLabel("hotline_1663")} รวมวันหยุด)`),
+    h("p", { class: "src" }, "ที่มา: กรมสุขภาพจิต, กระทรวง พม., GCC Call Center ภาครัฐ, ศูนย์รับแจ้งเหตุ 191, สปสช. (NHSO), กระทรวงสาธารณสุข (ศูนย์พึ่งได้) (ตรวจ 2026-10-23)"),
     h("button", { class: "btn-ghost", "data-testid": "crisis-continue", onclick: () => go({ screen: state.crisisFrom === "start" ? "start" : state.crisisFrom === "chat" && state.chat ? "chat" : "describe" }) },
       "ฉันปลอดภัยแล้ว กลับไปต่อ"),
   );
