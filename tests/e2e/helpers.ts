@@ -77,17 +77,19 @@ export async function assertHeaderDoesNotOverlap(page: Page, testid: string) {
   expect(geo.elBottom, `${testid} must stay in the viewport`).toBeLessThanOrEqual(geo.vh + 1);
 }
 
-/** Cache Storage may hold model files from /models/ only; nothing else may be stored anywhere. */
+const GPU_FAIL_FLAG = "jane.webgpu.failed";
+
+/** Cache Storage may hold model files from /models/ only. sessionStorage may hold one non-personal GPU-fail flag. */
 export async function assertNoStorage(page: Page) {
-  const s = await page.evaluate(async () => ({
+  const s = await page.evaluate(async (flag) => ({
     nonModelCacheEntries: (await Promise.all((await caches.keys()).map(async (n) =>
       (await (await caches.open(n)).keys()).map((r) => r.url).filter((u) => !new URL(u).pathname.includes("/models/"))))).flat(),
     local: localStorage.length,
-    session: sessionStorage.length,
+    session: Object.keys(sessionStorage).filter((k) => k !== flag).length,
     cookie: document.cookie,
     idb: (await indexedDB.databases()).length,
     cacheNames: (await caches.keys()).filter((n) => n !== "model-weights-v1"),
-  }));
+  }), GPU_FAIL_FLAG);
   expect(s).toEqual({ nonModelCacheEntries: [], local: 0, session: 0, cookie: "", idb: 0, cacheNames: [] });
 }
 

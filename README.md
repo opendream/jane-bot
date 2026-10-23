@@ -27,7 +27,7 @@ Art: 2018 *Sex Safe Safe* illustrations in `src/assets/jane/` (Illustration © O
 ## On-device model (optional; the app works without it)
 
 Qwen3 (Apache-2.0) only. Typhoon is on hold until the OpenTyphoon terms are cleared. Order: **WebGPU** via WebLLM (real GPU only;
-SwiftShader is ignored) → **WASM** via wllama (CPU) → **rules**. Choose in `src/config.ts` (`MODEL`) or with `?model=` / `?runtime=`.
+SwiftShader is ignored) → **WASM** via wllama (CPU) → **rules**. If WebGPU loads then loses the device, the pill is not left on "ready": WebLLM is torn down and WASM is tried next. Choose in `src/config.ts` (`MODEL`) or with `?model=` / `?runtime=`.
 
 | `MODEL` | WebGPU | WASM (CPU) |
 | --- | --- | --- |
@@ -46,7 +46,8 @@ SwiftShader is ignored) → **WASM** via wllama (CPU) → **rules**. Choose in `
 ## Privacy guarantees (checked by the e2e tests)
 
 - No `fetch`/XHR in the app; strict CSP (`default-src 'self'`); no external fonts, scripts or links (source URLs are text).
-- State is in memory only: nothing in localStorage, sessionStorage, IndexedDB or cookies. Cache Storage holds model files only.
+- State is in memory only: nothing in localStorage, IndexedDB or cookies. sessionStorage may hold a single non-personal
+  `jane.webgpu.failed` flag after a WebGPU device loss so the next load skips the broken GPU and tries WASM. Cache Storage holds model files only.
 - No logging of user text; the static server never receives chat content.
 
 ## Run locally (bound to 127.0.0.1 only)

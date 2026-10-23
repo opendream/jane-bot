@@ -1,4 +1,13 @@
 /// <reference types="vite/client" />
+
+interface Window {
+  /** E2E / unit test hook only. Never stores user content. */
+  __JANE_RUNTIME_TEST__?: {
+    webllm?: "warmup-lost" | "generate-lost" | "disposed";
+    wasm?: "ok" | "unavailable";
+    gpu?: boolean;
+  };
+}
 declare module "*.css";
 declare module "*.webp" {
   const src: string;
