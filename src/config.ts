@@ -1,8 +1,9 @@
 // Single place for product-level settings. Change here, nowhere else.
 
 /**
- * Product name (Keng's ruling, 22 Oct 2026 19:49 BKK): keep the Jane / พี่เจน name, with new art only.
- * Never use the 2019 Jane artwork; the mark in src/assets/mark.svg was drawn from scratch for this build.
+ * Product name (Keng's ruling, 22 Oct 2026 19:49 BKK): keep the Jane / พี่เจน name.
+ * UI art is the 2018 Sex Safe Safe illustrations in src/assets/jane/ (© Opendream 2018).
+ * Never use the 2019 Jane artwork. The small mark in src/assets/mark.svg was drawn from scratch for this build.
  */
 export const PRODUCT_NAME = "พี่เจน";
 export const PRODUCT_NAME_EN = "Jane";

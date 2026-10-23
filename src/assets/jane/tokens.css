@@ -1,0 +1,28 @@
+/* Jane palette tokens, sampled from the 2018 Sex Safe Safe manual (Illustration © Opendream, 2018).
+   UI tokens are tuned for WCAG AA; the art itself is never recoloured. */
+:root {
+  /* sampled from the art: decoration only */
+  --jane-line: #4C9AD1;       /* line-art blue. Borders, avatar ring, dividers. Never behind text (white on it = 3.07) */
+  --star-yellow: #F8F6B2;
+  --star-lilac: #D5C4E6;
+  --star-pale-blue: #EBF9FC;
+  --star-pink: #FBD0E7;
+  --page-cyan: #D1F0F6;
+  --page-pink: #FBD0E7;
+  --page-yellow: #F5F8B0;
+  --page-lilac: #E8DBF0;
+
+  /* UI tokens (contrast ratios measured) */
+  --primary: #2B6CA3;         /* buttons with white text 5.56; links on white 5.56, on --bg-welcome 4.64, on --bubble-bot 4.88. Not on --page-lilac (4.19) */
+  --on-primary: #FFFFFF;
+  --accent: #F08AC2;          /* chips/highlights with --text only (7.08); never white text (2.3) */
+  --accent-strong: #B8337A;   /* pink with white text 5.54 */
+  --lilac: #D8C6E7;           /* ponytail lilac, decorative */
+  --bg-welcome: #D1F0F6;      /* --text on it 13.59 */
+  --surface: #FFFFFF;
+  --text: #231F20;            /* 16.3 on white; at least 11.86 on every page colour */
+  --text-muted: #5B4A6E;      /* 6.95 on --bubble-bot, 5.97 on --page-lilac */
+  --bubble-bot: #F3EEFA;      /* with --text, 14.3 */
+  --bubble-user: #2B6CA3;     /* with white text, 5.56 */
+  --on-bubble-user: #FFFFFF;
+}

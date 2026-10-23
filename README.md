@@ -4,9 +4,9 @@ Private prototype. Not published, no remote, no deploy.
 
 ## Licence
 
-The **code** is under the Apache License 2.0 (see the root `LICENSE`). The **answer-bank text** (cards under `src/data/bank/`) and the **eval question set** (`evals/` item files) are separately licensed CC BY-SA 4.0 (see `src/data/bank/LICENSE` and `evals/LICENSE`; attribution Opendream). Quiz content is adapted from 'Judies, Opendream 2017' (Opendream owns Judies and relicenses its quiz content under CC BY-SA 4.0).
+The **code** is under the Apache License 2.0 (see the root `LICENSE`). The **answer-bank text** (cards under `src/data/bank/`) and the **eval question set** (`evals/` item files) are separately licensed CC BY-SA 4.0 (see `src/data/bank/LICENSE` and `evals/LICENSE`; attribution Opendream). Quiz content is adapted from 'Judies, Opendream 2017' (Opendream owns Judies and relicenses its quiz content under CC BY-SA 4.0). Those text licences do **not** cover the illustrations.
 Name: **พี่เจน** (Thai) / **Jane** (English), `PRODUCT_NAME` / `PRODUCT_NAME_EN` in `src/config.ts` (Keng, 22 Oct 19:49 BKK).
-Art: new mark only (`src/assets/mark.svg`, drawn in code for this build; also the favicon). Never use the 2019 Jane art. Minimum age: `MIN_AGE` (default 15).
+Art: 2018 *Sex Safe Safe* illustrations in `src/assets/jane/` (Illustration © Opendream, 2018; all rights reserved; not covered by Apache-2.0 or CC BY-SA). The small mark (`src/assets/mark.svg`) was drawn in code for this build and is also the favicon. Never use the 2019 Jane art. UI font is self-hosted Mitr (SIL OFL 1.1, Cadson Demak). Minimum age: `MIN_AGE` (default 15).
 **All Thai copy and the crisis phrase list are DRAFT** until a Thai SRH/safety reviewer signs off.
 
 ## What it does (works without any model)

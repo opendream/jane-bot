@@ -20,6 +20,8 @@ files.append((ROOT / "bundle/verify-dist.mjs", "scripts/verify-dist.mjs", True))
 for s, ex in [("start.sh", True), ("start.command", True), ("README-RUN.md", False), ("FILMING-CHECKLIST.md", False), ("THIRD-PARTY-NOTICES.md", False)]:
     files.append((ROOT / "bundle" / s, s, ex))
 files.append((ROOT / "LICENSE", "LICENSE", False))
+files.append((ROOT / "NOTICE", "NOTICE", False))
+files.append((ROOT / "src/assets/fonts/OFL.txt", "fonts/OFL.txt", False))
 files.append((ROOT / "src/data/bank/LICENSE", "bank/LICENSE", False))
 files.append((ROOT / "src/data/bank/NOTICE", "bank/NOTICE", False))
 commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
