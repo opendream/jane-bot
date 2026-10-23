@@ -7,10 +7,10 @@ const teen: BankCard = { ...AGE_REDIRECT_CARD, id: "other.teen.000", age_min: 15
 
 describe("D5 age states", () => {
   it.each([
-    ["15-17", false, "อายุต่ำกว่า 18 ปี"],
-    ["unspecified", false, "อายุต่ำกว่า 18 ปี"],
-    [null, false, "อายุต่ำกว่า 18 ปี"],
-    [undefined, false, "อายุต่ำกว่า 18 ปี"],
+    ["15-17", false, "ต่ำกว่า 18 ปี"],
+    ["unspecified", false, "ต่ำกว่า 18 ปี"],
+    [null, false, "ต่ำกว่า 18 ปี"],
+    [undefined, false, "ต่ำกว่า 18 ปี"],
     ["18+", true, "18 ปีขึ้นไป"],
   ] as const)("%s → adult=%s summary=%s", (band, adultWant, label) => {
     expect(isAdult(band)).toBe(adultWant);

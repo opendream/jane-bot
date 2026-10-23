@@ -14,7 +14,7 @@ export function isAdult(age: AgeState): boolean {
 }
 
 export function summaryAgeLabel(age: AgeState): string {
-  return isAdult(age) ? "18 ปีขึ้นไป" : "อายุต่ำกว่า 18 ปี";
+  return isAdult(age) ? "18 ปีขึ้นไป" : "ต่ำกว่า 18 ปี";
 }
 
 export function ageAllowed(c: BankCard, age: AgeState): boolean {

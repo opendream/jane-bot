@@ -120,7 +120,7 @@ test("CH6 chat referral: offer → service cards (hours match services.json) →
   await expect(page.getByTestId("screen-summary")).toBeVisible();
   await expect(page.getByTestId("summary-input")).toHaveValue(/ถึงเจ้าหน้าที่ สายด่วน 1663/);
   await expect(page.getByTestId("summary-input")).toHaveValue(/ถุงยางรั่ว/);
-  await expect(page.getByTestId("summary-input")).toHaveValue(/ช่วงอายุ: อายุต่ำกว่า 18 ปี/);
+  await expect(page.getByTestId("summary-input")).toHaveValue(/ช่วงอายุ: ต่ำกว่า 18 ปี/);
   await page.getByTestId("approve").click();
   await expect(page.getByTestId("screen-handoff")).toBeVisible();
   await expect(page.getByTestId("demo-banner")).toContainText("nothing was sent");

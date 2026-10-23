@@ -39,7 +39,7 @@ describe("draftSummary", () => {
     expect(lines[0]).toContain("ถึงเจ้าหน้าที่");
     expect(lines[0]).toContain("1663");
     expect(lines[1].startsWith("- เรื่องที่อยากปรึกษา:")).toBe(true);
-    expect(lines[2]).toContain("อายุต่ำกว่า 18 ปี");
+    expect(lines[2]).toBe("- ช่วงอายุ: ต่ำกว่า 18 ปี");
     expect(lines[3]).toContain("ตรวจครรภ์");
     expect(lines[4]).toContain("โทรศัพท์");
     expect(lines[5]).toContain("ยืนยันเองแล้ว");
@@ -52,13 +52,14 @@ describe("draftSummary", () => {
   it("handoff band is only under-18 or 18+", () => {
     const preferNot = draftSummary({ service: s1663, needText: "กลัวท้อง", intent: "pregnancy", ageBand: "unspecified" });
     const none = draftSummary({ service: s1663, needText: "กลัวท้อง", intent: "pregnancy", ageBand: null });
-    expect(preferNot).toMatch(/ช่วงอายุ:.*ต่ำกว่า 18 ปี/);
-    expect(none).toMatch(/ช่วงอายุ:.*ต่ำกว่า 18 ปี/);
+    expect(preferNot).toContain("ช่วงอายุ: ต่ำกว่า 18 ปี");
+    expect(none).toContain("ช่วงอายุ: ต่ำกว่า 18 ปี");
     expect(preferNot.split("\n")[2]).toBe(none.split("\n")[2]);
-    expect(draftSummary({ service: s1663, needText: "กลัวท้อง", intent: "pregnancy", ageBand: "15-17" })).toMatch(/ช่วงอายุ:.*ต่ำกว่า 18 ปี/);
+    expect(draftSummary({ service: s1663, needText: "กลัวท้อง", intent: "pregnancy", ageBand: "15-17" })).toContain("ช่วงอายุ: ต่ำกว่า 18 ปี");
     expect(draftSummary({ service: s1663, needText: "กลัวท้อง", intent: "pregnancy", ageBand: "18+" })).toContain("ช่วงอายุ: 18 ปีขึ้นไป");
     expect(preferNot).not.toContain("15–17");
     expect(preferNot).not.toContain("ไม่ระบุ");
+    expect(preferNot).not.toContain("อายุต่ำกว่า 18 ปี");
   });
   it("is short", () => {
     expect(clip("ก".repeat(500)).length).toBeLessThanOrEqual(MAX_NEED_CHARS + 1);
