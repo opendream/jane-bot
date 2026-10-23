@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 // @ts-ignore
-import { ageMinFromAudience, applyReviewRow } from "../../scripts/bank/df-lib.mjs";
+import { ageMinFromAudience, applyReviewRow, applyQuizReviewRow } from "../../scripts/bank/df-lib.mjs";
 
 describe("review-pack audience → age_min", () => {
   it("All (15+) → 15 and 18+ only → 18", () => {
@@ -30,5 +30,12 @@ describe("review-pack audience → age_min", () => {
     expect(applyReviewRow({ status: "Approved", audience: null, card: { id: "general.age_redirect.000" } }).age_min).toBe(15);
     expect(applyReviewRow({ status: "Approved", audience: "", proposed_card: { id: "general.age_redirect.000" } }).age_min).toBe(15);
     expect(() => applyReviewRow({ status: "Approved", audience: "", card: { id: "ec.p000" } })).toThrow(/audience/i);
+  });
+
+  it("Approved quiz row with a blank Audience fails the build (no default)", () => {
+    expect(() => applyQuizReviewRow({ status: "Approved", audience: "", item: { id: "QZ-01" } })).toThrow(/audience/i);
+    expect(() => applyQuizReviewRow({ status: "Edit", audience: "   ", item: { id: "QZ-04" } })).toThrow(/audience/i);
+    expect(applyQuizReviewRow({ status: "Approved", audience: "18+ only", item: { id: "QZ-02" } }).age_min).toBe(18);
+    expect(applyQuizReviewRow({ status: "Approved", audience: "All (15+)", item: { id: "QZ-01" } }).age_min).toBe(15);
   });
 });

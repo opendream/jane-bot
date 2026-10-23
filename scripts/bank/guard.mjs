@@ -71,6 +71,8 @@ export function scanValue(value, file = "(value)", allowHandles = publicHandles(
       if (/\.(url|by|title)$/.test(p) && !["facebook", "fb_cdn_image", "email", "phone", "national_id"].includes(cat)) continue;
       // English metadata (comments, review notes, licence) is not user-facing Thai text: capitalised words there are not names.
       if (["$comment", "notes", "licence"].includes(key) && cat === "english_name") continue;
+      // Quiz review-pack fields (prompt_en, Fact/Myth labels, Judies ids) are reviewer English, not names.
+      if (String(file).endsWith("quiz.json") && (cat === "english_name" || (key === "fact_check" && cat === "line_id"))) continue;
       out.push({ file, path: p, category: cat });
     }
   }

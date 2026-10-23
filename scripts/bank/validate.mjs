@@ -5,6 +5,7 @@ import fs from "node:fs";
 import { validateBank, checkBankTextLicence, checkEvalTextLicence, EVAL_ITEM_FILES } from "../../src/core/bank.ts";
 import { bankContext, BANK, BANK_FILES } from "../../src/core/bankData.ts";
 import { THAI_COPY_STATUS } from "../../src/config.ts";
+import { QUIZ_ITEMS, QUIZ_FILE_LICENCE, validateQuizItems } from "../../src/core/quiz.ts";
 
 export function formatIssue(i) {
   return `${i.level.padEnd(7)} ${i.card} ${i.rule}: ${i.msg}`;
@@ -15,6 +16,7 @@ const issues = [
   ...validateBank(BANK, bankContext(undefined, THAI_COPY_STATUS, today)),
   ...checkBankTextLicence(BANK),
   ...EVAL_ITEM_FILES.flatMap((f) => checkEvalTextLicence(JSON.parse(fs.readFileSync(f, "utf8")), f)),
+  ...validateQuizItems(QUIZ_ITEMS, QUIZ_FILE_LICENCE),
 ];
 for (const i of issues) console.log(formatIssue(i));
 const errors = issues.filter((i) => i.level === "error").length;

@@ -263,6 +263,13 @@ export function ageMinFromAudience(audience, status) {
   throw new Error(`unknown audience: ${a}`);
 }
 
+/** Build a quiz item from a review-pack row. Approved/Edit with a blank Audience fails (same as D5 cards). */
+export function applyQuizReviewRow(row) {
+  const age_min = ageMinFromAudience(row?.audience, row?.status);
+  if (age_min == null) throw new Error("audience is required to build a reviewed quiz item (no default)");
+  return { ...(row.item ?? row.quiz ?? {}), age_min };
+}
+
 /** Build a card from a review-pack row. Fails when Approved/Edit audience is blank. */
 export function applyReviewRow(row) {
   const id = row?.card?.id ?? row?.proposed_card?.id ?? row?.id;

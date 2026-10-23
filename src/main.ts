@@ -10,7 +10,8 @@ import { classifyWithFallback, polishWithFallback, type LLMAdapter } from "./llm
 import { startModel, type ModelStatus } from "./llm/runtime";
 import { toDialogModel } from "./llm/dialogModel";
 import { h } from "./ui/dom";
-import { newChat, chatView, type ChatState } from "./ui/chat";
+import { newChat, chatView, beginQuiz, type ChatState } from "./ui/chat";
+import { QUIZ_MENU, pickQuizItems } from "./core/quiz";
 
 /* ------------------------------------------------------------------------------------------
  * Privacy rules enforced here:
@@ -90,6 +91,8 @@ function header() {
     h("div", { class: "bar-actions" },
       state.screen !== "start" && state.screen !== "crisis" &&
         h("button", { class: "btn-sos", "data-testid": "sos", onclick: () => go({ screen: "crisis", crisisCategories: [], crisisFrom: state.screen }) }, "ช่วยด่วน"),
+      state.screen === "chat" && state.chat && !state.chat.quiz && pickQuizItems(state.ageBand, null).length > 0 &&
+        h("button", { class: "btn-ghost", "data-testid": "quiz-menu", onclick: () => beginQuiz(state.chat!, null, chatHooks) }, QUIZ_MENU),
       state.screen !== "start" && h("button", { class: "btn-ghost", "data-testid": "erase", onclick: () => eraseAll("start") }, "ลบแชท"),
       h("button", { class: "btn-exit", "data-testid": "quick-exit", "aria-label": "ออกด่วน (quick exit)", onclick: quickExit }, "ออกด่วน ✕"),
     ),
