@@ -17,8 +17,12 @@ export const ENGLISH_ALLOW = new Set(("Jane Dialogflow Facebook Messenger Line G
   "English Doctor Demo Placeholder Online Club Teen Rsa Yfhs General Information Not Medical Advice Qwen Webgpu Wasm Opendream Thaihealth")
   .toLowerCase().split(/\s+/));
 
-export const PHONE_MOBILE = /(?<!\d)(?:\+?66[\s-]?|0)[689]\d[\s-]?\d{3}[\s-]?\d{4}(?!\d)/g;
-export const PHONE_LANDLINE = /(?<!\d)0[2-7][\s-]?\d{3}[\s-]?\d{4}(?!\d)/g;
+/** Optional grouping between digits: space, hyphen, or dot. */
+const DSEP = String.raw`[\s.\-]*`;
+/** Thai mobile: 10 digits starting 06/08/09. Optional +66 / 66, with or without a trunk 0. */
+export const PHONE_MOBILE = new RegExp(String.raw`(?<!\d)(?:\+?66${DSEP}0?${DSEP}|0${DSEP})[689](?:${DSEP}\d){8}(?!\d)`, "g");
+/** Thai landline: 9 digits starting 0[2-7]. Optional +66 / 66. */
+export const PHONE_LANDLINE = new RegExp(String.raw`(?<!\d)(?:\+?66${DSEP}0?${DSEP}|0${DSEP})[2-7](?:${DSEP}\d){7}(?!\d)`, "g");
 export const EMAIL = /[\w.+-]+@[\w-]+\.[\w.]+/g;
 export const LINE_ID = /(?:line\s*(?:id)?|ไลน์\s*(?:ไอดี)?|ไอดีไลน์)\s*[:：]?\s*@?[a-z0-9._-]{3,}/gi;
 export const AT_HANDLE = /(?<![\w.])@[a-z0-9._]{3,}/gi;
@@ -27,23 +31,41 @@ export const FACEBOOK_URL = /(?:https?:\/\/)?(?:[\w-]+\.)?(?:facebook\.com|fb\.c
 /** Facebook CDN image hosts (scontent*.fbcdn.net, *.fbsbx.com, lookaside.fbsbx.com). */
 export const FB_CDN_URL = /(?:https?:\/\/)?[\w.-]*(?:fbcdn\.net|fbsbx\.com)\/\S*/gi;
 /** 13-digit Thai national ID, any grouping. */
-export const NATIONAL_ID = /(?<!\d)\d[\s-]?\d{4}[\s-]?\d{5}[\s-]?\d{2}[\s-]?\d(?!\d)/g;
+export const NATIONAL_ID = /(?<!\d)\d[\s.-]?\d{4}[\s.-]?\d{5}[\s.-]?\d{2}[\s.-]?\d(?!\d)/g;
 export const ADDRESS = /(?:บ้านเลขที่|เลขที่\s*\d|ซอย\s*[ก-๙\d]|ซ\.\s*[ก-๙\d]|ถนน[ก-๙]|ถ\.\s*[ก-๙]|หมู่(?:ที่)?\s*\d|แขวง[ก-๙]|ตำบล[ก-๙]|อำเภอ[ก-๙]|(?<!\d)\d{5}(?!\d))/g;
 export const SCHOOL = /(?:โรงเรียน\s*[ก-๙]{2,}|ร\.ร\.\s*[ก-๙]|มหาวิทยาลัย\s*[ก-๙]{2,})/g;
 
+/** Thai digits ๐-๙ → ASCII 0-9. Length-preserving (1:1), so match indices map back to the original. */
+export function toArabic(s) {
+  return String(s ?? "").replace(/[๐-๙]/g, (d) => String(d.charCodeAt(0) - 0x0e50));
+}
+
+/** Last two digits, or [redacted]. Never the full value. */
+export function maskPII(value) {
+  const digits = toArabic(value).replace(/\D/g, "");
+  return digits.length >= 2 ? `…${digits.slice(-2)}` : "[redacted]";
+}
+
 /** Thai national ID checksum (mod 11). */
 export function nationalIdChecksumOk(digits) {
-  const d = String(digits).replace(/\D/g, "").split("").map(Number);
+  const d = toArabic(digits).replace(/\D/g, "").split("").map(Number);
   if (d.length !== 13) return false;
   const sum = d.slice(0, 12).reduce((a, x, i) => a + x * (13 - i), 0);
   return (11 - (sum % 11)) % 10 === d[12];
 }
 
-const all = (re, s) => [...String(s).matchAll(new RegExp(re.source, re.flags.includes("g") ? re.flags : re.flags + "g"))].map((m) => m[0]);
+/** Match `re` on arabic-normalised text; return the original-text spans (Thai digits kept). */
+function all(re, original) {
+  const src = String(original ?? "");
+  const s = toArabic(src);
+  const rx = new RegExp(re.source, re.flags.includes("g") ? re.flags : `${re.flags}g`);
+  return [...s.matchAll(rx)].map((m) => src.slice(m.index, m.index + m[0].length));
+}
 
 /**
  * Category → matches for one string. Name candidates drop the known generic forms.
  * `opts.allowHandles` lets service handles that are already in services.json (e.g. "@teen_club") pass.
+ * Matches are original spans (Thai numerals preserved) so scrub/strip cover the source text.
  */
 export function findPII(text, opts = {}) {
   const s = String(text ?? "");
@@ -58,7 +80,7 @@ export function findPII(text, opts = {}) {
   put("handle", all(AT_HANDLE, s).filter((m) => !allow.has(m.toLowerCase())));
   put("facebook", [...new Set([...all(FB_REF, s), ...all(FACEBOOK_URL, s)])]);
   put("fb_cdn_image", all(FB_CDN_URL, s));
-  put("national_id", all(NATIONAL_ID, s).filter((m) => m.replace(/\D/g, "").length === 13));
+  put("national_id", all(NATIONAL_ID, s).filter((m) => toArabic(m).replace(/\D/g, "").length === 13));
   put("address", all(ADDRESS, s));
   put("school", all(SCHOOL, s));
   return out;

@@ -11,13 +11,32 @@ const REDACTED = "[ลบข้อมูลส่วนตัว]";
  * long digit runs, names after "ชื่อ", schools, addresses. Conservative on purpose.
  * Short numbers (1–2 digits, e.g. "2 อาทิตย์", "17 ปี") are kept.
  */
+/** Thai digits ๐-๙ → ASCII 0-9. Length-preserving so match indices map back to the original. */
+export function toArabicDigits(s: string): string {
+  return s.replace(/[๐-๙]/g, (d) => String(d.charCodeAt(0) - 0x0e50));
+}
+
+/** Apply `re` to the arabic-normalised form and replace the matching original spans. */
+function replaceOnArabic(input: string, re: RegExp, repl: string): string {
+  const s = toArabicDigits(input);
+  const rx = new RegExp(re.source, re.flags.includes("g") ? re.flags : `${re.flags}g`);
+  let out = "";
+  let last = 0;
+  for (const m of s.matchAll(rx)) {
+    const start = m.index ?? 0;
+    out += input.slice(last, start) + repl;
+    last = start + m[0].length;
+  }
+  return out + input.slice(last);
+}
+
 export function stripPII(input: string): string {
   let s = input;
   const rules: [RegExp, string][] = [
     [/https?:\/\/\S+|www\.\S+/gi, REDACTED],
     [/[\w.+-]+@[\w-]+\.[\w.]+/g, REDACTED],                          // email
-    [/(?:\+?66|0)[\s-]?\d{1,2}[\s-]?\d{3}[\s-]?\d{3,4}/g, REDACTED],   // Thai phone formats
-    [/\d[\d\s-]{4,}\d/g, REDACTED],                                    // any long digit run (ID, phone)
+    [/(?:\+?66[\s.\-]*0?[\s.\-]*|0[\s.\-]*)\d(?:[\s.\-]*\d){7,8}/g, REDACTED], // Thai mobile/landline, any grouping
+    [/\d[\d\s-]{4,}\d/g, REDACTED],                                    // any long digit run (ID, phone); no dots — those are times like 10.00-20.00
     [/(?<![A-Za-z])(?:ไลน์|ไอดีไลน์|line\s*id|line|ig|ไอจี|เฟส|facebook|fb)(?![A-Za-z])\s*[:：]?\s*@?[\w.\-]+/gi, REDACTED],
     [/@[\w.\-]{2,}/g, REDACTED],                                       // any handle
     [/(?<!เ)(?:ชื่อเล่น|ชื่อจริง|ชื่อ|นามสกุล)\s*(?:คือ|ว่า)?\s*[^\s,.!?]+/g, REDACTED],  // (?<!เ): not "เชื่อ"
@@ -25,7 +44,7 @@ export function stripPII(input: string): string {
     [/(?:โรงเรียน|ร\.ร\.|รร\.|มหาวิทยาลัย|ม\.\s?[ก-๙A-Za-z]{2,}|วิทยาลัย)\s*[^\s,.!?]*/g, REDACTED],
     [/(?:บ้านเลขที่|เลขที่|หมู่บ้าน|หมู่ที่|ซอย|ซ\.|ถนน|ถ\.|ตำบล|ต\.|แขวง|อำเภอ|อ\.|เขต)\s*[^\s,.!?]+/g, REDACTED],
   ];
-  for (const [re, rep] of rules) s = s.replace(re, ` ${rep} `);
+  for (const [re, rep] of rules) s = replaceOnArabic(s, re, ` ${rep} `);
   return s.replace(new RegExp(`(?:${escape(REDACTED)}\\s*)+`, "g"), REDACTED + " ").replace(/\s+/g, " ").replace(/\s+([,.!?])/g, "$1").trim();
 }
 
