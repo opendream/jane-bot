@@ -1,5 +1,6 @@
 {
   "$comment": "Crisis-list false-positive probe v0 (synthetic, DRAFT, Thai review pending). 'harmless' items share words with the crisis list but describe no current danger to the user. 'hyperbole' items are everyday exaggeration: we keep them as crisis on purpose until the reviewer decides. 'crisis' items are near-misses that MUST still override (recall guard). 'heldout_*' items were written after tuning and never used to tune; they measure generalisation.",
+  "licence": "CC-BY-SA-4.0",
   "version": "0.1-draft",
   "harmless": [
     {

@@ -1,5 +1,6 @@
 {
   "$comment": "Keyword-poor paraphrases (synthetic, DRAFT, Thai review pending). Written to avoid the rule keywords, so they show what the on-device model adds over rules. 'intent' = the single best intent; 'ok' = other intents that are also acceptable.",
+  "licence": "CC-BY-SA-4.0",
   "version": "0.1-draft",
   "items": [
     { "id": "p01", "text": "เดือนนี้รอบมันเลื่อนไปนานแล้ว ใจไม่ดีเลย", "intent": "pregnancy" },
