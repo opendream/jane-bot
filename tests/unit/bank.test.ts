@@ -75,7 +75,9 @@ describe("bank rules: content", () => {
     expect(rules(withCard((c) => { c.variants_th = ["นี่คือข้อความทดสอบอีกแบบ"]; }))).not.toContain("key_facts");
   });
   it("every phone number must exist in services.json and the card must be flagged hotline", () => {
-    expect(rules(withCard((c) => { c.answer_th = "ข้อความทดสอบ โทร 1999"; }, 1))).toContain("phone_in_services");
+    const leaked = errors(withCard((c) => { c.answer_th = "ข้อความทดสอบ โทร 1999"; }, 1));
+    expect(leaked.map((e) => e.rule)).toContain("phone_in_services");
+    expect(leaked.find((e) => e.rule === "phone_in_services")?.msg).not.toContain("1999");
     expect(rules(withCard((c) => { c.answer_th = "ข้อความทดสอบ โทร 1323"; c.key_facts = []; }))).toContain("hotline_flag");
     expect(rules(withCard((c) => { c.answer_th = "ข้อความทดสอบ โทร ๑๖๖๓"; c.key_facts = []; }, 1))).toEqual([]); // Thai digits
   });
@@ -142,6 +144,8 @@ describe("bank text helpers", () => {
     expect(phonesIn("โทร 1663 หรือ ๑๓๒๓ หรือ 191")).toEqual(["1663", "1323", "191"]);
     expect(phonesIn("เวลา 10:00 ปี 2026 72 ชั่วโมง")).toEqual([]);
     expect(phonesIn("โทร 02-123-4567")).toEqual(["021234567"]);
+    expect(phonesIn("โทร 08-1234-5678 หรือ 0812-345-678 หรือ 0-2123-4567")).toEqual(["0812345678", "021234567"]);
+    expect(phonesIn("โทร ๐๘๑-๒๓๔-๕๖๗๘")).toEqual(["0812345678"]);
   });
   it("hoursIn normalises ranges", () => {
     expect(hoursIn("9.00-21.00 น.")).toEqual(["09:00–21:00"]);
