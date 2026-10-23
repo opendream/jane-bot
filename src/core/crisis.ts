@@ -9,7 +9,7 @@ import { findPhrases, normalize } from "./text";
  *  - "override": full-screen crisis card, the referral flow stops.
  *  - "banner":   the phrase appears only in a benign context (fiction/news/school topic, a mild qualifier,
  *                or "ไม่อยากอยู่แล้ว + place"). The referral flow continues, but a crisis strip with
- *                1323 / 1300 / 1669 / 191 stays on top. Nothing is ever hidden.
+ *                the matching helplines stays on top.
  * ALWAYS phrases (first-person desire to die, victim forms of sexual violence) override even in a benign context.
  */
 interface CategoryRules {
@@ -67,12 +67,15 @@ export const MILD_MARKERS = ["นิดหน่อย", "นิดนึง", "
 /** "ไม่อยากอยู่แล้ว" followed by a place/group = wants to move, not to die. */
 const PLACE_AFTER_NOT_WANT_STAY = /ไม่อยากอยู่แล้ว\s*(หอ|ห้อง|ที่นี่|บ้านนี้|บริษัท|โรงเรียน|ทีม|กลุ่ม|ชมรม|คณะ|ไลน์กลุ่ม)/;
 
+/** Helplines for a single-category crisis screen (owner ruling 23 Oct 2026). Mixed/unclear → all four. */
 export const CRISIS_PRIORITY: Record<CrisisCategory, readonly string[]> = {
-  self_harm: ["1323", "1669", "1300", "191"],
-  sexual_violence: ["1300", "191", "1669", "1323"],
-  violence_danger: ["191", "1300", "1669", "1323"],
-  medical_emergency: ["1669", "191", "1323", "1300"],
+  self_harm: ["1323", "1669"],
+  sexual_violence: ["191", "1300"],
+  violence_danger: ["1300", "191"],
+  medical_emergency: ["1669"],
 };
+
+const ALL_CRISIS_NUMBERS = ["1323", "1300", "1669", "191"];
 
 /**
  * Word-order-tolerant forms the phrase lists missed in e2e ("ถูกบังคับให้มีเซ็กส์").
@@ -112,8 +115,13 @@ export function detectCrisis(text: string): CrisisResult {
 }
 
 export function crisisOrder(categories: CrisisCategory[]): string[] {
-  const base = ["1323", "1300", "1669", "191"];
-  if (!categories.length) return base;
-  const first = CRISIS_PRIORITY[categories[0]];
-  return [...first, ...base.filter((n) => !first.includes(n))];
+  const unique = [...new Set(categories)];
+  if (unique.length !== 1) return [...ALL_CRISIS_NUMBERS];
+  return [...CRISIS_PRIORITY[unique[0]]];
+}
+
+/** Female-officer line is only on the sexual-violence screen, never on mixed/unclear or other categories. */
+export function showCrisisOfficerLine(categories: CrisisCategory[]): boolean {
+  const unique = [...new Set(categories)];
+  return unique.length === 1 && unique[0] === "sexual_violence";
 }

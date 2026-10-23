@@ -2,7 +2,7 @@ import "./styles.css";
 import { PRODUCT_NAME, PRODUCT_NAME_EN, MIN_AGE, THAI_COPY_STATUS } from "./config";
 import markSvg from "./assets/mark.svg?raw";
 import type { AgeBand, CrisisCategory, Intent, IntentResult } from "./core/types";
-import { detectCrisis, crisisOrder } from "./core/crisis";
+import { detectCrisis, crisisOrder, showCrisisOfficerLine } from "./core/crisis";
 import { suggestServices, CRISIS_LINES, DATA_VERSION, INTENT_LABEL_TH, SUPPORT_LINE_TH, serviceHoursLabel, type Suggestion } from "./core/referral";
 import { hoursLabel, hoursCitation } from "./core/openNow";
 import { draftSummary, finalizeSummary, stripPII } from "./core/summary";
@@ -339,7 +339,7 @@ function crisisScreen() {
     h("p", { class: "lead" }, "คุณไม่ได้อยู่คนเดียว มีคนพร้อมช่วยตอนนี้ กดที่เบอร์เพื่อโทรได้ทันที"),
     callList(order),
     state.crisisCategories.includes("sexual_violence") && h("p", {}, "ถ้าถูกล่วงละเมิดทางเพศ ไปที่ศูนย์พึ่งได้ (OSCC) ในโรงพยาบาลรัฐได้ ดูแลด้านการแพทย์ ให้คำปรึกษา และช่วยด้านสังคมและกฎหมาย"),
-    state.crisisCategories.includes("sexual_violence") && h("p", { "data-testid": "crisis-female-officer" }, "ถ้าจะแจ้งความเรื่องถูกล่วงละเมิดทางเพศ ผู้เสียหายที่เป็นผู้หญิงขอให้พนักงานสอบสวนหญิงเป็นผู้สอบปากคำได้"),
+    showCrisisOfficerLine(state.crisisCategories) && h("p", { "data-testid": "crisis-female-officer" }, "ถ้าจะแจ้งความเรื่องถูกล่วงละเมิดทางเพศ ผู้เสียหายที่เป็นผู้หญิงขอให้พนักงานสอบสวนหญิงเป็นผู้สอบปากคำได้"),
     h("p", {}, `ถ้ากำลังอยู่ในอันตรายตอนนี้ โทร 191 หรือ 1669 ทันที เรื่องท้องหรือเอชไอวี โทร 1663 ปรึกษาฟรี ${serviceHoursLabel("hotline_1663")} รวมวันหยุด`),
     h("p", { class: "src" }, "ที่มา: กรมสุขภาพจิต, กระทรวง พม., GCC Call Center ภาครัฐ, ศูนย์รับแจ้งเหตุ 191, สปสช. (1663), กระทรวงสาธารณสุข (ศูนย์พึ่งได้), สำนักงานตำรวจแห่งชาติ (สิทธิผู้เสียหาย) (ตรวจ 2026-10-23)"),
     h("button", { class: "btn-ghost", "data-testid": "crisis-continue", onclick: () => go({ screen: state.crisisFrom === "start" ? "start" : state.crisisFrom === "chat" && state.chat ? "chat" : "describe" }) },

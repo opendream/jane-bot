@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { open, shot, assertNoStorage, assertNetwork, startAs, citedHoursLines } from "./helpers";
+import { open, shot, assertNoStorage, assertNetwork, startAs, citedHoursLines, crisisCallHrefs } from "./helpers";
 
 // v2 chat, rules only (?model=off). All typed text is SYNTHETIC.
 async function openChat(page: Page, band = "15-17") {
@@ -46,6 +46,8 @@ test("CH2 crisis mid-chat (turn 3) → crisis screen, 1323 first; 'I'm safe now'
   await say(page, "ไม่อยากมีชีวิตอยู่แล้ว");
   await expect(page.getByTestId("screen-crisis")).toBeVisible();
   await expect(page.locator('[data-testid^="crisis-"]').first()).toHaveAttribute("data-testid", "crisis-1323");
+  expect(await crisisCallHrefs(page)).toEqual(["tel:1323", "tel:1669"]);
+  await expect(page.getByTestId("crisis-female-officer")).toHaveCount(0);
   await shot(page, "ch2-01-crisis-mid-chat");
   await page.getByTestId("crisis-continue").click();
   await expect(page.getByTestId("screen-chat")).toBeVisible();

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { open, shot, assertNoStorage, assertNetwork, startAs, describe, citedHoursLines, effectiveHoursLabel, serviceFromJson } from "./helpers";
+import { open, shot, assertNoStorage, assertNetwork, startAs, describe, citedHoursLines, effectiveHoursLabel, serviceFromJson, crisisCallHrefs } from "./helpers";
 
 test("S1 pregnancy worry at 19:00 BKK → 1663 (open) → edit → approve → DEMO handoff", async ({ page }) => {
   const rec = await open(page, "19:00");
@@ -113,7 +113,7 @@ test("S3 HIV test at 14:00 BKK → cancel, re-pick, approve", async ({ page }) =
   await assertNetwork(page, rec);
 });
 
-test("C1 crisis phrase overrides the flow → 1323 first, 1300/1669/191 tap-to-call; quick exit wipes", async ({ page }) => {
+test("C1 crisis phrase overrides the flow → 1323 then 1669 only; SOS (unclear) shows all four; quick exit wipes", async ({ page }) => {
   const rec = await open(page, "02:00");
   await startAs(page, "15-17");
   await describe(page, "ช่วงนี้ไม่อยากมีชีวิตอยู่แล้ว ท้องด้วย");
@@ -125,17 +125,18 @@ test("C1 crisis phrase overrides the flow → 1323 first, 1300/1669/191 tap-to-c
   await expect(page.getByTestId("screen-crisis")).toContainText(`โทร 1663 ปรึกษาฟรี ${effectiveHoursLabel("hotline_1663")} รวมวันหยุด`);
   await expect(page.getByTestId("crisis-female-officer")).toHaveCount(0);
   await expect(page.getByTestId("screen-suggest")).toHaveCount(0);
-  const order = await page.locator('[data-testid^="crisis-"] a').evaluateAll((as) => as.map((a) => a.getAttribute("href")));
-  expect(order[0]).toBe("tel:1323");
-  expect(new Set(order)).toEqual(new Set(["tel:1323", "tel:1300", "tel:1669", "tel:191"]));
+  const order = await crisisCallHrefs(page);
+  expect(order).toEqual(["tel:1323", "tel:1669"]);
   await shot(page, "c1-01-crisis-card");
 
-  // SOS button also reachable from any screen
+  // SOS button also reachable from any screen — empty categories = unclear = all four
   await page.getByTestId("crisis-continue").click();
   await expect(page.getByTestId("screen-describe")).toBeVisible();
   await expect(page.getByTestId("need-input")).toHaveValue("");
   await page.getByTestId("sos").click();
   await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  expect(await crisisCallHrefs(page)).toEqual(["tel:1323", "tel:1300", "tel:1669", "tel:191"]);
+  await expect(page.getByTestId("crisis-female-officer")).toHaveCount(0);
 
   await page.getByTestId("quick-exit").click();
   await expect(page.getByTestId("screen-neutral")).toBeVisible();

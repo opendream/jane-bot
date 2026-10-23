@@ -82,3 +82,8 @@ export async function describe(page: Page, text: string) {
   await page.getByTestId("need-input").fill(text);
 }
 
+/** Tap-to-call hrefs on the full crisis screen, in on-screen order (not the officer line). */
+export function crisisCallHrefs(page: Page) {
+  return page.locator('[data-testid="screen-crisis"] [data-testid^="crisis-"] a').evaluateAll((as) => as.map((a) => a.getAttribute("href")));
+}
+

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { detectCrisis, crisisOrder } from "../../src/core/crisis";
+import { detectCrisis, crisisOrder, showCrisisOfficerLine } from "../../src/core/crisis";
 import { CRISIS_LINES } from "../../src/core/referral";
 
 describe("crisis detection (runs before everything, no model)", () => {
@@ -25,13 +25,28 @@ describe("crisis detection (runs before everything, no model)", () => {
     expect(detectCrisis(text).crisis).toBe(false);
   });
 
-  it("crisis order puts the right line first and always shows all four", () => {
-    expect(crisisOrder(["self_harm"])[0]).toBe("1323");
-    expect(crisisOrder(["sexual_violence"])[0]).toBe("1300");
-    expect(crisisOrder(["violence_danger"])[0]).toBe("191");
-    expect(crisisOrder(["medical_emergency"])[0]).toBe("1669");
-    for (const c of ["self_harm", "sexual_violence", "violence_danger", "medical_emergency"] as const)
-      expect(new Set(crisisOrder([c]))).toEqual(new Set(["1323", "1300", "1669", "191"]));
+  it("each crisis screen lists only the helplines that fit it, in ruling order", () => {
+    expect(crisisOrder(["self_harm"])).toEqual(["1323", "1669"]);
+    expect(crisisOrder(["sexual_violence"])).toEqual(["191", "1300"]);
+    expect(crisisOrder(["violence_danger"])).toEqual(["1300", "191"]);
+    expect(crisisOrder(["medical_emergency"])).toEqual(["1669"]);
+  });
+
+  it("mixed or unclear (empty, or more than one category) shows all four", () => {
+    const all = ["1323", "1300", "1669", "191"];
+    expect(crisisOrder([])).toEqual(all);
+    expect(crisisOrder(["self_harm", "sexual_violence"])).toEqual(all);
+    expect(crisisOrder(["violence_danger", "medical_emergency"])).toEqual(all);
+    expect(crisisOrder(["self_harm", "sexual_violence", "violence_danger", "medical_emergency"])).toEqual(all);
+  });
+
+  it("officer line is only on the sexual-violence screen", () => {
+    expect(showCrisisOfficerLine(["sexual_violence"])).toBe(true);
+    expect(showCrisisOfficerLine(["self_harm"])).toBe(false);
+    expect(showCrisisOfficerLine(["violence_danger"])).toBe(false);
+    expect(showCrisisOfficerLine(["medical_emergency"])).toBe(false);
+    expect(showCrisisOfficerLine([])).toBe(false);
+    expect(showCrisisOfficerLine(["self_harm", "sexual_violence"])).toBe(false);
   });
 
   it("every crisis line in the data has tel: link and a source with a check date", () => {
