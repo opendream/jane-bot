@@ -41,6 +41,11 @@ test("C2 being forced (consent → crisis override) → crisis screen with 1300 
   const tels = await page.locator('[data-testid^="crisis-"] a').evaluateAll((as) => as.map((a) => a.getAttribute("href")));
   expect(tels[0]).toBe("tel:1300");
   expect(tels).toContain("tel:1323");
+  const officer = page.getByTestId("crisis-female-officer");
+  await expect(officer).toBeVisible();
+  await expect(officer).toContainText("ขอให้พนักงานสอบสวนหญิงเป็นผู้สอบปากคำได้");
+  expect(await officer.innerText()).not.toContain("191");
+  await expect(officer.locator("a[href='tel:191']")).toHaveCount(0);
   await shot(page, "c2-01-forced-crisis-1300-first");
   await assertNoStorage(page);
   await assertNetwork(page, rec);
@@ -80,6 +85,7 @@ test("C3 mental health + suicidal phrase → crisis override, 1323 first", async
   await expect(page.getByTestId("screen-crisis")).toBeVisible();
   const tels = await page.locator('[data-testid^="crisis-"] a').evaluateAll((as) => as.map((a) => a.getAttribute("href")));
   expect(tels[0]).toBe("tel:1323");
+  await expect(page.getByTestId("crisis-female-officer")).toHaveCount(0);
   await shot(page, "c3-01-mental-to-crisis");
   await assertNoStorage(page);
   await assertNetwork(page, rec);

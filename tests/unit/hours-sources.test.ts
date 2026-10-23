@@ -38,15 +38,15 @@ describe("narrowest window when sources disagree", () => {
 });
 
 describe("hours citations on the card", () => {
-  it("1663 cites operator first, then RSATHAI and NHSO, with no conflict", () => {
+  it("1663 cites สปสช. first, then PRD and RSATHAI, with no conflict", () => {
     const c = hoursCitation(svc("hotline_1663"));
     expect(c.conflict).toBe(false);
     expect(c.effective_th).toBe("ทุกวัน 09:00–21:00 น.");
     expect(c.conflict_note_th).toBeNull();
     expect(c.lines).toHaveLength(3);
-    expect(c.lines[0]).toMatch(/^ศูนย์วิจัยโรคเอดส์ สภากาชาดไทย:/);
-    expect(c.lines[1]).toMatch(/^RSATHAI:/);
-    expect(c.lines[2]).toMatch(/^NHSO:/);
+    expect(c.lines[0]).toMatch(/^สปสช\.:/);
+    expect(c.lines[1]).toMatch(/^กรมประชาสัมพันธ์/);
+    expect(c.lines[2]).toMatch(/^RSATHAI:/);
     for (const line of c.lines) expect(line).toContain("ทุกวัน 09:00–21:00 น.");
   });
   it("Teen Club 17–23 is labelled 'source 2022'", () => {

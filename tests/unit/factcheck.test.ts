@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import data from "../../src/data/services.json";
 import { PREFERENCE, SERVICES, suggestServices } from "../../src/core/referral";
-import { hoursLabel, isOpenAt, narrowestHours, openStatus } from "../../src/core/openNow";
+import { hoursCitation, hoursLabel, isOpenAt, narrowestHours, openStatus } from "../../src/core/openNow";
 import { preferredChannel } from "../../src/core/summary";
 
 const root = path.resolve(__dirname, "../..");
@@ -26,23 +26,13 @@ function windowsAround(text: string, needle: string, radius: number): string[] {
 }
 
 describe("fact-check (23 Oct 2026)", () => {
-  it("(a) 1663 is never a free call; user-facing copy names no operator", () => {
+  it("(a) 1663 is never a free call (โทรฟรี / สายฟรี / ฟรี 24)", () => {
     for (const f of scanned) {
       const text = read(f);
       for (const win of windowsAround(text, "1663", 40)) {
         expect(win, `${f}: ${win}`).not.toMatch(/โทรฟรี|สายฟรี|ฟรี 24/);
       }
     }
-    const s1663 = (data.services as any[]).find((s) => s.id === "hotline_1663")!;
-    expect(s1663.description_th).toContain("ปรึกษาฟรี");
-    expect(s1663.description_th).not.toMatch(/ศูนย์วิจัยโรคเอดส์|สภากาชาดไทย|โดย/);
-    const main = read("src/main.ts");
-    for (const line of main.split("\n").filter((l) => l.includes("ปรึกษาฟรี") && l.includes("1663"))) {
-      expect(line).not.toMatch(/ศูนย์วิจัยโรคเอดส์|สภากาชาดไทย|โดย/);
-    }
-    const srcLine = main.split("\n").find((l) => l.includes("ที่มา:") && l.includes("กรมสุขภาพจิต"));
-    expect(srcLine).toContain("สปสช. (NHSO)");
-    expect(srcLine).not.toMatch(/ศูนย์วิจัยโรคเอดส์|สภากาชาดไทย/);
   });
 
   it("(b) 1300 and ศูนย์พึ่งได้ are separate; OSCC has no phone or clock times", () => {
@@ -108,5 +98,47 @@ describe("fact-check (23 Oct 2026)", () => {
     expect(a.name_th).not.toContain("ศูนย์พึ่งได้");
     expect(b.name_th).toContain("ศูนย์พึ่งได้");
     expect(a.description_th).not.toContain("ศูนย์พึ่งได้");
+  });
+
+  it("(g) no 1663 string names an operator", () => {
+    const s1663 = (data.services as any[]).find((s) => s.id === "hotline_1663")!;
+    const blob = JSON.stringify(s1663);
+    expect(blob).not.toMatch(/สภากาชาด|เข้าถึงเอดส์/);
+    for (const line of hoursCitation(s1663).lines) expect(line).not.toMatch(/สภากาชาด|เข้าถึงเอดส์/);
+    const files = ["src/main.ts", "src/ui/chat.ts", "src/core/referral.ts", ...bankFiles];
+    for (const f of files) {
+      const text = read(f);
+      for (const win of windowsAround(text, "1663", 200)) {
+        expect(win, `${f}: ${win}`).not.toMatch(/สภากาชาด|เข้าถึงเอดส์/);
+      }
+    }
+  });
+
+  it("(h) female-officer line is ขอ…ได้, never with 191", () => {
+    const files = scanned;
+    let hits = 0;
+    for (const f of files) {
+      for (const line of read(f).split("\n")) {
+        if (!/พนักงานสอบสวนหญิง/.test(line)) continue;
+        hits += 1;
+        expect(line, f).toMatch(/ขอ.{0,40}ได้/);
+        expect(line, f).not.toContain("191");
+        expect(line, f).not.toMatch(/รับประกัน|ต้องได้|มีสิทธิ์?ได้แน่/);
+      }
+    }
+    expect(hits).toBeGreaterThan(0);
+    const cri12 = read("src/main.ts").split("\n").find((l) => l.includes("พนักงานสอบสวนหญิง"));
+    expect(cri12).toBeTruthy();
+    expect(cri12).toContain("data-testid");
+    expect(cri12).not.toContain("191");
+    expect(cri12).not.toContain("tel:191");
+  });
+
+  it("(i) 1300 is พม. 24 h every day and never ศูนย์พึ่งได้", () => {
+    const s1300 = (data.services as any[]).find((s) => s.id === "hotline_1300")!;
+    const c1300 = (data.crisis_lines as any[]).find((s) => s.id === "crisis_1300")!;
+    expect(s1300.description_th).toContain("24 ชั่วโมง ทุกวัน");
+    expect(JSON.stringify(s1300)).not.toContain("ศูนย์พึ่งได้");
+    expect(JSON.stringify(c1300)).not.toContain("ศูนย์พึ่งได้");
   });
 });
