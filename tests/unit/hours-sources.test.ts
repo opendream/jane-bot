@@ -28,23 +28,26 @@ describe("narrowest window when sources disagree", () => {
     expect(narrowestHours([d("08:00", "10:00"), d("12:00", "18:00")])).toEqual(d("08:00", "10:00"));
     expect(narrowestHours([d("20:00", "02:00"), d("18:00", "23:00")])).toEqual(d("18:00", "23:00"));
   });
-  it("1663 open-now uses 10:00–20:00 (GCC) not 09:00–21:00 (RSATHAI)", () => {
-    expect(svc("hotline_1663").hours).toEqual(d("10:00", "20:00"));
-    expect(openStatus(svc("hotline_1663").hours, bkk("09:30")).state).toBe("closed");
-    expect(openStatus(svc("hotline_1663").hours, bkk("20:30")).state).toBe("closed");
-    expect(openStatus(svc("hotline_1663").hours, bkk("15:00")).state).toBe("open");
+  it("1663 open-now uses 09:00–21:00 (operator / RSATHAI / NHSO agree)", () => {
+    expect(svc("hotline_1663").hours).toEqual(d("09:00", "21:00"));
+    expect(openStatus(svc("hotline_1663").hours, bkk("08:59")).state).toBe("closed");
+    expect(openStatus(svc("hotline_1663").hours, bkk("09:00")).state).toBe("open");
+    expect(openStatus(svc("hotline_1663").hours, bkk("20:59")).state).toBe("open");
+    expect(openStatus(svc("hotline_1663").hours, bkk("21:00")).state).toBe("closed");
   });
 });
 
 describe("hours citations on the card", () => {
-  it("1663 cites both sources and flags the conflict", () => {
+  it("1663 cites operator first, then RSATHAI and NHSO, with no conflict", () => {
     const c = hoursCitation(svc("hotline_1663"));
-    expect(c.conflict).toBe(true);
-    expect(c.effective_th).toBe("ทุกวัน 10:00–20:00 น.");
-    expect(c.conflict_note_th).toContain("ช่วงเวลาที่แคบกว่า");
-    expect(c.lines).toHaveLength(2);
-    expect(c.lines[0]).toBe("RSATHAI: ทุกวัน 09:00–21:00 น. · rsathai.org/qrcode · ตรวจ 2026-10-22");
-    expect(c.lines[1]).toMatch(/^GCC Call Center ภาครัฐ: ทุกวัน 10:00–20:00 น\. \(source 2025\) · gcontact\.gcc\.go\.th\/index\.php · ตรวจ 2026-10-22$/);
+    expect(c.conflict).toBe(false);
+    expect(c.effective_th).toBe("ทุกวัน 09:00–21:00 น.");
+    expect(c.conflict_note_th).toBeNull();
+    expect(c.lines).toHaveLength(3);
+    expect(c.lines[0]).toMatch(/^ศูนย์วิจัยโรคเอดส์ สภากาชาดไทย:/);
+    expect(c.lines[1]).toMatch(/^RSATHAI:/);
+    expect(c.lines[2]).toMatch(/^NHSO:/);
+    for (const line of c.lines) expect(line).toContain("ทุกวัน 09:00–21:00 น.");
   });
   it("Teen Club 17–23 is labelled 'source 2022'", () => {
     const c = hoursCitation(svc("teen_club"));

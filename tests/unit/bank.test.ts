@@ -83,8 +83,8 @@ describe("bank rules: content", () => {
   });
   it("hours must match a cited source for a contact on the card", () => {
     const h = (t: string) => withCard((c) => { c.answer_th = t; c.key_facts = []; c.flags = [...c.flags, "hours"]; }, 1);
-    expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09:00–21:00 น."))).toEqual([]);            // RSATHAI
-    expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 10.00-20.00 น."))).toEqual([]);             // GCC
+    expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09:00–21:00 น."))).toEqual([]);            // operator / RSATHAI / NHSO
+    expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 10.00-20.00 น."))).toContain("hours_match_source");
     expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 08:00–22:00 น."))).toContain("hours_match_source");
     expect(rules(h("ข้อความทดสอบ โทร 1323 ได้ 24 ชั่วโมง"))).toEqual([]);
     expect(rules(h("ข้อความทดสอบ โทร 1663 ได้ 24 ชั่วโมง"))).toContain("hours_match_source");

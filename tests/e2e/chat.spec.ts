@@ -1,7 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import fs from "node:fs";
-import path from "node:path";
-import { open, shot, assertNoStorage, assertNetwork, startAs } from "./helpers";
+import { open, shot, assertNoStorage, assertNetwork, startAs, citedHoursLines } from "./helpers";
 
 // v2 chat, rules only (?model=off). All typed text is SYNTHETIC.
 async function openChat(page: Page, band = "15-17") {
@@ -96,11 +94,6 @@ test("CH5 10-turn chat: zero requests, nothing stored, transcript capped at 20 m
 });
 
 /* ---------------- in-chat referral (PR5). Expected hours come from services.json, not from the page. ---------------- */
-const SERVICES = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "src/data/services.json"), "utf8"));
-function citedLines(id: string): string[] {
-  const s = SERVICES.services.find((x: any) => x.id === id);
-  return s.hours_sources.filter((h: any) => h.hours.type === "daily").map((h: any) => `${h.by}: ทุกวัน ${h.hours.open}–${h.hours.close} น.`);
-}
 const EC_TEXT = "ถุงยางรั่ว คุมฉุกเฉินทันไหม"; // SYNTHETIC
 
 test("CH6 chat referral: offer → service cards (hours match services.json) → summary from her last message → approve → DEMO handoff", async ({ page }) => {
@@ -117,7 +110,7 @@ test("CH6 chat referral: offer → service cards (hours match services.json) →
   expect(await cards.count()).toBeLessThanOrEqual(3);
   for (const id of ["hotline_1663", "teen_club"]) {
     await expect(page.getByTestId(`service-${id}`)).toBeVisible();
-    for (const line of citedLines(id)) await expect(page.getByTestId(`hours-${id}`)).toContainText(line);
+    for (const line of citedHoursLines(id)) await expect(page.getByTestId(`hours-${id}`)).toContainText(line);
   }
   await expect(page.getByTestId("retell")).toHaveAttribute("data-to", "chat");
   await shot(page, "ch6-02-cards");

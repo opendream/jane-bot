@@ -28,6 +28,16 @@
             "open": "09:00",
             "close": "21:00"
           },
+          "by": "ศูนย์วิจัยโรคเอดส์ สภากาชาดไทย",
+          "url": "https://th.aidsid.or.th/consulting-service/",
+          "checked": "2026-10-22"
+        },
+        {
+          "hours": {
+            "type": "daily",
+            "open": "09:00",
+            "close": "21:00"
+          },
           "by": "RSATHAI",
           "url": "https://rsathai.org/qrcode",
           "checked": "2026-10-22"
@@ -35,12 +45,11 @@
         {
           "hours": {
             "type": "daily",
-            "open": "10:00",
-            "close": "20:00"
+            "open": "09:00",
+            "close": "21:00"
           },
-          "by": "GCC Call Center ภาครัฐ",
-          "url": "https://gcontact.gcc.go.th/index.php?Itemid=30&id=40609&option=com_content&view=article",
-          "as_of": "2025",
+          "by": "NHSO",
+          "url": "https://www.nhso.go.th/th/communicate-th/thnewsforperson/2025-09-03-07-16-57",
           "checked": "2026-10-22"
         }
       ],
@@ -54,15 +63,19 @@
       "verification": "verified",
       "sources": [
         {
+          "url": "https://th.aidsid.or.th/consulting-service/",
+          "title": "ศูนย์วิจัยโรคเอดส์ สภากาชาดไทย (AIDSID): สายด่วนปรึกษาเอดส์ โทร 1663 ทุกวันไม่เว้นวันหยุดราชการ 9.00–21.00 น.",
+          "checked": "2026-10-22"
+        },
+        {
           "url": "https://rsathai.org/qrcode",
           "title": "RSATHAI: ปรึกษาท้องไม่พร้อมที่ไหนได้บ้าง (โทร 1663 ทุกวัน 9.00–21.00 น.; แชทเฟซบุ๊ก 1663 9.00–21.00 น.)",
           "checked": "2026-10-22"
         },
         {
-          "url": "https://gcontact.gcc.go.th/index.php?Itemid=30&id=40609&option=com_content&view=article",
-          "title": "GCC Call Center ภาครัฐ (last update 2025-11-14) lists 1663 as 10.00–20.00 daily, operator Thai Red Cross AIDS Research Centre",
-          "checked": "2026-10-22",
-          "note": "CONFLICT with RSATHAI hours (09:00–21:00). No phone check (Keng, 22 Oct 19:53 BKK): open-now uses the narrower window 10:00–20:00 and the card cites both."
+          "url": "https://www.nhso.go.th/th/communicate-th/thnewsforperson/2025-09-03-07-16-57",
+          "title": "สปสช. (NHSO): สายด่วนปรึกษาเอดส์ 1663 กด 1 เปิดให้บริการทุกวัน เวลา 09.00–21.00 น.",
+          "checked": "2026-10-22"
         }
       ]
     },
