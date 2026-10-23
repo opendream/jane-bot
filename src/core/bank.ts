@@ -1,6 +1,9 @@
 import type { Intent } from "./types";
 import { VALID_INTENTS } from "../llm/adapter";
 import { stripPII } from "./summary";
+// Shared with the Node guard (plain JS). Phone matching blanks clock times first.
+// @ts-ignore
+import { findPII, findPhoneSpans, scrubPII, REDACTED } from "../../scripts/bank/pii-patterns.mjs";
 
 /* ------------------------------------------------------------------------------------------
  * Answer bank (build plan v2 §1). One JSON file per topic under src/data/bank/.
@@ -77,7 +80,10 @@ export function phonesIn(text: string): string[] {
   const t = toArabic(text);
   const out = new Set<string>();
   for (const m of t.matchAll(/(?<![\d:.\-])(1\d{2,3})(?![\d:.\-])/g)) out.add(m[1]);
-  for (const m of t.matchAll(/(?<!\d)(?:\+?66[\s.\-]*0?[\s.\-]*|0[\s.\-]*)\d(?:[\s.\-]*\d){7,8}(?!\d)/g)) out.add(m[0].replace(/\D/g, ""));
+  for (const span of findPhoneSpans(text)) {
+    const digits = toArabic(span).replace(/\D/g, "");
+    if (digits) out.add(digits);
+  }
   return [...out];
 }
 
@@ -108,9 +114,9 @@ const isStrArr = (x: unknown): x is string[] => Array.isArray(x) && x.every(isSt
 
 /** Shape check for one card. Returns errors only (no cross-card rules). */
 export function checkShape(c: any): Issue[] {
-  const id = isStr(c?.id) ? c.id : "(no id)";
+  const id = safeCardId(c?.id);
   const out: Issue[] = [];
-  const err = (rule: string, msg: string) => out.push({ level: "error", card: id, rule, msg });
+  const err = (rule: string, msg: string) => out.push({ level: "error", card: id, rule, msg: safeMsg(msg) });
   if (!c || typeof c !== "object") { err("shape", "card is not an object"); return out; }
   if (!isStr(c.id) || !ID_RE.test(c.id)) err("id", `id must match topic.slug.nnn (${ID_RE})`);
   if (!BANK_TOPICS.includes(c.topic)) err("topic", `topic must be one of ${BANK_TOPICS.join(", ")}`);
@@ -137,9 +143,57 @@ export function checkShape(c: any): Issue[] {
   return out;
 }
 
-/** Every user-visible string on a card. */
+/** Every user-visible string on a card (shown or spoken), including key facts and triggers. */
 export function visibleStrings(c: BankCard): string[] {
-  return [c.title_th, c.answer_th, ...(c.variants_th ?? []), ...c.next.map((n) => n.label_th), ...c.links.map((l) => l.label_th)];
+  return [
+    c.title_th, c.answer_th, ...(c.variants_th ?? []),
+    ...c.key_facts, ...c.triggers,
+    ...c.next.map((n) => n.label_th),
+    ...c.links.map((l) => l.label_th),
+  ];
+}
+
+const USER_FACING_KEYS = new Set([
+  "title_th", "answer_th", "variants_th", "key_facts", "triggers", "label_th",
+  "question", "question_th", "choices", "choice_th", "prompt_th", "hint_th", "body_th", "text_th",
+]);
+const CONTACT_PII = new Set(["phone", "email", "national_id", "line_id", "handle", "facebook", "fb_cdn_image"]);
+
+function pathKey(seg: string): string {
+  return seg.replace(/\[\d+\]/g, "");
+}
+
+function isUserFacingPath(p: string): boolean {
+  return p.split(".").some((seg) => {
+    const k = pathKey(seg);
+    return USER_FACING_KEYS.has(k) || k.endsWith("_th");
+  });
+}
+
+/** Every string (and number-as-string) on a value, with a JSON path. Used so new card fields are scanned automatically. */
+export function* walkStrings(v: unknown, p = "$"): Generator<{ path: string; value: string }> {
+  if (typeof v === "string") yield { path: p, value: v };
+  else if (typeof v === "number" || typeof v === "bigint") yield { path: p, value: String(v) };
+  else if (Array.isArray(v)) for (let i = 0; i < v.length; i++) yield* walkStrings(v[i], `${p}[${i}]`);
+  else if (v && typeof v === "object") {
+    for (const [k, x] of Object.entries(v as Record<string, unknown>)) yield* walkStrings(x, `${p}.${k}`);
+  }
+}
+
+function safeCardId(id: unknown): string {
+  if (!isStr(id) || !id) return "(no id)";
+  return Object.keys(findPII(id)).length ? "[redacted]" : id;
+}
+
+function safeMsg(msg: string): string {
+  return scrubPII(msg).text.split(REDACTED).join("[redacted]");
+}
+
+function safePath(p: string): string {
+  return p.split(".").map((seg) => {
+    const inner = seg.replace(/\[\d+\]/g, "");
+    return Object.keys(findPII(inner)).length ? seg.replace(inner, "[redacted]") : seg;
+  }).join(".");
 }
 
 function monthsBetween(a: string, b: string): number {
@@ -153,7 +207,8 @@ function monthsBetween(a: string, b: string): number {
  */
 export function validateBank(cards: BankCard[], ctx: BankContext): Issue[] {
   const issues: Issue[] = [];
-  const add = (level: Issue["level"], card: string, rule: string, msg: string) => issues.push({ level, card, rule, msg });
+  const add = (level: Issue["level"], card: string, rule: string, msg: string) =>
+    issues.push({ level, card: safeCardId(card), rule, msg: safeMsg(msg) });
   const shapeOk = new Set<BankCard>();
   for (const c of cards) { const s = checkShape(c); issues.push(...s); if (!s.length) shapeOk.add(c); }
   const ids = new Map<string, number>();
@@ -162,10 +217,14 @@ export function validateBank(cards: BankCard[], ctx: BankContext): Issue[] {
 
   for (const c of cards) {
     if (!shapeOk.has(c)) continue;
-    const text = [c.answer_th, ...(c.variants_th ?? [])];
-    for (const n of c.next) if (!ids.has(n.card_id)) add("error", c.id, "next_exists", `next → ${n.card_id} does not exist`);
-    for (const f of c.key_facts) if (!c.answer_th.includes(f)) add("error", c.id, "key_facts", `key fact "${f}" is not in answer_th`);
-    for (const v of c.variants_th ?? []) for (const f of c.key_facts) if (!v.includes(f)) add("error", c.id, "key_facts", `a variant drops key fact "${f}"`);
+    const text = [c.answer_th, ...(c.variants_th ?? []), ...c.key_facts, ...c.triggers];
+    for (let i = 0; i < c.next.length; i++) if (!ids.has(c.next[i].card_id)) add("error", c.id, "next_exists", `next[${i}] target does not exist`);
+    for (let i = 0; i < c.key_facts.length; i++) if (!c.answer_th.includes(c.key_facts[i])) add("error", c.id, "key_facts", `key fact at key_facts[${i}] is not in answer_th`);
+    for (let vi = 0; vi < (c.variants_th ?? []).length; vi++) {
+      for (let i = 0; i < c.key_facts.length; i++) {
+        if (!(c.variants_th as string[])[vi].includes(c.key_facts[i])) add("error", c.id, "key_facts", `variant variants_th[${vi}] drops key fact at key_facts[${i}]`);
+      }
+    }
     // Phones: every number shown must be a real, cited one.
     const phones = new Set(text.flatMap(phonesIn));
     for (const p of phones) if (!ctx.phones.has(p)) add("error", c.id, "phone_in_services", `phone …${p.slice(-2)} is not in services.json`);
@@ -200,13 +259,26 @@ export function validateBank(cards: BankCard[], ctx: BankContext): Issue[] {
       else if (IMAGE_EXT.test(l.url)) add("error", c.id, "link_image", "image links are not allowed");
       else if (!ctx.linkHosts.has(host)) add("error", c.id, "link_allowlist", host ? `link host ${host} is not on the allow-list` : "link URL is not on the allow-list");
     }
-    for (const t of visibleStrings(c)) if (urlsIn(t).length) add("error", c.id, "no_url_in_text", "URLs go in links[], not in the text");
-    // PII: stripPII must leave every visible string unchanged (handles already public in services.json are allowed).
-    for (const t of visibleStrings(c)) {
-      let masked = t;
-      for (const hnd of ctx.handles) masked = masked.split(hnd).join("");
-      const norm = masked.replace(/\s+/g, " ").trim();
-      if (stripPII(masked) !== norm) add("error", c.id, "pii", "text changes under stripPII (looks like PII)");
+    for (const { path, value } of walkStrings(c)) {
+      if (/\.url$/.test(path) || path === "$.id") continue;
+      if (urlsIn(value).length) add("error", c.id, "no_url_in_text", `URL in ${safePath(path)}`);
+    }
+    // PII: every string field is scanned. User-facing copy uses the full detector + stripPII;
+    // metadata/citation fields only report contact PII (phone, email, id, handle, facebook).
+    const handles = [...ctx.handles];
+    for (const { path, value } of walkStrings(c)) {
+      const hits = findPII(value, { allowHandles: handles }) as Record<string, string[]>;
+      const user = isUserFacingPath(path);
+      for (const cat of Object.keys(hits)) {
+        if (!user && !CONTACT_PII.has(cat)) continue;
+        add("error", c.id, "pii", `PII (${cat}) in ${safePath(path)}`);
+      }
+      if (user) {
+        let masked = value;
+        for (const hnd of ctx.handles) masked = masked.split(hnd).join("");
+        const norm = masked.replace(/\s+/g, " ").trim();
+        if (stripPII(masked) !== norm) add("error", c.id, "pii", `text at ${safePath(path)} changes under stripPII`);
+      }
     }
     if (c.last_reviewed && ctx.today && monthsBetween(c.last_reviewed, ctx.today) > STALE_MONTHS) add("warning", c.id, "stale", `last reviewed ${c.last_reviewed}`);
     if (c.referral.offer !== "none" && !c.referral.intents.length) add("error", c.id, "referral_intents", "a referral offer needs at least one intent");
