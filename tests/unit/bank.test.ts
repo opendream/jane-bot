@@ -4,7 +4,7 @@ import {
   validateBank, checkShape, phonesIn, hoursIn, urlsIn, shippable, ageAllowed, cardsFromFiles, BANK_TOPICS,
   type BankCard,
 } from "../../src/core/bank";
-import { bankContext, BANK } from "../../src/core/bankData";
+import { bankContext, BANK, isProductionBankFile } from "../../src/core/bankData";
 import { THAI_COPY_STATUS } from "../../src/config";
 
 // All card text here is SYNTHETIC test data written for these tests.
@@ -73,6 +73,10 @@ describe("bank rules: content", () => {
     expect(rules(withCard((c) => { c.key_facts = ["ไม่มีในข้อความ"]; }))).toContain("key_facts");
     expect(rules(withCard((c) => { c.variants_th = ["ทดสอบแบบอื่น"]; }))).toContain("key_facts");
     expect(rules(withCard((c) => { c.variants_th = ["นี่คือข้อความทดสอบอีกแบบ"]; }))).not.toContain("key_facts");
+    const planted = "0891112222";
+    const leaked = errors(withCard((c) => { c.key_facts = [planted]; }));
+    expect(leaked.map((e) => e.rule)).toEqual(expect.arrayContaining(["key_facts", "pii"]));
+    expect(leaked.map((e) => `${e.card} ${e.msg}`).join("\n")).not.toContain(planted);
   });
   it("every phone number must exist in services.json and the card must be flagged hotline", () => {
     const leaked = errors(withCard((c) => { c.answer_th = "ข้อความทดสอบ โทร 1999"; }, 1));
@@ -83,8 +87,11 @@ describe("bank rules: content", () => {
   });
   it("hours must match a cited source for a contact on the card", () => {
     const h = (t: string) => withCard((c) => { c.answer_th = t; c.key_facts = []; c.flags = [...c.flags, "hours"]; }, 1);
+<<<<<<< HEAD
     expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09:00–21:00 น."))).toEqual([]);            // operator / RSATHAI / NHSO
     expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 10.00-20.00 น."))).toContain("hours_match_source");
+    expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09.00-21.00 09:00–21:00"))).toEqual([]);    // back-to-back dotted + colon ranges are not phones
+    expect(rules(h("ข้อความทดสอบ โทร ๑๖๖๓ เวลา ๐๙.๐๐–๒๑.๐๐ น."))).toEqual([]);           // Thai digits
     expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 08:00–22:00 น."))).toContain("hours_match_source");
     expect(rules(h("ข้อความทดสอบ โทร 1323 ได้ 24 ชั่วโมง"))).toEqual([]);
     expect(rules(h("ข้อความทดสอบ โทร 1663 ได้ 24 ชั่วโมง"))).toContain("hours_match_source");
@@ -146,6 +153,8 @@ describe("bank text helpers", () => {
     expect(phonesIn("โทร 02-123-4567")).toEqual(["021234567"]);
     expect(phonesIn("โทร 08-1234-5678 หรือ 0812-345-678 หรือ 0-2123-4567")).toEqual(["0812345678", "021234567"]);
     expect(phonesIn("โทร ๐๘๑-๒๓๔-๕๖๗๘")).toEqual(["0812345678"]);
+    expect(phonesIn("โทร 1663 เวลา 09.00-21.00 10.00-20.00")).toEqual(["1663"]);
+    expect(phonesIn("เวลา ๐๙.๐๐–๒๑.๐๐ ๑๐.๐๐-๒๐.๐๐")).toEqual([]);
   });
   it("hoursIn normalises ranges", () => {
     expect(hoursIn("9.00-21.00 น.")).toEqual(["09:00–21:00"]);
@@ -166,5 +175,12 @@ describe("bundled bank (src/data/bank)", () => {
   it("validates with no errors under the current THAI_COPY_STATUS", () => {
     const c = bankContext(undefined, THAI_COPY_STATUS, new Date().toISOString().slice(0, 10));
     expect(validateBank(BANK, c).filter((i) => i.level === "error")).toEqual([]);
+  });
+  it("excludes fixture and test files from BANK", () => {
+    expect(isProductionBankFile("../data/bank/pii-gate-fixture.json")).toBe(false);
+    expect(isProductionBankFile("../data/bank/fixture.json")).toBe(false);
+    expect(isProductionBankFile("../data/bank/quiz.json")).toBe(false);
+    expect(isProductionBankFile("../data/bank/placeholder.json")).toBe(true);
+    expect(BANK.every((c) => !/fixture|piigate|pii-gate/i.test(c.id))).toBe(true);
   });
 });
