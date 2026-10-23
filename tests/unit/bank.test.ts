@@ -201,7 +201,9 @@ describe("bundled bank (src/data/bank)", () => {
     expect(legal.startsWith("Attribution-ShareAlike 4.0 International")).toBe(true);
     const notice = fs.readFileSync(path.resolve(__dirname, "../../src/data/bank/NOTICE"), "utf8");
     expect(notice).toContain("Opendream");
+    expect(notice).not.toContain("OpenDream");
     expect(notice).toMatch(/CC BY-SA 4\.0|CC-BY-SA-4.0/);
+    expect(notice).toContain("Judies, Opendream 2017");
   });
   it("excludes fixture and test files from BANK", () => {
     expect(isProductionBankFile("../data/bank/pii-gate-fixture.json")).toBe(false);

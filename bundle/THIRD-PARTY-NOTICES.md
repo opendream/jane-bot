@@ -5,4 +5,4 @@
 - **WebLLM** (@mlc-ai/web-llm 0.2.86) © MLC-AI: Apache-2.0. Bundled in `dist/assets`. WebGPU model libraries from github.com/mlc-ai/binary-mlc-llm-libs, downloaded at run time. That repo declares **no licence** on GitHub (checked 22 Oct 2026); they are compiled outputs of Apache-2.0 MLC/TVM. Clear this before any public release.
 - **wllama** (@wllama/wllama 3.8.1) © ngxson: MIT. Bundled in `dist/assets` (includes llama.cpp, © ggml authors, MIT).
 - **Typhoon** models are *not* used (OpenTyphoon terms pending review).
-- **Answer-bank text** (cards compiled into `dist/assets`): CC BY-SA 4.0, attribution Opendream. Full legal code in `bank/LICENSE`; coverage and attribution in `bank/NOTICE`. The application code remains Apache-2.0 (`LICENSE` at the zip root).
+- **Answer-bank text** (cards compiled into `dist/assets`): CC BY-SA 4.0, attribution Opendream. Full legal code in `bank/LICENSE`; coverage and attribution in `bank/NOTICE`. Quiz content is adapted from 'Judies, Opendream 2017' (Opendream owns Judies and relicenses its quiz content under CC BY-SA 4.0). The application code remains Apache-2.0 (`LICENSE` at the zip root).
