@@ -77,7 +77,7 @@ export function phonesIn(text: string): string[] {
   const t = toArabic(text);
   const out = new Set<string>();
   for (const m of t.matchAll(/(?<![\d:.\-])(1\d{2,3})(?![\d:.\-])/g)) out.add(m[1]);
-  for (const m of t.matchAll(/(?<!\d)(?:\+?66[\s-]?|0)\d{1,2}[\s-]?\d{3}[\s-]?\d{3,4}(?!\d)/g)) out.add(m[0].replace(/\D/g, ""));
+  for (const m of t.matchAll(/(?<!\d)(?:\+?66[\s.\-]*0?[\s.\-]*|0[\s.\-]*)\d(?:[\s.\-]*\d){7,8}(?!\d)/g)) out.add(m[0].replace(/\D/g, ""));
   return [...out];
 }
 
@@ -168,7 +168,7 @@ export function validateBank(cards: BankCard[], ctx: BankContext): Issue[] {
     for (const v of c.variants_th ?? []) for (const f of c.key_facts) if (!v.includes(f)) add("error", c.id, "key_facts", `a variant drops key fact "${f}"`);
     // Phones: every number shown must be a real, cited one.
     const phones = new Set(text.flatMap(phonesIn));
-    for (const p of phones) if (!ctx.phones.has(p)) add("error", c.id, "phone_in_services", `phone ${p} is not in services.json`);
+    for (const p of phones) if (!ctx.phones.has(p)) add("error", c.id, "phone_in_services", `phone …${p.slice(-2)} is not in services.json`);
     if (phones.size && !c.flags.includes("hotline")) add("error", c.id, "hotline_flag", "card shows a phone number but is not flagged 'hotline'");
     // Hours: a time range must match what services.json cites for a contact on the same card.
     const hours = new Set(text.flatMap(hoursIn));
@@ -198,7 +198,7 @@ export function validateBank(cards: BankCard[], ctx: BankContext): Issue[] {
       const host = hostOf(l.url);
       if (SHORTENERS.includes(host)) add("error", c.id, "link_shortener", `shortened link ${host}`);
       else if (IMAGE_EXT.test(l.url)) add("error", c.id, "link_image", "image links are not allowed");
-      else if (!ctx.linkHosts.has(host)) add("error", c.id, "link_allowlist", `link host ${host || l.url} is not on the allow-list`);
+      else if (!ctx.linkHosts.has(host)) add("error", c.id, "link_allowlist", host ? `link host ${host} is not on the allow-list` : "link URL is not on the allow-list");
     }
     for (const t of visibleStrings(c)) if (urlsIn(t).length) add("error", c.id, "no_url_in_text", "URLs go in links[], not in the text");
     // PII: stripPII must leave every visible string unchanged (handles already public in services.json are allowed).

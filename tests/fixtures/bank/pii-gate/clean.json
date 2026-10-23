@@ -1,0 +1,26 @@
+{
+  "$comment": "SYNTHETIC clean fixture for the PII guard scan. Not ThaiHealth content.",
+  "topic_file": "pii_gate_clean",
+  "cards": [
+    {
+      "id": "fixture.piigate.000",
+      "topic": "general",
+      "title_th": "ทดสอบเกตสะอาด",
+      "answer_th": "PLACEHOLDER · ข้อความทดสอบสะอาด ไม่มีข้อมูลส่วนตัว",
+      "key_facts": ["ข้อความทดสอบสะอาด"],
+      "triggers": [],
+      "next": [],
+      "source_intents": [],
+      "source": [],
+      "review": { "status": "draft", "reviewer": null, "reviewed_on": null },
+      "last_reviewed": null,
+      "flags": ["pii_checked"],
+      "referral": { "offer": "none", "intents": [] },
+      "links": [],
+      "age_min": 15,
+      "reword": false,
+      "licence": "PLACEHOLDER: written for this build, not ThaiHealth content; licence TBD",
+      "placeholder": true
+    }
+  ]
+}
