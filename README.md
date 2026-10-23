@@ -4,7 +4,7 @@ Private prototype. Not published, no remote, no deploy.
 
 ## Licence
 
-The **code** is under the Apache License 2.0 (see the root `LICENSE`). The **answer-bank text** (cards under `src/data/bank/`) is separately licensed CC BY-SA 4.0 (see `src/data/bank/LICENSE`).
+The **code** is under the Apache License 2.0 (see the root `LICENSE`). The **answer-bank text** (cards under `src/data/bank/`) and the **eval question set** (`evals/` item files) are separately licensed CC BY-SA 4.0 (see `src/data/bank/LICENSE` and `evals/LICENSE`; attribution Opendream).
 Name: **พี่เจน** (Thai) / **Jane** (English), `PRODUCT_NAME` / `PRODUCT_NAME_EN` in `src/config.ts` (Keng, 22 Oct 19:49 BKK).
 Art: new mark only (`src/assets/mark.svg`, drawn in code for this build; also the favicon). Never use the 2019 Jane art. Minimum age: `MIN_AGE` (default 15).
 **All Thai copy and the crisis phrase list are DRAFT** until a Thai SRH/safety reviewer signs off.

@@ -59,6 +59,21 @@ export function checkBankTextLicence(cards: BankCard[]): Issue[] {
     .map((c) => ({ level: "error" as const, card: isStr(c?.id) ? c.id : "(no id)", rule: "licence", msg: `licence must be ${BANK_TEXT_LICENCE}` }));
 }
 
+/** Eval question-set JSON files (46-item seed+paraphrase, plus the crisis FP probe). */
+export const EVAL_ITEM_FILES = [
+  "evals/seed-set.json",
+  "evals/paraphrase-set.json",
+  "evals/crisis-fp-set.json",
+] as const;
+
+/** File-level licence on an eval item JSON (mirrors BankFile.licence). Missing / wrong value fails. */
+export function checkEvalTextLicence(file: { licence?: unknown } | null | undefined, name = "eval"): Issue[] {
+  if (typeof file?.licence !== "string" || file.licence !== BANK_TEXT_LICENCE) {
+    return [{ level: "error", card: name, rule: "licence", msg: `licence must be ${BANK_TEXT_LICENCE}` }];
+  }
+  return [];
+}
+
 export interface BankFile { $comment?: string; topic_file: string; licence?: string; cards: BankCard[] }
 
 export const LIMITS = { title_th: 40, answer_th: 400 } as const;
