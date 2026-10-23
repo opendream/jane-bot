@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { open, shot, assertNoStorage, assertNetwork, startAs } from "./helpers";
+import { open, viewportShot, assertHeaderDoesNotOverlap, assertNoStorage, assertNetwork, startAs } from "./helpers";
 
 const ART_CREDIT = "Illustration © Opendream, 2018";
 const CDN = /fonts\.googleapis|fonts\.gstatic|gstatic\.com|googleapis\.com|cdnjs|jsdelivr|unpkg|cloudinary|imgur|fbcdn|raw\.githubusercontent|github\.com/i;
@@ -42,7 +42,7 @@ test("welcome screen shows header art, credit, Thai alt, and no CDN", async ({ p
   await expect(page.getByTestId("jane-header")).toHaveAttribute("alt", /[ก-๙]/);
   await expect(page.getByTestId("welcome-stars").locator('[data-testid="jane-star"]')).toHaveCount(3);
   await assertJaneAlts(page);
-  await shot(page, "v12-01-welcome");
+  await viewportShot(page, "v12-01-welcome", page.getByTestId("jane-header"));
   await assertNoStorage(page);
   await assertNetwork(page, rec);
   await assertLocalOnly(rec);
@@ -60,12 +60,12 @@ test("empty chat shows empty.webp on a white card; bot bubbles use the avatar", 
   await expect(page.getByTestId("jane-avatar").first()).toHaveAttribute("alt", /[ก-๙]/);
   await expect(page.getByTestId("art-credit")).toHaveText(ART_CREDIT);
   await assertJaneAlts(page);
-  await shot(page, "v12-02-empty");
+  await viewportShot(page, "v12-02-empty", page.getByTestId("chat-empty"));
   await page.getByTestId("chat-chip-1").click();
   await expect(page.locator('[data-testid="chat-msg"][data-from="jane"]').last()).toHaveAttribute("data-card", "pregnancy.p000");
   await expect(page.getByTestId("chat-empty")).toHaveCount(0);
   await expect(page.getByTestId("jane-avatar")).toHaveCount(2);
-  await shot(page, "v12-03-chat-avatar");
+  await viewportShot(page, "v12-03-chat-avatar", page.locator('[data-testid="chat-msg"][data-from="jane"]').last());
   await assertNoStorage(page);
   await assertNetwork(page, rec);
   await assertLocalOnly(rec);
@@ -79,13 +79,15 @@ test("quiz question shows thinking; success shows surprised plus stars", async (
   await expect(page.getByTestId("quiz-thinking")).toBeVisible();
   await expect(page.getByTestId("jane-quiz-thinking")).toHaveAttribute("alt", /[ก-๙]/);
   await expect(page.getByTestId("quiz-success")).toHaveCount(0);
-  await shot(page, "v12-04-quiz-thinking");
+  await viewportShot(page, "v12-04-quiz-thinking", page.getByTestId("quiz-thinking"));
   await page.getByTestId("quiz-opt-1").click();
   await expect(page.getByTestId("quiz-result")).toHaveAttribute("data-ok", "true");
   await expect(page.getByTestId("quiz-success")).toBeVisible();
   await expect(page.getByTestId("jane-quiz-surprised")).toBeVisible();
   await expect(page.getByTestId("quiz-stars").locator('[data-testid="jane-star"]')).toHaveCount(4);
-  await shot(page, "v12-05-quiz-success");
+  await assertHeaderDoesNotOverlap(page, "jane-quiz-surprised");
+  await assertHeaderDoesNotOverlap(page, "quiz-stars");
+  await viewportShot(page, "v12-05-quiz-success", page.getByTestId("quiz-success"));
   await assertJaneAlts(page);
   await assertNoStorage(page);
   await assertNetwork(page, rec);
@@ -104,7 +106,7 @@ test("crisis card stays clear; credit remains; no external font or image host", 
   await expect(page.getByTestId("crisis-1323")).toBeVisible();
   await expect(page.getByTestId("art-credit")).toHaveText(ART_CREDIT);
   await expect(page.getByTestId("jane-header")).toHaveCount(0);
-  await shot(page, "v12-06-crisis");
+  await viewportShot(page, "v12-06-crisis", page.getByTestId("screen-crisis"));
   await assertNoStorage(page);
   await assertNetwork(page, rec);
   await assertLocalOnly(rec);

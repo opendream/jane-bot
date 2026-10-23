@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import fs from "node:fs";
 
 export const ORIGIN = "http://127.0.0.1:4173";
@@ -39,6 +39,42 @@ export async function open(page: Page, bkkTime: string, extraQuery = "") {
 
 export async function shot(page: Page, name: string) {
   await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true });
+}
+
+/** Scroll `target` so it sits fully below the sticky header, then take a viewport shot. */
+export async function viewportShot(page: Page, name: string, target?: Locator) {
+  if (target) await scrollClearOfHeader(page, target);
+  await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: false });
+}
+
+export async function scrollClearOfHeader(page: Page, target: Locator) {
+  await target.evaluate((el) => {
+    const bar = document.querySelector("header.bar") as HTMLElement | null;
+    const pad = (bar?.getBoundingClientRect().height ?? 0) + 8;
+    const r = el.getBoundingClientRect();
+    if (r.top < pad || r.bottom > window.innerHeight - 8) window.scrollBy(0, r.top - pad);
+  });
+}
+
+/** Live geometry: the sticky header must not cover this element. */
+export async function assertHeaderDoesNotOverlap(page: Page, testid: string) {
+  const geo = await page.evaluate((id) => {
+    const bar = document.querySelector("header.bar")?.getBoundingClientRect();
+    const el = document.querySelector(`[data-testid="${id}"]`)?.getBoundingClientRect();
+    if (!bar || !el) return { missing: true, overlap: true, barBottom: 0, elTop: 0, elBottom: 0, vh: window.innerHeight };
+    return {
+      missing: false,
+      overlap: bar.left < el.right && bar.right > el.left && bar.top < el.bottom && bar.bottom > el.top,
+      barBottom: bar.bottom,
+      elTop: el.top,
+      elBottom: el.bottom,
+      vh: window.innerHeight,
+    };
+  }, testid);
+  expect(geo.missing, `missing header or ${testid}`).toBe(false);
+  expect(geo.overlap, `sticky header overlaps ${testid} (barBottom=${geo.barBottom} elTop=${geo.elTop})`).toBe(false);
+  expect(geo.elTop, `${testid} must sit below the sticky header`).toBeGreaterThanOrEqual(geo.barBottom - 1);
+  expect(geo.elBottom, `${testid} must stay in the viewport`).toBeLessThanOrEqual(geo.vh + 1);
 }
 
 /** Cache Storage may hold model files from /models/ only; nothing else may be stored anywhere. */

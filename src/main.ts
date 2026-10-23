@@ -370,6 +370,18 @@ function render() {
   const main = SCREENS[state.screen]();
   app.replaceChildren(...[header(), main, footer()].filter(Boolean) as Node[]);
   app.dataset.screen = state.screen;
+  revealQuizArt();
+}
+
+/** Keep quiz art below the sticky header. Answering a question scrolls the option into view,
+ *  then the success/thinking image mounts at the top of the panel — under the ~125px bar. */
+function revealQuizArt() {
+  const el = app.querySelector("[data-testid=quiz-success], [data-testid=quiz-thinking]") as HTMLElement | null;
+  if (!el) return;
+  const bar = app.querySelector("header.bar") as HTMLElement | null;
+  const pad = (bar?.getBoundingClientRect().height ?? 0) + 8;
+  const top = el.getBoundingClientRect().top;
+  if (top < pad) window.scrollBy(0, top - pad);
 }
 
 render();
