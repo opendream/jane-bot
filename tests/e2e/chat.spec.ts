@@ -59,7 +59,7 @@ test("CH2 crisis mid-chat (turn 3) → crisis screen, 1323 first; 'I'm safe now'
 
 test("CH3 benign crisis word in chat → crisis strip, chat continues; guard refuses image requests", async ({ page }) => {
   await open(page, "14:00");
-  await openChat(page, "18-24");
+  await openChat(page, "18+");
   await say(page, "ดูซีรีส์ที่มีฉากข่มขืน แล้วเครียดมาก"); // topic context → banner, not override
   await expect(page.getByTestId("screen-chat")).toBeVisible();
   await expect(lastJane(page).getByTestId("crisis-banner")).toBeVisible();
@@ -120,7 +120,7 @@ test("CH6 chat referral: offer → service cards (hours match services.json) →
   await expect(page.getByTestId("screen-summary")).toBeVisible();
   await expect(page.getByTestId("summary-input")).toHaveValue(/ถึงเจ้าหน้าที่ สายด่วน 1663/);
   await expect(page.getByTestId("summary-input")).toHaveValue(/ถุงยางรั่ว/);
-  await expect(page.getByTestId("summary-input")).toHaveValue(/ช่วงอายุ: 15–17 ปี/);
+  await expect(page.getByTestId("summary-input")).toHaveValue(/ช่วงอายุ: อายุต่ำกว่า 18 ปี/);
   await page.getByTestId("approve").click();
   await expect(page.getByTestId("screen-handoff")).toBeVisible();
   await expect(page.getByTestId("demo-banner")).toContainText("nothing was sent");
@@ -132,7 +132,7 @@ test("CH6 chat referral: offer → service cards (hours match services.json) →
 
 test("CH7 chat referral: back from cards and cancel from the summary both return to the same chat; 'talk to a person' offers referral", async ({ page }) => {
   const rec = await open(page, "20:00");
-  await openChat(page, "18-24");
+  await openChat(page, "18+");
   await say(page, EC_TEXT);
   await expect(lastJane(page)).toHaveAttribute("data-card", "ec.p000");
   const before = await page.locator('[data-testid="chat-msg"]').count();

@@ -7,7 +7,7 @@ import {
   BANK_TEXT_LICENCE, checkBankTextLicence,
   type BankCard,
 } from "../../src/core/bank";
-import { bankContext, BANK, isProductionBankFile } from "../../src/core/bankData";
+import { bankContext, BANK, BANK_FIXTURES, isProductionBankFile } from "../../src/core/bankData";
 import { THAI_COPY_STATUS } from "../../src/config";
 
 // All card text here is SYNTHETIC test data written for these tests.
@@ -139,12 +139,22 @@ describe("bank rules: content", () => {
     expect(all.find((i) => i.rule === "stale")?.level).toBe("warning");
     expect(errors(cs)).toEqual([]);
   });
-  it("age gate (D5 default): 18+ cards hidden for 15–17 and 'prefer not to say'", () => {
+  it("age gate (D5): only an explicit 18+ pick may see an 18+ card", () => {
     const c = { ...base()[0], age_min: 18 as const };
     expect(ageAllowed(c, "15-17")).toBe(false);
     expect(ageAllowed(c, "unspecified")).toBe(false);
-    expect(ageAllowed(c, "18-24")).toBe(true);
+    expect(ageAllowed(c, null)).toBe(false);
+    expect(ageAllowed(c, "18+")).toBe(true);
     expect(ageAllowed(base()[0], "15-17")).toBe(true);
+  });
+  it("age_safety: welcome/fallback/ending/redirect must be 15; 15+ → 18+ next is a warning", () => {
+    const welcome = BANK.find((c) => c.id === "general.welcome.000")!;
+    expect(rules(withCard((c) => { Object.assign(c, welcome); c.age_min = 18; }))).toContain("age_safety");
+    const teen = { ...base()[0], id: "fixture.info.000", age_min: 15 as const, next: [{ label_th: "ต่อไป", card_id: "fixture.adult.000" }] };
+    const adult = { ...base()[1], id: "fixture.adult.000", age_min: 18 as const, next: [], referral: { offer: "none" as const, intents: [] } };
+    const warn = validateBank([teen, adult], ctx).filter((i) => i.rule === "age_safety");
+    expect(warn.some((i) => i.level === "warning")).toBe(true);
+    expect(errors([teen, adult])).toEqual([]);
   });
 });
 
@@ -198,6 +208,8 @@ describe("bundled bank (src/data/bank)", () => {
     expect(isProductionBankFile("../data/bank/fixture.json")).toBe(false);
     expect(isProductionBankFile("../data/bank/quiz.json")).toBe(false);
     expect(isProductionBankFile("../data/bank/placeholder.json")).toBe(true);
-    expect(BANK.every((c) => !/fixture|piigate|pii-gate/i.test(c.id))).toBe(true);
+    expect(isProductionBankFile("../data/bank/adult-only.fixture.json")).toBe(false);
+    expect(BANK.every((c) => !/fixture|piigate|pii-gate|adult_only/i.test(c.id))).toBe(true);
+    expect(BANK_FIXTURES.some((c) => c.id === "other.adult_only.000" && c.age_min === 18)).toBe(true);
   });
 });

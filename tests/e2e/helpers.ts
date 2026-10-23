@@ -21,14 +21,14 @@ export function effectiveHoursLabel(id: string): string {
 }
 
 /** Records every request the page makes. Flow requests = anything after the initial load. */
-export async function open(page: Page, bkkTime: string) {
+export async function open(page: Page, bkkTime: string, extraQuery = "") {
   const all: string[] = [];
   const consoleText: string[] = [];
   page.on("request", (r) => all.push(r.url()));
   page.on("console", (m) => consoleText.push(m.text()));
   page.on("websocket", (w) => all.push(w.url()));
   await page.clock.setFixedTime(new Date(`2026-10-22T${bkkTime}:00+07:00`));
-  await page.goto("/?model=off");
+  await page.goto(`/?model=off${extraQuery}`);
   await page.waitForLoadState("networkidle");
   const initial = all.length;
   return {

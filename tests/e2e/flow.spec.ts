@@ -33,7 +33,7 @@ test("S1 pregnancy worry at 19:00 BKK → 1663 (open) → edit → approve → D
   await expect(page.getByTestId("screen-summary")).toBeVisible();
   const box = page.getByTestId("summary-input");
   await expect(box).toHaveValue(/ถึงเจ้าหน้าที่ สายด่วน 1663/);
-  await expect(box).toHaveValue(/ช่วงอายุ: 15–17 ปี/);
+  await expect(box).toHaveValue(/ช่วงอายุ: อายุต่ำกว่า 18 ปี/);
   await shot(page, "s1-04-summary-draft");
   // She edits one line.
   const v = await box.inputValue();
@@ -59,7 +59,7 @@ test("S1 pregnancy worry at 19:00 BKK → 1663 (open) → edit → approve → D
 
 test("S2 condom broke at 08:30 BKK, with name + phone typed → PII stripped, open-now ordering", async ({ page }) => {
   const rec = await open(page, "08:30");
-  await startAs(page, "18-24");
+  await startAs(page, "18+");
   await describe(page, "เมื่อคืนถุงยางแตก หนูชื่อมายด์ เบอร์ 0891234567 ควรทำยังไงดี");
   await shot(page, "s2-01-describe");
   await page.getByTestId("need-submit").click();
@@ -104,7 +104,7 @@ test("S3 HIV test at 14:00 BKK → cancel, re-pick, approve", async ({ page }) =
   await page.getByTestId("cancel").click();
   await expect(page.getByTestId("screen-suggest")).toBeVisible();
   await page.getByTestId("pick-hotline_1663").click();
-  await expect(page.getByTestId("summary-input")).toHaveValue(/ช่วงอายุ: ไม่ระบุ/);
+  await expect(page.getByTestId("summary-input")).toHaveValue(/ช่วงอายุ: อายุต่ำกว่า 18 ปี/);
   await page.getByTestId("approve").click();
   await expect(page.getByTestId("demo-banner")).toBeVisible();
   await shot(page, "s3-03-handoff-demo");

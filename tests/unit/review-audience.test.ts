@@ -1,0 +1,34 @@
+import { describe, it, expect } from "vitest";
+// @ts-ignore
+import { ageMinFromAudience, applyReviewRow } from "../../scripts/bank/df-lib.mjs";
+
+describe("review-pack audience → age_min", () => {
+  it("All (15+) → 15 and 18+ only → 18", () => {
+    expect(ageMinFromAudience("All (15+)", "Approved")).toBe(15);
+    expect(ageMinFromAudience("18+ only", "Edit")).toBe(18);
+    expect(applyReviewRow({ status: "Approved", audience: "All (15+)", card: { id: "x.000" } }).age_min).toBe(15);
+    expect(applyReviewRow({ status: "Edit", audience: "18+ only", card: { id: "x.000" } }).age_min).toBe(18);
+  });
+
+  it("Approved or Edit with a blank audience fails the build (no default)", () => {
+    for (const status of ["Approved", "Edit"]) {
+      expect(() => ageMinFromAudience("", status)).toThrow(/audience/i);
+      expect(() => ageMinFromAudience("   ", status)).toThrow(/audience/i);
+      expect(() => ageMinFromAudience(null, status)).toThrow(/audience/i);
+      expect(() => ageMinFromAudience(undefined, status)).toThrow(/audience/i);
+      expect(() => applyReviewRow({ status, audience: "", card: { id: "x.000" } })).toThrow(/audience/i);
+    }
+  });
+
+  it("the fixed redirect card general.age_redirect.000 is All (15+) even with a blank audience", () => {
+    for (const status of ["Approved", "Edit"]) {
+      const row = { status, audience: "", card: { id: "general.age_redirect.000", title_th: "สำหรับอายุ 18 ปีขึ้นไป" } };
+      const built = applyReviewRow(row);
+      expect(built.age_min).toBe(15);
+      expect(built.id).toBe("general.age_redirect.000");
+    }
+    expect(applyReviewRow({ status: "Approved", audience: null, card: { id: "general.age_redirect.000" } }).age_min).toBe(15);
+    expect(applyReviewRow({ status: "Approved", audience: "", proposed_card: { id: "general.age_redirect.000" } }).age_min).toBe(15);
+    expect(() => applyReviewRow({ status: "Approved", audience: "", card: { id: "ec.p000" } })).toThrow(/audience/i);
+  });
+});

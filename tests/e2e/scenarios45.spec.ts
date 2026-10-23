@@ -51,7 +51,7 @@ test("C2 being forced (consent → crisis override) → crisis screen with 191 t
 
 test("S5 mental health (non-crisis) at 23:30 BKK → 1323 first, no crisis screen", async ({ page }) => {
   const rec = await open(page, "23:30");
-  await startAs(page, "18-24");
+  await startAs(page, "18+");
   await describe(page, "ช่วงนี้เครียดมาก นอนไม่หลับ ร้องไห้ทุกคืน ไม่กล้าบอกที่บ้าน");
   await page.getByTestId("need-submit").click();
 
@@ -77,7 +77,7 @@ test("S5 mental health (non-crisis) at 23:30 BKK → 1323 first, no crisis scree
 
 test("C3 mental health + suicidal phrase → crisis override, 1323 first", async ({ page }) => {
   const rec = await open(page, "23:30");
-  await startAs(page, "18-24");
+  await startAs(page, "18+");
   await describe(page, "ช่วงนี้เครียดมาก นอนไม่หลับ ไม่อยากมีชีวิตอยู่แล้ว");
   await page.getByTestId("need-submit").click();
   await expect(page.getByTestId("screen-crisis")).toBeVisible();

@@ -1,4 +1,5 @@
-import type { AgeBand, Intent, Service } from "./types";
+import type { Intent, Service } from "./types";
+import { summaryAgeLabel, type AgeState } from "./age";
 import { INTENT_LABEL_TH } from "./referral";
 // @ts-ignore shared phone matcher (blanks clock times so hour ranges are not phones)
 import { findPhoneSpans } from "../../scripts/bank/pii-patterns.mjs";
@@ -63,15 +64,11 @@ export const WANT_TH: Record<Intent, string> = {
   other: "อยากคุยกับเจ้าหน้าที่",
 };
 
-const AGE_TH: Record<AgeBand, string> = {
-  "15-17": "15–17 ปี", "18-24": "18–24 ปี", "25+": "25 ปีขึ้นไป", unspecified: "ไม่ระบุ",
-};
-
 export interface SummaryInput {
   service: Service;
   needText: string;
   intent: Intent;
-  ageBand: AgeBand;
+  ageBand: AgeState;
 }
 
 export function preferredChannel(service: Service): string {
@@ -93,7 +90,7 @@ export function draftSummary({ service, needText, intent, ageBand }: SummaryInpu
   return [
     `ถึงเจ้าหน้าที่ ${service.name_th}`,
     `- เรื่องที่อยากปรึกษา: ${need}`,
-    `- ช่วงอายุ: ${AGE_TH[ageBand]}`,
+    `- ช่วงอายุ: ${summaryAgeLabel(ageBand)}`,
     `- สิ่งที่อยากได้: ${WANT_TH[intent]}`,
     `- ช่องทางที่สะดวก: ${preferredChannel(service)}`,
     `(สรุปนี้ผู้ใช้อ่านและยืนยันเองแล้ว)`,

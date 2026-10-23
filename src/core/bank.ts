@@ -1,4 +1,5 @@
 import type { Intent } from "./types";
+import { AGE_REDIRECT_ID, ageAllowed as ageAllowedFor, type AgeState } from "./age";
 import { VALID_INTENTS } from "../llm/adapter";
 import { stripPII } from "./summary";
 // Shared with the Node guard (plain JS). Phone matching blanks clock times first.
@@ -292,6 +293,13 @@ export function validateBank(cards: BankCard[], ctx: BankContext): Issue[] {
     }
     if (c.last_reviewed && ctx.today && monthsBetween(c.last_reviewed, ctx.today) > STALE_MONTHS) add("warning", c.id, "stale", `last reviewed ${c.last_reviewed}`);
     if (c.referral.offer !== "none" && !c.referral.intents.length) add("error", c.id, "referral_intents", "a referral offer needs at least one intent");
+    if (mustStayAge15(c) && c.age_min !== 15) add("error", c.id, "age_safety", "welcome, fallback, refusal, ending, referral, crisis and redirect cards must be age_min 15");
+    if (c.age_min === 15) {
+      for (const n of c.next) {
+        const t = cards.find((x) => x.id === n.card_id);
+        if (t && t.age_min === 18) add("warning", c.id, "age_safety", `15+ card links to 18+ card ${t.id}`);
+      }
+    }
   }
   // Cycles without an exit: a strongly connected group of cards where no card leaves the group,
   // offers a referral or ends the chat.
@@ -333,9 +341,17 @@ export function shippable(c: BankCard, copyStatus: "draft" | "reviewed"): boolea
   return true; // draft build: draft, in_review and approved cards show, labelled DRAFT/PLACEHOLDER in the UI
 }
 
-export function ageAllowed(c: BankCard, ageBand: "15-17" | "18-24" | "25+" | "unspecified"): boolean {
-  if (c.age_min === 15) return true;
-  return ageBand === "18-24" || ageBand === "25+"; // D5: 18+ cards hidden for 15–17 and "prefer not to say"
+function mustStayAge15(c: BankCard): boolean {
+  if (c.id === "general.welcome.000" || c.id === "general.fallback.000" || c.id === AGE_REDIRECT_ID) return true;
+  if (c.id.startsWith("general.refusal_")) return true;
+  if (c.topic === "ending") return true;
+  if (/crisis|referral/.test(c.id)) return true;
+  return false;
+}
+
+/** Content of an 18+ card may only be shown to an explicit 18+ pick. */
+export function ageAllowed(c: BankCard, ageBand: AgeState): boolean {
+  return ageAllowedFor(c, ageBand);
 }
 
 /** Flatten bank files into cards (throws on a file without a cards array). */

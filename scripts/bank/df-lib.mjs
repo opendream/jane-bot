@@ -252,6 +252,29 @@ export function toQueueItem(rec, scrubOpts = {}) {
   };
 }
 
+/** Review-pack audience → age_min. Approved/Edit rows cannot default. */
+export function ageMinFromAudience(audience, status) {
+  const a = typeof audience === "string" ? audience.trim() : "";
+  const decided = status === "Approved" || status === "Edit";
+  if (decided && !a) throw new Error("audience is required for Approved/Edit rows (no default)");
+  if (a === "All (15+)") return 15;
+  if (a === "18+ only") return 18;
+  if (!a) return null;
+  throw new Error(`unknown audience: ${a}`);
+}
+
+/** Build a card from a review-pack row. Fails when Approved/Edit audience is blank. */
+export function applyReviewRow(row) {
+  const id = row?.card?.id ?? row?.proposed_card?.id ?? row?.id;
+  // D5 redirect is hardcoded age_min 15 (All 15+); a blank Audience must not fail the build.
+  if (id === "general.age_redirect.000") {
+    return { ...(row.card ?? row.proposed_card ?? {}), id, age_min: 15 };
+  }
+  const age_min = ageMinFromAudience(row?.audience, row?.status);
+  if (age_min == null) throw new Error("audience is required to build a reviewed card (no default)");
+  return { ...(row.card ?? {}), age_min };
+}
+
 /** PII hits with text, for the human check (staging only, mode 0600). */
 export function piiHits(rec, scrubOpts = {}) {
   const out = [];
