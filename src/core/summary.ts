@@ -1,7 +1,7 @@
 import type { AgeBand, Intent, Service } from "./types";
 import { INTENT_LABEL_TH } from "./referral";
 // @ts-ignore shared phone matcher (blanks clock times so hour ranges are not phones)
-import { findPhoneSpans } from "../../scripts/bank/pii-patterns.mjs";
+import { blankTimes, findPhoneSpans } from "../../scripts/bank/pii-patterns.mjs";
 
 /** Max characters kept from her own words (≈ one line). */
 export const MAX_NEED_CHARS = 140;
@@ -18,9 +18,9 @@ export function toArabicDigits(s: string): string {
   return s.replace(/[๐-๙]/g, (d) => String(d.charCodeAt(0) - 0x0e50));
 }
 
-/** Apply `re` to the arabic-normalised form and replace the matching original spans. */
+/** Apply `re` to the arabic-normalised form and replace the matching original spans. Clock times are blanked first so hour ranges are not digit runs. */
 function replaceOnArabic(input: string, re: RegExp, repl: string): string {
-  const s = toArabicDigits(input);
+  const s = blankTimes(toArabicDigits(input));
   const rx = new RegExp(re.source, re.flags.includes("g") ? re.flags : `${re.flags}g`);
   let out = "";
   let last = 0;

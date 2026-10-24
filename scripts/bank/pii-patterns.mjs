@@ -17,14 +17,14 @@ export const ENGLISH_ALLOW = new Set(("Jane Dialogflow Facebook Messenger Line G
   "English Doctor Demo Placeholder Online Club Teen Rsa Yfhs General Information Not Medical Advice Qwen Webgpu Wasm Opendream Thaihealth")
   .toLowerCase().split(/\s+/));
 
-/** At most one space, hyphen or dot between digit groups (not a run of dots that can chain clock times). */
-const DSEP = String.raw`[\s.\-]`;
+/** A single dot/hyphen with optional spaces around it, or just whitespace, between digit groups. */
+const DSEP = String.raw`(?:\s*[.\-]\s*|\s+)`;
 /** Thai mobile: 10 digits starting 06/08/09. Optional +66 / 66, with or without a trunk 0. */
 export const PHONE_MOBILE = new RegExp(String.raw`(?<!\d)(?:\+?66${DSEP}?0?${DSEP}?|0${DSEP}?)[689](?:${DSEP}?\d){8}(?!\d)`, "g");
 /** Thai landline: 9 digits starting 0[2-7]. Optional +66 / 66. */
 export const PHONE_LANDLINE = new RegExp(String.raw`(?<!\d)(?:\+?66${DSEP}?0?${DSEP}?|0${DSEP}?)[2-7](?:${DSEP}?\d){7}(?!\d)`, "g");
-/** HH:MM / HH.MM that is not the start of a longer dotted number (08.1234…). */
-export const TIME_TOKEN = /(?<!\d)\d{1,2}[:.]\d{2}(?!\d)/g;
+/** HH:MM / HH.MM that is not part of a longer dotted number (08.12.34… or 08.1234…). */
+export const TIME_TOKEN = /(?<![\d.])\d{1,2}[:.]\d{2}(?![\d.])/g;
 /** A time range "09.00-21.00", "9:00–21:00 น.", "๐๙.๐๐ ถึง ๒๑.๐๐". */
 export const TIME_RANGE = /(?<!\d)\d{1,2}[:.]\d{2}\s*(?:น\.)?\s*(?:[-–—]|ถึง)\s*\d{1,2}[:.]\d{2}(?!\d)/g;
 
