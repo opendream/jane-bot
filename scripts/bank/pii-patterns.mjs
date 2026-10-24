@@ -108,14 +108,14 @@ function digitCountOutside(s, start, end, ranges) {
   return n;
 }
 
-function coveredBy(start, end, ranges) {
-  return ranges.some(([a, b]) => start >= a && end <= b);
-}
-
 /**
  * Phone [start, end) spans on the original text (Thai digits mapped 1:1).
- * Matched on the original, never on blanked text. Hour ranges with valid clocks
- * are dropped so "09.00-21.00 10.00-20.00" is not a phone.
+ * Matched on the original, never on blanked text.
+ *
+ * An hour range is an exemption only when the phone match *ends at* that range
+ * and has no leftover digits (the match is the hours, not a number that
+ * continues past them). If the match continues past the range — or starts
+ * before it with extra digits — the whole match is a phone.
  */
 export function findPhoneIndexSpans(original) {
   const src = String(original ?? "");
@@ -124,7 +124,10 @@ export function findPhoneIndexSpans(original) {
   const out = [];
   for (const re of [PHONE_MOBILE, PHONE_LANDLINE]) {
     for (const [a, b] of matchSpans(re, s)) {
-      if (digitCountOutside(s, a, b, timeRanges) < 9) continue;
+      // Drop only when every digit sits inside an hour range (pure hours,
+      // including back-to-back "09.00-21.00 10.00-20.00"). Any leftover
+      // digit means the match continued past / around the range.
+      if (digitCountOutside(s, a, b, timeRanges) === 0) continue;
       out.push([a, b]);
     }
   }
@@ -187,15 +190,39 @@ const STRIP_RULES = [
 ];
 const DIGIT_RUN = /\d[\d\s-]{4,}\d/g;
 
-/** Digit-run spans, with times and ISO dates exempt. Other rules are not time-blanked. */
+/** Subtract [start, end) holes from a span; return the leftover pieces. */
+function subtractSpans([start, end], holes) {
+  const relevant = holes.filter(([a, b]) => a < end && b > start).sort((x, y) => x[0] - y[0]);
+  const pieces = [];
+  let cursor = start;
+  for (const [a, b] of relevant) {
+    if (cursor < a) pieces.push([cursor, Math.min(a, end)]);
+    cursor = Math.max(cursor, b);
+    if (cursor >= end) break;
+  }
+  if (cursor < end) pieces.push([cursor, end]);
+  return pieces;
+}
+
+/**
+ * Digit-run spans. Hour ranges (and ISO dates) are tokenised separately: a
+ * match that bridges a short number and the start of a range is split, so
+ * "1663 09.00 - 21.00" keeps both the hotline and the hours.
+ */
 function digitRunSpans(arabic) {
-  const exempt = [
+  const holes = [
     ...matchSpans(VALID_TIME_RANGE, arabic),
     ...matchSpans(TIME_RANGE, arabic),
-    ...matchSpans(TIME_TOKEN, arabic),
     ...matchSpans(ISO_DATE, arabic),
   ];
-  return matchSpans(DIGIT_RUN, arabic).filter(([a, b]) => !coveredBy(a, b, exempt));
+  const out = [];
+  for (const span of matchSpans(DIGIT_RUN, arabic)) {
+    for (const [p, q] of subtractSpans(span, holes)) {
+      const slice = arabic.slice(p, q);
+      for (const [a, b] of matchSpans(DIGIT_RUN, slice)) out.push([p + a, p + b]);
+    }
+  }
+  return out;
 }
 
 /** Every redaction rule on the original text; overlapping/touching spans merged. */

@@ -89,6 +89,8 @@ describe("bank rules: content", () => {
     const h = (t: string) => withCard((c) => { c.answer_th = t; c.key_facts = []; c.flags = [...c.flags, "hours"]; }, 1);
     expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09:00–21:00 น."))).toEqual([]);            // RSATHAI
     expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09:00 - 21:00 น."))).toEqual([]);           // spaced hyphen (same RSATHAI window)
+    expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09.00 - 21.00 น."))).toEqual([]);           // hotline then spaced dotted hours (stripPII must not mangle)
+    expect(rules(h("ข้อความทดสอบ โทร 1663 09.00 - 21.00 น."))).toEqual([]);                // hotline immediately before hours
     expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 10.00-20.00 น."))).toEqual([]);             // GCC
     expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09.00-21.00 10.00-20.00"))).toEqual([]);    // back-to-back dotted ranges
     expect(rules(h("ข้อความทดสอบ โทร ๑๖๖๓ เวลา ๐๙.๐๐–๒๑.๐๐ น."))).toEqual([]);           // Thai digits

@@ -22,6 +22,10 @@ const SYN = {
   bracketed: "(081) 234-5678",
   thai: "๐๘๑-๒๓๔-๕๖๗๘",
   fake: "099-999-9999",
+  hourLikeSuffix: "08.12-23.45-67",
+  hourLikePrefix: "08-12.30-13.45",
+  hourLikeSuffix2: "09.15-22.30-11",
+  hourLikePrefix2: "09-11.30-12.45",
   emailTime: "name12.34@example.com",
   handleTime: "@user9:30",
   lineTime: "jane_08.15",
@@ -63,6 +67,10 @@ describe("phones (synthetic)", () => {
     ["bracketed area code", SYN.bracketed],
     ["Thai digits", SYN.thai],
     ["obviously fake hyphen", SYN.fake],
+    ["hour-like suffix 08.12-23.45-67", SYN.hourLikeSuffix],
+    ["hour-like prefix 08-12.30-13.45", SYN.hourLikePrefix],
+    ["hour-like suffix 09.15-22.30-11", SYN.hourLikeSuffix2],
+    ["hour-like prefix 09-11.30-12.45", SYN.hourLikePrefix2],
   ];
   it.each(cases)("stripPII redacts %s", (_label, phone) => {
     expectRedacted(`โทร ${phone} นะ`, phone);
@@ -112,6 +120,9 @@ describe("negatives that must survive unchanged", () => {
     "ประจำเดือนมาช้า 2 อาทิตย์ อายุ 17 ปี",
     "ค่าตรวจ 350 บาท",
     "โทร 1663 ได้",
+    "1663 09.00 - 21.00",
+    "โทร 1300 9.00 - 16.00 น.",
+    "ปี 2569 08.30-16.30",
     "card fixture.start.000",
     "card ec.000",
   ];
@@ -125,11 +136,12 @@ describe("staff handoff summary", () => {
   it("draftSummary and finalizeSummary contain none of the format-suite values", () => {
     const leaked = [
       SYN.dottedPairs, SYN.mixed, SYN.plus66trunk, SYN.bracketed, SYN.thai,
+      SYN.hourLikeSuffix, SYN.hourLikePrefix,
       SYN.emailTime, SYN.handleTime, SYN.lineTime, "12.30", "081-234-5678",
     ];
     const needText = [
       "กลัวท้อง",
-      `โทร ${SYN.dottedPairs} ${SYN.mixed} ${SYN.plus66trunk} ${SYN.bracketed} ${SYN.thai}`,
+      `โทร ${SYN.dottedPairs} ${SYN.mixed} ${SYN.plus66trunk} ${SYN.bracketed} ${SYN.thai} ${SYN.hourLikeSuffix} ${SYN.hourLikePrefix}`,
       `อีเมล ${SYN.emailTime} แอด ${SYN.handleTime} line id ${SYN.lineTime}`,
       SYN.urlTime,
     ].join(" ");
