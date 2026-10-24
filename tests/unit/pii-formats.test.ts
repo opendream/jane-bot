@@ -123,12 +123,24 @@ describe("negatives that must survive unchanged", () => {
     "1663 09.00 - 21.00",
     "โทร 1300 9.00 - 16.00 น.",
     "ปี 2569 08.30-16.30",
+    "09.00-21.00 30 นาที",
+    "08.30-16.30 17 ปี",
+    "เปิด 06.00-18.00 1 ครั้ง",
+    "05.00-12.00 7 วัน",
     "card fixture.start.000",
     "card ec.000",
   ];
   it.each(keep)("%s", (s) => {
     expect(stripPII(s)).toBe(s);
     expect(findPII(s).phone ?? []).toEqual([]);
+  });
+  it("keeps hours when a landline follows, and still redacts the phone", () => {
+    const s = "เวลา 08.00-17.00 02 123 4567";
+    const out = stripPII(s);
+    expect(out).toContain("08.00-17.00");
+    expect(out).not.toContain("02 123 4567");
+    expect(out).toContain(TOKEN);
+    expect(findPhoneSpans(s).join("")).toContain("02 123 4567");
   });
 });
 

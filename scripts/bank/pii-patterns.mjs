@@ -98,24 +98,48 @@ export function mergeSpans(spans) {
   return out;
 }
 
-function digitCountOutside(s, start, end, ranges) {
-  let n = 0;
+function leftoverDigitIndexes(s, start, end, ranges) {
+  const out = [];
   for (let i = start; i < end; i++) {
     if (s[i] < "0" || s[i] > "9") continue;
     if (ranges.some(([a, b]) => i >= a && i < b)) continue;
-    n++;
+    out.push(i);
   }
-  return n;
+  return out;
+}
+
+/** Gap is only whitespace (optional "น.") — not a '.' or '-' join. */
+function gapIsOnlyWhitespace(gap) {
+  const g = gap.replace(/\s*น\.\s*/g, " ");
+  return g.length > 0 && /^\s+$/.test(g);
+}
+
+/**
+ * Leftover digits are a standalone number after/before hours (e.g. "09.00-21.00 30")
+ * when every leftover digit is separated from an overlapping hour range by
+ * whitespace only. Joined leftovers ("08.12-23.45-67", "08-12.30-13.45") are not.
+ */
+function leftoversOnlyWhitespaceSeparated(s, start, end, ranges) {
+  const overlapping = ranges.filter(([a, b]) => a < end && b > start);
+  if (!overlapping.length) return false;
+  const leftover = leftoverDigitIndexes(s, start, end, overlapping);
+  if (!leftover.length) return true;
+  return overlapping.every(([a, b]) => {
+    const after = leftover.filter((i) => i >= b);
+    if (after.length && !gapIsOnlyWhitespace(s.slice(b, Math.min(...after)))) return false;
+    const before = leftover.filter((i) => i < a);
+    if (before.length && !gapIsOnlyWhitespace(s.slice(Math.max(...before) + 1, a))) return false;
+    return true;
+  });
 }
 
 /**
  * Phone [start, end) spans on the original text (Thai digits mapped 1:1).
  * Matched on the original, never on blanked text.
  *
- * An hour range is an exemption only when the phone match *ends at* that range
- * and has no leftover digits (the match is the hours, not a number that
- * continues past them). If the match continues past the range — or starts
- * before it with extra digits — the whole match is a phone.
+ * Hour ranges are not phones. Extra digits joined with '.' or '-' stay a phone
+ * (08.12-23.45-67). Extra digits separated only by whitespace stay hours
+ * ("09.00-21.00 30 นาที"); a later real phone is matched on its own.
  */
 export function findPhoneIndexSpans(original) {
   const src = String(original ?? "");
@@ -124,10 +148,7 @@ export function findPhoneIndexSpans(original) {
   const out = [];
   for (const re of [PHONE_MOBILE, PHONE_LANDLINE]) {
     for (const [a, b] of matchSpans(re, s)) {
-      // Drop only when every digit sits inside an hour range (pure hours,
-      // including back-to-back "09.00-21.00 10.00-20.00"). Any leftover
-      // digit means the match continued past / around the range.
-      if (digitCountOutside(s, a, b, timeRanges) === 0) continue;
+      if (leftoversOnlyWhitespaceSeparated(s, a, b, timeRanges)) continue;
       out.push([a, b]);
     }
   }
