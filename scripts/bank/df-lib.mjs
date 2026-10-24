@@ -3,7 +3,7 @@
 // Nothing here prints export text. Output goes to a staging dir OUTSIDE the repo.
 import fs from "node:fs";
 import path from "node:path";
-import { stripPII, findPII } from "./pii-patterns.mjs";
+import { stripPII, findPII, TEXT_URL } from "./pii-patterns.mjs";
 
 /* ----------------------------------------- read ----------------------------------------- */
 
@@ -109,7 +109,7 @@ export const SHORTENER_HOSTS = ["bit.ly", "tinyurl.com", "goo.gl", "t.co", "ow.l
 export const IMAGE_HOSTS = /(?:fbcdn\.net|fbsbx\.com|giphy\.com|tenor\.com|imgur\.com)$/i;
 /** Link hosts that may survive as candidates for re-checking (everything else is dropped). */
 export const LINK_CANDIDATE_HOSTS = ["rsathai.org", "rh.anamai.moph.go.th", "dmh.go.th", "aidsid.or.th", "th.aidsid.or.th", "nhso.go.th"];
-export const URL_RE = /https?:\/\/[^\s"'<>)]+|(?<![\w/@.])(?:www\.|m\.me\/|bit\.ly\/|tinyurl\.com\/|line\.me\/|fb\.me\/|goo\.gl\/)[^\s"'<>)]+/gi;
+export const URL_RE = TEXT_URL;
 
 const hostOf = (u) => { try { return new URL(/^https?:/i.test(u) ? u : `https://${u}`).hostname.toLowerCase().replace(/^www\./, ""); } catch { return ""; } };
 
@@ -230,7 +230,7 @@ export function toQueueItem(rec, scrubOpts = {}) {
     const hits = findPII(s, scrubOpts);
     Object.keys(hits).forEach((c) => pii.categories.add(c));
     pii.count += Object.keys(hits).length;
-    return stripPII(s);
+    return stripPII(s, scrubOpts);
   };
   const clean = cleanMessages(rec.messages);
   const janeMsgs = rec.variants?.jane;

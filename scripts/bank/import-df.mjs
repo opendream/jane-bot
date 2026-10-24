@@ -11,19 +11,26 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readExport, mergeExports, toQueueItem, piiHits } from "./df-lib.mjs";
 import { stripPII } from "./pii-patterns.mjs";
-import { publicHandles } from "./guard.mjs";
+import { publicHandles, publicAllowHosts } from "./guard.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, "../..");
+
+const SYMLINK_CYCLE = "refusing to write the review queue: symlink cycle at output path";
+const MAX_SYMLINK_HOPS = 32;
 
 /** Walk up to an existing ancestor, follow symlinks, then reattach the missing tail. */
 export function resolveQueueOutDir(out, repoRoot = repo) {
   let cur = path.resolve(out);
   const missing = [];
+  const seen = new Set();
+  let hops = 0;
   for (;;) {
     try {
       const st = fs.lstatSync(cur);
       if (st.isSymbolicLink()) {
+        if (seen.has(cur) || hops++ >= MAX_SYMLINK_HOPS) throw new Error(SYMLINK_CYCLE);
+        seen.add(cur);
         cur = path.resolve(path.dirname(cur), fs.readlinkSync(cur));
         continue;
       }
@@ -31,6 +38,7 @@ export function resolveQueueOutDir(out, repoRoot = repo) {
       cur = missing.length ? path.join(real, ...missing.reverse()) : real;
       break;
     } catch (e) {
+      if (e.code === "ELOOP" || /symlink cycle/i.test(e.message)) throw new Error(SYMLINK_CYCLE);
       if (e.code !== "ENOENT") throw e;
       const parent = path.dirname(cur);
       if (parent === cur) {
@@ -53,17 +61,17 @@ export function runImport({ bot, jane, out, now = new Date() }) {
   const outDir = resolveQueueOutDir(out);
   const B = readExport(bot, "bot"), J = readExport(jane, "jane");
   const { merged, stats } = mergeExports(B, J);
-  const opts = { allowHandles: publicHandles() };
+  const opts = { allowHandles: publicHandles(), allowHosts: publicAllowHosts() };
   const queue = merged.map((r) => toQueueItem(r, opts));
   const hits = merged.flatMap((r) => piiHits(r, opts));
   fs.mkdirSync(outDir, { recursive: true, mode: 0o700 });
   const write = (f, s) => {
     const p = path.join(outDir, f);
-    fs.writeFileSync(p, s);
+    fs.writeFileSync(p, s, { mode: 0o600 });
     fs.chmodSync(p, 0o600);
   };
   const scrubbed = merged.map((r) => ({ name: r.name, origin: r.origin, inputContexts: r.inputContexts, parent: !!r.parentId, conflict: r.conflict,
-    phrases: r.phrases.map((p) => stripPII(p)) }));
+    phrases: r.phrases.map((p) => stripPII(p, opts)) }));
   write("intents.jsonl", scrubbed.map((x) => JSON.stringify(x)).join("\n") + "\n");
   write("review-queue.jsonl", queue.map((x) => JSON.stringify(x)).join("\n") + "\n");
   write("pii-hits.jsonl", hits.map((x) => JSON.stringify(x)).join("\n") + (hits.length ? "\n" : ""));

@@ -133,6 +133,63 @@ function writeMiniExport(root: string, label: string, intents: { name: string; s
   return dir;
 }
 
+describe("importer redacts findPII name spans (synthetic)", () => {
+  it("redacts English and Thai name forms in the queue and intents.jsonl", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "jane-df-names-"));
+    const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "jane-queue-names-"));
+    const phrases = ["call me Somchai", "นายสมชายทดสอบ"];
+    const bot = writeMiniExport(root, "bot", [{ name: "test.names.000", speech: phrases, phrases }]);
+    const jane = writeMiniExport(root, "jane", []);
+    const r = runImport({ bot, jane, out: outDir });
+    const q = r.queue.find((x: any) => x.intent === "test.names.000");
+    const blob = JSON.stringify([q.responses_th, q.proposed_card.answer_th]) + fs.readFileSync(path.join(outDir, "intents.jsonl"), "utf8");
+    expect(blob).not.toContain("Somchai");
+    expect(blob).not.toContain("สมชายทดสอบ");
+    expect(blob).toContain("[ลบข้อมูลส่วนตัว]");
+    expect(q.pii.count).toBeGreaterThan(0);
+  });
+});
+
+describe("importer allowed handles vs other handles (synthetic)", () => {
+  it("keeps @teen_club, redacts a non-allowed handle, and pii count matches", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "jane-df-hnd-"));
+    const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "jane-queue-hnd-"));
+    const bot = writeMiniExport(root, "bot", [
+      { name: "test.handle.ok.000", speech: ["แอดไลน์ @teen_club"], phrases: ["แอดไลน์ @teen_club"] },
+      { name: "test.handle.bad.000", speech: ["แอดไลน์ @random_user99"], phrases: ["แอดไลน์ @random_user99"] },
+    ]);
+    const jane = writeMiniExport(root, "jane", []);
+    const r = runImport({ bot, jane, out: outDir });
+    const ok = r.queue.find((x: any) => x.intent === "test.handle.ok.000");
+    const bad = r.queue.find((x: any) => x.intent === "test.handle.bad.000");
+    const intentsBlob = fs.readFileSync(path.join(outDir, "intents.jsonl"), "utf8");
+    expect(ok.responses_th.join(" ")).toContain("@teen_club");
+    expect(ok.pii.count).toBe(0);
+    expect(bad.responses_th.join(" ")).not.toContain("random_user99");
+    expect(bad.responses_th.join(" ")).toContain("[ลบข้อมูลส่วนตัว]");
+    expect(bad.pii.count).toBeGreaterThan(0);
+    expect(intentsBlob).toContain("@teen_club");
+    expect(intentsBlob).not.toContain("random_user99");
+  });
+});
+
+describe("importer scheme-less URLs (synthetic)", () => {
+  it("redacts domain+path URLs whole and keeps an allowlisted service URL", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "jane-df-url-"));
+    const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "jane-queue-url-"));
+    const phrases = ["instagram.com/fakeuser99", "example.com/x", "facebook.com/fakeuser99", "rsathai.org/test"];
+    const bot = writeMiniExport(root, "bot", [{ name: "test.urls.000", speech: phrases, phrases }]);
+    const jane = writeMiniExport(root, "jane", []);
+    const r = runImport({ bot, jane, out: outDir });
+    const q = r.queue.find((x: any) => x.intent === "test.urls.000");
+    const intentsBlob = fs.readFileSync(path.join(outDir, "intents.jsonl"), "utf8");
+    const blob = JSON.stringify(q.responses_th) + intentsBlob;
+    expect(blob).not.toMatch(/instagram|fakeuser99|example\.com/);
+    expect(blob).not.toContain("/fakeuser99");
+    expect(intentsBlob).toContain("rsathai.org/test");
+  });
+});
+
 describe("importer uses stripPII (formats scrubPII misses)", () => {
   const leaks = [
     "somchai_99", "some.user", "ส้มโอ", "สมมติวิทยา", "บางสมมติ",
@@ -224,6 +281,17 @@ describe("output stays outside git", () => {
     fs.chmodSync(hits, 0o644);
     runImport({ bot: path.join(FX, "bot"), jane: path.join(FX, "jane"), out: outDir });
     expect(fs.statSync(hits).mode & 0o777).toBe(0o600);
+  });
+  it("fails with a clear error on a symlink cycle (does not hang)", () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "jane-out-loop-"));
+    const a = path.join(tmp, "a");
+    const b = path.join(tmp, "b");
+    fs.symlinkSync(b, a);
+    fs.symlinkSync(a, b);
+    const started = Date.now();
+    expect(() => runImport({ bot: path.join(FX, "bot"), jane: path.join(FX, "jane"), out: a })).toThrow(/symlink|cycle|loop/i);
+    expect(Date.now() - started).toBeLessThan(2000);
+    fs.rmSync(tmp, { recursive: true, force: true });
   });
   it(".gitignore covers the exports and the private queue", () => {
     const gi = fs.readFileSync(path.join(REPO, ".gitignore"), "utf8");

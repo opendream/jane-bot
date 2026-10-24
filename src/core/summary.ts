@@ -7,7 +7,7 @@ import { stripPII as stripPIIImpl, toArabic } from "../../scripts/bank/pii-patte
 export const MAX_NEED_CHARS = 140;
 
 /** Same implementation as scripts/bank/pii-patterns.mjs — staff-handoff and validator share it. */
-export const stripPII: (input: string) => string = stripPIIImpl;
+export const stripPII: (input: string, opts?: { allowHandles?: string[]; allowHosts?: string[] }) => string = stripPIIImpl;
 
 /** Thai digits ๐-๙ → ASCII 0-9. Length-preserving so match indices map back to the original. */
 export function toArabicDigits(s: string): string {

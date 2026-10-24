@@ -274,10 +274,10 @@ export function validateBank(cards: BankCard[], ctx: BankContext): Issue[] {
         add("error", c.id, "pii", `PII (${cat}) in ${safePath(path)}`);
       }
       if (user) {
-        let masked = value;
-        for (const hnd of ctx.handles) masked = masked.split(hnd).join("");
-        const norm = masked.replace(/\s+/g, " ").trim();
-        if (stripPII(masked) !== norm) add("error", c.id, "pii", `text at ${safePath(path)} changes under stripPII`);
+        const norm = value.replace(/\s+/g, " ").trim();
+        if (stripPII(value, { allowHandles: handles, allowHosts: [...ctx.linkHosts] }) !== norm) {
+          add("error", c.id, "pii", `text at ${safePath(path)} changes under stripPII`);
+        }
       }
     }
     if (c.last_reviewed && ctx.today && monthsBetween(c.last_reviewed, ctx.today) > STALE_MONTHS) add("warning", c.id, "stale", `last reviewed ${c.last_reviewed}`);
