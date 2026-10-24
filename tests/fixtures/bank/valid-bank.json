@@ -1,0 +1,22 @@
+{
+  "$comment": "SYNTHETIC test fixture for the bank validator. Written for the tests; not real content and not ThaiHealth content.",
+  "topic_file": "fixture",
+  "cards": [
+    {
+      "id": "fixture.start.000", "topic": "general", "title_th": "ทดสอบเริ่มต้น",
+      "answer_th": "ข้อความทดสอบ ถามเรื่องอะไรก็ได้", "key_facts": ["ข้อความทดสอบ"], "triggers": ["ทดสอบ"],
+      "next": [{ "label_th": "ไปต่อ", "card_id": "fixture.info.001" }], "source_intents": [], "source": [],
+      "review": { "status": "draft", "reviewer": null, "reviewed_on": null }, "last_reviewed": null, "flags": [],
+      "referral": { "offer": "none", "intents": [] }, "links": [], "age_min": 15, "reword": true, "licence": "test-only"
+    },
+    {
+      "id": "fixture.info.001", "topic": "sti_hiv", "title_th": "ทดสอบสายด่วน",
+      "answer_th": "ข้อความทดสอบ โทร 1663 ได้", "key_facts": ["1663"], "triggers": ["ตรวจ"],
+      "next": [{ "label_th": "กลับ", "card_id": "fixture.start.000" }], "source_intents": [],
+      "source": [{ "by": "Test", "url": "https://rsathai.org/qrcode", "title": "fixture", "checked": "2026-10-22" }],
+      "review": { "status": "approved", "reviewer": "Test Reviewer", "reviewed_on": "2026-10-22" }, "last_reviewed": "2026-10-22",
+      "flags": ["hotline", "medical", "pii_checked"], "referral": { "offer": "soft", "intents": ["sti_hiv"] },
+      "links": [{ "url": "https://rsathai.org/qrcode", "label_th": "ทดสอบลิงก์" }], "age_min": 15, "reword": false, "licence": "test-only"
+    }
+  ]
+}

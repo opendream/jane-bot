@@ -1,35 +1,18 @@
 import type { AgeBand, Intent, Service } from "./types";
 import { INTENT_LABEL_TH } from "./referral";
+// @ts-ignore shared span-merge redaction (rules run on the original text only)
+import { stripPII as stripPIIImpl, toArabic } from "../../scripts/bank/pii-patterns.mjs";
 
 /** Max characters kept from her own words (≈ one line). */
 export const MAX_NEED_CHARS = 140;
 
-const REDACTED = "[ลบข้อมูลส่วนตัว]";
+/** Same implementation as scripts/bank/pii-patterns.mjs — staff-handoff and validator share it. */
+export const stripPII: (input: string) => string = stripPIIImpl;
 
-/**
- * Remove anything that could identify her: phone numbers, emails, LINE/IG/FB handles, URLs,
- * long digit runs, names after "ชื่อ", schools, addresses. Conservative on purpose.
- * Short numbers (1–2 digits, e.g. "2 อาทิตย์", "17 ปี") are kept.
- */
-export function stripPII(input: string): string {
-  let s = input;
-  const rules: [RegExp, string][] = [
-    [/https?:\/\/\S+|www\.\S+/gi, REDACTED],
-    [/[\w.+-]+@[\w-]+\.[\w.]+/g, REDACTED],                          // email
-    [/(?:\+?66|0)[\s-]?\d{1,2}[\s-]?\d{3}[\s-]?\d{3,4}/g, REDACTED],   // Thai phone formats
-    [/\d[\d\s-]{4,}\d/g, REDACTED],                                    // any long digit run (ID, phone)
-    [/(?<![A-Za-z])(?:ไลน์|ไอดีไลน์|line\s*id|line|ig|ไอจี|เฟส|facebook|fb)(?![A-Za-z])\s*[:：]?\s*@?[\w.\-]+/gi, REDACTED],
-    [/@[\w.\-]{2,}/g, REDACTED],                                       // any handle
-    [/(?<!เ)(?:ชื่อเล่น|ชื่อจริง|ชื่อ|นามสกุล)\s*(?:คือ|ว่า)?\s*[^\s,.!?]+/g, REDACTED],  // (?<!เ): not "เชื่อ"
-    [/(?:my name is|i am called|i'm called)\s+\S+/gi, REDACTED],
-    [/(?:โรงเรียน|ร\.ร\.|รร\.|มหาวิทยาลัย|ม\.\s?[ก-๙A-Za-z]{2,}|วิทยาลัย)\s*[^\s,.!?]*/g, REDACTED],
-    [/(?:บ้านเลขที่|เลขที่|หมู่บ้าน|หมู่ที่|ซอย|ซ\.|ถนน|ถ\.|ตำบล|ต\.|แขวง|อำเภอ|อ\.|เขต)\s*[^\s,.!?]+/g, REDACTED],
-  ];
-  for (const [re, rep] of rules) s = s.replace(re, ` ${rep} `);
-  return s.replace(new RegExp(`(?:${escape(REDACTED)}\\s*)+`, "g"), REDACTED + " ").replace(/\s+/g, " ").replace(/\s+([,.!?])/g, "$1").trim();
+/** Thai digits ๐-๙ → ASCII 0-9. Length-preserving so match indices map back to the original. */
+export function toArabicDigits(s: string): string {
+  return toArabic(s);
 }
-
-function escape(x: string) { return x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 
 export const WANT_TH: Record<Intent, string> = {
   pregnancy: "อยากคุยกับเจ้าหน้าที่เรื่องการตรวจครรภ์และทางเลือก",

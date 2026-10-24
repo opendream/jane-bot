@@ -10,7 +10,8 @@
     "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
     "test": "vitest run",
     "e2e": "vite build && playwright test",
-    "check:all": "npm run test && npm run e2e"
+    "check:all": "npm run test && npm run e2e",
+    "bank:validate": "vite-node scripts/bank/validate.mjs && node scripts/bank/guard.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",
