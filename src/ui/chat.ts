@@ -1,5 +1,5 @@
 import type { AgeBand, CrisisCategory, Intent } from "../core/types";
-import type { BankTopic, CardNext } from "../core/bank";
+import { telNumber, type BankTopic, type CardLink, type CardNext } from "../core/bank";
 import { DialogSession, SOFT_CAP, type DialogModel, type TurnReply, type CapNotice } from "../core/dialog";
 import { crisisOrder, detectCrisis } from "../core/crisis";
 import { BANK, cardsForSession, bankContext } from "../core/bankData";
@@ -27,6 +27,7 @@ export interface ChatMsg {
   chips?: CardNext[];
   offer?: "none" | "soft" | "strong";
   offerIntents?: Intent[];
+  links?: CardLink[];
   cap?: CapNotice;
   note?: "referral" | "readonly";
 }
@@ -57,7 +58,7 @@ function push(chat: ChatState, m: ChatMsg | null) {
 function fromReply(r: TurnReply): ChatMsg | null {
   if (r.kind === "card") {
     return { from: "jane", text: r.text, cardId: r.card.id, placeholder: !!r.card.placeholder, reworded: r.reworded, original: r.card.answer_th,
-      banner: r.banner, chips: r.chips, offer: r.offer, offerIntents: r.offerIntents, cap: r.capNotice };
+      banner: r.banner, chips: r.chips, offer: r.offer, offerIntents: r.offerIntents, links: r.card.links, cap: r.capNotice };
   }
   if (r.kind === "referral") return { from: "jane", text: "ได้เลย พี่ช่วยหาที่ปรึกษาที่เปิดอยู่ตอนนี้ให้นะ", banner: r.banner, offer: "strong", offerIntents: r.intents, cap: r.capNotice, note: "referral" };
   if (r.kind === "readonly") return { from: "jane", text: "แชทนี้ยาวมากแล้ว ตอนนี้ส่งข้อความเพิ่มไม่ได้ คุยกับเจ้าหน้าที่ตัวจริง หรือกดลบแชทเพื่อเริ่มใหม่ได้", note: "readonly", offer: "strong", offerIntents: ["other"] };
@@ -115,6 +116,13 @@ function bubble(m: ChatMsg, i: number, last: boolean, chat: ChatState, hooks: Ch
       m.banner?.length ? strip(m.banner) : null,
       m.placeholder && h("span", { class: "tag placeholder", "data-testid": "placeholder-tag" }, "PLACEHOLDER · เนื้อหาตัวอย่าง ยังไม่ใช่ข้อมูลจริง"),
       h("p", { "data-testid": "chat-text" }, shown),
+      (m.links ?? []).some((l) => telNumber(l.url))
+        ? h("div", { class: "chans" }, ...(m.links ?? []).filter((l) => telNumber(l.url)).map((l) => {
+          const n = telNumber(l.url)!;
+          // Same tap-to-call control the crisis card uses for 1323 (btn-call big + tel: + "โทร N").
+          return h("a", { class: n === "1323" ? "btn-call big" : "btn-call small", href: l.url, "data-testid": `card-call-${n}` }, l.label_th);
+        }))
+        : null,
       m.reworded && h("p", { class: "note", "data-testid": "reword-note" }, "เรียบเรียงโดยโมเดลในเครื่อง ",
         h("button", { class: "link", "data-testid": "show-original", onclick: () => { m.showOriginal = !m.showOriginal; hooks.rerender(); } }, m.showOriginal ? "ดูฉบับเรียบเรียง" : "ดูข้อความต้นฉบับ")),
       m.cap === "soft" && h("p", { class: "note", "data-testid": "cap-soft" }, `คุยกันมา ${SOFT_CAP} ข้อความแล้ว ลองคุยกับเจ้าหน้าที่ตัวจริง หรือกดลบแชทเพื่อเริ่มใหม่ก็ได้นะ`),

@@ -349,7 +349,8 @@
       "triggers": [
         "เครียดมาก",
         "นอนไม่หลับ",
-        "ไม่มีความสุข"
+        "ไม่มีความสุข",
+        "ไม่สบายใจ"
       ],
       "next": [],
       "source_intents": [],
@@ -372,7 +373,12 @@
           "mental_health"
         ]
       },
-      "links": [],
+      "links": [
+        {
+          "url": "tel:1323",
+          "label_th": "โทร 1323"
+        }
+      ],
       "age_min": 15,
       "reword": false,
       "licence": "CC-BY-SA-4.0",

@@ -131,6 +131,12 @@ export function hostOf(url: string): string {
   try { return new URL(/^https?:/i.test(url) ? url : `https://${url}`).hostname.toLowerCase().replace(/^www\./, ""); } catch { return ""; }
 }
 
+/** Digits in a `tel:1323` card link. Other schemes return null. */
+export function telNumber(url: string): string | null {
+  const m = String(url ?? "").trim().match(/^tel:([0-9]+)$/i);
+  return m ? m[1] : null;
+}
+
 export function toArabic(s: string): string {
   return s.replace(/[๐-๙]/g, (d) => String(d.charCodeAt(0) - 0x0e50));
 }
@@ -251,8 +257,12 @@ export function validateBank(cards: BankCard[], ctx: BankContext): Issue[] {
         if (!(c.variants_th as string[])[vi].includes(c.key_facts[i])) add("error", c.id, "key_facts", `variant variants_th[${vi}] drops key fact at key_facts[${i}]`);
       }
     }
-    // Phones: every number shown must be a real, cited one.
-    const phones = new Set(text.flatMap(phonesIn));
+    // Phones: every number shown must be a real, cited one (body text and tel: card links).
+    const phones = new Set([
+      ...text.flatMap(phonesIn),
+      ...c.links.flatMap((l) => phonesIn(l.label_th)),
+      ...c.links.map((l) => telNumber(l.url)).filter((n): n is string => !!n),
+    ]);
     for (const p of phones) if (!ctx.phones.has(p)) add("error", c.id, "phone_in_services", `phone …${p.slice(-2)} is not in services.json`);
     if (phones.size && !c.flags.includes("hotline")) add("error", c.id, "hotline_flag", "card shows a phone number but is not flagged 'hotline'");
     // Hours: a time range must match what services.json cites for a contact on the same card.
@@ -278,8 +288,9 @@ export function validateBank(cards: BankCard[], ctx: BankContext): Issue[] {
     }
     // Ship gate (copy reviewed → only approved, non-placeholder cards).
     if (ctx.copyStatus === "reviewed" && (c.review.status !== "approved" || c.placeholder)) add("error", c.id, "ship_gate", "THAI_COPY_STATUS is 'reviewed' but this card is not approved");
-    // Links: allow-listed hosts only, no shorteners, no images; and no raw URLs in the text.
+    // Links: tel: to a cited hotline, or allow-listed hosts only; no shorteners, no images; no raw URLs in the text.
     for (const l of c.links) {
+      if (telNumber(l.url)) continue; // phone_in_services already checked the digits
       const host = hostOf(l.url);
       if (SHORTENERS.includes(host)) add("error", c.id, "link_shortener", `shortened link ${host}`);
       else if (IMAGE_EXT.test(l.url)) add("error", c.id, "link_image", "image links are not allowed");

@@ -4,7 +4,7 @@ import path from "node:path";
 import fixture from "../fixtures/bank/valid-bank.json";
 import {
   validateBank, checkShape, phonesIn, hoursIn, urlsIn, shippable, ageAllowed, cardsFromFiles, BANK_TOPICS,
-  BANK_TEXT_LICENCE, checkBankTextLicence,
+  BANK_TEXT_LICENCE, checkBankTextLicence, telNumber,
   type BankCard,
 } from "../../src/core/bank";
 import { bankContext, BANK, BANK_FIXTURES, isProductionBankFile } from "../../src/core/bankData";
@@ -114,6 +114,10 @@ describe("bank rules: content", () => {
     expect(rules(withCard((c) => { c.links = [{ url: "https://rsathai.org/a.jpg", label_th: "x" }]; }, 1))).toContain("link_image");
     expect(rules(withCard((c) => { c.links = [{ url: "https://example.com/", label_th: "x" }]; }, 1))).toContain("link_allowlist");
     expect(rules(withCard((c) => { c.answer_th = "ข้อความทดสอบ ดูที่ example.com/page"; c.key_facts = []; }))).toContain("no_url_in_text");
+    expect(rules(withCard((c) => { c.links = [{ url: "tel:1323", label_th: "โทร 1323" }]; c.flags = [...c.flags, "hotline"]; }, 1))).not.toContain("link_allowlist");
+    expect(rules(withCard((c) => { c.links = [{ url: "tel:1999", label_th: "โทร 1999" }]; c.flags = [...c.flags, "hotline"]; }, 1))).toContain("phone_in_services");
+    expect(telNumber("tel:1323")).toBe("1323");
+    expect(telNumber("https://rsathai.org")).toBeNull();
   });
   it("PII: text must be unchanged by stripPII (service handles from services.json are allowed)", () => {
     expect(rules(withCard((c) => { c.answer_th = "ข้อความทดสอบ ชื่อสมมติ ติดต่อ 081 234 5678"; c.key_facts = []; }))).toContain("pii");
