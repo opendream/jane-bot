@@ -169,13 +169,10 @@ export function findPII(text, opts = {}) {
 
 export const REDACTED = "[ลบข้อมูลส่วนตัว]";
 
-/** Redact every finding (importer staging copy only). Returns the text and the categories hit. */
+/** Same redaction as stripPII; categories still come from findPII (importer / validator messages). */
 export function scrubPII(text, opts = {}) {
   const hits = findPII(text, opts);
-  let s = String(text ?? "");
-  const found = Object.values(hits).flat().sort((a, b) => b.length - a.length);
-  for (const m of found) s = s.split(m).join(REDACTED);
-  return { text: s, categories: Object.keys(hits) };
+  return { text: stripPII(text), categories: Object.keys(hits) };
 }
 
 function escapeRe(x) { return x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
@@ -184,12 +181,14 @@ function escapeRe(x) { return x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 const STRIP_RULES = [
   /https?:\/\/\S+|www\.\S+/gi,
   /[\w.+-]+@[\w-]+\.[\w.]+/g,
-  /(?<![A-Za-z])(?:ไลน์|ไอดีไลน์|line\s*id|line|ig|ไอจี|เฟส|facebook|fb)(?![A-Za-z])\s*[:：]?\s*@?[\w.\-]+/gi,
+  /(?<![A-Za-z])(?:ไลน์ไอดี|ไอดีไลน์|ไลน์|line\s*id|line|ig|ไอจี|เฟส|facebook|fb)(?![A-Za-z])\s*[:：]?\s*@?[\w.\-]+/gi,
   /@[\w.:\-]{2,}/g,
   /(?<!เ)(?:ชื่อเล่น|ชื่อจริง|ชื่อ|นามสกุล)\s*(?:คือ|ว่า)?\s*[^\s,.!?]+/g,
   /(?:my name is|i am called|i'm called)\s+\S+/gi,
   /(?:โรงเรียน|ร\.ร\.|รร\.|มหาวิทยาลัย|ม\.\s?[ก-๙A-Za-z]{2,}|วิทยาลัย)\s*[^\s,.!?]*/g,
   /(?:บ้านเลขที่|เลขที่|หมู่บ้าน|หมู่ที่|ซอย|ซ\.|ถนน|ถ\.|ตำบล|ต\.|แขวง|อำเภอ|อ\.|เขต)\s*[^\s,.!?]+/g,
+  /เลขบัญชี\s*[\d\s.\-]+/g,
+  /\b[A-Z]{2}\d{6,9}\b/g,
 ];
 const DIGIT_RUN = /\d[\d\s-]{4,}\d/g;
 

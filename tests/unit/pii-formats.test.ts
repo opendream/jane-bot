@@ -186,6 +186,25 @@ describe("known hours false positives (over-redaction accepted)", () => {
   });
 });
 
+describe("formats findPII misses and stripPII must fully redact (synthetic)", () => {
+  const cases: [string, string[]][] = [
+    ["ไอจี somchai_99", ["somchai_99"]],
+    ["ig: some.user", ["some.user"]],
+    ["ชื่อเล่นว่า ส้มโอ", ["ส้มโอ"]],
+    ["รร.สมมติวิทยา", ["สมมติวิทยา"]],
+    ["อยู่ ต.บางสมมติ อ.เมือง", ["บางสมมติ"]],
+    ["+1 415 555 0134", ["415 555", "555 0134", "415", "0134"]],
+    ["AA1234567", ["AA1234567", "AA"]],
+    ["ดูต่อที่ https://example.com/secret", ["example.com", "https://"]],
+    ["เลขบัญชี 123-4-56789-0", ["123-4-56789-0", "123-4-", "56789-0", "123", "56789"]],
+  ];
+  it.each(cases)("fully redacts %s", (input, leaks) => {
+    const out = stripPII(input);
+    expect(out).toContain(TOKEN);
+    for (const leak of leaks) expect(out, leak).not.toContain(leak);
+  });
+});
+
 describe("staff handoff summary", () => {
   it("draftSummary and finalizeSummary contain none of the format-suite values", () => {
     const leaked = [

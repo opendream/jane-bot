@@ -1,9 +1,9 @@
-// Dialogflow (ES) export → normalised, merged, scrubbed review queue (plan §2).
+// Dialogflow (ES) export → normalised, merged, stripPII'd review queue (plan §2).
 // Node only, no dependencies. Pure functions plus readExport(); the CLI is import-df.mjs.
 // Nothing here prints export text. Output goes to a staging dir OUTSIDE the repo.
 import fs from "node:fs";
 import path from "node:path";
-import { scrubPII, findPII } from "./pii-patterns.mjs";
+import { stripPII, findPII } from "./pii-patterns.mjs";
 
 /* ----------------------------------------- read ----------------------------------------- */
 
@@ -219,16 +219,34 @@ export function topicFor(name) {
 }
 
 /**
- * One queue item per merged intent. Status is always "needs-review"; text is PII-scrubbed;
+ * One queue item per merged intent. Status is always "needs-review"; text is stripPII'd;
  * the proposed card is a draft skeleton with EMPTY triggers (triggers are newly written, never copied).
+ * On a bot/Jane response conflict: medical_review is true if either variant is flagged;
+ * chips_th is the de-duplicated union of bot then Jane quick replies.
  */
 export function toQueueItem(rec, scrubOpts = {}) {
   const pii = { categories: new Set(), count: 0 };
-  const scrub = (s) => { const r = scrubPII(s, scrubOpts); r.categories.forEach((c) => pii.categories.add(c)); pii.count += r.categories.length; return r.text; };
+  const scrub = (s) => {
+    const hits = findPII(s, scrubOpts);
+    Object.keys(hits).forEach((c) => pii.categories.add(c));
+    pii.count += Object.keys(hits).length;
+    return stripPII(s);
+  };
   const clean = cleanMessages(rec.messages);
-  const texts = clean.texts.map(scrub), chips = clean.chips.map(scrub);
+  const janeMsgs = rec.variants?.jane;
+  const janeClean = janeMsgs ? cleanMessages(janeMsgs) : { chips: [] };
+  const texts = clean.texts.map(scrub);
+  const chips = [];
+  const seenC = new Set();
+  for (const c of [...clean.chips, ...janeClean.chips]) {
+    const t = scrub(c);
+    if (t && !seenC.has(t)) { seenC.add(t); chips.push(t); }
+  }
   const variants = rec.variants ? Object.fromEntries(Object.entries(rec.variants).map(([k, ms]) => [k, cleanMessages(ms).texts.map(scrub)])) : null;
-  const medical = medicalFlags(rec.name, allResponseStrings(rec.messages));
+  const medical = [...new Set([
+    ...medicalFlags(rec.name, allResponseStrings(rec.messages)),
+    ...(janeMsgs ? medicalFlags(rec.name, allResponseStrings(janeMsgs)) : []),
+  ])];
   const flags = cardFlagsFor(medical);
   return {
     queue_id: `df:${rec.name}`,

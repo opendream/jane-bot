@@ -106,13 +106,124 @@ describe("PII scrub and review flags", () => {
   });
 });
 
+/** Build a tiny SYNTHETIC Dialogflow-format export (no real user text). */
+function writeMiniExport(root: string, label: string, intents: { name: string; speech: string[]; phrases?: string[]; replies?: string[] }[]) {
+  const dir = path.join(root, label);
+  fs.mkdirSync(path.join(dir, "intents"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "agent.json"), JSON.stringify({ description: "SYNTHETIC", language: "th", displayName: label }));
+  for (const it of intents) {
+    const messages: Record<string, unknown>[] = [
+      { type: "0", title: "", textToSpeech: "", lang: "th", speech: it.speech, condition: "" },
+    ];
+    if (it.replies) messages.push({ type: "2", platform: "facebook", title: "เลือก", replies: it.replies, textToSpeech: "", lang: "th", condition: "" });
+    const j = {
+      id: `id-${it.name}`, name: it.name, auto: true, contexts: [],
+      responses: [{ resetContexts: false, action: "", affectedContexts: [], parameters: [], messages, speech: [] }],
+      priority: 500000, webhookUsed: false, webhookForSlotFilling: false, fallbackIntent: false,
+      events: [], conditionalResponses: [], condition: "", conditionalFollowupEvents: [],
+    };
+    fs.writeFileSync(path.join(dir, "intents", `${it.name}.json`), JSON.stringify(j));
+    const phrases = it.phrases ?? [];
+    if (phrases.length) {
+      fs.writeFileSync(path.join(dir, "intents", `${it.name}_usersays_th.json`), JSON.stringify(phrases.map((p, i) => ({
+        id: `u${i}`, data: [{ text: p, userDefined: false }], isTemplate: false, count: 0, lang: "th", updated: 0,
+      }))));
+    }
+  }
+  return dir;
+}
+
+describe("importer uses stripPII (formats scrubPII misses)", () => {
+  const leaks = [
+    "somchai_99", "some.user", "ส้มโอ", "สมมติวิทยา", "บางสมมติ",
+    "415 555", "AA1234567", "example.com", "123-4-56789-0", "123-4-", "56789-0",
+  ];
+  const phrases = [
+    "ไอจี somchai_99",
+    "ig: some.user",
+    "ชื่อเล่นว่า ส้มโอ",
+    "รร.สมมติวิทยา",
+    "อยู่ ต.บางสมมติ อ.เมือง",
+    "+1 415 555 0134",
+    "AA1234567",
+    "ดูต่อที่ https://example.com/secret",
+    "เลขบัญชี 123-4-56789-0",
+  ];
+
+  it("redacts those formats in review-queue responses and intents.jsonl phrases", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "jane-df-mini-"));
+    const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "jane-queue-mini-"));
+    const bot = writeMiniExport(root, "bot", [{ name: "test.formats.000", speech: phrases, phrases }]);
+    const jane = writeMiniExport(root, "jane", []);
+    const r = runImport({ bot, jane, out: outDir });
+    const q = r.queue.find((x: any) => x.intent === "test.formats.000");
+    const queueBlob = JSON.stringify([q.responses_th, q.proposed_card.answer_th]);
+    const intentsBlob = fs.readFileSync(path.join(outDir, "intents.jsonl"), "utf8");
+    expect(queueBlob).toContain("[ลบข้อมูลส่วนตัว]");
+    expect(intentsBlob).toContain("[ลบข้อมูลส่วนตัว]");
+    for (const leak of leaks) {
+      expect(queueBlob, leak).not.toContain(leak);
+      expect(intentsBlob, leak).not.toContain(leak);
+    }
+  });
+});
+
+describe("conflict: medical flag and Jane chips from either variant", () => {
+  it("sets medical_review if Jane's variant is flagged and unions Jane's quick replies", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "jane-df-conflict-"));
+    const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "jane-queue-conflict-"));
+    const bot = writeMiniExport(root, "bot", [{
+      name: "test.conflict.000", speech: ["สวัสดีทดสอบ"], replies: ["คุยต่อ"], phrases: ["ทักทายทดสอบ"],
+    }]);
+    const jane = writeMiniExport(root, "jane", [{
+      name: "test.conflict.000", speech: ["ตรวจเอชไอวีได้ ทดสอบ"], replies: ["คุยต่อ", "ถามหมอ"], phrases: ["ทักทายทดสอบ"],
+    }]);
+    const r = runImport({ bot, jane, out: outDir });
+    const q = r.queue.find((x: any) => x.intent === "test.conflict.000");
+    expect(q.review.conflict).toBe(true);
+    expect(q.review.medical_review).toBe(true);
+    expect(q.review.medical_flags).toEqual(expect.arrayContaining(["hiv_treatment_testing"]));
+    expect(q.chips_th).toEqual(["คุยต่อ", "ถามหมอ"]);
+  });
+});
+
 describe("output stays outside git", () => {
   it("refuses to write the queue inside the repo", () => {
     expect(() => runImport({ bot: path.join(FX, "bot"), jane: path.join(FX, "jane"), out: path.join(REPO, "tmp-queue") })).toThrow(/outside/);
     expect(fs.existsSync(path.join(REPO, "tmp-queue"))).toBe(false);
   });
+  it("rejects a ..x-style name that is still inside the repo", () => {
+    const sneaky = path.join(REPO, "..x-review-queue-test");
+    try {
+      expect(() => runImport({ bot: path.join(FX, "bot"), jane: path.join(FX, "jane"), out: sneaky })).toThrow(/outside/);
+      expect(fs.existsSync(sneaky)).toBe(false);
+    } finally {
+      fs.rmSync(sneaky, { recursive: true, force: true });
+    }
+  });
+  it("rejects a symlink that points into the repo", () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "jane-out-link-"));
+    const link = path.join(tmp, "into-repo");
+    const target = path.join(REPO, "tmp-queue-via-symlink");
+    fs.symlinkSync(target, link);
+    try {
+      expect(() => runImport({ bot: path.join(FX, "bot"), jane: path.join(FX, "jane"), out: link })).toThrow(/outside/);
+      expect(fs.existsSync(target)).toBe(false);
+    } finally {
+      fs.rmSync(target, { recursive: true, force: true });
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
   it("writes the four staging files with owner-only permissions", () => {
     for (const f of ["intents.jsonl", "review-queue.jsonl", "pii-hits.jsonl", "summary.json"]) expect(fs.statSync(path.join(out, f)).mode & 0o077).toBe(0);
+  });
+  it("re-applies mode 0600 when rewriting an existing pii-hits.jsonl", () => {
+    const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "jane-queue-chmod-"));
+    const hits = path.join(outDir, "pii-hits.jsonl");
+    fs.writeFileSync(hits, "{}\n", { mode: 0o644 });
+    fs.chmodSync(hits, 0o644);
+    runImport({ bot: path.join(FX, "bot"), jane: path.join(FX, "jane"), out: outDir });
+    expect(fs.statSync(hits).mode & 0o777).toBe(0o600);
   });
   it(".gitignore covers the exports and the private queue", () => {
     const gi = fs.readFileSync(path.join(REPO, ".gitignore"), "utf8");
