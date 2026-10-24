@@ -17,8 +17,8 @@ export const ENGLISH_ALLOW = new Set(("Jane Dialogflow Facebook Messenger Line G
   "English Doctor Demo Placeholder Online Club Teen Rsa Yfhs General Information Not Medical Advice Qwen Webgpu Wasm Opendream Thaihealth")
   .toLowerCase().split(/\s+/));
 
-/** Dot, hyphen or bracket with optional spaces, or just whitespace, between digit groups. */
-const DSEP = String.raw`(?:\s*[.\-()]\s*|\s+)`;
+/** Dot, hyphen, en dash (U+2013) or bracket with optional spaces, or just whitespace, between digit groups. */
+const DSEP = String.raw`(?:\s*[.\-–()]\s*|\s+)`;
 /** +66 with optional (0) / 0, or a local 0 that may sit in brackets: (081)…, +66 (0)81… */
 const PHONE_LEAD = String.raw`(?:\+?66${DSEP}?(?:\(\s*0\s*\)|\(?0?)?${DSEP}?|\(?0${DSEP}?)`;
 /** Thai mobile: 10 digits starting 06/08/09. Optional +66 / 66, with or without a trunk 0. */
@@ -98,48 +98,27 @@ export function mergeSpans(spans) {
   return out;
 }
 
-function leftoverDigitIndexes(s, start, end, ranges) {
-  const out = [];
+function digitCountOutside(s, start, end, ranges) {
+  let n = 0;
   for (let i = start; i < end; i++) {
     if (s[i] < "0" || s[i] > "9") continue;
     if (ranges.some(([a, b]) => i >= a && i < b)) continue;
-    out.push(i);
+    n++;
   }
-  return out;
-}
-
-/** Gap is only whitespace (optional "น.") — not a '.' or '-' join. */
-function gapIsOnlyWhitespace(gap) {
-  const g = gap.replace(/\s*น\.\s*/g, " ");
-  return g.length > 0 && /^\s+$/.test(g);
-}
-
-/**
- * Leftover digits are a standalone number after/before hours (e.g. "09.00-21.00 30")
- * when every leftover digit is separated from an overlapping hour range by
- * whitespace only. Joined leftovers ("08.12-23.45-67", "08-12.30-13.45") are not.
- */
-function leftoversOnlyWhitespaceSeparated(s, start, end, ranges) {
-  const overlapping = ranges.filter(([a, b]) => a < end && b > start);
-  if (!overlapping.length) return false;
-  const leftover = leftoverDigitIndexes(s, start, end, overlapping);
-  if (!leftover.length) return true;
-  return overlapping.every(([a, b]) => {
-    const after = leftover.filter((i) => i >= b);
-    if (after.length && !gapIsOnlyWhitespace(s.slice(b, Math.min(...after)))) return false;
-    const before = leftover.filter((i) => i < a);
-    if (before.length && !gapIsOnlyWhitespace(s.slice(Math.max(...before) + 1, a))) return false;
-    return true;
-  });
+  return n;
 }
 
 /**
  * Phone [start, end) spans on the original text (Thai digits mapped 1:1).
  * Matched on the original, never on blanked text.
  *
- * Hour ranges are not phones. Extra digits joined with '.' or '-' stay a phone
- * (08.12-23.45-67). Extra digits separated only by whitespace stay hours
- * ("09.00-21.00 30 นาที"); a later real phone is matched on its own.
+ * An hour range is an exemption only when the phone match *ends at* that range
+ * and has no leftover digits (the match is the hours, not a number that
+ * continues past them). If the match continues past the range — or starts
+ * before it with extra digits — the whole match is a phone.
+ *
+ * Known limitation (accepted by Keng 24 Oct 2026): an hour range followed by a
+ * short number is redacted as a phone. Over-redaction, no leak.
  */
 export function findPhoneIndexSpans(original) {
   const src = String(original ?? "");
@@ -148,7 +127,10 @@ export function findPhoneIndexSpans(original) {
   const out = [];
   for (const re of [PHONE_MOBILE, PHONE_LANDLINE]) {
     for (const [a, b] of matchSpans(re, s)) {
-      if (leftoversOnlyWhitespaceSeparated(s, a, b, timeRanges)) continue;
+      // Drop only when every digit sits inside an hour range (pure hours,
+      // including back-to-back "09.00-21.00 10.00-20.00"). Any leftover
+      // digit means the match continued past / around the range.
+      if (digitCountOutside(s, a, b, timeRanges) === 0) continue;
       out.push([a, b]);
     }
   }

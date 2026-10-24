@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 // @ts-ignore shared implementation
-import { stripPII as stripFromPatterns, findPhoneSpans, findPII } from "../../scripts/bank/pii-patterns.mjs";
+import { stripPII as stripFromPatterns, findPhoneSpans, findPII, toArabic } from "../../scripts/bank/pii-patterns.mjs";
 import { stripPII, draftSummary, finalizeSummary } from "../../src/core/summary";
 import { SERVICES } from "../../src/core/referral";
 
@@ -33,12 +33,25 @@ const SYN = {
   urlPhone: "https://example.com/call/081-234-5678",
 };
 
+function toThaiDigits(s: string) {
+  return s.replace(/[0-9]/g, (d) => String.fromCharCode(0x0e50 + Number(d)));
+}
+
 function expectRedacted(input: string, leaked: string) {
   const a = stripPII(input);
   const b = stripFromPatterns(input);
   expect(a, "summary stripPII").toBe(b);
   expect(a, leaked).not.toContain(leaked);
   expect(a).toContain(TOKEN);
+}
+
+function expectPhoneDigitsGone(input: string) {
+  const a = stripPII(input);
+  expect(a, "summary stripPII").toBe(stripFromPatterns(input));
+  expect(a).toContain(TOKEN);
+  const digits = toArabic(input).replace(/\D/g, "");
+  expect(toArabic(a).replace(/\D/g, ""), input).not.toContain(digits);
+  expect(a, input).not.toContain(input.replace(/^โทร |\sนะ$/g, "").trim());
 }
 
 describe("shared stripPII", () => {
@@ -76,6 +89,24 @@ describe("phones (synthetic)", () => {
     expectRedacted(`โทร ${phone} นะ`, phone);
     expect(findPhoneSpans(`โทร ${phone}`).join(""), phone).toContain(phone);
     expect(Object.keys(findPII(`โทร ${phone}`)), phone).toContain("phone");
+  });
+
+  const spaceSplit: [string, string][] = [
+    ["space after range", "08.12-23.45 67"],
+    ["spaces around hyphen", "08.12 - 23.45 67"],
+    ["prefix leftover", "081 2.30-13.45"],
+    ["split trunk", "0 8.12-23.45 67"],
+    ["prefix then range", "08 12.30-13.45"],
+    ["en dash", "08.12–23.45 67"],
+  ];
+  it.each(spaceSplit)("stripPII redacts space-split %s (Arabic digits)", (_label, phone) => {
+    expectPhoneDigitsGone(`โทร ${phone} นะ`);
+    expect(Object.keys(findPII(`โทร ${phone}`)), phone).toContain("phone");
+  });
+  it.each(spaceSplit)("stripPII redacts space-split %s (Thai digits)", (_label, phone) => {
+    const thai = toThaiDigits(phone);
+    expectPhoneDigitsGone(`โทร ${thai} นะ`);
+    expect(Object.keys(findPII(`โทร ${thai}`)), thai).toContain("phone");
   });
 });
 
@@ -123,10 +154,6 @@ describe("negatives that must survive unchanged", () => {
     "1663 09.00 - 21.00",
     "โทร 1300 9.00 - 16.00 น.",
     "ปี 2569 08.30-16.30",
-    "09.00-21.00 30 นาที",
-    "08.30-16.30 17 ปี",
-    "เปิด 06.00-18.00 1 ครั้ง",
-    "05.00-12.00 7 วัน",
     "card fixture.start.000",
     "card ec.000",
   ];
@@ -134,13 +161,28 @@ describe("negatives that must survive unchanged", () => {
     expect(stripPII(s)).toBe(s);
     expect(findPII(s).phone ?? []).toEqual([]);
   });
-  it("keeps hours when a landline follows, and still redacts the phone", () => {
+});
+
+// Known limitation accepted by Keng 24 Oct 2026: over-redaction, no leak
+describe("known hours false positives (over-redaction accepted)", () => {
+  const over = [
+    "09.00-21.00 30 นาที",
+    "08.30-16.30 17 ปี",
+    "เปิด 06.00-18.00 1 ครั้ง",
+    "05.00-12.00 7 วัน",
+  ];
+  it.each(over)("%s redacts the hours (over-redaction, no leak)", (s) => {
+    const out = stripPII(s);
+    expect(out).toContain(TOKEN);
+    expect(out).not.toBe(s);
+    expect(out).not.toMatch(/\d{1,2}[.:]\d{2}/);
+  });
+  it("เวลา 08.00-17.00 02 123 4567 over-redacts hours; the landline is still gone", () => {
     const s = "เวลา 08.00-17.00 02 123 4567";
     const out = stripPII(s);
-    expect(out).toContain("08.00-17.00");
-    expect(out).not.toContain("02 123 4567");
     expect(out).toContain(TOKEN);
-    expect(findPhoneSpans(s).join("")).toContain("02 123 4567");
+    expect(out).not.toContain("08.00-17.00");
+    expect(out).not.toContain("02 123 4567");
   });
 });
 
