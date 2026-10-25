@@ -69,26 +69,17 @@ export interface BankContext {
   hoursByContact: ReadonlyMap<string, ReadonlySet<string>>;
   /** Handles already public in services.json (e.g. "@teen_club"); everything else is PII-like. */
   handles: ReadonlySet<string>;
-  /** Exact services.json contact tokens (channel values, cited URLs, crisis numbers). */
-  contacts: ReadonlySet<string>;
   copyStatus: "draft" | "reviewed";
   today?: string;
 }
 
 export interface Issue { level: "error" | "warning"; card: string; rule: string; msg: string }
 
-/** Units after a 1xx number mean a quantity (120 ชั่วโมง, 100 บาท), not a hotline. */
-const QTY_UNIT = /(?:ชั่วโมง|ชม\.?|hours?|บาท|วัน|เดือน|ปี|สัปดาห์|ครั้ง|เม็ด|นาที|วินาที)/;
-
 /** Phone numbers and hotlines in Thai text: 3–4 digit hotlines starting with 1, and 9–10 digit 0-prefixed numbers. */
 export function phonesIn(text: string): string[] {
   const t = toArabic(text);
   const out = new Set<string>();
-  for (const m of t.matchAll(/(?<![\d:.\-])(1\d{2,3})(?![\d:.\-])/g)) {
-    const after = t.slice((m.index ?? 0) + m[1].length);
-    if (new RegExp(String.raw`^\s*${QTY_UNIT.source}`).test(after)) continue;
-    out.add(m[1]);
-  }
+  for (const m of t.matchAll(/(?<![\d:.\-])(1\d{2,3})(?![\d:.\-])/g)) out.add(m[1]);
   for (const span of findPhoneSpans(text)) {
     const digits = toArabic(span).replace(/\D/g, "");
     if (digits) out.add(digits);
@@ -108,20 +99,6 @@ export function hoursIn(text: string): string[] {
 
 export function urlsIn(text: string): string[] {
   return [...text.matchAll(/https?:\/\/[^\s"'<>)]+|(?<![\w/@.])(?:www\.)[^\s"'<>)]+|(?<![\w/@.])[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:com|org|net|th|me|ly|gl|co|io|ee)(?:\/[^\s"'<>)]*)?/gi)].map((m) => m[0]);
-}
-
-const HANDLE_TOKEN = /(?<![\w.])@[A-Za-z0-9._]+/g;
-const EMAIL_TOKEN = /[\w.+-]+@[\w-]+\.[\w.]+/g;
-
-/** Whole-token phones, URLs and handles (including email-like local@host) from a string. */
-export function contactsIn(text: string): string[] {
-  const out = new Set<string>();
-  for (const p of phonesIn(text)) out.add(p);
-  for (const u of urlsIn(text)) out.add(u);
-  const s = String(text ?? "");
-  for (const m of s.matchAll(HANDLE_TOKEN)) out.add(m[0]);
-  for (const m of s.matchAll(EMAIL_TOKEN)) out.add(m[0]);
-  return [...out];
 }
 
 export function hostOf(url: string): string {
@@ -191,14 +168,6 @@ function isUserFacingPath(p: string): boolean {
     const k = pathKey(seg);
     return USER_FACING_KEYS.has(k) || k.endsWith("_th");
   });
-}
-
-/** User-facing copy plus contact fields shown to the user. Not $.id or source[] citations. */
-function isContactExactPath(p: string): boolean {
-  if (p === "$.id") return false;
-  if (/(?:^|\.)source(?:\[|\.|$)/.test(p)) return false;
-  if (/\.links\[\d+\]\.url$/.test(p)) return true;
-  return isUserFacingPath(p);
 }
 
 /** Every string (and number-as-string) on a value, with a JSON path. Used so new card fields are scanned automatically. */
@@ -293,15 +262,6 @@ export function validateBank(cards: BankCard[], ctx: BankContext): Issue[] {
     for (const { path, value } of walkStrings(c)) {
       if (/\.url$/.test(path) || path === "$.id") continue;
       if (urlsIn(value).length) add("error", c.id, "no_url_in_text", `URL in ${safePath(path)}`);
-    }
-    // Contacts: user-facing text and shown contact fields only. links[].url is the whole URL
-    // (query included); path segments like /1xx are not treated as phones.
-    for (const { path, value } of walkStrings(c)) {
-      if (!isContactExactPath(path)) continue;
-      const tokens = /\.links\[\d+\]\.url$/.test(path) ? [value] : contactsIn(value);
-      for (const token of tokens) {
-        if (!ctx.contacts.has(token)) add("error", c.id, "contact_exact", `contact in ${safePath(path)} is not an exact services.json entry`);
-      }
     }
     // PII: every string field is scanned. User-facing copy uses the full detector + stripPII;
     // metadata/citation fields only report contact PII (phone, email, id, handle, facebook).

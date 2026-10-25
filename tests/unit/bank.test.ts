@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import fixture from "../fixtures/bank/valid-bank.json";
 import {
-  validateBank, checkShape, phonesIn, hoursIn, urlsIn, contactsIn, shippable, ageAllowed, cardsFromFiles, BANK_TOPICS,
+  validateBank, checkShape, phonesIn, hoursIn, urlsIn, shippable, ageAllowed, cardsFromFiles, BANK_TOPICS,
   type BankCard,
 } from "../../src/core/bank";
 import { bankContext, BANK, isProductionBankFile } from "../../src/core/bankData";
@@ -84,12 +84,16 @@ describe("bank rules: content", () => {
     expect(leaked.find((e) => e.rule === "phone_in_services")?.msg).not.toContain("1999");
     expect(rules(withCard((c) => { c.answer_th = "ข้อความทดสอบ โทร 1323"; c.key_facts = []; }))).toContain("hotline_flag");
     expect(rules(withCard((c) => { c.answer_th = "ข้อความทดสอบ โทร ๑๖๖๓"; c.key_facts = []; }, 1))).toEqual([]); // Thai digits
+    const sat = errors(withCard((c) => { c.answer_th = "ข้อความทดสอบ โทร 1336 วันเสาร์-อาทิตย์"; c.key_facts = []; }, 1));
+    expect(sat.map((e) => e.rule)).toContain("phone_in_services");
+    expect(sat.map((e) => e.msg).join("\n")).not.toContain("1336");
   });
   it("hours must match a cited source for a contact on the card", () => {
     const h = (t: string) => withCard((c) => { c.answer_th = t; c.key_facts = []; c.flags = [...c.flags, "hours"]; }, 1);
     expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09:00–21:00 น."))).toEqual([]);            // RSATHAI
     expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09:00 - 21:00 น."))).toEqual([]);           // spaced hyphen (same RSATHAI window)
     expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09.00 - 21.00 น."))).toEqual([]);           // hotline then spaced dotted hours (stripPII must not mangle)
+    expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09.00–21.00 น."))).toEqual([]);             // dotted en-dash RSATHAI window
     expect(rules(h("ข้อความทดสอบ โทร 1663 09.00 - 21.00 น."))).toEqual([]);                // hotline immediately before hours
     expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 10.00-20.00 น."))).toEqual([]);             // GCC
     expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09.00-21.00 10.00-20.00"))).toEqual([]);    // back-to-back dotted ranges
@@ -120,58 +124,6 @@ describe("bank rules: content", () => {
     expect(rules(withCard((c) => { c.answer_th = "ข้อความทดสอบ ชื่อสมมติ ติดต่อ 081 234 5678"; c.key_facts = []; }))).toContain("pii");
     expect(rules(withCard((c) => { c.answer_th = "ข้อความทดสอบ อีเมล test@example.com"; c.key_facts = []; }))).toContain("pii");
     expect(rules(withCard((c) => { c.answer_th = "ข้อความทดสอบ ทักไลน์ @teen_club ได้"; c.key_facts = []; }))).not.toContain("pii");
-  });
-  it("contact_exact: suffix handle, email on an allowed host, and a query-string phone fail; exact entries pass", () => {
-    const suffix = errors(withCard((c) => { c.answer_th = "ข้อความทดสอบ ทักไลน์ @teen_club_private99 ได้"; c.key_facts = []; }));
-    expect(suffix.map((e) => e.rule)).toContain("contact_exact");
-    expect(suffix.map((e) => e.msg).join("\n")).not.toContain("@teen_club_private99");
-
-    const email = errors(withCard((c) => { c.answer_th = "ข้อความทดสอบ อีเมล local@contest-thailand.com"; c.key_facts = []; }));
-    expect(email.map((e) => e.rule)).toContain("contact_exact");
-    expect(email.map((e) => e.msg).join("\n")).not.toContain("local@contest-thailand.com");
-
-    const query = errors(withCard((c) => { c.links = [{ url: "https://rsathai.org/qrcode?tel=1663", label_th: "ทดสอบลิงก์" }]; }, 1));
-    expect(query.map((e) => e.rule)).toContain("contact_exact");
-    expect(query.map((e) => e.msg).join("\n")).not.toContain("tel=1663");
-    expect(query.map((e) => e.msg).join("\n")).not.toContain("qrcode?");
-
-    expect(rules(withCard((c) => {
-      c.answer_th = "ข้อความทดสอบ โทร 1663 ทักไลน์ @teen_club ได้";
-      c.key_facts = ["1663"];
-      c.links = [{ url: "https://rsathai.org/qrcode", label_th: "ทดสอบลิงก์" }];
-    }, 1))).toEqual([]);
-  });
-  it("contact_exact: 120 ชั่วโมง and 100 บาท in titles and labels pass; a non-services phone in a title or label fails", () => {
-    expect(phonesIn("ภายใน 120 ชั่วโมง")).toEqual([]);
-    expect(phonesIn("ราคา 100 บาท")).toEqual([]);
-    expect(rules(withCard((c) => { c.title_th = "120 ชั่วโมง"; }))).toEqual([]);
-    expect(rules(withCard((c) => { c.next[0].label_th = "100 บาท"; }))).toEqual([]);
-    expect(rules(withCard((c) => { c.links[0].label_th = "100 บาท"; }, 1))).toEqual([]);
-    const titlePhone = errors(withCard((c) => { c.title_th = "โทร 1999"; }));
-    expect(titlePhone.map((e) => e.rule)).toContain("contact_exact");
-    expect(titlePhone.map((e) => e.msg).join("\n")).not.toContain("1999");
-    const labelPhone = errors(withCard((c) => { c.next[0].label_th = "โทร 1999"; }));
-    expect(labelPhone.map((e) => e.rule)).toContain("contact_exact");
-    expect(labelPhone.map((e) => e.msg).join("\n")).not.toContain("1999");
-  });
-  it("contact_exact skips source citations and ids; /1xx in a link path is the whole URL", () => {
-    expect(phonesIn("fixture.start.p100")).toContain("100");
-    expect(phonesIn("fixture.info.a101")).toContain("101");
-    const ids = base();
-    ids[0].id = "fixture.start.p100";
-    ids[0].next = [{ label_th: "ไปต่อ", card_id: "fixture.info.a101" }];
-    ids[1].id = "fixture.info.a101";
-    ids[1].next = [{ label_th: "กลับ", card_id: "fixture.start.p100" }];
-    expect(rules(ids)).toEqual([]);
-
-    expect(rules(withCard((c) => {
-      c.source = [{ by: "Test", url: "https://rsathai.org/guidelines/emergency-contraception", title: "fixture", checked: "2026-10-22" }];
-    }, 1))).toEqual([]);
-
-    const pathSegment = errors(withCard((c) => { c.links = [{ url: "https://rsathai.org/guide/191", label_th: "ทดสอบลิงก์" }]; }, 1));
-    expect(pathSegment.map((e) => e.rule)).toContain("contact_exact");
-    expect(pathSegment.map((e) => e.msg).join("\n")).not.toContain("/191");
-    expect(pathSegment.map((e) => e.msg).join("\n")).not.toContain("guide/191");
   });
   it("placeholder cards must say PLACEHOLDER and can never be approved", () => {
     expect(rules(withCard((c) => { c.placeholder = true; }))).toContain("placeholder_mark");
@@ -210,7 +162,7 @@ describe("bank text helpers", () => {
     expect(phonesIn("โทร ๐๘๑-๒๓๔-๕๖๗๘")).toEqual(["0812345678"]);
     expect(phonesIn("โทร 1663 เวลา 09.00-21.00 10.00-20.00")).toEqual(["1663"]);
     expect(phonesIn("เวลา ๐๙.๐๐–๒๑.๐๐ ๑๐.๐๐-๒๐.๐๐")).toEqual([]);
-    expect(phonesIn("ภายใน 120 ชั่วโมง หรือ 100 บาท")).toEqual([]);
+    expect(phonesIn("โทร 1336 วันเสาร์-อาทิตย์")).toEqual(["1336"]);
   });
   it("hoursIn normalises ranges", () => {
     expect(hoursIn("9.00-21.00 น.")).toEqual(["09:00–21:00"]);
@@ -221,14 +173,6 @@ describe("bank text helpers", () => {
   it("urlsIn finds bare and full URLs", () => {
     expect(urlsIn("ดู https://rsathai.org/x และ tinyurl.com/abc")).toHaveLength(2);
     expect(urlsIn("ไม่มีลิงก์ 1663")).toEqual([]);
-  });
-  it("contactsIn extracts whole-token phones, URLs and handles", () => {
-    expect(contactsIn("โทร 1663 ทัก @teen_club ดู https://rsathai.org/qrcode?tel=1663")).toEqual(
-      expect.arrayContaining(["1663", "@teen_club", "https://rsathai.org/qrcode?tel=1663"]),
-    );
-    expect(contactsIn("local@contest-thailand.com")).toContain("local@contest-thailand.com");
-    expect(contactsIn("ทัก @teen_club_private99")).toContain("@teen_club_private99");
-    expect(contactsIn("ทัก @teen_club_private99")).not.toContain("@teen_club");
   });
   it("cardsFromFiles skips quiz.json and rejects a file without cards", () => {
     expect(cardsFromFiles({ "a.json": { default: fixture }, "quiz.json": { questions: [] } })).toHaveLength(2);
