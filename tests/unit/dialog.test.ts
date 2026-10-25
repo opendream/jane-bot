@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import fpSet from "../../evals/crisis-fp-set.json";
-import { runTurn, newDialog, welcome, DialogSession, SOFT_CAP, HARD_CAP, FALLBACK_ID, MODEL_INPUT_CHARS, shouldApplyAsyncResult, type DialogModel, type DialogState, type TurnDeps } from "../../src/core/dialog";
+import { runTurn, newDialog, welcome, DialogSession, SOFT_CAP, HARD_CAP, FALLBACK_ID, MODEL_INPUT_CHARS, shouldApplyAsyncResult, newNeedGate, beginNeed, bumpNeed, needBusy, endNeed, type DialogModel, type DialogState, type TurnDeps } from "../../src/core/dialog";
 import { REFUSAL_CARDS, checkInput, type GuardReason } from "../../src/core/guard";
 import { retrieve } from "../../src/core/retrieve";
 import { validateBank } from "../../src/core/bank";
@@ -94,7 +94,6 @@ describe("crisis first: rules on every turn, never the model", () => {
     expect(shouldApplyAsyncResult(1, 2, "describe")).toBe(false);
     expect(shouldApplyAsyncResult(1, 1, "start")).toBe(false);
     expect(shouldApplyAsyncResult(1, 1, "neutral")).toBe(false);
-    expect(shouldApplyAsyncResult(1, 1, "chat")).toBe(false);
   });
   it("a late classify is dropped after the user has opened chat", () => {
     expect(shouldApplyAsyncResult(1, 1, "chat")).toBe(false);
@@ -115,6 +114,76 @@ describe("crisis first: rules on every turn, never the model", () => {
     expect(calls.lastSignal?.aborted).toBe(true);
     expect(await first).toBeNull(); // stale reply dropped
     expect(calls.pick).toBe(1);
+  });
+});
+
+describe("need-request gate: busy dies with its request", () => {
+  it("SOS then continue back to describe clears busy so a late classify cannot lock the UI", () => {
+    const g = newNeedGate();
+    const mine = beginNeed(g);
+    expect(needBusy(g)).toBe(true);
+    bumpNeed(g); // SOS
+    expect(needBusy(g)).toBe(false);
+    bumpNeed(g); // continue
+    expect(needBusy(g)).toBe(false);
+    endNeed(g, mine);
+    expect(needBusy(g)).toBe(false);
+    expect(shouldApplyAsyncResult(mine, g.seq, "describe")).toBe(false);
+  });
+
+  it("erase then age re-pick clears busy for the old classify", () => {
+    const g = newNeedGate();
+    const mine = beginNeed(g);
+    expect(needBusy(g)).toBe(true);
+    bumpNeed(g); // erase
+    expect(needBusy(g)).toBe(false);
+    bumpNeed(g); // age re-pick
+    expect(needBusy(g)).toBe(false);
+    endNeed(g, mine);
+    expect(needBusy(g)).toBe(false);
+    expect(shouldApplyAsyncResult(mine, g.seq, "describe")).toBe(false);
+  });
+
+  it("openChat, quick exit, and a classify error all clear busy for the old request", () => {
+    for (const leave of ["openChat", "quickExit", "classifyError"] as const) {
+      const g = newNeedGate();
+      const mine = beginNeed(g);
+      if (leave === "classifyError") endNeed(g, mine);
+      else bumpNeed(g);
+      expect(needBusy(g), leave).toBe(false);
+      endNeed(g, mine);
+      expect(needBusy(g), leave).toBe(false);
+    }
+  });
+
+  it("ending an old request does not clear a newer in-flight classify", () => {
+    const g = newNeedGate();
+    const old = beginNeed(g);
+    bumpNeed(g);
+    const next = beginNeed(g);
+    endNeed(g, old);
+    expect(needBusy(g)).toBe(true);
+    expect(g.busyFor).toBe(next);
+    endNeed(g, next);
+    expect(needBusy(g)).toBe(false);
+  });
+
+  it("success, stale drop, and a crisis bump without begin all leave the gate idle", () => {
+    const ok = newNeedGate();
+    const mine = beginNeed(ok);
+    endNeed(ok, mine);
+    expect(needBusy(ok)).toBe(false);
+
+    const stale = newNeedGate();
+    const a = beginNeed(stale);
+    bumpNeed(stale);
+    endNeed(stale, a);
+    expect(needBusy(stale)).toBe(false);
+    expect(shouldApplyAsyncResult(a, stale.seq, "describe")).toBe(false);
+
+    const crisis = newNeedGate();
+    bumpNeed(crisis);
+    expect(needBusy(crisis)).toBe(false);
   });
 });
 

@@ -152,17 +152,64 @@ test("CH10 quick exit during classify stays on the neutral page", async ({ page 
   expect(await page.locator("body").innerText()).not.toContain("กลัวท้อง");
 });
 
-test("CH11 late classify after opening chat does not pull the user to suggest", async ({ page }) => {
+test("CH11 SOS then continue back to describe re-enables buttons; crisis text still opens the crisis screen", async ({ page }) => {
   await page.goto("/?model=off&classifyDelayMs=400");
   await startAs(page, "18-24");
   await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
   await page.getByTestId("need-submit").click();
   await expect(page.getByTestId("need-submit")).toHaveText("กำลังคิด…");
-  await expect(page.getByTestId("open-chat")).toBeDisabled();
-  // Native disabled buttons drop user clicks; dispatch still reaches the listener so the race is testable.
-  await page.getByTestId("open-chat").dispatchEvent("click");
+  await page.getByTestId("sos").click();
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  await page.getByTestId("crisis-continue").click();
+  await expect(page.getByTestId("screen-describe")).toBeVisible();
+  await expect(page.getByTestId("need-submit")).toBeEnabled();
+  await expect(page.getByTestId("need-submit")).toHaveText("หาที่ปรึกษา");
+  await expect(page.getByTestId("open-chat")).toBeEnabled();
+  await page.waitForTimeout(600);
+  await expect(page.getByTestId("screen-describe")).toBeVisible();
+  await expect(page.getByTestId("screen-suggest")).toHaveCount(0);
+  await expect(page.getByTestId("need-submit")).toBeEnabled();
+  await page.getByTestId("need-input").fill("อยากตาย");
+  await page.getByTestId("need-submit").click();
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+});
+
+test("CH12 erase then age re-pick re-enables buttons; crisis text still opens the crisis screen", async ({ page }) => {
+  await page.goto("/?model=off&classifyDelayMs=400");
+  await startAs(page, "18-24");
+  await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
+  await page.getByTestId("need-submit").click();
+  await expect(page.getByTestId("need-submit")).toHaveText("กำลังคิด…");
+  await page.getByTestId("erase").click();
+  await expect(page.getByTestId("screen-start")).toBeVisible();
+  await page.getByTestId("age-18-24").click();
+  await expect(page.getByTestId("screen-describe")).toBeVisible();
+  await expect(page.getByTestId("need-submit")).toBeEnabled();
+  await expect(page.getByTestId("need-submit")).toHaveText("หาที่ปรึกษา");
+  await expect(page.getByTestId("open-chat")).toBeEnabled();
+  await page.waitForTimeout(600);
+  await expect(page.getByTestId("screen-describe")).toBeVisible();
+  await expect(page.getByTestId("screen-suggest")).toHaveCount(0);
+  await page.getByTestId("need-input").fill("อยากตาย");
+  await page.getByTestId("need-submit").click();
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+});
+
+test("CH13 after continue, opening chat is a real click and a late classify cannot steal the screen", async ({ page }) => {
+  await page.goto("/?model=off&classifyDelayMs=400");
+  await startAs(page, "18-24");
+  await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
+  await page.getByTestId("need-submit").click();
+  await expect(page.getByTestId("need-submit")).toHaveText("กำลังคิด…");
+  await page.getByTestId("sos").click();
+  await page.getByTestId("crisis-continue").click();
+  await expect(page.getByTestId("open-chat")).toBeEnabled();
+  await page.getByTestId("open-chat").click();
   await expect(page.getByTestId("screen-chat")).toBeVisible();
   await page.waitForTimeout(600);
   await expect(page.getByTestId("screen-chat")).toBeVisible();
   await expect(page.getByTestId("screen-suggest")).toHaveCount(0);
+  await page.getByTestId("chat-input").fill("อยากตาย");
+  await page.getByTestId("chat-send").click();
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
 });

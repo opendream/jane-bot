@@ -48,6 +48,24 @@ export function shouldApplyAsyncResult(mine: number, current: number, screen: st
   return mine === current && screen !== "crisis" && screen !== "start" && screen !== "neutral" && screen !== "chat";
 }
 
+/** Classify generation: busy is owned by one seq and dies when that seq is bumped or ended. */
+export interface NeedGate { seq: number; busyFor: number }
+export const newNeedGate = (): NeedGate => ({ seq: 0, busyFor: 0 });
+export function bumpNeed(gate: NeedGate): number {
+  gate.seq += 1;
+  gate.busyFor = 0;
+  return gate.seq;
+}
+export function beginNeed(gate: NeedGate): number {
+  gate.seq += 1;
+  gate.busyFor = gate.seq;
+  return gate.seq;
+}
+export const needBusy = (gate: NeedGate): boolean => gate.busyFor !== 0 && gate.busyFor === gate.seq;
+export function endNeed(gate: NeedGate, mine: number): void {
+  if (gate.busyFor === mine) gate.busyFor = 0;
+}
+
 function uniqueCats(cats: CrisisCategory[]): CrisisCategory[] {
   return [...new Set(cats)];
 }
