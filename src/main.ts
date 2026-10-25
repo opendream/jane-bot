@@ -175,12 +175,13 @@ function describeScreen() {
     h("p", { class: "lead" }, "พิมพ์ภาษาไทยได้เลย ไม่ต้องบอกชื่อ เบอร์โทร หรือโรงเรียน"),
     h("label", { for: "need", class: "sr" }, "เรื่องที่อยากปรึกษา"), ta,
     h("button", { class: "btn-primary", "data-testid": "need-submit", onclick: submit, disabled: busy }, busy ? "กำลังคิด…" : "หาที่ปรึกษา"),
-    h("button", { class: "btn-ghost", "data-testid": "open-chat", onclick: openChat }, "หรือคุยกับพี่เจนแบบแชท (ทดลอง)"),
+    h("button", { class: "btn-ghost", "data-testid": "open-chat", onclick: openChat, disabled: busy }, "หรือคุยกับพี่เจนแบบแชท (ทดลอง)"),
   );
 }
 
 /* --------------------------------------- chat (v2) --------------------------------------- */
 function openChat() {
+  needSeq++;
   if (!state.chat) state.chat = newChat(state.ageBand, null);
   go({ screen: "chat" });
 }

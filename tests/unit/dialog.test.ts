@@ -94,6 +94,12 @@ describe("crisis first: rules on every turn, never the model", () => {
     expect(shouldApplyAsyncResult(1, 2, "describe")).toBe(false);
     expect(shouldApplyAsyncResult(1, 1, "start")).toBe(false);
     expect(shouldApplyAsyncResult(1, 1, "neutral")).toBe(false);
+    expect(shouldApplyAsyncResult(1, 1, "chat")).toBe(false);
+  });
+  it("a late classify is dropped after the user has opened chat", () => {
+    expect(shouldApplyAsyncResult(1, 1, "chat")).toBe(false);
+    expect(shouldApplyAsyncResult(1, 2, "chat")).toBe(false);
+    expect(shouldApplyAsyncResult(2, 2, "describe")).toBe(true);
   });
   it("a new message aborts the pending model call; a crisis reply arrives without waiting for it", async () => {
     const { model, calls } = spyModel("ec.p000", 300);

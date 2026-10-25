@@ -151,3 +151,18 @@ test("CH10 quick exit during classify stays on the neutral page", async ({ page 
   await expect(page.getByTestId("screen-suggest")).toHaveCount(0);
   expect(await page.locator("body").innerText()).not.toContain("กลัวท้อง");
 });
+
+test("CH11 late classify after opening chat does not pull the user to suggest", async ({ page }) => {
+  await page.goto("/?model=off&classifyDelayMs=400");
+  await startAs(page, "18-24");
+  await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
+  await page.getByTestId("need-submit").click();
+  await expect(page.getByTestId("need-submit")).toHaveText("กำลังคิด…");
+  await expect(page.getByTestId("open-chat")).toBeDisabled();
+  // Native disabled buttons drop user clicks; dispatch still reaches the listener so the race is testable.
+  await page.getByTestId("open-chat").dispatchEvent("click");
+  await expect(page.getByTestId("screen-chat")).toBeVisible();
+  await page.waitForTimeout(600);
+  await expect(page.getByTestId("screen-chat")).toBeVisible();
+  await expect(page.getByTestId("screen-suggest")).toHaveCount(0);
+});

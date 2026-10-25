@@ -43,9 +43,9 @@ export const newDialog = (ageBand: AgeBand = "unspecified"): DialogState => ({
   ageBand, cardId: null, topic: null, pendingChips: [], turns: 0, recentUser: [], crisisFired: false, crisisCategories: [],
 });
 
-/** Drop a late classify / polish once a newer request exists, the crisis screen is up, or the session was erased / quick-exited. */
+/** Drop a late classify / polish once a newer request exists, the user left describe, or the session was erased / quick-exited. */
 export function shouldApplyAsyncResult(mine: number, current: number, screen: string): boolean {
-  return mine === current && screen !== "crisis" && screen !== "start" && screen !== "neutral";
+  return mine === current && screen !== "crisis" && screen !== "start" && screen !== "neutral" && screen !== "chat";
 }
 
 function uniqueCats(cats: CrisisCategory[]): CrisisCategory[] {
