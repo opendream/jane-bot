@@ -1,9 +1,9 @@
-import type { AgeBand, CrisisCategory, Intent } from "./types";
+import type { AgeBand, CrisisCategory, CrisisResult, Intent } from "./types";
 import { type BankCard, type BankTopic, type CardNext, shippable, ageAllowed } from "./bank";
 import { detectCrisis } from "./crisis";
 import { normalize, findPhrases } from "./text";
 import { stripPII } from "./summary";
-import { checkInput, REFUSAL_CARDS, type GuardReason } from "./guard";
+import { checkInput, REFUSAL_CARDS, type GuardReason, type RefusalReason } from "./guard";
 import { retrieve } from "./retrieve";
 import { VALID_INTENTS } from "../llm/adapter";
 
@@ -32,9 +32,36 @@ export interface DialogState {
   topic: BankTopic | null;
   pendingChips: CardNext[];
   turns: number;
+  /** Last 1–2 user lines, memory only. Used so a split crisis ("หนูอยาก" + "ตาย") still fires. */
+  recentUser: string[];
+  /** Once crisis has fired this session, later turns keep the help strip / offer visible. */
+  crisisFired: boolean;
+  crisisCategories: CrisisCategory[];
 }
 
-export const newDialog = (ageBand: AgeBand = "unspecified"): DialogState => ({ ageBand, cardId: null, topic: null, pendingChips: [], turns: 0 });
+export const newDialog = (ageBand: AgeBand = "unspecified"): DialogState => ({
+  ageBand, cardId: null, topic: null, pendingChips: [], turns: 0, recentUser: [], crisisFired: false, crisisCategories: [],
+});
+
+/** Drop a late classify / polish once a newer request exists or the crisis screen is up. */
+export function shouldApplyAsyncResult(mine: number, current: number, screen: string): boolean {
+  return mine === current && screen !== "crisis";
+}
+
+function uniqueCats(cats: CrisisCategory[]): CrisisCategory[] {
+  return [...new Set(cats)];
+}
+
+/** Current line, then current + previous 1–2 user lines (in memory only). */
+function crisisForTurn(input: string, prev: string[]): CrisisResult {
+  const cur = detectCrisis(input);
+  if (cur.crisis) return cur;
+  if (prev.length) {
+    const joined = detectCrisis([...prev.slice(-2), input].join(" "));
+    if (joined.crisis) return joined;
+  }
+  return cur;
+}
 
 export interface ShortlistItem { id: string; title_th: string }
 
@@ -97,11 +124,21 @@ export function welcome(state: DialogState, cards: BankCard[]): { state: DialogS
 
 export async function runTurn(state: DialogState, input: string, deps: TurnDeps): Promise<{ state: DialogState; reply: TurnReply }> {
   // 1. Crisis rules first, synchronously, on every message. Nothing before this line may await.
-  const crisis = detectCrisis(input);
-  if (crisis.crisis) return { state: { ...state, pendingChips: [] }, reply: { kind: "crisis", categories: crisis.categories } };
-  const banner = crisis.level === "banner" ? crisis.categories : [];
+  const recentUser = [...state.recentUser, input].slice(-2);
+  const crisis = crisisForTurn(input, state.recentUser);
+  if (crisis.crisis) {
+    return {
+      // Drop the lines that already fired so a later turn cannot re-join them.
+      state: { ...state, pendingChips: [], recentUser: [], crisisFired: true, crisisCategories: crisis.categories },
+      reply: { kind: "crisis", categories: crisis.categories },
+    };
+  }
+  const banner = uniqueCats([
+    ...(crisis.level === "banner" ? crisis.categories : []),
+    ...(state.crisisFired ? state.crisisCategories : []),
+  ]);
 
-  if (state.turns >= HARD_CAP) return { state, reply: { kind: "readonly" } };
+  if (state.turns >= HARD_CAP) return { state: { ...state, recentUser }, reply: { kind: "readonly" } };
   const turns = state.turns + 1;
   const capNotice: CapNotice = turns === HARD_CAP ? "hard" : turns === SOFT_CAP ? "soft" : null;
   const byId = new Map(deps.cards.map((c) => [c.id, c]));
@@ -112,17 +149,31 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
 
   const reply = async (card: BankCard, via: Via, guard?: GuardReason) => {
     const r = card.reword ? await render(card, deps.signal ?? new AbortController().signal) : { text: card.answer_th, reworded: false };
-    const next: DialogState = { ...state, turns, cardId: card.id, topic: card.topic === "general" ? state.topic : card.topic, pendingChips: card.next };
-    return { state: next, reply: { kind: "card" as const, card, text: r.text, reworded: r.reworded, via, banner, chips: card.next, offer: card.referral.offer, offerIntents: card.referral.intents, capNotice, ...(guard ? { guard } : {}) } };
+    const offer = state.crisisFired && card.referral.offer === "none" ? "soft" : card.referral.offer;
+    const offerIntents = offer === "none" ? card.referral.intents : (card.referral.intents.length ? card.referral.intents : asIntents(state.topic, ["other"]));
+    const next: DialogState = {
+      ...state, turns, recentUser, cardId: card.id,
+      topic: card.topic === "general" ? state.topic : card.topic, pendingChips: card.next,
+    };
+    return { state: next, reply: { kind: "card" as const, card, text: r.text, reworded: r.reworded, via, banner, chips: card.next, offer, offerIntents, capNotice, ...(guard ? { guard } : {}) } };
   };
 
-  // 2. Input guard.
+  // 2. Input guard. Abuse → existing 1300 / violence services. Complication → existing 1669 crisis card.
   const g = checkInput(input);
-  if (g) return reply(REFUSAL_CARDS[g], "guard", g);
+  if (g === "complication") {
+    return {
+      state: { ...state, pendingChips: [], recentUser: [], crisisFired: true, crisisCategories: ["medical_emergency"] },
+      reply: { kind: "crisis", categories: ["medical_emergency"] },
+    };
+  }
+  if (g === "abuse") {
+    return { state: { ...state, turns, pendingChips: [], recentUser, topic: "violence" }, reply: { kind: "referral", intents: ["violence"], banner, capNotice } };
+  }
+  if (g) return reply(REFUSAL_CARDS[g as RefusalReason], "guard", g);
 
   // "Talk to a real person" → referral offer for the current topic.
   if (findPhrases(input, HUMAN_ASK).length) {
-    return { state: { ...state, turns, pendingChips: [] }, reply: { kind: "referral", intents: asIntents(state.topic, retrieve(input, []).prior.intents), banner, capNotice } };
+    return { state: { ...state, turns, recentUser, pendingChips: [] }, reply: { kind: "referral", intents: asIntents(state.topic, retrieve(input, []).prior.intents), banner, capNotice } };
   }
 
   // 3. Follow-up chips: a tap sends the chip label; short replies that equal a label also match.

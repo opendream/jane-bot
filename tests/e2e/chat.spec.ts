@@ -92,3 +92,36 @@ test("CH5 10-turn chat: zero requests, nothing stored, transcript capped at 20 m
   await assertNoStorage(page);
   await assertNetwork(page, rec);
 });
+
+test("CH6 talk to a person from chat shows the existing services list", async ({ page }) => {
+  await open(page, "19:00");
+  await openChat(page);
+  await say(page, "ช่วงนี้เครียดมาก นอนไม่หลับ");
+  await expect(lastJane(page)).toHaveAttribute("data-card", "mental_health.p000");
+  await expect(page.getByTestId("chat-offer")).toBeVisible();
+  await say(page, "อยากคุยกับเจ้าหน้าที่");
+  await expect(page.getByTestId("screen-suggest")).toBeVisible();
+  await expect(page.getByTestId("service-hotline_1323")).toBeVisible();
+});
+
+test("CH7 hard-cap lock shows a notice; crisis text still opens the crisis screen", async ({ page }) => {
+  await open(page, "11:00");
+  await openChat(page);
+  for (let i = 0; i < 30; i++) await say(page, "อยากรู้เรื่องทั่วไปค่ะ");
+  await expect(page.getByTestId("cap-hard").first()).toBeVisible();
+  await page.getByTestId("chat-input").fill("อยากตาย");
+  await page.getByTestId("chat-send").click();
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+});
+
+test("CH8 stale classify does not overwrite the crisis screen", async ({ page }) => {
+  await page.goto("/?model=off&classifyDelayMs=400");
+  await startAs(page, "18-24");
+  await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
+  await page.getByTestId("need-submit").click();
+  await page.getByTestId("sos").click();
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  await page.waitForTimeout(600);
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  await expect(page.getByTestId("screen-suggest")).toHaveCount(0);
+});

@@ -8,6 +8,7 @@ import { hoursLabel, hoursCitation } from "./core/openNow";
 import { draftSummary, finalizeSummary } from "./core/summary";
 import { classifyWithFallback, polishWithFallback, type LLMAdapter } from "./llm/adapter";
 import { startModel, type ModelStatus } from "./llm/runtime";
+import { shouldApplyAsyncResult } from "./core/dialog";
 import { h } from "./ui/dom";
 import { newChat, chatView, type ChatState } from "./ui/chat";
 
@@ -47,6 +48,7 @@ let model: LLMAdapter | null = null;
 let modelStatus: ModelStatus = { state: "loading", runtime: "rules", label: "", progress: 0 };
 let busy = false; // waiting for the model on a classify call
 let polishNote = false; // summary line was reworded by the model
+let needSeq = 0; // classify generation; crisis / a newer submit drops stale results
 
 const app = document.getElementById("app")!;
 document.title = `${PRODUCT_NAME} · ${PRODUCT_NAME_EN} (เดโม)`;
@@ -86,7 +88,7 @@ function header() {
     h("div", { class: "brand", "data-testid": "brand" }, mark("small"), PRODUCT_NAME, h("span", { class: "en-name" }, PRODUCT_NAME_EN), h("span", { class: "tag" }, "เดโม")),
     h("div", { class: "bar-actions" },
       state.screen !== "start" && state.screen !== "crisis" &&
-        h("button", { class: "btn-sos", "data-testid": "sos", onclick: () => go({ screen: "crisis", crisisCategories: [], crisisFrom: state.screen }) }, "ช่วยด่วน"),
+        h("button", { class: "btn-sos", "data-testid": "sos", onclick: () => { needSeq++; go({ screen: "crisis", crisisCategories: [], crisisFrom: state.screen }); } }, "ช่วยด่วน"),
       state.screen !== "start" && h("button", { class: "btn-ghost", "data-testid": "erase", onclick: () => eraseAll("start") }, "ลบแชท"),
       h("button", { class: "btn-exit", "data-testid": "quick-exit", "aria-label": "ออกด่วน (quick exit)", onclick: quickExit }, "ออกด่วน ✕"),
     ),
@@ -181,10 +183,16 @@ function openChat() {
   go({ screen: "chat" });
 }
 
+function openReferral(intents: Intent[]) {
+  const result: IntentResult = { intents, scores: {}, source: "rules" };
+  go({ result, suggestions: suggestServices(intents, new Date()), screen: "suggest" });
+}
+
 const chatHooks = {
   rerender: () => { if (state.screen === "chat") render(); },
   // Crisis rules decided this before any model step; show the existing crisis screen.
-  crisis: (categories: CrisisCategory[]) => go({ screen: "crisis", crisisCategories: categories, crisisFrom: "chat" }),
+  crisis: (categories: CrisisCategory[]) => { needSeq++; go({ screen: "crisis", crisisCategories: categories, crisisFrom: "chat" }); },
+  referral: (intents: Intent[]) => openReferral(intents),
 };
 
 function chatScreen() {
@@ -194,9 +202,13 @@ function chatScreen() {
 async function handleNeed(text: string) {
   // Safety first: rule-based crisis check, before and independent of any model.
   const c = detectCrisis(text);
-  if (c.crisis) { go({ needText: "", screen: "crisis", crisisCategories: c.categories, crisisFrom: "describe" }); return; }
+  if (c.crisis) { needSeq++; go({ needText: "", screen: "crisis", crisisCategories: c.categories, crisisFrom: "describe" }); return; }
+  const my = ++needSeq;
   busy = true; render();
+  const delayMs = Number(new URLSearchParams(location.search).get("classifyDelayMs") || 0);
+  if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
   const result = await classifyWithFallback(text, model).finally(() => { busy = false; });
+  if (!shouldApplyAsyncResult(my, needSeq, state.screen)) return;
   const suggestions = suggestServices(result.intents, new Date());
   go({ needText: text, result, suggestions, screen: "suggest", crisisBanner: c.level === "banner" ? c.categories : [] });
 }
