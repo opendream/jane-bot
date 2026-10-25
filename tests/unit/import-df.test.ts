@@ -76,19 +76,24 @@ describe("stripping payloads, images and links", () => {
   });
 });
 
-describe("PII scrub and review flags", () => {
-  it("PII in responses is redacted in the queue and counted; hits go to a private file", () => {
+describe("PII flag (not redact) and review flags", () => {
+  it("PII in responses is flagged, not redacted; hits go to a private file", () => {
     const q = res.queue.find((q: any) => q.intent === "test.pii.000");
     expect(q.pii.count).toBeGreaterThan(0);
     expect(q.pii.categories).toEqual(expect.arrayContaining(["phone", "school"]));
-    expect(q.responses_th.join(" ")).not.toMatch(/081|ทดสอบวิทยา/);
-    expect(q.responses_th.join(" ")).toContain("[ลบข้อมูลส่วนตัว]");
+    expect(q.review.pii_check).toBe("hits-flagged");
+    expect(q.responses_th.join(" ")).toContain("081-234-5678");
+    expect(q.responses_th.join(" ")).toContain("โรงเรียนทดสอบวิทยา");
+    expect(q.responses_th.join(" ")).not.toContain("[ลบข้อมูลส่วนตัว]");
+    const hits = fs.readFileSync(path.join(out, "pii-hits.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    expect(hits.some((h: any) => h.intent === "test.pii.000" && h.category === "phone")).toBe(true);
     const st = fs.statSync(path.join(out, "pii-hits.jsonl"));
     expect(st.mode & 0o077).toBe(0); // owner-only
   });
-  it("training phrases in the staging copy are scrubbed too", () => {
+  it("training phrases in the staging copy stay as imported", () => {
     const rows = fs.readFileSync(path.join(out, "intents.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
-    expect(JSON.stringify(rows)).not.toContain("ทดลอง");
+    expect(JSON.stringify(rows)).toContain("ทดลอง");
+    expect(JSON.stringify(rows)).not.toContain("[ลบข้อมูลส่วนตัว]");
   });
   it("medical-review flags (same categories as the scan)", () => {
     expect(medicalFlags("x", ["ยาคุมฉุกเฉิน ภายใน 72 ชั่วโมง"])).toEqual(expect.arrayContaining(["emergency_contraception", "contraception_dosing"]));
@@ -133,8 +138,8 @@ function writeMiniExport(root: string, label: string, intents: { name: string; s
   return dir;
 }
 
-describe("importer redacts findPII name spans (synthetic)", () => {
-  it("redacts English and Thai name forms in the queue and intents.jsonl", () => {
+describe("importer flags findPII name spans and does not redact (synthetic)", () => {
+  it("keeps English and Thai name forms in the queue and intents.jsonl", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "jane-df-names-"));
     const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "jane-queue-names-"));
     const phrases = ["call me Somchai", "นายสมชายทดสอบ"];
@@ -143,15 +148,16 @@ describe("importer redacts findPII name spans (synthetic)", () => {
     const r = runImport({ bot, jane, out: outDir });
     const q = r.queue.find((x: any) => x.intent === "test.names.000");
     const blob = JSON.stringify([q.responses_th, q.proposed_card.answer_th]) + fs.readFileSync(path.join(outDir, "intents.jsonl"), "utf8");
-    expect(blob).not.toContain("Somchai");
-    expect(blob).not.toContain("สมชายทดสอบ");
-    expect(blob).toContain("[ลบข้อมูลส่วนตัว]");
+    expect(blob).toContain("Somchai");
+    expect(blob).toContain("สมชายทดสอบ");
+    expect(blob).not.toContain("[ลบข้อมูลส่วนตัว]");
     expect(q.pii.count).toBeGreaterThan(0);
+    expect(q.review.pii_check).toBe("hits-flagged");
   });
 });
 
 describe("importer allowed handles vs other handles (synthetic)", () => {
-  it("keeps @teen_club, redacts a non-allowed handle, and pii count matches", () => {
+  it("keeps every handle as imported; only a non-allowed handle is flagged", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "jane-df-hnd-"));
     const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "jane-queue-hnd-"));
     const bot = writeMiniExport(root, "bot", [
@@ -165,63 +171,11 @@ describe("importer allowed handles vs other handles (synthetic)", () => {
     const intentsBlob = fs.readFileSync(path.join(outDir, "intents.jsonl"), "utf8");
     expect(ok.responses_th.join(" ")).toContain("@teen_club");
     expect(ok.pii.count).toBe(0);
-    expect(bad.responses_th.join(" ")).not.toContain("random_user99");
-    expect(bad.responses_th.join(" ")).toContain("[ลบข้อมูลส่วนตัว]");
+    expect(bad.responses_th.join(" ")).toContain("@random_user99");
+    expect(bad.responses_th.join(" ")).not.toContain("[ลบข้อมูลส่วนตัว]");
     expect(bad.pii.count).toBeGreaterThan(0);
     expect(intentsBlob).toContain("@teen_club");
-    expect(intentsBlob).not.toContain("random_user99");
-  });
-});
-
-describe("importer scheme-less URLs (synthetic)", () => {
-  it("redacts domain+path URLs whole and keeps an allowlisted service URL", () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "jane-df-url-"));
-    const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "jane-queue-url-"));
-    const phrases = ["instagram.com/fakeuser99", "example.com/x", "facebook.com/fakeuser99", "rsathai.org/test"];
-    const bot = writeMiniExport(root, "bot", [{ name: "test.urls.000", speech: phrases, phrases }]);
-    const jane = writeMiniExport(root, "jane", []);
-    const r = runImport({ bot, jane, out: outDir });
-    const q = r.queue.find((x: any) => x.intent === "test.urls.000");
-    const intentsBlob = fs.readFileSync(path.join(outDir, "intents.jsonl"), "utf8");
-    const blob = JSON.stringify(q.responses_th) + intentsBlob;
-    expect(blob).not.toMatch(/instagram|fakeuser99|example\.com/);
-    expect(blob).not.toContain("/fakeuser99");
-    expect(intentsBlob).toContain("rsathai.org/test");
-  });
-});
-
-describe("importer uses stripPII (formats scrubPII misses)", () => {
-  const leaks = [
-    "somchai_99", "some.user", "ส้มโอ", "สมมติวิทยา", "บางสมมติ",
-    "415 555", "AA1234567", "example.com", "123-4-56789-0", "123-4-", "56789-0",
-  ];
-  const phrases = [
-    "ไอจี somchai_99",
-    "ig: some.user",
-    "ชื่อเล่นว่า ส้มโอ",
-    "รร.สมมติวิทยา",
-    "อยู่ ต.บางสมมติ อ.เมือง",
-    "+1 415 555 0134",
-    "AA1234567",
-    "ดูต่อที่ https://example.com/secret",
-    "เลขบัญชี 123-4-56789-0",
-  ];
-
-  it("redacts those formats in review-queue responses and intents.jsonl phrases", () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "jane-df-mini-"));
-    const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "jane-queue-mini-"));
-    const bot = writeMiniExport(root, "bot", [{ name: "test.formats.000", speech: phrases, phrases }]);
-    const jane = writeMiniExport(root, "jane", []);
-    const r = runImport({ bot, jane, out: outDir });
-    const q = r.queue.find((x: any) => x.intent === "test.formats.000");
-    const queueBlob = JSON.stringify([q.responses_th, q.proposed_card.answer_th]);
-    const intentsBlob = fs.readFileSync(path.join(outDir, "intents.jsonl"), "utf8");
-    expect(queueBlob).toContain("[ลบข้อมูลส่วนตัว]");
-    expect(intentsBlob).toContain("[ลบข้อมูลส่วนตัว]");
-    for (const leak of leaks) {
-      expect(queueBlob, leak).not.toContain(leak);
-      expect(intentsBlob, leak).not.toContain(leak);
-    }
+    expect(intentsBlob).toContain("@random_user99");
   });
 });
 

@@ -69,6 +69,8 @@ export interface BankContext {
   hoursByContact: ReadonlyMap<string, ReadonlySet<string>>;
   /** Handles already public in services.json (e.g. "@teen_club"); everything else is PII-like. */
   handles: ReadonlySet<string>;
+  /** Exact services.json contact tokens (channel values, cited URLs, crisis numbers). */
+  contacts: ReadonlySet<string>;
   copyStatus: "draft" | "reviewed";
   today?: string;
 }
@@ -99,6 +101,20 @@ export function hoursIn(text: string): string[] {
 
 export function urlsIn(text: string): string[] {
   return [...text.matchAll(/https?:\/\/[^\s"'<>)]+|(?<![\w/@.])(?:www\.)[^\s"'<>)]+|(?<![\w/@.])[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:com|org|net|th|me|ly|gl|co|io|ee)(?:\/[^\s"'<>)]*)?/gi)].map((m) => m[0]);
+}
+
+const HANDLE_TOKEN = /(?<![\w.])@[A-Za-z0-9._]+/g;
+const EMAIL_TOKEN = /[\w.+-]+@[\w-]+\.[\w.]+/g;
+
+/** Whole-token phones, URLs and handles (including email-like local@host) from a string. */
+export function contactsIn(text: string): string[] {
+  const out = new Set<string>();
+  for (const p of phonesIn(text)) out.add(p);
+  for (const u of urlsIn(text)) out.add(u);
+  const s = String(text ?? "");
+  for (const m of s.matchAll(HANDLE_TOKEN)) out.add(m[0]);
+  for (const m of s.matchAll(EMAIL_TOKEN)) out.add(m[0]);
+  return [...out];
 }
 
 export function hostOf(url: string): string {
@@ -263,6 +279,12 @@ export function validateBank(cards: BankCard[], ctx: BankContext): Issue[] {
       if (/\.url$/.test(path) || path === "$.id") continue;
       if (urlsIn(value).length) add("error", c.id, "no_url_in_text", `URL in ${safePath(path)}`);
     }
+    // Contacts: every extracted phone, URL or handle must equal a services.json entry as a whole token.
+    for (const { path, value } of walkStrings(c)) {
+      for (const token of contactsIn(value)) {
+        if (!ctx.contacts.has(token)) add("error", c.id, "contact_exact", `contact in ${safePath(path)} is not an exact services.json entry`);
+      }
+    }
     // PII: every string field is scanned. User-facing copy uses the full detector + stripPII;
     // metadata/citation fields only report contact PII (phone, email, id, handle, facebook).
     const handles = [...ctx.handles];
@@ -274,10 +296,10 @@ export function validateBank(cards: BankCard[], ctx: BankContext): Issue[] {
         add("error", c.id, "pii", `PII (${cat}) in ${safePath(path)}`);
       }
       if (user) {
-        const norm = value.replace(/\s+/g, " ").trim();
-        if (stripPII(value, { allowHandles: handles, allowHosts: [...ctx.linkHosts] }) !== norm) {
-          add("error", c.id, "pii", `text at ${safePath(path)} changes under stripPII`);
-        }
+        let masked = value;
+        for (const hnd of ctx.handles) masked = masked.split(hnd).join("");
+        const norm = masked.replace(/\s+/g, " ").trim();
+        if (stripPII(masked) !== norm) add("error", c.id, "pii", `text at ${safePath(path)} changes under stripPII`);
       }
     }
     if (c.last_reviewed && ctx.today && monthsBetween(c.last_reviewed, ctx.today) > STALE_MONTHS) add("warning", c.id, "stale", `last reviewed ${c.last_reviewed}`);

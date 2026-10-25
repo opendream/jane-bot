@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import fixture from "../fixtures/bank/valid-bank.json";
 import {
-  validateBank, checkShape, phonesIn, hoursIn, urlsIn, shippable, ageAllowed, cardsFromFiles, BANK_TOPICS,
+  validateBank, checkShape, phonesIn, hoursIn, urlsIn, contactsIn, shippable, ageAllowed, cardsFromFiles, BANK_TOPICS,
   type BankCard,
 } from "../../src/core/bank";
 import { bankContext, BANK, isProductionBankFile } from "../../src/core/bankData";
@@ -121,6 +121,26 @@ describe("bank rules: content", () => {
     expect(rules(withCard((c) => { c.answer_th = "ข้อความทดสอบ อีเมล test@example.com"; c.key_facts = []; }))).toContain("pii");
     expect(rules(withCard((c) => { c.answer_th = "ข้อความทดสอบ ทักไลน์ @teen_club ได้"; c.key_facts = []; }))).not.toContain("pii");
   });
+  it("contact_exact: suffix handle, email on an allowed host, and a query-string phone fail; exact entries pass", () => {
+    const suffix = errors(withCard((c) => { c.answer_th = "ข้อความทดสอบ ทักไลน์ @teen_club_private99 ได้"; c.key_facts = []; }));
+    expect(suffix.map((e) => e.rule)).toContain("contact_exact");
+    expect(suffix.map((e) => e.msg).join("\n")).not.toContain("@teen_club_private99");
+
+    const email = errors(withCard((c) => { c.answer_th = "ข้อความทดสอบ อีเมล local@contest-thailand.com"; c.key_facts = []; }));
+    expect(email.map((e) => e.rule)).toContain("contact_exact");
+    expect(email.map((e) => e.msg).join("\n")).not.toContain("local@contest-thailand.com");
+
+    const query = errors(withCard((c) => { c.links = [{ url: "https://rsathai.org/qrcode?tel=1663", label_th: "ทดสอบลิงก์" }]; }, 1));
+    expect(query.map((e) => e.rule)).toContain("contact_exact");
+    expect(query.map((e) => e.msg).join("\n")).not.toContain("tel=1663");
+    expect(query.map((e) => e.msg).join("\n")).not.toContain("qrcode?");
+
+    expect(rules(withCard((c) => {
+      c.answer_th = "ข้อความทดสอบ โทร 1663 ทักไลน์ @teen_club ได้";
+      c.key_facts = ["1663"];
+      c.links = [{ url: "https://rsathai.org/qrcode", label_th: "ทดสอบลิงก์" }];
+    }, 1))).toEqual([]);
+  });
   it("placeholder cards must say PLACEHOLDER and can never be approved", () => {
     expect(rules(withCard((c) => { c.placeholder = true; }))).toContain("placeholder_mark");
     expect(rules(withCard((c) => { c.placeholder = true; c.answer_th = "PLACEHOLDER ข้อความทดสอบ"; }))).toEqual([]);
@@ -168,6 +188,14 @@ describe("bank text helpers", () => {
   it("urlsIn finds bare and full URLs", () => {
     expect(urlsIn("ดู https://rsathai.org/x และ tinyurl.com/abc")).toHaveLength(2);
     expect(urlsIn("ไม่มีลิงก์ 1663")).toEqual([]);
+  });
+  it("contactsIn extracts whole-token phones, URLs and handles", () => {
+    expect(contactsIn("โทร 1663 ทัก @teen_club ดู https://rsathai.org/qrcode?tel=1663")).toEqual(
+      expect.arrayContaining(["1663", "@teen_club", "https://rsathai.org/qrcode?tel=1663"]),
+    );
+    expect(contactsIn("local@contest-thailand.com")).toContain("local@contest-thailand.com");
+    expect(contactsIn("ทัก @teen_club_private99")).toContain("@teen_club_private99");
+    expect(contactsIn("ทัก @teen_club_private99")).not.toContain("@teen_club");
   });
   it("cardsFromFiles skips quiz.json and rejects a file without cards", () => {
     expect(cardsFromFiles({ "a.json": { default: fixture }, "quiz.json": { questions: [] } })).toHaveLength(2);

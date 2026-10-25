@@ -18,27 +18,6 @@ export function publicHandles() {
   return s.services.flatMap((x) => x.channels.filter((c) => c.type === "line" && String(c.value).startsWith("@")).map((c) => c.value));
 }
 
-/** Hosts already public in services.json / the bank link allow-list. */
-export function publicAllowHosts() {
-  const hosts = new Set(["rsathai.org", "rh.anamai.moph.go.th", "dmh.go.th", "aidsid.or.th", "th.aidsid.or.th", "nhso.go.th"]);
-  const addUrl = (u) => {
-    try {
-      const h = new URL(/^https?:/i.test(u) ? u : `https://${u}`).hostname.toLowerCase().replace(/^www\./, "");
-      if (h) hosts.add(h);
-    } catch { /* ignore unparseable */ }
-  };
-  const s = JSON.parse(fs.readFileSync(path.join(root, "src/data/services.json"), "utf8"));
-  for (const x of s.services ?? []) {
-    for (const ch of x.channels ?? []) {
-      if (ch.value && !String(ch.value).startsWith("@") && /[./]/.test(ch.value)) addUrl(ch.value);
-    }
-    for (const hs of x.hours_sources ?? []) if (hs.url) addUrl(hs.url);
-    for (const src of x.sources ?? []) if (src.url) addUrl(src.url);
-  }
-  for (const c of s.crisis_lines ?? []) for (const src of c.sources ?? []) if (src.url) addUrl(src.url);
-  return [...hosts];
-}
-
 /** Replace a key that itself looks like PII so it never appears in a reported path. */
 export function pathSeg(k) {
   return Object.keys(findPII(String(k))).length ? "[redacted]" : String(k);

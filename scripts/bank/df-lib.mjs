@@ -1,9 +1,10 @@
-// Dialogflow (ES) export → normalised, merged, stripPII'd review queue (plan §2).
+// Dialogflow (ES) export → normalised, merged review queue (plan §2).
 // Node only, no dependencies. Pure functions plus readExport(); the CLI is import-df.mjs.
 // Nothing here prints export text. Output goes to a staging dir OUTSIDE the repo.
+// findPII flags hits for the human reviewer; the importer does not redact.
 import fs from "node:fs";
 import path from "node:path";
-import { stripPII, findPII, TEXT_URL } from "./pii-patterns.mjs";
+import { findPII } from "./pii-patterns.mjs";
 
 /* ----------------------------------------- read ----------------------------------------- */
 
@@ -109,7 +110,7 @@ export const SHORTENER_HOSTS = ["bit.ly", "tinyurl.com", "goo.gl", "t.co", "ow.l
 export const IMAGE_HOSTS = /(?:fbcdn\.net|fbsbx\.com|giphy\.com|tenor\.com|imgur\.com)$/i;
 /** Link hosts that may survive as candidates for re-checking (everything else is dropped). */
 export const LINK_CANDIDATE_HOSTS = ["rsathai.org", "rh.anamai.moph.go.th", "dmh.go.th", "aidsid.or.th", "th.aidsid.or.th", "nhso.go.th"];
-export const URL_RE = TEXT_URL;
+export const URL_RE = /https?:\/\/[^\s"'<>)]+|(?<![\w/@.])(?:www\.|m\.me\/|bit\.ly\/|tinyurl\.com\/|line\.me\/|fb\.me\/|goo\.gl\/)[^\s"'<>)]+/gi;
 
 const hostOf = (u) => { try { return new URL(/^https?:/i.test(u) ? u : `https://${u}`).hostname.toLowerCase().replace(/^www\./, ""); } catch { return ""; } };
 
@@ -219,30 +220,32 @@ export function topicFor(name) {
 }
 
 /**
- * One queue item per merged intent. Status is always "needs-review"; text is stripPII'd;
- * the proposed card is a draft skeleton with EMPTY triggers (triggers are newly written, never copied).
+ * One queue item per merged intent. Status is always "needs-review"; text stays as imported.
+ * findPII flags hits for the human reviewer and does not redact.
+ * The proposed card is a draft skeleton with EMPTY triggers (triggers are newly written, never copied).
  * On a bot/Jane response conflict: medical_review is true if either variant is flagged;
  * chips_th is the de-duplicated union of bot then Jane quick replies.
  */
-export function toQueueItem(rec, scrubOpts = {}) {
+export function toQueueItem(rec, flagOpts = {}) {
   const pii = { categories: new Set(), count: 0 };
-  const scrub = (s) => {
-    const hits = findPII(s, scrubOpts);
+  const flag = (s) => {
+    const hits = findPII(s, flagOpts);
     Object.keys(hits).forEach((c) => pii.categories.add(c));
     pii.count += Object.keys(hits).length;
-    return stripPII(s, scrubOpts);
   };
   const clean = cleanMessages(rec.messages);
   const janeMsgs = rec.variants?.jane;
   const janeClean = janeMsgs ? cleanMessages(janeMsgs) : { chips: [] };
-  const texts = clean.texts.map(scrub);
+  const texts = clean.texts;
   const chips = [];
   const seenC = new Set();
   for (const c of [...clean.chips, ...janeClean.chips]) {
-    const t = scrub(c);
-    if (t && !seenC.has(t)) { seenC.add(t); chips.push(t); }
+    if (c && !seenC.has(c)) { seenC.add(c); chips.push(c); }
   }
-  const variants = rec.variants ? Object.fromEntries(Object.entries(rec.variants).map(([k, ms]) => [k, cleanMessages(ms).texts.map(scrub)])) : null;
+  const variants = rec.variants ? Object.fromEntries(Object.entries(rec.variants).map(([k, ms]) => [k, cleanMessages(ms).texts])) : null;
+  for (const s of texts) flag(s);
+  for (const s of chips) flag(s);
+  if (variants) for (const ts of Object.values(variants)) for (const s of ts) flag(s);
   const medical = [...new Set([
     ...medicalFlags(rec.name, allResponseStrings(rec.messages)),
     ...(janeMsgs ? medicalFlags(rec.name, allResponseStrings(janeMsgs)) : []),
@@ -253,7 +256,7 @@ export function toQueueItem(rec, scrubOpts = {}) {
     intent: rec.name,
     origin: rec.origin,
     status: "needs-review",
-    review: { medical_review: medical.length > 0, medical_flags: medical, pii_check: pii.count > 0 ? "hits-redacted" : "no-hits-sample-10pct", conflict: rec.conflict, phrase_conflicts: rec.phraseConflicts?.length ?? 0 },
+    review: { medical_review: medical.length > 0, medical_flags: medical, pii_check: pii.count > 0 ? "hits-flagged" : "no-hits-sample-10pct", conflict: rec.conflict, phrase_conflicts: rec.phraseConflicts?.length ?? 0 },
     context: { input: rec.inputContexts, output: rec.outputContexts, parent: !!rec.parentId, end: rec.endInteraction, webhook: rec.webhook, fallback: rec.fallback },
     stripped: clean.counts,
     pii: { categories: [...pii.categories], count: pii.count },
@@ -270,10 +273,10 @@ export function toQueueItem(rec, scrubOpts = {}) {
   };
 }
 
-/** PII hits with text, for the human check (staging only, mode 0600). */
-export function piiHits(rec, scrubOpts = {}) {
+/** PII hits with text, for the human check (staging only, mode 0600). Flags only; does not redact. */
+export function piiHits(rec, flagOpts = {}) {
   const out = [];
   const strings = [...rec.phrases.map((s) => ["phrase", s]), ...cleanMessages(rec.messages).texts.map((s) => ["response", s])];
-  for (const [field, s] of strings) for (const [cat, ms] of Object.entries(findPII(s, scrubOpts))) out.push({ intent: rec.name, field, category: cat, matches: ms });
+  for (const [field, s] of strings) for (const [cat, ms] of Object.entries(findPII(s, flagOpts))) out.push({ intent: rec.name, field, category: cat, matches: ms });
   return out;
 }

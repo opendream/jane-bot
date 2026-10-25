@@ -2,16 +2,16 @@
 // Import both Dialogflow exports into the PRIVATE review queue (plan §2). Never writes inside the repo.
 //   node scripts/bank/import-df.mjs --bot /workspace/jane-df/sex-safe-safe-bot --jane /workspace/jane-df/sex-safe-safe-jane \
 //        --out /workspace/unicef-coder/jane-private/review-queue
-// Writes (all mode 0600):  intents.jsonl (normalised, merged, stripPII'd, phrases included for the off-repo held-out set)
-//                          review-queue.jsonl (one item per intent, status needs-review)  pii-hits.jsonl (for the human check)
+// Writes (all mode 0600):  intents.jsonl (normalised, merged, phrases as imported)
+//                          review-queue.jsonl (one item per intent, status needs-review; text as imported)
+//                          pii-hits.jsonl (flagged for the human check; importer does not redact)
 //                          summary.json (counts only)
 // Stdout: counts only, never export text.
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readExport, mergeExports, toQueueItem, piiHits } from "./df-lib.mjs";
-import { stripPII } from "./pii-patterns.mjs";
-import { publicHandles, publicAllowHosts } from "./guard.mjs";
+import { publicHandles } from "./guard.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, "../..");
@@ -61,7 +61,7 @@ export function runImport({ bot, jane, out, now = new Date() }) {
   const outDir = resolveQueueOutDir(out);
   const B = readExport(bot, "bot"), J = readExport(jane, "jane");
   const { merged, stats } = mergeExports(B, J);
-  const opts = { allowHandles: publicHandles(), allowHosts: publicAllowHosts() };
+  const opts = { allowHandles: publicHandles() };
   const queue = merged.map((r) => toQueueItem(r, opts));
   const hits = merged.flatMap((r) => piiHits(r, opts));
   fs.mkdirSync(outDir, { recursive: true, mode: 0o700 });
@@ -70,9 +70,9 @@ export function runImport({ bot, jane, out, now = new Date() }) {
     fs.writeFileSync(p, s, { mode: 0o600 });
     fs.chmodSync(p, 0o600);
   };
-  const scrubbed = merged.map((r) => ({ name: r.name, origin: r.origin, inputContexts: r.inputContexts, parent: !!r.parentId, conflict: r.conflict,
-    phrases: r.phrases.map((p) => stripPII(p, opts)) }));
-  write("intents.jsonl", scrubbed.map((x) => JSON.stringify(x)).join("\n") + "\n");
+  const asImported = merged.map((r) => ({ name: r.name, origin: r.origin, inputContexts: r.inputContexts, parent: !!r.parentId, conflict: r.conflict,
+    phrases: r.phrases }));
+  write("intents.jsonl", asImported.map((x) => JSON.stringify(x)).join("\n") + "\n");
   write("review-queue.jsonl", queue.map((x) => JSON.stringify(x)).join("\n") + "\n");
   write("pii-hits.jsonl", hits.map((x) => JSON.stringify(x)).join("\n") + (hits.length ? "\n" : ""));
   const sum = (k) => queue.reduce((a, q) => a + q.stripped[k], 0);

@@ -87,6 +87,20 @@ describe("draftSummary", () => {
     const edited = d + "\nติดต่อกลับ 089-999-1111";
     expect(finalizeSummary(edited)).not.toContain("089-999-1111");
   });
+  it("brand names, honorifics and a sentence-start capital survive the staff summary unchanged", () => {
+    const need = "Postinor Durex Plan B Teen Clinic นายแพทย์ นายจ้างไม่ให้ลาไปหาหมอ Yesterday I felt worried";
+    expect(stripPII(need)).toBe(need);
+    const summary = draftSummary({
+      service: s1663,
+      needText: need,
+      intent: "emergency_contraception",
+      ageBand: "15-17",
+    });
+    for (const keep of ["Postinor", "Durex", "Plan B", "Teen Clinic", "นายแพทย์", "นายจ้างไม่ให้ลาไปหาหมอ", "Yesterday"]) {
+      expect(summary).toContain(keep);
+    }
+    expect(summary).not.toContain("[ลบข้อมูลส่วนตัว]");
+  });
 });
 
 describe("LLM adapter fallback", () => {

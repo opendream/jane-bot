@@ -169,103 +169,28 @@ export function findPII(text, opts = {}) {
 
 export const REDACTED = "[ลบข้อมูลส่วนตัว]";
 
-/** Same redaction as stripPII; categories still come from findPII (importer / validator messages). */
+/** Redact every finding (importer staging copy only). Returns the text and the categories hit. */
 export function scrubPII(text, opts = {}) {
   const hits = findPII(text, opts);
-  return { text: stripPII(text, opts), categories: Object.keys(hits) };
+  let s = String(text ?? "");
+  const found = Object.values(hits).flat().sort((a, b) => b.length - a.length);
+  for (const m of found) s = s.split(m).join(REDACTED);
+  return { text: s, categories: Object.keys(hits) };
 }
 
 function escapeRe(x) { return x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 
-/**
- * http(s)/www URLs, or a scheme-less domain+path (TLD must contain a letter so
- * clock tokens like 09.00 are not URLs). Path is included when present.
- */
-export const TEXT_URL = /https?:\/\/[^\s"'<>)]+|www\.[^\s"'<>)]+|(?<![\w/@.])[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)*\.[a-z]{2,}\/[^\s"'<>)]*/gi;
-
-function hostOfUrl(u) {
-  try {
-    return new URL(/^https?:/i.test(u) ? u : `https://${u}`).hostname.toLowerCase().replace(/^www\./, "");
-  } catch {
-    return "";
-  }
-}
-
-/**
- * Replace allowed public handles / allowlisted service URLs with private-use
- * tokens, then restore after redaction. Same idea as bank.ts handle masking.
- */
-export function maskAllowed(text, opts = {}) {
-  const handles = [...new Set((opts.allowHandles ?? []).filter(Boolean))].sort((a, b) => b.length - a.length);
-  const hosts = new Set((opts.allowHosts ?? []).map((h) => String(h).toLowerCase().replace(/^www\./, "")));
-  let masked = String(text ?? "");
-  const tokens = [];
-  let n = 0;
-  const put = (literal) => {
-    if (!literal || !masked.includes(literal)) return;
-    const tok = `\uE000A${n++}\uE000`;
-    masked = masked.split(literal).join(tok);
-    tokens.push([tok, literal]);
-  };
-  for (const h of handles) put(h);
-  if (hosts.size) {
-    const found = [];
-    for (const m of masked.matchAll(new RegExp(TEXT_URL.source, "gi"))) {
-      const host = hostOfUrl(m[0]);
-      if (host && hosts.has(host)) found.push(m[0]);
-    }
-    for (const u of [...new Set(found)].sort((a, b) => b.length - a.length)) put(u);
-  }
-  return {
-    masked,
-    restore(s) {
-      let out = String(s ?? "");
-      for (const [tok, lit] of tokens) out = out.split(tok).join(lit);
-      return out;
-    },
-  };
-}
-
 /** Staff-handoff / validator rules. Each runs on the original (arabic-normalised) text and returns spans. */
 const STRIP_RULES = [
-  TEXT_URL,
+  /https?:\/\/\S+|www\.\S+/gi,
   /[\w.+-]+@[\w-]+\.[\w.]+/g,
-  /(?<![A-Za-z])(?:ไลน์ไอดี|ไอดีไลน์|ไลน์|line\s*id|line|ig|ไอจี|เฟส|facebook|fb)(?![A-Za-z])\s*[:：]?\s*@?[\w.\-]+/gi,
+  /(?<![A-Za-z])(?:ไลน์|ไอดีไลน์|line\s*id|line|ig|ไอจี|เฟส|facebook|fb)(?![A-Za-z])\s*[:：]?\s*@?[\w.\-]+/gi,
   /@[\w.:\-]{2,}/g,
   /(?<!เ)(?:ชื่อเล่น|ชื่อจริง|ชื่อ|นามสกุล)\s*(?:คือ|ว่า)?\s*[^\s,.!?]+/g,
-  /(?:my name is|i am called|i'm called|call me)\s+\S+/gi,
+  /(?:my name is|i am called|i'm called)\s+\S+/gi,
   /(?:โรงเรียน|ร\.ร\.|รร\.|มหาวิทยาลัย|ม\.\s?[ก-๙A-Za-z]{2,}|วิทยาลัย)\s*[^\s,.!?]*/g,
   /(?:บ้านเลขที่|เลขที่|หมู่บ้าน|หมู่ที่|ซอย|ซ\.|ถนน|ถ\.|ตำบล|ต\.|แขวง|อำเภอ|อ\.|เขต)\s*[^\s,.!?]+/g,
-  /\b[A-Z]{2}\d{6,9}\b/g,
 ];
-
-/** Digits after เลขบัญชี only — the bare word is not PII. */
-function accountDigitSpans(s) {
-  const out = [];
-  for (const m of String(s).matchAll(/เลขบัญชี\s*(\d[\d\s.\-]*)/g)) {
-    const digits = m[1];
-    const start = m.index + m[0].length - digits.length;
-    out.push([start, start + digits.length]);
-  }
-  return out;
-}
-
-function findPIISpans(src, opts) {
-  const spans = [];
-  for (const arr of Object.values(findPII(src, opts))) {
-    for (const m of arr) {
-      if (!m) continue;
-      let from = 0;
-      while (from < src.length) {
-        const i = src.indexOf(m, from);
-        if (i < 0) break;
-        spans.push([i, i + m.length]);
-        from = i + Math.max(m.length, 1);
-      }
-    }
-  }
-  return spans;
-}
 const DIGIT_RUN = /\d[\d\s-]{4,}\d/g;
 
 /** Subtract [start, end) holes from a span; return the leftover pieces. */
@@ -303,36 +228,32 @@ function digitRunSpans(arabic) {
   return out;
 }
 
-/** Every redaction rule on the original text; overlapping/touching spans merged.
- *  Union of strip rules and findPII spans (names, facebook URLs, …). */
-export function collectRedactionSpans(input, opts = {}) {
+/** Every redaction rule on the original text; overlapping/touching spans merged. */
+export function collectRedactionSpans(input) {
   const src = String(input ?? "");
   const s = toArabic(src);
   const spans = findPhoneIndexSpans(src);
   for (const re of STRIP_RULES) spans.push(...matchSpans(re, s));
   spans.push(...digitRunSpans(s));
-  spans.push(...accountDigitSpans(s));
-  spans.push(...findPIISpans(src, opts));
   return mergeSpans(spans);
 }
 
 /**
- * Redact PII for the staff-handoff path and the importer. Allowed public
- * handles / hosts are masked first and restored after. Shared with summary.ts.
+ * Redact PII for the staff-handoff path. Rules run on the original text only;
+ * matches are merged, then blanked in one pass. Shared with summary.ts.
  */
-export function stripPII(input, opts = {}) {
+export function stripPII(input) {
   const src = String(input ?? "");
-  const { masked, restore } = maskAllowed(src, opts);
-  const spans = collectRedactionSpans(masked, opts);
+  const spans = collectRedactionSpans(src);
   let out = "";
   let last = 0;
   for (const [a, b] of spans) {
-    out += masked.slice(last, a) + ` ${REDACTED} `;
+    out += src.slice(last, a) + ` ${REDACTED} `;
     last = b;
   }
-  return restore((out + masked.slice(last))
+  return (out + src.slice(last))
     .replace(new RegExp(`(?:${escapeRe(REDACTED)}\\s*)+`, "g"), REDACTED + " ")
     .replace(/\s+/g, " ")
     .replace(/\s+([,.!?])/g, "$1")
-    .trim());
+    .trim();
 }
