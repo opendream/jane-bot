@@ -1,0 +1,88 @@
+{
+  "id": "id-test.ec.000",
+  "name": "test.ec.000",
+  "auto": true,
+  "contexts": [],
+  "responses": [
+    {
+      "resetContexts": false,
+      "action": "",
+      "affectedContexts": [],
+      "parameters": [],
+      "messages": [
+        {
+          "type": "0",
+          "platform": "facebook",
+          "title": "",
+          "textToSpeech": "",
+          "lang": "th",
+          "speech": [
+            "ทดสอบยาคุมฉุกเฉิน ภายใน 72 ชั่วโมง ดูต่อที่ https://tinyurl.com/test-x และ https://rsathai.org/test"
+          ],
+          "condition": ""
+        },
+        {
+          "type": "2",
+          "platform": "facebook",
+          "title": "เลือก",
+          "replies": [
+            "ใช่",
+            "ไม่ใช่"
+          ],
+          "textToSpeech": "",
+          "lang": "th",
+          "condition": ""
+        },
+        {
+          "type": "3",
+          "platform": "facebook",
+          "imageUrl": "https://media.giphy.com/media/test/giphy.gif",
+          "title": "",
+          "textToSpeech": "",
+          "lang": "th",
+          "condition": ""
+        },
+        {
+          "type": "1",
+          "platform": "facebook",
+          "title": "การ์ดทดสอบ",
+          "subtitle": "การ์ดทดสอบ",
+          "imageUrl": "https://scontent.xx.fbcdn.net/v/test.jpg",
+          "buttons": [
+            {
+              "text": "เปิดเพจ",
+              "postback": "https://www.facebook.com/test.page"
+            },
+            {
+              "text": "ถาม",
+              "postback": ""
+            }
+          ],
+          "textToSpeech": "",
+          "lang": "th",
+          "condition": ""
+        },
+        {
+          "type": "0",
+          "platform": "line",
+          "title": "",
+          "textToSpeech": "",
+          "lang": "th",
+          "speech": [
+            "ทดสอบ LINE"
+          ],
+          "condition": ""
+        }
+      ],
+      "speech": []
+    }
+  ],
+  "priority": 500000,
+  "webhookUsed": false,
+  "webhookForSlotFilling": false,
+  "fallbackIntent": false,
+  "events": [],
+  "conditionalResponses": [],
+  "condition": "",
+  "conditionalFollowupEvents": []
+}

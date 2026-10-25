@@ -1,0 +1,381 @@
+{
+  "$comment": "PLACEHOLDER cards only. Written for the build to exercise the chat; NOT ThaiHealth content and NOT reviewed. Topic scope (D4) and copy are pending. Every card is draft and can never be approved while placeholder is true.",
+  "topic_file": "placeholder",
+  "cards": [
+    {
+      "id": "general.welcome.000",
+      "topic": "general",
+      "title_th": "เริ่มคุยกับพี่เจน",
+      "answer_th": "PLACEHOLDER · สวัสดี พี่เจนเป็น AI ไม่ใช่คนหรือแพทย์ ถามเรื่องเพศและสุขภาพได้ ไม่ต้องบอกข้อมูลส่วนตัว เลือกหัวข้อด้านล่างหรือพิมพ์มาเลย",
+      "key_facts": [
+        "AI ไม่ใช่คนหรือแพทย์"
+      ],
+      "triggers": [
+        "สวัสดีพี่เจน",
+        "เริ่มใหม่"
+      ],
+      "next": [
+        {
+          "label_th": "ยาคุมฉุกเฉิน",
+          "card_id": "ec.p000"
+        },
+        {
+          "label_th": "กังวลเรื่องท้อง",
+          "card_id": "pregnancy.p000"
+        },
+        {
+          "label_th": "ตรวจเอชไอวี",
+          "card_id": "sti_hiv.p000"
+        },
+        {
+          "label_th": "เครียด ไม่สบายใจ",
+          "card_id": "mental_health.p000"
+        }
+      ],
+      "source_intents": [],
+      "source": [],
+      "review": {
+        "status": "draft",
+        "reviewer": null,
+        "reviewed_on": null,
+        "notes": "PLACEHOLDER card (D4 topic scope pending). Replace with a reviewed card from the review queue."
+      },
+      "last_reviewed": null,
+      "flags": [
+        "pii_checked"
+      ],
+      "referral": {
+        "offer": "none",
+        "intents": []
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": false,
+      "licence": "PLACEHOLDER: written for this build, not ThaiHealth content; licence TBD (D2)",
+      "placeholder": true
+    },
+    {
+      "id": "general.fallback.000",
+      "topic": "general",
+      "title_th": "พี่ยังตอบเรื่องนี้ไม่ได้",
+      "answer_th": "PLACEHOLDER · เรื่องนี้พี่ยังตอบไม่ได้ ถ้าอยากคุยกับเจ้าหน้าที่ตัวจริง พี่ช่วยหาที่ที่เปิดอยู่ตอนนี้ให้ได้",
+      "key_facts": [
+        "เจ้าหน้าที่ตัวจริง"
+      ],
+      "triggers": [],
+      "next": [
+        {
+          "label_th": "เริ่มใหม่",
+          "card_id": "general.welcome.000"
+        }
+      ],
+      "source_intents": [],
+      "source": [],
+      "review": {
+        "status": "draft",
+        "reviewer": null,
+        "reviewed_on": null,
+        "notes": "PLACEHOLDER card (D4 topic scope pending). Replace with a reviewed card from the review queue."
+      },
+      "last_reviewed": null,
+      "flags": [
+        "pii_checked"
+      ],
+      "referral": {
+        "offer": "soft",
+        "intents": [
+          "other"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": false,
+      "licence": "PLACEHOLDER: written for this build, not ThaiHealth content; licence TBD (D2)",
+      "placeholder": true
+    },
+    {
+      "id": "ending.bye.p000",
+      "topic": "ending",
+      "title_th": "จบการคุย",
+      "answer_th": "PLACEHOLDER · ขอบคุณที่คุยกันนะ ถ้าอยากคุยกับคนจริง กดปุ่มคุยกับเจ้าหน้าที่ได้ และลบแชทได้ทุกเมื่อ",
+      "key_facts": [
+        "ลบแชท"
+      ],
+      "triggers": [
+        "บายพี่เจน",
+        "พอแค่นี้ก่อน"
+      ],
+      "next": [],
+      "source_intents": [],
+      "source": [],
+      "review": {
+        "status": "draft",
+        "reviewer": null,
+        "reviewed_on": null,
+        "notes": "PLACEHOLDER card (D4 topic scope pending). Replace with a reviewed card from the review queue."
+      },
+      "last_reviewed": null,
+      "flags": [
+        "pii_checked"
+      ],
+      "referral": {
+        "offer": "soft",
+        "intents": [
+          "other"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": false,
+      "licence": "PLACEHOLDER: written for this build, not ThaiHealth content; licence TBD (D2)",
+      "placeholder": true
+    },
+    {
+      "id": "ec.p000",
+      "topic": "emergency_contraception",
+      "title_th": "ยาคุมฉุกเฉิน (ตัวอย่าง)",
+      "answer_th": "PLACEHOLDER · หัวข้อยาคุมฉุกเฉิน ข้อความจริงรอผู้เชี่ยวชาญตรวจ ตอนนี้แนะนำให้รีบปรึกษาเภสัชกรหรือเจ้าหน้าที่ให้เร็วที่สุด",
+      "key_facts": [
+        "เภสัชกร"
+      ],
+      "triggers": [
+        "คุมฉุกเฉิน",
+        "ถุงยางรั่ว",
+        "ลืมป้องกัน"
+      ],
+      "next": [
+        {
+          "label_th": "กังวลว่าจะท้อง",
+          "card_id": "pregnancy.p000"
+        }
+      ],
+      "source_intents": [],
+      "source": [],
+      "review": {
+        "status": "draft",
+        "reviewer": null,
+        "reviewed_on": null,
+        "notes": "PLACEHOLDER card (D4 topic scope pending). Replace with a reviewed card from the review queue."
+      },
+      "last_reviewed": null,
+      "flags": [
+        "medical",
+        "pii_checked"
+      ],
+      "referral": {
+        "offer": "strong",
+        "intents": [
+          "emergency_contraception"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "PLACEHOLDER: written for this build, not ThaiHealth content; licence TBD (D2)",
+      "placeholder": true
+    },
+    {
+      "id": "pregnancy.p000",
+      "topic": "pregnancy",
+      "title_th": "กังวลเรื่องท้อง (ตัวอย่าง)",
+      "answer_th": "PLACEHOLDER · หัวข้อกังวลเรื่องท้อง ข้อความจริงรอผู้เชี่ยวชาญตรวจ ความกังวลแบบนี้เกิดขึ้นได้ คุยกับเจ้าหน้าที่ได้โดยไม่ถูกตัดสิน",
+      "key_facts": [
+        "เจ้าหน้าที่"
+      ],
+      "triggers": [
+        "กลัวจะท้อง",
+        "ประจำเดือนไม่มา",
+        "ตั้งครรภ์"
+      ],
+      "next": [
+        {
+          "label_th": "เพิ่งมีอะไรกันโดยไม่ป้องกัน",
+          "card_id": "ec.p000"
+        }
+      ],
+      "source_intents": [],
+      "source": [],
+      "review": {
+        "status": "draft",
+        "reviewer": null,
+        "reviewed_on": null,
+        "notes": "PLACEHOLDER card (D4 topic scope pending). Replace with a reviewed card from the review queue."
+      },
+      "last_reviewed": null,
+      "flags": [
+        "medical",
+        "pii_checked"
+      ],
+      "referral": {
+        "offer": "strong",
+        "intents": [
+          "pregnancy"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "PLACEHOLDER: written for this build, not ThaiHealth content; licence TBD (D2)",
+      "placeholder": true
+    },
+    {
+      "id": "contraception.p000",
+      "topic": "contraception",
+      "title_th": "การคุมกำเนิด (ตัวอย่าง)",
+      "answer_th": "PLACEHOLDER · หัวข้อการคุมกำเนิด ข้อความจริงรอผู้เชี่ยวชาญตรวจ การคุมกำเนิดมีหลายวิธี เจ้าหน้าที่ช่วยเลือกวิธีที่เหมาะกับตัวเองได้",
+      "key_facts": [
+        "หลายวิธี"
+      ],
+      "triggers": [
+        "คุมกำเนิด",
+        "วิธีคุม",
+        "ใช้ถุงยาง"
+      ],
+      "next": [],
+      "source_intents": [],
+      "source": [],
+      "review": {
+        "status": "draft",
+        "reviewer": null,
+        "reviewed_on": null,
+        "notes": "PLACEHOLDER card (D4 topic scope pending). Replace with a reviewed card from the review queue."
+      },
+      "last_reviewed": null,
+      "flags": [
+        "medical",
+        "pii_checked"
+      ],
+      "referral": {
+        "offer": "soft",
+        "intents": [
+          "contraception"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "PLACEHOLDER: written for this build, not ThaiHealth content; licence TBD (D2)",
+      "placeholder": true
+    },
+    {
+      "id": "sti_hiv.p000",
+      "topic": "sti_hiv",
+      "title_th": "ตรวจเอชไอวี (ตัวอย่าง)",
+      "answer_th": "PLACEHOLDER · หัวข้อการตรวจเอชไอวี ข้อความจริงรอผู้เชี่ยวชาญตรวจ การตรวจเป็นเรื่องปกติและเป็นความลับ ปรึกษาสายด่วน 1663 ได้",
+      "key_facts": [
+        "1663",
+        "เป็นความลับ"
+      ],
+      "triggers": [
+        "ตรวจเอช",
+        "ติดเชื้อ",
+        "ตรวจโรคทางเพศ"
+      ],
+      "next": [],
+      "source_intents": [],
+      "source": [],
+      "review": {
+        "status": "draft",
+        "reviewer": null,
+        "reviewed_on": null,
+        "notes": "PLACEHOLDER card (D4 topic scope pending). Replace with a reviewed card from the review queue."
+      },
+      "last_reviewed": null,
+      "flags": [
+        "medical",
+        "hotline",
+        "pii_checked"
+      ],
+      "referral": {
+        "offer": "strong",
+        "intents": [
+          "sti_hiv"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": false,
+      "licence": "PLACEHOLDER: written for this build, not ThaiHealth content; licence TBD (D2)",
+      "placeholder": true
+    },
+    {
+      "id": "consent.p000",
+      "topic": "relationship_consent",
+      "title_th": "การปฏิเสธ (ตัวอย่าง)",
+      "answer_th": "PLACEHOLDER · หัวข้อความสัมพันธ์และการยินยอม ข้อความจริงรอผู้เชี่ยวชาญตรวจ คุณมีสิทธิ์ปฏิเสธเสมอ ไม่ว่าจะเป็นใคร",
+      "key_facts": [
+        "ปฏิเสธ"
+      ],
+      "triggers": [
+        "แฟนกดดัน",
+        "ไม่อยากทำ",
+        "การยินยอม"
+      ],
+      "next": [],
+      "source_intents": [],
+      "source": [],
+      "review": {
+        "status": "draft",
+        "reviewer": null,
+        "reviewed_on": null,
+        "notes": "PLACEHOLDER card (D4 topic scope pending). Replace with a reviewed card from the review queue."
+      },
+      "last_reviewed": null,
+      "flags": [
+        "pii_checked"
+      ],
+      "referral": {
+        "offer": "soft",
+        "intents": [
+          "relationship_consent"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "PLACEHOLDER: written for this build, not ThaiHealth content; licence TBD (D2)",
+      "placeholder": true
+    },
+    {
+      "id": "mental_health.p000",
+      "topic": "mental_health",
+      "title_th": "เครียด ไม่สบายใจ (ตัวอย่าง)",
+      "answer_th": "PLACEHOLDER · หัวข้อสุขภาพใจ ข้อความจริงรอผู้เชี่ยวชาญตรวจ ความรู้สึกของคุณสำคัญ โทรคุยกับสายด่วนสุขภาพจิต 1323 ได้ฟรี 24 ชั่วโมง",
+      "key_facts": [
+        "1323",
+        "24 ชั่วโมง"
+      ],
+      "triggers": [
+        "เครียดมาก",
+        "นอนไม่หลับ",
+        "ไม่มีความสุข"
+      ],
+      "next": [],
+      "source_intents": [],
+      "source": [],
+      "review": {
+        "status": "draft",
+        "reviewer": null,
+        "reviewed_on": null,
+        "notes": "PLACEHOLDER card (D4 topic scope pending). Replace with a reviewed card from the review queue."
+      },
+      "last_reviewed": null,
+      "flags": [
+        "hotline",
+        "hours",
+        "pii_checked"
+      ],
+      "referral": {
+        "offer": "strong",
+        "intents": [
+          "mental_health"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": false,
+      "licence": "PLACEHOLDER: written for this build, not ThaiHealth content; licence TBD (D2)",
+      "placeholder": true
+    }
+  ]
+}

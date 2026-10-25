@@ -84,12 +84,16 @@ describe("bank rules: content", () => {
     expect(leaked.find((e) => e.rule === "phone_in_services")?.msg).not.toContain("1999");
     expect(rules(withCard((c) => { c.answer_th = "ข้อความทดสอบ โทร 1323"; c.key_facts = []; }))).toContain("hotline_flag");
     expect(rules(withCard((c) => { c.answer_th = "ข้อความทดสอบ โทร ๑๖๖๓"; c.key_facts = []; }, 1))).toEqual([]); // Thai digits
+    const sat = errors(withCard((c) => { c.answer_th = "ข้อความทดสอบ โทร 1336 วันเสาร์-อาทิตย์"; c.key_facts = []; }, 1));
+    expect(sat.map((e) => e.rule)).toContain("phone_in_services");
+    expect(sat.map((e) => e.msg).join("\n")).not.toContain("1336");
   });
   it("hours must match a cited source for a contact on the card", () => {
     const h = (t: string) => withCard((c) => { c.answer_th = t; c.key_facts = []; c.flags = [...c.flags, "hours"]; }, 1);
     expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09:00–21:00 น."))).toEqual([]);            // RSATHAI
     expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09:00 - 21:00 น."))).toEqual([]);           // spaced hyphen (same RSATHAI window)
     expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09.00 - 21.00 น."))).toEqual([]);           // hotline then spaced dotted hours (stripPII must not mangle)
+    expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09.00–21.00 น."))).toEqual([]);             // dotted en-dash RSATHAI window
     expect(rules(h("ข้อความทดสอบ โทร 1663 09.00 - 21.00 น."))).toEqual([]);                // hotline immediately before hours
     expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 10.00-20.00 น."))).toEqual([]);             // GCC
     expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09.00-21.00 10.00-20.00"))).toEqual([]);    // back-to-back dotted ranges
@@ -158,6 +162,7 @@ describe("bank text helpers", () => {
     expect(phonesIn("โทร ๐๘๑-๒๓๔-๕๖๗๘")).toEqual(["0812345678"]);
     expect(phonesIn("โทร 1663 เวลา 09.00-21.00 10.00-20.00")).toEqual(["1663"]);
     expect(phonesIn("เวลา ๐๙.๐๐–๒๑.๐๐ ๑๐.๐๐-๒๐.๐๐")).toEqual([]);
+    expect(phonesIn("โทร 1336 วันเสาร์-อาทิตย์")).toEqual(["1336"]);
   });
   it("hoursIn normalises ranges", () => {
     expect(hoursIn("9.00-21.00 น.")).toEqual(["09:00–21:00"]);
