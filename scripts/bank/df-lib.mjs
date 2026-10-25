@@ -1,10 +1,51 @@
 // Dialogflow (ES) export → normalised, merged review queue (plan §2).
 // Node only, no dependencies. Pure functions plus readExport(); the CLI is import-df.mjs.
 // Nothing here prints export text. Output goes to a staging dir OUTSIDE the repo.
-// findPII flags hits for the human reviewer; the importer does not redact.
+// findPII + collectRedactionSpans flag hits for the human reviewer; the importer does not redact.
 import fs from "node:fs";
 import path from "node:path";
-import { findPII } from "./pii-patterns.mjs";
+import { findPII, collectRedactionSpans } from "./pii-patterns.mjs";
+
+/** Scheme-less domain+path (instagram.com/x). Flag-only; not in 45039e4 stripPII. */
+const SCHEMELESS_URL = /(?<![\w/@.])(?:[a-z0-9-]+\.)+(?:com|org|net|th|me|ly|gl|co|io|ee)\/[^\s"'<>)]+/gi;
+
+function handleSpans(s, handles) {
+  const src = String(s ?? "");
+  const out = [];
+  for (const h of handles ?? []) {
+    if (!h) continue;
+    const needle = String(h);
+    let from = 0;
+    while (from < src.length) {
+      const i = src.toLowerCase().indexOf(needle.toLowerCase(), from);
+      if (i < 0) break;
+      out.push([i, i + needle.length]);
+      from = i + needle.length;
+    }
+  }
+  return out;
+}
+
+const overlaps = (a, b, ranges) => ranges.some(([x, y]) => a < y && b > x);
+
+/** Flag rows for the human reviewer. Text is not redacted. */
+export function flagPII(s, flagOpts = {}) {
+  const src = String(s ?? "");
+  const rows = [];
+  const hits = findPII(src, flagOpts);
+  for (const [category, matches] of Object.entries(hits)) rows.push({ kind: "findPII", category, matches });
+  const allowed = handleSpans(src, flagOpts.allowHandles);
+  for (const [a, b] of collectRedactionSpans(src)) {
+    if (overlaps(a, b, allowed)) continue;
+    rows.push({ kind: "strip", category: "redaction", matches: [src.slice(a, b)] });
+  }
+  for (const m of src.matchAll(new RegExp(SCHEMELESS_URL.source, SCHEMELESS_URL.flags))) {
+    const a = m.index, b = m.index + m[0].length;
+    if (overlaps(a, b, allowed)) continue;
+    rows.push({ kind: "url", category: "url", matches: [m[0]] });
+  }
+  return rows;
+}
 
 /* ----------------------------------------- read ----------------------------------------- */
 
@@ -221,7 +262,7 @@ export function topicFor(name) {
 
 /**
  * One queue item per merged intent. Status is always "needs-review"; text stays as imported.
- * findPII flags hits for the human reviewer and does not redact.
+ * findPII and collectRedactionSpans flag hits for the human reviewer and do not redact.
  * The proposed card is a draft skeleton with EMPTY triggers (triggers are newly written, never copied).
  * On a bot/Jane response conflict: medical_review is true if either variant is flagged;
  * chips_th is the de-duplicated union of bot then Jane quick replies.
@@ -229,9 +270,9 @@ export function topicFor(name) {
 export function toQueueItem(rec, flagOpts = {}) {
   const pii = { categories: new Set(), count: 0 };
   const flag = (s) => {
-    const hits = findPII(s, flagOpts);
-    Object.keys(hits).forEach((c) => pii.categories.add(c));
-    pii.count += Object.keys(hits).length;
+    const rows = flagPII(s, flagOpts);
+    for (const r of rows) pii.categories.add(r.category);
+    pii.count += rows.length;
   };
   const clean = cleanMessages(rec.messages);
   const janeMsgs = rec.variants?.jane;
@@ -243,9 +284,10 @@ export function toQueueItem(rec, flagOpts = {}) {
     if (c && !seenC.has(c)) { seenC.add(c); chips.push(c); }
   }
   const variants = rec.variants ? Object.fromEntries(Object.entries(rec.variants).map(([k, ms]) => [k, cleanMessages(ms).texts])) : null;
-  for (const s of texts) flag(s);
+  for (const s of rec.phrases) flag(s);
+  for (const s of allResponseStrings(rec.messages)) flag(s);
+  if (janeMsgs) for (const s of allResponseStrings(janeMsgs)) flag(s);
   for (const s of chips) flag(s);
-  if (variants) for (const ts of Object.values(variants)) for (const s of ts) flag(s);
   const medical = [...new Set([
     ...medicalFlags(rec.name, allResponseStrings(rec.messages)),
     ...(janeMsgs ? medicalFlags(rec.name, allResponseStrings(janeMsgs)) : []),
@@ -276,7 +318,13 @@ export function toQueueItem(rec, flagOpts = {}) {
 /** PII hits with text, for the human check (staging only, mode 0600). Flags only; does not redact. */
 export function piiHits(rec, flagOpts = {}) {
   const out = [];
-  const strings = [...rec.phrases.map((s) => ["phrase", s]), ...cleanMessages(rec.messages).texts.map((s) => ["response", s])];
-  for (const [field, s] of strings) for (const [cat, ms] of Object.entries(findPII(s, flagOpts))) out.push({ intent: rec.name, field, category: cat, matches: ms });
+  const strings = [
+    ...rec.phrases.map((s) => ["phrase", s]),
+    ...allResponseStrings(rec.messages).map((s) => ["response", s]),
+    ...(rec.variants?.jane ? allResponseStrings(rec.variants.jane).map((s) => ["response", s]) : []),
+  ];
+  for (const [field, s] of strings) {
+    for (const row of flagPII(s, flagOpts)) out.push({ intent: rec.name, field, kind: row.kind, category: row.category, matches: row.matches });
+  }
   return out;
 }

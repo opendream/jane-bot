@@ -141,6 +141,25 @@ describe("bank rules: content", () => {
       c.links = [{ url: "https://rsathai.org/qrcode", label_th: "ทดสอบลิงก์" }];
     }, 1))).toEqual([]);
   });
+  it("contact_exact skips source citations and ids; /1xx in a link path is the whole URL", () => {
+    expect(phonesIn("fixture.start.p100")).toContain("100");
+    expect(phonesIn("fixture.info.a101")).toContain("101");
+    const ids = base();
+    ids[0].id = "fixture.start.p100";
+    ids[0].next = [{ label_th: "ไปต่อ", card_id: "fixture.info.a101" }];
+    ids[1].id = "fixture.info.a101";
+    ids[1].next = [{ label_th: "กลับ", card_id: "fixture.start.p100" }];
+    expect(rules(ids)).toEqual([]);
+
+    expect(rules(withCard((c) => {
+      c.source = [{ by: "Test", url: "https://rsathai.org/guidelines/emergency-contraception", title: "fixture", checked: "2026-10-22" }];
+    }, 1))).toEqual([]);
+
+    const pathSegment = errors(withCard((c) => { c.links = [{ url: "https://rsathai.org/guide/191", label_th: "ทดสอบลิงก์" }]; }, 1));
+    expect(pathSegment.map((e) => e.rule)).toContain("contact_exact");
+    expect(pathSegment.map((e) => e.msg).join("\n")).not.toContain("/191");
+    expect(pathSegment.map((e) => e.msg).join("\n")).not.toContain("guide/191");
+  });
   it("placeholder cards must say PLACEHOLDER and can never be approved", () => {
     expect(rules(withCard((c) => { c.placeholder = true; }))).toContain("placeholder_mark");
     expect(rules(withCard((c) => { c.placeholder = true; c.answer_th = "PLACEHOLDER ข้อความทดสอบ"; }))).toEqual([]);

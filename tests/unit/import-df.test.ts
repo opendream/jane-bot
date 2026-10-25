@@ -156,6 +156,40 @@ describe("importer flags findPII name spans and does not redact (synthetic)", ()
   });
 });
 
+describe("importer flags strip spans findPII misses (synthetic)", () => {
+  const cases: [string, string][] = [
+    ["test.flag.ighandle.000", "ไอจี somchai_99"],
+    ["test.flag.igcolon.000", "ig: some.user"],
+    ["test.flag.nick.000", "ชื่อเล่นว่า ส้มโอ"],
+    ["test.flag.school.000", "รร.สมมติวิทยา"],
+    ["test.flag.addr.000", "อยู่ ต.บางสมมติ อ.เมือง"],
+    ["test.flag.plus1.000", "+1 415 555 0134"],
+    ["test.flag.passport.000", "AA1234567"],
+    ["test.flag.queryurl.000", "ดูต่อที่ https://example.com/secret?q=1"],
+    ["test.flag.schemeless.000", "example.com/x"],
+    ["test.flag.igpath.000", "instagram.com/fakeuser99"],
+  ];
+
+  it("each format produces a pii-hits line and is hits-flagged, without redacting", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "jane-df-stripflag-"));
+    const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "jane-queue-stripflag-"));
+    const bot = writeMiniExport(root, "bot", cases.map(([name, text]) => ({ name, speech: [text], phrases: [text] })));
+    const jane = writeMiniExport(root, "jane", []);
+    const r = runImport({ bot, jane, out: outDir });
+    const hits = fs.readFileSync(path.join(outDir, "pii-hits.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    const intentsBlob = fs.readFileSync(path.join(outDir, "intents.jsonl"), "utf8");
+    for (const [name, text] of cases) {
+      const q = r.queue.find((x: any) => x.intent === name);
+      expect(q.review.pii_check, name).toBe("hits-flagged");
+      expect(q.pii.count, name).toBeGreaterThan(0);
+      expect(hits.some((h: any) => h.intent === name), name).toBe(true);
+      expect(hits.filter((h: any) => h.intent === name).every((h: any) => h.kind), name).toBeTruthy();
+      expect(JSON.stringify([q.responses_th, q.proposed_card.answer_th]) + intentsBlob, name).toContain(text.split(/\s+/).pop()!);
+      expect(JSON.stringify(q.responses_th), name).not.toContain("[ลบข้อมูลส่วนตัว]");
+    }
+  });
+});
+
 describe("importer allowed handles vs other handles (synthetic)", () => {
   it("keeps every handle as imported; only a non-allowed handle is flagged", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "jane-df-hnd-"));

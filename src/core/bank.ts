@@ -186,6 +186,14 @@ function isUserFacingPath(p: string): boolean {
   });
 }
 
+/** User-facing copy plus contact fields shown to the user. Not $.id or source[] citations. */
+function isContactExactPath(p: string): boolean {
+  if (p === "$.id") return false;
+  if (/(?:^|\.)source(?:\[|\.|$)/.test(p)) return false;
+  if (/\.links\[\d+\]\.url$/.test(p)) return true;
+  return isUserFacingPath(p);
+}
+
 /** Every string (and number-as-string) on a value, with a JSON path. Used so new card fields are scanned automatically. */
 export function* walkStrings(v: unknown, p = "$"): Generator<{ path: string; value: string }> {
   if (typeof v === "string") yield { path: p, value: v };
@@ -279,9 +287,12 @@ export function validateBank(cards: BankCard[], ctx: BankContext): Issue[] {
       if (/\.url$/.test(path) || path === "$.id") continue;
       if (urlsIn(value).length) add("error", c.id, "no_url_in_text", `URL in ${safePath(path)}`);
     }
-    // Contacts: every extracted phone, URL or handle must equal a services.json entry as a whole token.
+    // Contacts: user-facing text and shown contact fields only. links[].url is the whole URL
+    // (query included); path segments like /1xx are not treated as phones.
     for (const { path, value } of walkStrings(c)) {
-      for (const token of contactsIn(value)) {
+      if (!isContactExactPath(path)) continue;
+      const tokens = /\.links\[\d+\]\.url$/.test(path) ? [value] : contactsIn(value);
+      for (const token of tokens) {
         if (!ctx.contacts.has(token)) add("error", c.id, "contact_exact", `contact in ${safePath(path)} is not an exact services.json entry`);
       }
     }
