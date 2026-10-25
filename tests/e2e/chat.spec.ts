@@ -125,3 +125,29 @@ test("CH8 stale classify does not overwrite the crisis screen", async ({ page })
   await expect(page.getByTestId("screen-crisis")).toBeVisible();
   await expect(page.getByTestId("screen-suggest")).toHaveCount(0);
 });
+
+test("CH9 erase during classify does not put the need text back on screen", async ({ page }) => {
+  await page.goto("/?model=off&classifyDelayMs=400");
+  await startAs(page, "18-24");
+  await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
+  await page.getByTestId("need-submit").click();
+  await page.getByTestId("erase").click();
+  await expect(page.getByTestId("screen-start")).toBeVisible();
+  await page.waitForTimeout(600);
+  await expect(page.getByTestId("screen-start")).toBeVisible();
+  await expect(page.getByTestId("screen-suggest")).toHaveCount(0);
+  expect(await page.locator("body").innerText()).not.toContain("กลัวท้อง");
+});
+
+test("CH10 quick exit during classify stays on the neutral page", async ({ page }) => {
+  await page.goto("/?model=off&classifyDelayMs=400");
+  await startAs(page, "18-24");
+  await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
+  await page.getByTestId("need-submit").click();
+  await page.getByTestId("quick-exit").click();
+  await expect(page.getByTestId("screen-neutral")).toBeVisible();
+  await page.waitForTimeout(600);
+  await expect(page.getByTestId("screen-neutral")).toBeVisible();
+  await expect(page.getByTestId("screen-suggest")).toHaveCount(0);
+  expect(await page.locator("body").innerText()).not.toContain("กลัวท้อง");
+});

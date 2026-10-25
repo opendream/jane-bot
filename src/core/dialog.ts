@@ -43,13 +43,17 @@ export const newDialog = (ageBand: AgeBand = "unspecified"): DialogState => ({
   ageBand, cardId: null, topic: null, pendingChips: [], turns: 0, recentUser: [], crisisFired: false, crisisCategories: [],
 });
 
-/** Drop a late classify / polish once a newer request exists or the crisis screen is up. */
+/** Drop a late classify / polish once a newer request exists, the crisis screen is up, or the session was erased / quick-exited. */
 export function shouldApplyAsyncResult(mine: number, current: number, screen: string): boolean {
-  return mine === current && screen !== "crisis";
+  return mine === current && screen !== "crisis" && screen !== "start" && screen !== "neutral";
 }
 
 function uniqueCats(cats: CrisisCategory[]): CrisisCategory[] {
   return [...new Set(cats)];
+}
+
+function joinedWindow(input: string, prev: string[]): string {
+  return prev.length ? [...prev.slice(-2), input].join(" ") : input;
 }
 
 /** Current line, then current + previous 1–2 user lines (in memory only). */
@@ -57,10 +61,20 @@ function crisisForTurn(input: string, prev: string[]): CrisisResult {
   const cur = detectCrisis(input);
   if (cur.crisis) return cur;
   if (prev.length) {
-    const joined = detectCrisis([...prev.slice(-2), input].join(" "));
+    const joined = detectCrisis(joinedWindow(input, prev));
     if (joined.crisis) return joined;
   }
   return cur;
+}
+
+/** Abuse / complication on the current line or the same in-memory join as detectCrisis. */
+function guardForTurn(input: string, prev: string[]): GuardReason | null {
+  const windows = prev.length ? [input, joinedWindow(input, prev)] : [input];
+  for (const t of windows) {
+    const g = checkInput(t);
+    if (g === "abuse" || g === "complication") return g;
+  }
+  return checkInput(input);
 }
 
 export interface ShortlistItem { id: string; title_th: string }
@@ -138,6 +152,18 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     ...(state.crisisFired ? state.crisisCategories : []),
   ]);
 
+  // Safety routes (crisis already handled) before the hard-cap lock: complication and abuse must not be dropped.
+  const g = guardForTurn(input, state.recentUser);
+  if (g === "complication") {
+    return {
+      state: { ...state, pendingChips: [], recentUser: [], crisisFired: true, crisisCategories: ["medical_emergency"] },
+      reply: { kind: "crisis", categories: ["medical_emergency"] },
+    };
+  }
+  if (g === "abuse") {
+    return { state: { ...state, pendingChips: [], recentUser, topic: "violence" }, reply: { kind: "referral", intents: ["violence"], banner, capNotice: null } };
+  }
+
   if (state.turns >= HARD_CAP) return { state: { ...state, recentUser }, reply: { kind: "readonly" } };
   const turns = state.turns + 1;
   const capNotice: CapNotice = turns === HARD_CAP ? "hard" : turns === SOFT_CAP ? "soft" : null;
@@ -158,17 +184,6 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     return { state: next, reply: { kind: "card" as const, card, text: r.text, reworded: r.reworded, via, banner, chips: card.next, offer, offerIntents, capNotice, ...(guard ? { guard } : {}) } };
   };
 
-  // 2. Input guard. Abuse → existing 1300 / violence services. Complication → existing 1669 crisis card.
-  const g = checkInput(input);
-  if (g === "complication") {
-    return {
-      state: { ...state, pendingChips: [], recentUser: [], crisisFired: true, crisisCategories: ["medical_emergency"] },
-      reply: { kind: "crisis", categories: ["medical_emergency"] },
-    };
-  }
-  if (g === "abuse") {
-    return { state: { ...state, turns, pendingChips: [], recentUser, topic: "violence" }, reply: { kind: "referral", intents: ["violence"], banner, capNotice } };
-  }
   if (g) return reply(REFUSAL_CARDS[g as RefusalReason], "guard", g);
 
   // "Talk to a real person" → referral offer for the current topic.

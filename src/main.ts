@@ -67,12 +67,14 @@ function go(next: Partial<State>) {
 }
 
 function eraseAll(to: Screen = "start") {
+  needSeq++;
   state = { ...fresh(), screen: to };
   render();
 }
 
 function quickExit() {
   // Wipe memory, drop history entry text, show a neutral page. No navigation, no request.
+  needSeq++;
   state = { ...fresh(), screen: "neutral" };
   try { history.replaceState(null, "", location.pathname); } catch { /* ignore */ }
   document.title = "บันทึก";
