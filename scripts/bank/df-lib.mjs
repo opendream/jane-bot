@@ -9,24 +9,40 @@ import { findPII, collectRedactionSpans } from "./pii-patterns.mjs";
 /** Scheme-less domain+path (instagram.com/x). Flag-only; not in 45039e4 stripPII. */
 const SCHEMELESS_URL = /(?<![\w/@.])(?:[a-z0-9-]+\.)+(?:com|org|net|th|me|ly|gl|co|io|ee)\/[^\s"'<>)]+/gi;
 
-function handleSpans(s, handles) {
+function escapeRe(x) { return String(x).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+
+/** Exact allowed-handle occurrences as whole tokens (not a prefix of a longer handle). */
+function wholeHandleSpans(s, handles) {
   const src = String(s ?? "");
   const out = [];
   for (const h of handles ?? []) {
     if (!h) continue;
-    const needle = String(h);
-    let from = 0;
-    while (from < src.length) {
-      const i = src.toLowerCase().indexOf(needle.toLowerCase(), from);
-      if (i < 0) break;
-      out.push([i, i + needle.length]);
-      from = i + needle.length;
-    }
+    const re = new RegExp(`(?<![\\w.])${escapeRe(h)}(?![A-Za-z0-9._])`, "gi");
+    for (const m of src.matchAll(re)) out.push([m.index, m.index + m[0].length]);
   }
   return out;
 }
 
-const overlaps = (a, b, ranges) => ranges.some(([x, y]) => a < y && b > x);
+/** Subtract [start, end) holes from a span; return leftover pieces. */
+function leftoverSpans([start, end], holes) {
+  const relevant = holes.filter(([a, b]) => a < end && b > start).sort((x, y) => x[0] - y[0]);
+  const pieces = [];
+  let cursor = start;
+  for (const [a, b] of relevant) {
+    if (cursor < a) pieces.push([cursor, Math.min(a, end)]);
+    cursor = Math.max(cursor, b);
+    if (cursor >= end) break;
+  }
+  if (cursor < end) pieces.push([cursor, end]);
+  return pieces.filter(([a, b]) => b > a);
+}
+
+/** Leftover after removing an allowed handle: empty, or only a LINE/ig prefix, is not a hit. */
+const PREFIX_ONLY = /^(?:แอด)?(?:ไลน์|ไอดีไลน์|line\s*id|line|ig|ไอจี|เฟส|facebook|fb)\s*[:：]?\s*$/i;
+function leftoverWorthFlagging(slice) {
+  const t = String(slice ?? "").trim();
+  return t.length > 0 && !PREFIX_ONLY.test(t);
+}
 
 /** Flag rows for the human reviewer. Text is not redacted. */
 export function flagPII(s, flagOpts = {}) {
@@ -34,15 +50,16 @@ export function flagPII(s, flagOpts = {}) {
   const rows = [];
   const hits = findPII(src, flagOpts);
   for (const [category, matches] of Object.entries(hits)) rows.push({ kind: "findPII", category, matches });
-  const allowed = handleSpans(src, flagOpts.allowHandles);
-  for (const [a, b] of collectRedactionSpans(src)) {
-    if (overlaps(a, b, allowed)) continue;
-    rows.push({ kind: "strip", category: "redaction", matches: [src.slice(a, b)] });
-  }
+  const allowed = wholeHandleSpans(src, flagOpts.allowHandles);
+  const addLeftovers = (span, kind, category) => {
+    for (const [p, q] of leftoverSpans(span, allowed)) {
+      const slice = src.slice(p, q);
+      if (leftoverWorthFlagging(slice)) rows.push({ kind, category, matches: [slice] });
+    }
+  };
+  for (const span of collectRedactionSpans(src)) addLeftovers(span, "strip", "redaction");
   for (const m of src.matchAll(new RegExp(SCHEMELESS_URL.source, SCHEMELESS_URL.flags))) {
-    const a = m.index, b = m.index + m[0].length;
-    if (overlaps(a, b, allowed)) continue;
-    rows.push({ kind: "url", category: "url", matches: [m[0]] });
+    addLeftovers([m.index, m.index + m[0].length], "url", "url");
   }
   return rows;
 }

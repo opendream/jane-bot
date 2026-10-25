@@ -141,6 +141,19 @@ describe("bank rules: content", () => {
       c.links = [{ url: "https://rsathai.org/qrcode", label_th: "ทดสอบลิงก์" }];
     }, 1))).toEqual([]);
   });
+  it("contact_exact: 120 ชั่วโมง and 100 บาท in titles and labels pass; a non-services phone in a title or label fails", () => {
+    expect(phonesIn("ภายใน 120 ชั่วโมง")).toEqual([]);
+    expect(phonesIn("ราคา 100 บาท")).toEqual([]);
+    expect(rules(withCard((c) => { c.title_th = "120 ชั่วโมง"; }))).toEqual([]);
+    expect(rules(withCard((c) => { c.next[0].label_th = "100 บาท"; }))).toEqual([]);
+    expect(rules(withCard((c) => { c.links[0].label_th = "100 บาท"; }, 1))).toEqual([]);
+    const titlePhone = errors(withCard((c) => { c.title_th = "โทร 1999"; }));
+    expect(titlePhone.map((e) => e.rule)).toContain("contact_exact");
+    expect(titlePhone.map((e) => e.msg).join("\n")).not.toContain("1999");
+    const labelPhone = errors(withCard((c) => { c.next[0].label_th = "โทร 1999"; }));
+    expect(labelPhone.map((e) => e.rule)).toContain("contact_exact");
+    expect(labelPhone.map((e) => e.msg).join("\n")).not.toContain("1999");
+  });
   it("contact_exact skips source citations and ids; /1xx in a link path is the whole URL", () => {
     expect(phonesIn("fixture.start.p100")).toContain("100");
     expect(phonesIn("fixture.info.a101")).toContain("101");
@@ -197,6 +210,7 @@ describe("bank text helpers", () => {
     expect(phonesIn("โทร ๐๘๑-๒๓๔-๕๖๗๘")).toEqual(["0812345678"]);
     expect(phonesIn("โทร 1663 เวลา 09.00-21.00 10.00-20.00")).toEqual(["1663"]);
     expect(phonesIn("เวลา ๐๙.๐๐–๒๑.๐๐ ๑๐.๐๐-๒๐.๐๐")).toEqual([]);
+    expect(phonesIn("ภายใน 120 ชั่วโมง หรือ 100 บาท")).toEqual([]);
   });
   it("hoursIn normalises ranges", () => {
     expect(hoursIn("9.00-21.00 น.")).toEqual(["09:00–21:00"]);

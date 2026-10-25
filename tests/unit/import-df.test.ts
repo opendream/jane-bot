@@ -191,6 +191,33 @@ describe("importer flags strip spans findPII misses (synthetic)", () => {
 });
 
 describe("importer allowed handles vs other handles (synthetic)", () => {
+  it("an allowed handle glued to nickname, address or ?passport= is flagged; the handle alone is not", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "jane-df-glue-"));
+    const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "jane-queue-glue-"));
+    const glued: [string, string][] = [
+      ["test.glue.nick.000", "@teen_clubชื่อเล่นว่าส้มโอ"],
+      ["test.glue.addr.000", "@teen_clubต.บางสมมติ"],
+      ["test.glue.passport.000", "https://example.com/@teen_club?passport=AA1234567"],
+    ];
+    const bot = writeMiniExport(root, "bot", [
+      ...glued.map(([name, text]) => ({ name, speech: [text], phrases: [text] })),
+      { name: "test.glue.solo.000", speech: ["@teen_club"], phrases: ["@teen_club"] },
+    ]);
+    const jane = writeMiniExport(root, "jane", []);
+    const r = runImport({ bot, jane, out: outDir });
+    const hits = fs.readFileSync(path.join(outDir, "pii-hits.jsonl"), "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
+    for (const [name] of glued) {
+      const q = r.queue.find((x: any) => x.intent === name);
+      expect(q.review.pii_check, name).toBe("hits-flagged");
+      expect(q.pii.count, name).toBeGreaterThan(0);
+      expect(hits.some((h: any) => h.intent === name), name).toBe(true);
+      expect(JSON.stringify(q.responses_th), name).not.toContain("[ลบข้อมูลส่วนตัว]");
+    }
+    const solo = r.queue.find((x: any) => x.intent === "test.glue.solo.000");
+    expect(solo.review.pii_check).toBe("no-hits-sample-10pct");
+    expect(solo.pii.count).toBe(0);
+    expect(hits.some((h: any) => h.intent === "test.glue.solo.000")).toBe(false);
+  });
   it("keeps every handle as imported; only a non-allowed handle is flagged", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "jane-df-hnd-"));
     const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "jane-queue-hnd-"));

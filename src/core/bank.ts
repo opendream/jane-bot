@@ -77,11 +77,18 @@ export interface BankContext {
 
 export interface Issue { level: "error" | "warning"; card: string; rule: string; msg: string }
 
+/** Units after a 1xx number mean a quantity (120 ชั่วโมง, 100 บาท), not a hotline. */
+const QTY_UNIT = /(?:ชั่วโมง|ชม\.?|hours?|บาท|วัน|เดือน|ปี|สัปดาห์|ครั้ง|เม็ด|นาที|วินาที)/;
+
 /** Phone numbers and hotlines in Thai text: 3–4 digit hotlines starting with 1, and 9–10 digit 0-prefixed numbers. */
 export function phonesIn(text: string): string[] {
   const t = toArabic(text);
   const out = new Set<string>();
-  for (const m of t.matchAll(/(?<![\d:.\-])(1\d{2,3})(?![\d:.\-])/g)) out.add(m[1]);
+  for (const m of t.matchAll(/(?<![\d:.\-])(1\d{2,3})(?![\d:.\-])/g)) {
+    const after = t.slice((m.index ?? 0) + m[1].length);
+    if (new RegExp(String.raw`^\s*${QTY_UNIT.source}`).test(after)) continue;
+    out.add(m[1]);
+  }
   for (const span of findPhoneSpans(text)) {
     const digits = toArabic(span).replace(/\D/g, "");
     if (digits) out.add(digits);
