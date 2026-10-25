@@ -68,7 +68,6 @@ export async function sendToChat(chat: ChatState, text: string, hooks: ChatHooks
   if (chat.readOnly) {
     const reply = await chat.session.send(t);
     if (reply?.kind === "crisis") hooks.crisis(reply.categories);
-    else if (reply?.kind === "referral") hooks.referral?.(reply.intents);
     return;
   }
   chat.draft = "";

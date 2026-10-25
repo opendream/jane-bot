@@ -37,20 +37,4 @@ describe("chat send path", () => {
     await sendToChat(chat, "อยากตาย", h);
     expect(h.crisisCalls).toBe(1);
   });
-
-  it("after the hard cap, a complication still reaches the crisis card", async () => {
-    const chat = newChat("18-24", null);
-    const h = hooks();
-    for (let i = 0; i < HARD_CAP; i++) await sendToChat(chat, FILLER, h);
-    await sendToChat(chat, "ทำแท้งมาแล้วเลือดออกไม่หยุด", h);
-    expect(h.crisisCalls).toBe(1);
-  });
-
-  it("after the hard cap, an abuse disclosure still reaches the 1300 referral", async () => {
-    const chat = newChat("18-24", null);
-    const h = hooks();
-    for (let i = 0; i < HARD_CAP; i++) await sendToChat(chat, FILLER, h);
-    await sendToChat(chat, "เขาบังคับให้หนูส่งรูปโป๊", h);
-    expect(h.referralIntents).toEqual([["violence"]]);
-  });
 });

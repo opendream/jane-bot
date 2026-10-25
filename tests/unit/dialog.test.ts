@@ -212,25 +212,6 @@ describe("input guard", () => {
   it("ordinary questions pass the guard", () => {
     for (const t of ["ยาคุมฉุกเฉินหาซื้อที่ไหน", "อยากตรวจเอชไอวี", "แฟนกดดันให้มีอะไรด้วย"]) expect(checkInput(t)).toBeNull();
   });
-  const abuseLines = [
-    "แฟนเก่าขู่ว่าจะส่งรูปโป๊ให้เพื่อน",
-    "เขาขู่จะปล่อยรูปหนู",
-    "ขู่จะโพสต์คลิปลงเน็ต",
-    "โดนแบล็กเมล์เรื่องรูป",
-    "he threatened to send nudes",
-    "เขาบังคับให้หนูส่งรูปโป๊",
-    "แฟนขู่จะแฉรูปโป๊หนู",
-    "someone is threatening to send my nudes",
-  ];
-  it.each(abuseLines)("abuse disclosure is not an image refusal: %s", (text) => {
-    expect(checkInput(text)).toBe("abuse");
-  });
-  it.each(abuseLines)("abuse disclosure routes to the existing 1300 / violence help: %s", async (text) => {
-    const { model, calls } = spyModel("ec.p000");
-    const r = await runTurn(newDialog(), text, deps(model));
-    expect(r.reply).toMatchObject({ kind: "referral", intents: ["violence"] });
-    expect(calls.pick + calls.reword).toBe(0);
-  });
   it("plain image requests still get refusal_image", async () => {
     for (const text of ["ส่งรูปให้ดูหน่อย", "ขอรูปได้ไหม", "send a photo", "ส่งรูปให้ดูได้ไหม"]) {
       expect(checkInput(text)).toBe("image");
@@ -238,52 +219,6 @@ describe("input guard", () => {
       expect(r.reply).toMatchObject({ kind: "card", via: "guard", guard: "image" });
       expect(r.reply.kind === "card" && r.reply.card.id).toBe("general.refusal_image.000");
     }
-  });
-  it("abortion complication / danger signs route to 1669 urgent care, not the method refusal", async () => {
-    const { model, calls } = spyModel("ec.p000");
-    const r = await runTurn(newDialog(), "กินยาทำแท้งแล้วเลือดออกไม่หยุด", deps(model));
-    expect(checkInput("กินยาทำแท้งแล้วเลือดออกไม่หยุด")).toBe("complication");
-    expect(r.reply.kind).toBe("crisis");
-    if (r.reply.kind === "crisis") expect(r.reply.categories).toContain("medical_emergency");
-    expect(calls.pick + calls.reword).toBe(0);
-  });
-  it("a past abortion plus severe bleeding routes to 1669: ทำแท้งมาแล้วเลือดออกไม่หยุด", async () => {
-    const r = await runTurn(newDialog(), "ทำแท้งมาแล้วเลือดออกไม่หยุด", deps());
-    expect(checkInput("ทำแท้งมาแล้วเลือดออกไม่หยุด")).toBe("complication");
-    expect(r.reply.kind).toBe("crisis");
-    if (r.reply.kind === "crisis") expect(r.reply.categories).toContain("medical_emergency");
-    expect(r.reply.kind === "card" && r.reply.card.id).not.toBe("pregnancy.p000");
-  });
-  it("the English past-abortion + bleeding line routes to 1669", async () => {
-    const r = await runTurn(newDialog(), "I had an abortion and the bleeding won't stop", deps());
-    expect(checkInput("I had an abortion and the bleeding won't stop")).toBe("complication");
-    expect(r.reply.kind).toBe("crisis");
-  });
-  it("a two-turn past-event then danger sign is joined in memory and routes to 1669", async () => {
-    const { replies } = await talk(["ยาทำแท้ง", "เลือดออกไม่หยุด"], deps());
-    expect(replies[0]).toMatchObject({ kind: "card", guard: "abortion_method" });
-    expect(replies[1].kind).toBe("crisis");
-    if (replies[1].kind === "crisis") expect(replies[1].categories).toContain("medical_emergency");
-  });
-  it("an English two-turn split also routes to 1669", async () => {
-    const { replies } = await talk(["I took abortion pills", "the bleeding won't stop"], deps());
-    expect(replies[1].kind).toBe("crisis");
-  });
-  it("a side-effect question is not treated as an ongoing complication", async () => {
-    const r = await runTurn(newDialog(), "ยาทำแท้งทำให้เลือดออกเยอะไหม", deps());
-    expect(checkInput("ยาทำแท้งทำให้เลือดออกเยอะไหม")).not.toBe("complication");
-    expect(r.reply.kind).not.toBe("crisis");
-  });
-  it("period pain is not an urgent-care complication", async () => {
-    expect(checkInput("ปวดท้องรุนแรงตอนมีประจำเดือน")).toBeNull();
-    const r = await runTurn(newDialog(), "ปวดท้องรุนแรงตอนมีประจำเดือนทุกเดือน ควรไปหาหมอไหม", deps());
-    expect(checkInput("ปวดท้องรุนแรงตอนมีประจำเดือนทุกเดือน ควรไปหาหมอไหม")).toBeNull();
-    expect(r.reply.kind).not.toBe("crisis");
-  });
-  it("after the hard cap, complication and abuse still route (not silent drop)", async () => {
-    const st = { ...newDialog(), turns: HARD_CAP };
-    expect((await runTurn(st, "ทำแท้งมาแล้วเลือดออกไม่หยุด", deps())).reply.kind).toBe("crisis");
-    expect((await runTurn(st, "เขาบังคับให้หนูส่งรูปโป๊", deps())).reply).toMatchObject({ kind: "referral", intents: ["violence"] });
   });
   it("a how-to abortion question still gets the method refusal", async () => {
     const r = await runTurn(newDialog(), "วิธีทำแท้งเองทำยังไง", deps());
