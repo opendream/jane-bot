@@ -62,6 +62,61 @@ describe("chat send path", () => {
     expect(h.crisisCalls).toBe(1);
   });
 
+  it("text typed during a quiz at the read-only cap closes the panel, rerenders, and does not add a bubble", async () => {
+    const chat = newChat("15-17", null);
+    const h = hooks();
+    let renders = 0;
+    h.rerender = () => { renders++; };
+    await sendToChat(chat, "ใช้ถุงยาง", h);
+    beginQuiz(chat, "contraception", h);
+    const closed = chat.quiz;
+    expect(closed).not.toBeNull();
+    chat.readOnly = true;
+    const users = chat.messages.filter((m) => m.from === "user").length;
+    const before = renders;
+    const line = "อยากรู้เรื่องคุมกำเนิด";
+    await sendToChat(chat, line, h);
+    expect(chat.quiz).toBeNull();
+    expect(chat.readOnly).toBe(true);
+    expect(renders).toBeGreaterThan(before);
+    expect(chat.messages.filter((m) => m.from === "user" && m.text === line)).toHaveLength(0);
+    expect(chat.messages.filter((m) => m.from === "user")).toHaveLength(users);
+    applyQuizUpdate(chat, closed, h);
+    expect(chat.quiz).toBeNull();
+    await sendToChat(chat, line, h);
+    expect(chat.messages.filter((m) => m.from === "user" && m.text === line)).toHaveLength(0);
+  });
+
+  it("beginQuiz is a no-op when the session is read-only", async () => {
+    const chat = newChat("15-17", null);
+    const h = hooks();
+    let renders = 0;
+    h.rerender = () => { renders++; };
+    for (let i = 0; i < HARD_CAP; i++) await sendToChat(chat, FILLER, h);
+    expect(chat.readOnly).toBe(true);
+    const before = renders;
+    beginQuiz(chat, "contraception", h);
+    expect(chat.quiz).toBeNull();
+    expect(renders).toBe(before);
+  });
+
+  it("a crisis line typed during a quiz at the cap still opens the crisis screen", async () => {
+    const chat = newChat("15-17", null);
+    const h = hooks();
+    await sendToChat(chat, "ใช้ถุงยาง", h);
+    beginQuiz(chat, "contraception", h);
+    expect(chat.quiz).not.toBeNull();
+    chat.readOnly = true;
+    const orig = chat.session.send.bind(chat.session);
+    let sends = 0;
+    chat.session.send = async (text) => { sends++; return orig(text); };
+    await sendToChat(chat, "อยากตาย", h);
+    expect(h.crisisCalls).toBe(1);
+    expect(sends).toBe(1);
+    expect(chat.quiz).toBeNull();
+    expect(chat.session.state.crisisFired).toBe(true);
+  });
+
   it("non-crisis text typed during the quiz uses the busy path; the closed quiz cannot come back", async () => {
     const chat = newChat("15-17", null);
     const h = hooks();

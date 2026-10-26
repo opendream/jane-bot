@@ -226,6 +226,33 @@ test("D7 QZ-03 shuffled-order immediate confirm is wrong and has no praise", asy
   await assertNetwork(page, rec);
 });
 
+test("D7 hard cap mid-quiz closes the panel; read-only hides quiz entry and crisis still fires", async ({ page }) => {
+  const rec = await open(page, "14:00");
+  await openChat(page, "15-17");
+  for (let i = 0; i < 29; i++) await say(page, "อยากรู้เรื่องทั่วไปค่ะ");
+  await page.getByTestId("quiz-menu").click();
+  await expect(page.getByTestId("quiz-panel")).toBeVisible();
+  const capLine = "อยากรู้เรื่องคุมกำเนิด";
+  await say(page, capLine);
+  await expect(page.getByTestId("quiz-panel")).toHaveCount(0);
+  await expect(page.getByTestId("cap-hard").first()).toBeVisible();
+  await expect(page.locator('[data-testid="chat-msg"][data-from="user"]').filter({ hasText: capLine })).toHaveCount(1);
+  await expect(page.getByTestId("quiz-menu")).toHaveCount(0);
+  await expect(page.getByTestId("quiz-start")).toHaveCount(0);
+  const extra = "วันนี้อากาศดีจังเลยค่ะ";
+  await page.getByTestId("chat-input").fill(extra);
+  await page.getByTestId("chat-send").click();
+  await page.getByTestId("chat-send").click();
+  await expect(page.locator('[data-testid="chat-msg"][data-from="user"]').filter({ hasText: extra })).toHaveCount(0);
+  await expect(page.getByTestId("quiz-panel")).toHaveCount(0);
+  await expect(page.getByTestId("cap-hard").first()).toBeVisible();
+  await say(page, "อยากตาย");
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  await expect(page.getByTestId("quiz-panel")).toHaveCount(0);
+  await assertNoStorage(page);
+  await assertNetwork(page, rec);
+});
+
 test("D7 SOS during the quiz opens the crisis screen and I'm safe returns to chat", async ({ page }) => {
   const rec = await open(page, "14:00");
   await openChat(page, "15-17");
