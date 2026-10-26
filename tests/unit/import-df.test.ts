@@ -5,7 +5,7 @@ import path from "node:path";
 // @ts-ignore plain JS modules shared with the Node scripts
 import { readExport, mergeExports, cleanMessages, stripLinks, medicalFlags, toQueueItem, normPhrase, topicFor } from "../../scripts/bank/df-lib.mjs";
 // @ts-ignore
-import { runImport } from "../../scripts/bank/import-df.mjs";
+import { runImport, buildReviewedCards } from "../../scripts/bank/import-df.mjs";
 // @ts-ignore
 import { triggerOverlap } from "../../scripts/bank/check-triggers.mjs";
 
@@ -50,7 +50,28 @@ describe("import + merge (synthetic exports)", () => {
       expect(q.proposed_card.flags).toContain("fb_payload_removed");
       expect(q.proposed_card.licence).toBe("unreviewed");
       expect(q.proposed_card.licence).not.toBe("CC-BY-SA-4.0");
+      expect(q.proposed_card).not.toHaveProperty("age_min");
     }
+  });
+  it("real import path: Approved row with only proposed_card keeps id, content and age_min", () => {
+    const item = res.queue.find((q: any) => q.intent === "test.ec.000");
+    expect(item.proposed_card).toBeTruthy();
+    expect(item.proposed_card).not.toHaveProperty("age_min");
+    const [built] = buildReviewedCards([{ ...item, status: "Approved", audience: "18+ only" }]);
+    expect(built.id).toBe(item.proposed_card.id);
+    expect(built.answer_th).toBe(item.proposed_card.answer_th);
+    expect(built.flags).toEqual(item.proposed_card.flags);
+    expect(built.source_intents).toEqual(item.proposed_card.source_intents);
+    expect(built.age_min).toBe(18);
+    const [all15] = buildReviewedCards([{ ...item, status: "Edit", audience: "All (15+)" }]);
+    expect(all15.age_min).toBe(15);
+    expect(all15.answer_th).toBe(item.proposed_card.answer_th);
+  });
+  it("real import path: blank Audience on an Approved imported row fails (no default)", () => {
+    const item = res.queue.find((q: any) => q.intent === "test.ec.000");
+    expect(() => buildReviewedCards([{ ...item, status: "Approved", audience: "" }])).toThrow(/audience/i);
+    expect(() => buildReviewedCards([{ ...item, status: "Edit", audience: "   " }])).toThrow(/audience/i);
+    expect(() => buildReviewedCards([{ ...item, status: "Approved", audience: null }])).toThrow(/audience/i);
   });
 });
 
