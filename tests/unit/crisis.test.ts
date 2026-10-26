@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
+import type { CrisisCategory } from "../../src/core/types";
 import { detectCrisis, crisisOrder as pinnedCrisisOrder } from "../../src/core/crisis";
-import { crisisOrder } from "../../src/core/crisis-order";
+import { crisisOrder, crisisCallNowLine } from "../../src/core/crisis-order";
 import { CRISIS_LINES } from "../../src/core/referral";
 
 describe("crisis detection (runs before everything, no model)", () => {
@@ -31,6 +32,22 @@ describe("crisis detection (runs before everything, no model)", () => {
     expect(crisisOrder(["sexual_violence"])).toEqual(["191", "1300"]);
     expect(crisisOrder(["violence_danger"])).toEqual(["1300", "191"]);
     expect(crisisOrder(["medical_emergency"])).toEqual(["1669"]);
+  });
+
+  it("call-now line lists that screen's hotlines in button order", () => {
+    const cases: [CrisisCategory[], string][] = [
+      [["self_harm"], "โทร 1323 หรือ 1669 ทันที"],
+      [["sexual_violence"], "โทร 191 หรือ 1300 ทันที"],
+      [["violence_danger"], "โทร 1300 หรือ 191 ทันที"],
+      [["medical_emergency"], "โทร 1669 ทันที"],
+      [[], "โทร 1323, 1300, 1669 หรือ 191 ทันที"],
+      [["self_harm", "sexual_violence"], "โทร 1323, 1300, 1669 หรือ 191 ทันที"],
+    ];
+    for (const [cats, line] of cases) {
+      expect(crisisCallNowLine(cats), String(cats)).toBe(line);
+      const nums = [...line.matchAll(/\d{3,4}/g)].map((m) => m[0]);
+      expect(nums, line).toEqual(crisisOrder(cats));
+    }
   });
 
   it("mixed or unclear (empty, or more than one category) shows all four", () => {
