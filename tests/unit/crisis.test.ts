@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { detectCrisis, crisisOrder, showCrisisOfficerLine } from "../../src/core/crisis";
+import { detectCrisis, crisisOrder as pinnedCrisisOrder } from "../../src/core/crisis";
+import { crisisOrder } from "../../src/core/crisis-order";
 import { CRISIS_LINES } from "../../src/core/referral";
 
 describe("crisis detection (runs before everything, no model)", () => {
@@ -40,13 +41,20 @@ describe("crisis detection (runs before everything, no model)", () => {
     expect(crisisOrder(["self_harm", "sexual_violence", "violence_danger", "medical_emergency"])).toEqual(all);
   });
 
-  it("officer line is only on the sexual-violence screen", () => {
-    expect(showCrisisOfficerLine(["sexual_violence"])).toBe(true);
-    expect(showCrisisOfficerLine(["self_harm"])).toBe(false);
-    expect(showCrisisOfficerLine(["violence_danger"])).toBe(false);
-    expect(showCrisisOfficerLine(["medical_emergency"])).toBe(false);
-    expect(showCrisisOfficerLine([])).toBe(false);
-    expect(showCrisisOfficerLine(["self_harm", "sexual_violence"])).toBe(false);
+  it("banner phrases keep all four in the pinned strip order; the short list is not the strip", () => {
+    const cases: [string, string[]][] = [
+      ["ซีรีส์เรื่องนี้มีฉากข่มขืน ดูแล้วไม่สบายใจ", ["1300", "191", "1669", "1323"]],
+      ["ข่าววันนี้ เรื่องฆ่าตัวตาย", ["1323", "1669", "1300", "191"]],
+      ["เลือดออกมากนิดหน่อย", ["1669", "191", "1323", "1300"]],
+    ];
+    for (const [text, pinned] of cases) {
+      const r = detectCrisis(text);
+      expect(r.crisis, text).toBe(false);
+      expect(r.level, text).toBe("banner");
+      expect(pinnedCrisisOrder(r.categories), text).toEqual(pinned);
+      expect(pinnedCrisisOrder(r.categories), text).toHaveLength(4);
+      expect(crisisOrder(r.categories), text).not.toEqual(pinned);
+    }
   });
 
   it("every crisis line in the data has tel: link and a source with a check date", () => {

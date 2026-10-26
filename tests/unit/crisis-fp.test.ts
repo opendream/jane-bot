@@ -1,7 +1,8 @@
 import { describe, it, expect, afterAll } from "vitest";
 import fs from "node:fs";
 import set from "../../evals/crisis-fp-set.json";
-import { detectCrisis, crisisOrder } from "../../src/core/crisis";
+import { detectCrisis } from "../../src/core/crisis";
+import { crisisOrder } from "../../src/core/crisis-order";
 
 type Row = { id: string; group: string; level: string; first?: string; want?: string; ok: boolean; text: string };
 const rows: Row[] = [];

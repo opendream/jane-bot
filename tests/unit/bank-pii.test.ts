@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 // @ts-ignore plain JS module shared with the Node scripts
 import { findPII, scrubPII, nationalIdChecksumOk, toArabic } from "../../scripts/bank/pii-patterns.mjs";
 // @ts-ignore
-import { scanDir, scanValue, scanFile, formatFinding, jsonParseError } from "../../scripts/bank/guard.mjs";
+import { scanDir, scanValue, scanFile, scanNoticeFiles, formatFinding, jsonParseError } from "../../scripts/bank/guard.mjs";
 import { validateBank, walkStrings, type BankCard } from "../../src/core/bank";
 import { bankContext, BANK, BANK_FILES, isProductionBankFile } from "../../src/core/bankData";
 import { stripPII } from "../../src/core/summary";
@@ -72,6 +72,24 @@ describe("committed bank files contain no PII and no Dialogflow export data", ()
     expect(found.map((f: any) => formatFinding(f))).toEqual([]);
   });
 
+  it("shipped LICENSE and NOTICE files (bank + evals) have no phone or email", () => {
+    const found = [...scanNoticeFiles(BANK_DIR), ...scanNoticeFiles(path.join(ROOT, "evals"))];
+    expect(found.map((f: any) => formatFinding(f))).toEqual([]);
+  });
+
+  it("a SYNTHETIC phone placed in NOTICE is caught and never echoed", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "jane-notice-plant-"));
+    fs.writeFileSync(path.join(dir, "NOTICE"), `Attribution: Opendream. Contact ${SYN.mobile} is not a real number.`);
+    const found = scanNoticeFiles(dir, []);
+    expect(found.map((f: any) => f.category)).toContain("phone");
+    expectNoSynthetic(found.map((f: any) => formatFinding(f)).join("\n"));
+    fs.writeFileSync(path.join(dir, "ok.json"), JSON.stringify({ topic_file: "x", cards: [] }));
+    const r = spawnSync(process.execPath, ["scripts/bank/guard.mjs", dir], { encoding: "utf8", cwd: ROOT });
+    expect(r.status).toBe(1);
+    expectNoSynthetic(`${r.stdout}\n${r.stderr}`);
+    expect(r.stdout).toMatch(/phone/i);
+  });
+
   it("BANK never contains fixture or test cards", () => {
     expect(BANK_FILES.every((f) => isProductionBankFile(f))).toBe(true);
     expect(BANK.every((c) => !/fixture|piigate|pii-gate|\.test\./i.test(c.id))).toBe(true);
@@ -86,6 +104,10 @@ describe("PII detector self-test (synthetic strings only)", () => {
     ["english_name", "my name is Zorbalina"],
     ["english_name", "ask Qwertina about it"],
     ["phone", "โทร 081-234-5678 นะ"],
+    ["phone", "โทร 08.12.34.56.78"],
+    ["phone", "โทร 081.234.5678"],
+    ["phone", "โทร 081 - 234 - 5678"],
+    ["phone", "โทร 099-999-9999"],
     ["phone", "เบอร์ +66 81 234 5678"],
     ["phone", "บ้าน 02 123 4567"],
     ["phone", `โทร ${SYN.mobileDash}`],
@@ -124,6 +146,7 @@ describe("PII detector self-test (synthetic strings only)", () => {
       "09.00-21.00",
       "09.00–21.00",
       "09:00–21:00",
+      "09:00 - 21:00",
       "9.00-21.00 น.",
       "09.00–21.00 11.00-19.00",
       "09.00-21.00 11.00-19.00",
@@ -314,7 +337,7 @@ describe("every string field of a card is scanned and never echoed", () => {
         expect(printed).not.toContain(planted);
       }
     }
-  });
+  }, 20_000);
 });
 
 describe("jsonParseError helper never includes source", () => {

@@ -57,9 +57,18 @@ describe("validator rules", () => {
     const q = byId("QZ-04");
     const blob = [q.prompt_th, q.prompt_en, q.explanation_th, q.explanation_en, q.correct_answer_text, ...(q.options ?? [])].join("\n");
     expect(q.explanation_th).toContain(QUIZ_HOURS_1663);
-    expect(QUIZ_HOURS_1663).toBe("ปรึกษาฟรี ทุกวัน 09:00–21:00 น. รวมวันหยุด");
+    expect(QUIZ_HOURS_1663).toBe("ปรึกษาฟรี ทุกวัน 09:00–21:00 น.");
+    expect(QUIZ_HOURS_1663).not.toContain("รวมวันหยุด");
+    expect(q.explanation_th).not.toContain("รวมวันหยุด");
+    expect(q.explanation_en).not.toMatch(/holiday/i);
     expect(q.options[2]).toBe("ค) หลังมีเพศสัมพันธ์ที่ไม่ได้ป้องกัน กินให้เร็วที่สุด ภายใน 72 ชม.");
     expect(blob).not.toMatch(/120\s*h|120\s*ชม|ulipristal|บาท|฿/i);
+  });
+  it("1663 hours in a quiz item must match the cited 09:00–21:00 window", () => {
+    const wrong = clone("QZ-04", { explanation_th: "โทร 1663 ปรึกษาฟรี ทุกวัน 09:00–21:00 น. เวลา 10:00–20:00" });
+    expect(validateQuizItems([wrong]).map((i) => i.rule)).toContain("hours_match_source");
+    const holiday = clone("QZ-04", { explanation_th: "โทร 1663 ปรึกษาฟรี ทุกวัน 09:00–21:00 น. รวมวันหยุด" });
+    expect(validateQuizItems([holiday]).map((i) => i.rule)).toContain("hours_1663");
   });
   it("QZ-02 and QZ-03 cannot drop to age_min 15", () => {
     expect(validateQuizItems([clone("QZ-02", { age_min: 15 })]).map((i) => i.rule)).toContain("age_min");

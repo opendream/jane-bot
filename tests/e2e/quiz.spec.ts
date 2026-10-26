@@ -48,7 +48,8 @@ test("D7 multiple choice after a related EC answer", async ({ page }) => {
   await shot(page, "d7-02-multiple-choice");
   await page.getByTestId("quiz-opt-2").click();
   await expect(page.getByTestId("quiz-result")).toHaveText("ถูก");
-  await expect(page.getByTestId("quiz-explain")).toContainText("ปรึกษาฟรี ทุกวัน 09:00–21:00 น. รวมวันหยุด");
+  await expect(page.getByTestId("quiz-explain")).toContainText("ปรึกษาฟรี ทุกวัน 09:00–21:00 น.");
+  await expect(page.getByTestId("quiz-explain")).not.toContainText("รวมวันหยุด");
   await assertNoStorage(page);
   await assertNetwork(page, rec);
 });
@@ -130,6 +131,19 @@ test("D7 crisis phrase mid-quiz opens the crisis screen", async ({ page }) => {
   await say(page, "ไม่อยากมีชีวิตอยู่แล้ว");
   await expect(page.getByTestId("screen-crisis")).toBeVisible();
   await expect(page.getByTestId("quiz-panel")).toHaveCount(0);
+  await page.getByTestId("crisis-continue").click();
+  await expect(page.getByTestId("screen-chat")).toBeVisible();
+  await assertNoStorage(page);
+  await assertNetwork(page, rec);
+});
+
+test("D7 SOS during the quiz opens the crisis screen and I'm safe returns to chat", async ({ page }) => {
+  const rec = await open(page, "14:00");
+  await openChat(page, "15-17");
+  await page.getByTestId("quiz-menu").click();
+  await expect(page.getByTestId("quiz-panel")).toBeVisible();
+  await page.getByTestId("sos").click();
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
   await page.getByTestId("crisis-continue").click();
   await expect(page.getByTestId("screen-chat")).toBeVisible();
   await assertNoStorage(page);

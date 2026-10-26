@@ -1,6 +1,6 @@
 import quizData from "../data/bank/quiz.json";
 import type { BankTopic, Issue } from "./bank";
-import { BANK_TEXT_LICENCE } from "./bank";
+import { BANK_TEXT_LICENCE, hoursIn } from "./bank";
 import { isAdult, type AgeState } from "./age";
 
 /* D7 in-chat quiz. Items are PLACEHOLDER until Keng approves. Memory only; answers are never stored. */
@@ -23,7 +23,8 @@ export interface QuizItem {
   decision?: string | null;
 }
 
-export const QUIZ_HOURS_1663 = "ปรึกษาฟรี ทุกวัน 09:00–21:00 น. รวมวันหยุด";
+export const QUIZ_HOURS_1663 = "ปรึกษาฟรี ทุกวัน 09:00–21:00 น.";
+export const QUIZ_HOURS_1663_RANGE = "09:00–21:00";
 export const QUIZ_SESSION_LEN = 3;
 export const QUIZ_CHIP = "ลองทำควิซ";
 export const QUIZ_MENU = "ทำควิซ";
@@ -196,12 +197,18 @@ export function validateQuizItems(items: QuizItem[], fileLicence = QUIZ_FILE_LIC
     if (!q.source?.trim() || !/[A-Z]\.(\w+)/.test(q.source)) out.push(issue(id, "source", "Judies source id is required"));
     if (q.licence !== BANK_TEXT_LICENCE) out.push(issue(id, "licence", `licence must be ${BANK_TEXT_LICENCE}`));
     if (q.age_min !== 15 && q.age_min !== 18) out.push(issue(id, "age_min", "age_min must be 15 or 18"));
-    if (MUST_BE_18.has(q.id) && q.age_min !== 18) out.push(issue(id, "age_min", `${q.id} defaults to 18+`));
+    if (MUST_BE_18.has(q.id) && q.age_min !== 18) out.push(issue(id, "age_min", `${q.id} must be 18+`));
     const text = blob(q);
     if (/100\s*%/.test(text)) out.push(issue(id, "banned", "no '100%'"));
     if (/บาท|฿/.test(text)) out.push(issue(id, "banned", "no prices"));
+    if (text.includes("รวมวันหยุด")) out.push(issue(id, "hours_1663", "1663 hours must not include รวมวันหยุด"));
     if (text.includes("1663") && /\d{1,2}[:.]\d{2}/.test(text) && !text.includes(QUIZ_HOURS_1663)) {
       out.push(issue(id, "hours_1663", `1663 hours must be exactly ${QUIZ_HOURS_1663}`));
+    }
+    if (text.includes("1663")) {
+      for (const h of hoursIn(text)) {
+        if (h !== QUIZ_HOURS_1663_RANGE) out.push(issue(id, "hours_match_source", `hours ${h} do not match cited 1663 ${QUIZ_HOURS_1663_RANGE}`));
+      }
     }
   }
   return out;
