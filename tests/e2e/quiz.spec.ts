@@ -254,11 +254,14 @@ test("D7 hard cap mid-quiz closes the panel; read-only hides quiz entry and cris
 });
 
 test("D7 delayed 30th send: quiz stays closed, cap notice and referral offer show, no duplicate bubble", async ({ page }) => {
-  const rec = await open(page, "14:00");
+  const rec = await open(page, "14:00", "&chatDelayMs=800");
   await openChat(page, "15-17");
-  for (let i = 0; i < 29; i++) await say(page, "อยากรู้เรื่องทั่วไปค่ะ");
+  for (let i = 0; i < 29; i++) {
+    await say(page, "อยากรู้เรื่องทั่วไปค่ะ");
+    await page.clock.fastForward(800);
+    await expect(page.getByTestId("chat-busy")).toHaveCount(0);
+  }
   await expect(page.getByTestId("quiz-menu")).toBeVisible();
-  await page.evaluate(() => history.replaceState(null, "", `${location.pathname}?model=off&chatDelayMs=800`));
   const capLine = "อยากรู้เรื่องคุมกำเนิด";
   await page.getByTestId("chat-input").fill(capLine);
   await page.getByTestId("chat-send").click();
