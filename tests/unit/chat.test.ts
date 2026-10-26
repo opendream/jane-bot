@@ -62,19 +62,29 @@ describe("chat send path", () => {
     expect(h.crisisCalls).toBe(1);
   });
 
-  it("a crisis line typed during the quiz opens the crisis screen with no generation", async () => {
+  it("a crisis line typed during the quiz is recorded on the session; later turns keep the sticky banner and soft offer", async () => {
     const chat = newChat("15-17", null);
     const h = hooks();
-    beginQuiz(chat, null, h);
+    await sendToChat(chat, "ใช้ถุงยาง", h);
+    beginQuiz(chat, "contraception", h);
     expect(chat.quiz).not.toBeNull();
     const orig = chat.session.send.bind(chat.session);
     let sends = 0;
     chat.session.send = async (text) => { sends++; return orig(text); };
     await sendToChat(chat, "อยากตาย", h);
     expect(h.crisisCalls).toBe(1);
-    expect(sends).toBe(0);
+    expect(sends).toBe(1);
     expect(chat.quiz).toBeNull();
     expect(chat.busy).toBe(false);
+    expect(chat.session.state.crisisFired).toBe(true);
+    expect(chat.session.state.crisisCategories).toEqual(["self_harm"]);
+    chat.session.send = orig;
+    await sendToChat(chat, "อยากรู้เรื่องคุมกำเนิด", h);
+    const last = [...chat.messages].reverse().find((m) => m.from === "jane");
+    expect(last?.banner).toEqual(["self_harm"]);
+    expect(last?.offer).not.toBe("none");
+    await sendToChat(chat, "อยากคุยกับเจ้าหน้าที่", h);
+    expect(h.referralBanners.at(-1)).toEqual(["self_harm"]);
   });
 
   it("a slow turn that no longer owns the NeedGate seq drops with no landing rerender and no crisis", async () => {

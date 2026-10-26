@@ -2,10 +2,10 @@ import type { CrisisCategory, Intent } from "../core/types";
 import type { AgeState } from "../core/age";
 import type { BankTopic, CardNext } from "../core/bank";
 import { DialogSession, SOFT_CAP, type DialogModel, type TurnReply, type CapNotice } from "../core/dialog";
-import { crisisOrder, detectCrisis } from "../core/crisis";
+import { crisisOrder } from "../core/crisis";
 import { BANK, cardsForSession, bankContext } from "../core/bankData";
 import { THAI_COPY_STATUS } from "../config";
-import { QUIZ_CHIP, hasRelatedQuiz, startQuiz, type QuizSession } from "../core/quiz";
+import { QUIZ_CHIP, hasRelatedQuiz, quizCopyStatus, startQuiz, type QuizSession } from "../core/quiz";
 import { h } from "./dom";
 import { quizPanel } from "./quiz";
 
@@ -73,7 +73,7 @@ export function lastCardTopic(chat: ChatState): BankTopic | null {
 
 export function beginQuiz(chat: ChatState, topic: BankTopic | null, hooks: ChatHooks): void {
   const age = chat.session.state.ageBand;
-  chat.quiz = startQuiz(age, topic);
+  chat.quiz = startQuiz(age, topic, undefined, undefined, quizCopyStatus());
   hooks.rerender();
 }
 
@@ -82,25 +82,16 @@ function chatDelayMs(): number {
 }
 
 /** Send one message. Crisis is decided inside runTurn() before anything else, including after the hard cap.
- *  A crisis line typed during the quiz skips the delay and never reaches generation. */
+ *  A line typed during the quiz skips the delay and still goes through session.send (crisisFired / sticky strip). */
 export async function sendToChat(chat: ChatState, text: string, hooks: ChatHooks): Promise<void> {
   const t = text.trim();
   if (!t) return;
   const mine = hooks.seq?.() ?? -1;
   const owns = () => hooks.seq == null || hooks.seq() === mine;
-  if (chat.quiz) {
-    const crisis = detectCrisis(t);
-    chat.quiz = null;
-    if (crisis.crisis) {
-      chat.draft = "";
-      push(chat, { from: "user", text: t });
-      if (!owns()) return;
-      hooks.crisis(crisis.categories);
-      return;
-    }
-  }
+  const fromQuiz = !!chat.quiz;
+  if (chat.quiz) chat.quiz = null;
   if (chat.readOnly) {
-    if (chatDelayMs() > 0) await new Promise((r) => setTimeout(r, chatDelayMs()));
+    if (!fromQuiz && chatDelayMs() > 0) await new Promise((r) => setTimeout(r, chatDelayMs()));
     if (!owns()) return;
     const reply = await chat.session.send(t);
     if (!owns()) return;
@@ -109,9 +100,11 @@ export async function sendToChat(chat: ChatState, text: string, hooks: ChatHooks
   }
   chat.draft = "";
   push(chat, { from: "user", text: t });
-  chat.busy = true; hooks.rerender();
-  if (chatDelayMs() > 0) await new Promise((r) => setTimeout(r, chatDelayMs()));
-  if (!owns()) { chat.busy = false; return; }
+  if (!fromQuiz) {
+    chat.busy = true; hooks.rerender();
+    if (chatDelayMs() > 0) await new Promise((r) => setTimeout(r, chatDelayMs()));
+    if (!owns()) { chat.busy = false; return; }
+  } else if (!owns()) return;
   const reply = await chat.session.send(t);
   if (!owns()) { chat.busy = false; return; } // erase / quick exit / SOS / openChat bumped the seq: drop, no rerender
   chat.busy = false;
@@ -141,7 +134,7 @@ function bubble(m: ChatMsg, i: number, last: boolean, chat: ChatState, hooks: Ch
     m.cap === "soft" && h("p", { class: "note", "data-testid": "cap-soft" }, `คุยกันมา ${SOFT_CAP} ข้อความแล้ว ลองคุยกับเจ้าหน้าที่ตัวจริง หรือกดลบแชทเพื่อเริ่มใหม่ก็ได้นะ`),
     last && !chat.readOnly && !chat.quiz && m.chips?.length ? h("div", { class: "chips" }, ...m.chips.map((c, k) =>
       h("button", { class: "chip", "data-testid": `chat-chip-${k}`, onclick: () => sendToChat(chat, c.label_th, hooks) }, c.label_th))) : null,
-    last && !chat.quiz && m.cardId && hasRelatedQuiz(BANK.find((c) => c.id === m.cardId)?.topic, chat.session.state.ageBand, undefined, THAI_COPY_STATUS)
+    last && !chat.quiz && m.cardId && hasRelatedQuiz(BANK.find((c) => c.id === m.cardId)?.topic, chat.session.state.ageBand, undefined, quizCopyStatus())
       ? h("button", { class: "chip", "data-testid": "quiz-start", type: "button", onclick: () => beginQuiz(chat, BANK.find((c) => c.id === m.cardId)?.topic ?? null, hooks) }, QUIZ_CHIP) : null,
     last && m.offer && m.offer !== "none" && hooks.referral && !chat.quiz ? h("button", { class: m.offer === "strong" ? "btn-primary" : "btn-ghost", "data-testid": "chat-offer",
       onclick: () => hooks.referral!(m.offerIntents ?? ["other"], m.banner) }, "ให้พี่ช่วยหาที่ปรึกษาที่เปิดอยู่ตอนนี้ไหม") : null,

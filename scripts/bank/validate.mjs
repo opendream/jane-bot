@@ -16,7 +16,7 @@ const issues = [
   ...validateBank(BANK, bankContext(undefined, THAI_COPY_STATUS, today)),
   ...checkBankTextLicence(BANK),
   ...EVAL_ITEM_FILES.flatMap((f) => checkEvalTextLicence(JSON.parse(fs.readFileSync(f, "utf8")), f)),
-  ...validateQuizItems(QUIZ_ITEMS, QUIZ_FILE_LICENCE),
+  ...validateQuizItems(QUIZ_ITEMS, QUIZ_FILE_LICENCE, THAI_COPY_STATUS),
 ];
 for (const i of issues) console.log(formatIssue(i));
 const errors = issues.filter((i) => i.level === "error").length;
