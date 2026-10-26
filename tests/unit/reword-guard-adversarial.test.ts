@@ -240,7 +240,7 @@ describe("reword guard adversarial cases: reorder, deletion, role and particle p
     mustFallback(c, "ข้อความทดสอบนะ คุยกับเจ้าหน้าที่ได้ เป็นความลับ");
   });
 
-  it("card text + นะ at the very end is accepted", () => {
+  it("card text + นะ at the very end is accepted when the card has no trailing punctuation", () => {
     const c = mk("t.adv.endok", "ข้อความทดสอบ คุยกับเจ้าหน้าที่ได้", ["เจ้าหน้าที่"]);
     const out = `${c.answer_th}นะ`;
     const r = acceptReword(c, out, ctx);
@@ -248,5 +248,69 @@ describe("reword guard adversarial cases: reorder, deletion, role and particle p
     expect(r.text).toBe(out);
     expect(rewordFailures(c, out, ctx)).toEqual([]);
   });
+
+  it("มีคำถามไหมนะ? ค่ะ falls back (particle before ? plus a second particle)", () => {
+    const c = mk("t.r5.q", "มีคำถามไหม?", ["คำถาม"]);
+    mustFallback(c, "มีคำถามไหมนะ? ค่ะ");
+  });
+
+  it("ไหม? ค่ะ then a line break falls back (particle after a mid-card mark)", () => {
+    const c = mk("t.r5.nl", "ต้องรอผลตรวจก่อนไหม?\nไปหาหมอได้เลย", ["ตรวจ"]);
+    mustFallback(c, "ต้องรอผลตรวจก่อนไหม? ค่ะ\nไปหาหมอได้เลย");
+  });
+
+  it("กลัวนะ!ค่ะ! falls back", () => {
+    const c = mk("t.r5.bang", "กลัวนะ!", ["กลัว"]);
+    mustFallback(c, "กลัวนะ!ค่ะ!");
+  });
+
+  it("คิดนะ…ค่ะ… falls back", () => {
+    const c = mk("t.r5.ell", "คิดนะ…", ["คิด"]);
+    mustFallback(c, "คิดนะ…ค่ะ…");
+  });
+
+  it("a particle at a mid-card mark falls back", () => {
+    const c = mk("t.r5.midmark", "ข้อความทดสอบ ต้องรอไหม? ไปหาหมอได้", ["หมอ"]);
+    mustFallback(c, "ข้อความทดสอบ ต้องรอไหม? ค่ะ ไปหาหมอได้");
+  });
+
+  it("two particles at the end of the card fall back", () => {
+    const c = mk("t.r5.two", "ข้อความทดสอบ คุยกับเจ้าหน้าที่ได้", ["เจ้าหน้าที่"]);
+    mustFallback(c, `${c.answer_th}นะค่ะ`);
+  });
+
+  it("a particle after a trailing ? falls back", () => {
+    const c = mk("t.r5.afterq", "ข้อความทดสอบ ต้องรอไหม?", ["รอ"]);
+    mustFallback(c, `${c.answer_th}นะ`);
+    mustFallback(c, `${c.answer_th} นะ`);
+  });
+
+  it("a particle after a trailing ! falls back", () => {
+    const c = mk("t.r5.afterbang", "ข้อความทดสอบ ระวัง!", ["ระวัง"]);
+    mustFallback(c, `${c.answer_th}ค่ะ`);
+  });
+
+  it("a particle after a trailing … falls back", () => {
+    const c = mk("t.r5.afterell", "ข้อความทดสอบ คิดดู…", ["คิด"]);
+    mustFallback(c, `${c.answer_th}จ้ะ`);
+  });
+
+  it("a particle after a trailing period falls back", () => {
+    const c = mk("t.r5.afterdot", "ข้อความทดสอบ คุยกับเจ้าหน้าที่ได้.", ["เจ้าหน้าที่"]);
+    mustFallback(c, `${c.answer_th}นะ`);
+  });
+
+  it("a particle after a trailing line break falls back", () => {
+    const c = mk("t.r5.afternl", "ข้อความทดสอบ คุยกับเจ้าหน้าที่ได้\n", ["เจ้าหน้าที่"]);
+    mustFallback(c, `${c.answer_th}นะ`);
+  });
+
+  it("a particle followed by punctuation falls back", () => {
+    const c = mk("t.r5.partpunct", "ข้อความทดสอบ คุยกับเจ้าหน้าที่ได้", ["เจ้าหน้าที่"]);
+    mustFallback(c, `${c.answer_th}นะ?`);
+    mustFallback(c, `${c.answer_th}ค่ะ!`);
+    mustFallback(c, `${c.answer_th}จ้ะ.`);
+  });
 });
+
 

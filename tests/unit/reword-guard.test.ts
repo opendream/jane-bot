@@ -122,7 +122,7 @@ describe("reword validator: details", () => {
     expect(rewordFailures(d, out, ctx)).toContain("particles");
     expect(acceptReword(d, out, ctx).reworded).toBe(false);
   });
-  it("at most one particle per sentence; นะค่ะ at the end falls back", () => {
+  it("at most one added particle per card; นะค่ะ at the end falls back", () => {
     const d = mk("t.cap.008", "ข้อความทดสอบ คุยกับเจ้าหน้าที่ได้", ["เจ้าหน้าที่"]);
     expect(rewordFailures(d, `${d.answer_th}นะค่ะ`, ctx)).toContain("particles");
     expect(rewordFailures(d, `${d.answer_th}นะค่ะจ้ะ`, ctx)).toContain("particles");

@@ -7,7 +7,7 @@ import { bankContext, BANK } from "../../src/core/bankData";
 const ctx = bankContext(undefined, "draft", "2026-10-22");
 const EC = BANK.find((c) => c.id === "ec.p000")!;
 const STI = BANK.find((c) => c.id === "sti_hiv.p000")!;
-// Natural paraphrase is rejected by design; only a particle-only reword is accepted.
+// Natural paraphrase is rejected by design; only exact card text plus one final นะ/ค่ะ/จ้ะ is accepted.
 const GOOD = `${EC.answer_th}นะ`;
 
 function model(out: (card: any) => string | null | Promise<string | null>, ready = true) {
