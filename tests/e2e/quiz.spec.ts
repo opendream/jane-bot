@@ -175,10 +175,28 @@ test("D7 non-crisis text mid-quiz shows the bubble, drops the panel, and does no
   await expect(page.getByTestId("quiz-panel")).toBeVisible();
   const text = "อยากรู้เรื่องคุมกำเนิด";
   await page.getByTestId("chat-input").fill(text);
-  const typing = page.getByTestId("chat-busy").waitFor({ state: "visible", timeout: 2000 });
+  await page.evaluate(() => {
+    const w = window as unknown as { __sawBusy?: boolean; __quizGoneWhileBusy?: boolean };
+    w.__sawBusy = false;
+    w.__quizGoneWhileBusy = false;
+    const obs = new MutationObserver(() => {
+      const busy = !!document.querySelector('[data-testid="chat-busy"]');
+      const quiz = !!document.querySelector('[data-testid="quiz-panel"]');
+      if (busy) {
+        w.__sawBusy = true;
+        if (!quiz) w.__quizGoneWhileBusy = true;
+      }
+    });
+    obs.observe(document.body, { subtree: true, childList: true });
+  });
   await page.getByTestId("chat-send").click();
   await page.getByTestId("chat-send").click();
-  await typing;
+  const flash = await page.evaluate(() => {
+    const w = window as unknown as { __sawBusy?: boolean; __quizGoneWhileBusy?: boolean };
+    return { sawBusy: !!w.__sawBusy, quizGoneWhileBusy: !!w.__quizGoneWhileBusy };
+  });
+  expect(flash.sawBusy).toBe(true);
+  expect(flash.quizGoneWhileBusy).toBe(true);
   await expect(page.getByTestId("quiz-panel")).toHaveCount(0);
   const userHits = page.locator('[data-testid="chat-msg"][data-from="user"]').filter({ hasText: text });
   await expect(userHits).toHaveCount(1);
