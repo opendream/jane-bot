@@ -87,3 +87,15 @@ export function crisisCallHrefs(page: Page) {
   return page.locator('[data-testid="screen-crisis"] [data-testid^="crisis-"] a').evaluateAll((as) => as.map((a) => a.getAttribute("href")));
 }
 
+/** Pinned crisis.ts strip order (all four, never hide). Category-first from the pin. */
+export const STRIP_HREFS = {
+  self_harm: ["tel:1323", "tel:1669", "tel:1300", "tel:191"],
+  sexual_violence: ["tel:1300", "tel:191", "tel:1669", "tel:1323"],
+  medical_emergency: ["tel:1669", "tel:191", "tel:1323", "tel:1300"],
+} as const;
+
+/** Tap-to-call hrefs on a crisis banner/strip, in on-screen order. */
+export function crisisBannerHrefs(page: Page) {
+  return page.getByTestId("crisis-banner").locator("a").evaluateAll((as) => as.map((a) => a.getAttribute("href")));
+}
+

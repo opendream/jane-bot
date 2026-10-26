@@ -87,14 +87,22 @@ describe("bank rules: content", () => {
     expect(leaked.find((e) => e.rule === "phone_in_services")?.msg).not.toContain("1999");
     expect(rules(withCard((c) => { c.answer_th = "ข้อความทดสอบ โทร 1323"; c.key_facts = []; }))).toContain("hotline_flag");
     expect(rules(withCard((c) => { c.answer_th = "ข้อความทดสอบ โทร ๑๖๖๓"; c.key_facts = []; }, 1))).toEqual([]); // Thai digits
+    const sat = errors(withCard((c) => { c.answer_th = "ข้อความทดสอบ โทร 1336 วันเสาร์-อาทิตย์"; c.key_facts = []; }, 1));
+    expect(sat.map((e) => e.rule)).toContain("phone_in_services");
+    expect(sat.map((e) => e.msg).join("\n")).not.toContain("1336");
   });
   it("hours must match a cited source for a contact on the card", () => {
     const h = (t: string) => withCard((c) => { c.answer_th = t; c.key_facts = []; c.flags = [...c.flags, "hours"]; }, 1);
     expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09:00–21:00 น."))).toEqual([]);            // operator / RSATHAI / NHSO
-    expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 10.00-20.00 น."))).toContain("hours_match_source");
+    expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09:00 - 21:00 น."))).toEqual([]);           // spaced hyphen (same cited window)
+    expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09.00 - 21.00 น."))).toEqual([]);           // hotline then spaced dotted hours (stripPII must not mangle)
+    expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09.00–21.00 น."))).toEqual([]);             // dotted en-dash cited window
+    expect(rules(h("ข้อความทดสอบ โทร 1663 09.00 - 21.00 น."))).toEqual([]);                // hotline immediately before hours
+    expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 10.00-20.00 น."))).toContain("hours_match_source"); // GCC window is not cited
     expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09.00-21.00 09:00–21:00"))).toEqual([]);    // back-to-back dotted + colon ranges are not phones
     expect(rules(h("ข้อความทดสอบ โทร ๑๖๖๓ เวลา ๐๙.๐๐–๒๑.๐๐ น."))).toEqual([]);           // Thai digits
     expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 08:00–22:00 น."))).toContain("hours_match_source");
+    expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 08:00 - 22:00 น."))).toContain("hours_match_source"); // spaced, not a cited window
     expect(rules(h("ข้อความทดสอบ โทร 1323 ได้ 24 ชั่วโมง"))).toEqual([]);
     expect(rules(h("ข้อความทดสอบ โทร 1663 ได้ 24 ชั่วโมง"))).toContain("hours_match_source");
     expect(rules(withCard((c) => { c.answer_th = "ข้อความทดสอบ โทร 1663 เวลา 09:00–21:00 น."; }, 1))).toContain("hours_flag");
@@ -157,9 +165,11 @@ describe("bank text helpers", () => {
     expect(phonesIn("โทร ๐๘๑-๒๓๔-๕๖๗๘")).toEqual(["0812345678"]);
     expect(phonesIn("โทร 1663 เวลา 09.00-21.00 09:00–21:00")).toEqual(["1663"]);
     expect(phonesIn("เวลา ๐๙.๐๐–๒๑.๐๐ ๑๐.๐๐-๒๐.๐๐")).toEqual([]);
+    expect(phonesIn("โทร 1336 วันเสาร์-อาทิตย์")).toEqual(["1336"]);
   });
   it("hoursIn normalises ranges", () => {
     expect(hoursIn("9.00-21.00 น.")).toEqual(["09:00–21:00"]);
+    expect(hoursIn("09:00 - 21:00")).toEqual(["09:00–21:00"]);
     expect(hoursIn("17:00 ถึง 23:00")).toEqual(["17:00–23:00"]);
     expect(hoursIn("เปิด 24 ชั่วโมง")).toEqual(["24h"]);
   });
@@ -170,6 +180,21 @@ describe("bank text helpers", () => {
   it("cardsFromFiles skips quiz.json and rejects a file without cards", () => {
     expect(cardsFromFiles({ "a.json": { default: fixture }, "quiz.json": { questions: [] } })).toHaveLength(2);
     expect(() => cardsFromFiles({ "b.json": { nope: 1 } })).toThrow();
+  });
+  it("topic files named pregnancy-test and hiv-test are production bank files and load", () => {
+    const named = Object.fromEntries(
+      Object.entries({
+        "../data/bank/pregnancy-test.json": { default: fixture },
+        "../data/bank/hiv-test.json": { default: fixture },
+        "../data/bank/pregnancy.test.json": { default: fixture },
+        "../data/bank/hiv.spec.json": { default: fixture },
+      }).filter(([n]) => isProductionBankFile(n)),
+    );
+    expect(Object.keys(named).sort()).toEqual([
+      "../data/bank/hiv-test.json",
+      "../data/bank/pregnancy-test.json",
+    ]);
+    expect(cardsFromFiles(named)).toHaveLength(4); // two files × two fixture cards
   });
 });
 
@@ -200,6 +225,10 @@ describe("bundled bank (src/data/bank)", () => {
     expect(isProductionBankFile("../data/bank/fixture.json")).toBe(false);
     expect(isProductionBankFile("../data/bank/quiz.json")).toBe(false);
     expect(isProductionBankFile("../data/bank/placeholder.json")).toBe(true);
+    expect(isProductionBankFile("../data/bank/pregnancy-test.json")).toBe(true);
+    expect(isProductionBankFile("../data/bank/hiv-test.json")).toBe(true);
+    expect(isProductionBankFile("../data/bank/pregnancy.test.json")).toBe(false);
+    expect(isProductionBankFile("../data/bank/hiv.spec.json")).toBe(false);
     expect(BANK.every((c) => !/fixture|piigate|pii-gate/i.test(c.id))).toBe(true);
   });
 });
