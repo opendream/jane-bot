@@ -3,7 +3,7 @@ import { PRODUCT_NAME, PRODUCT_NAME_EN, MIN_AGE, THAI_COPY_STATUS } from "./conf
 import markSvg from "./assets/mark.svg?raw";
 import type { AgeBand, CrisisCategory, Intent, IntentResult } from "./core/types";
 import { detectCrisis, crisisOrder as pinnedCrisisOrder } from "./core/crisis";
-import { crisisOrder } from "./core/crisis-order";
+import { crisisOrder, crisisCallNowLine } from "./core/crisis-order";
 import { suggestServices, CRISIS_LINES, DATA_VERSION, INTENT_LABEL_TH, SUPPORT_LINE_TH, serviceHoursLabel, canPrepareMessage, type Suggestion } from "./core/referral";
 import { hoursLabel, hoursCitation } from "./core/openNow";
 import { draftSummary, finalizeSummary, stripPII } from "./core/summary";
@@ -377,7 +377,7 @@ function crisisScreen() {
     h("p", { class: "lead" }, "คุณไม่ได้อยู่คนเดียว มีคนพร้อมช่วยตอนนี้ กดที่เบอร์เพื่อโทรได้ทันที"),
     callList(order),
     state.crisisCategories.includes("sexual_violence") && h("p", {}, "ถ้าถูกล่วงละเมิดทางเพศ ไปที่ศูนย์พึ่งได้ (OSCC) ในโรงพยาบาลรัฐได้ ดูแลด้านการแพทย์ ให้คำปรึกษา และช่วยด้านสังคมและกฎหมาย"),
-    h("p", {}, `ถ้ากำลังอยู่ในอันตรายตอนนี้ โทร 191 หรือ 1669 ทันที เรื่องท้องหรือเอชไอวี โทร 1663 ปรึกษาฟรี (ข้อมูล กรมประชาสัมพันธ์) ${serviceHoursLabel("hotline_1663")} (ข้อมูล สปสช.)`),
+    h("p", {}, "ถ้ากำลังอยู่ในอันตรายตอนนี้ ", h("span", { "data-testid": "crisis-call-now" }, crisisCallNowLine(state.crisisCategories)), ` เรื่องท้องหรือเอชไอวี โทร 1663 ปรึกษาฟรี (ข้อมูล กรมประชาสัมพันธ์) ${serviceHoursLabel("hotline_1663")} (ข้อมูล สปสช.)`),
     h("p", { class: "src" }, "ที่มา: กรมสุขภาพจิต, กระทรวง พม., GCC Call Center ภาครัฐ, ศูนย์รับแจ้งเหตุ 191, สปสช. (1663), กรมประชาสัมพันธ์ (1663), กระทรวงสาธารณสุข (ศูนย์พึ่งได้) (ตรวจ 2026-10-23)"),
     h("button", { class: "btn-ghost", "data-testid": "crisis-continue", onclick: () => { bumpNeed(need); go({ screen: crisisContinueScreen() }); } },
       "ฉันปลอดภัยแล้ว กลับไปต่อ"),
