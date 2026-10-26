@@ -92,3 +92,192 @@ test("CH5 10-turn chat: zero requests, nothing stored, transcript capped at 20 m
   await assertNoStorage(page);
   await assertNetwork(page, rec);
 });
+
+test("CH6 talk to a person from chat shows the existing services list", async ({ page }) => {
+  await open(page, "19:00");
+  await openChat(page);
+  await say(page, "ช่วงนี้เครียดมาก นอนไม่หลับ");
+  await expect(lastJane(page)).toHaveAttribute("data-card", "mental_health.p000");
+  await expect(page.getByTestId("chat-offer")).toBeVisible();
+  await say(page, "อยากคุยกับเจ้าหน้าที่");
+  await expect(page.getByTestId("screen-suggest")).toBeVisible();
+  await expect(page.getByTestId("service-hotline_1323")).toBeVisible();
+});
+
+test("CH7 hard-cap lock shows a notice; crisis text still opens the crisis screen", async ({ page }) => {
+  await open(page, "11:00");
+  await openChat(page);
+  for (let i = 0; i < 30; i++) await say(page, "อยากรู้เรื่องทั่วไปค่ะ");
+  await expect(page.getByTestId("cap-hard").first()).toBeVisible();
+  await page.getByTestId("chat-input").fill("อยากตาย");
+  await page.getByTestId("chat-send").click();
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+});
+
+test("CH8 stale classify does not overwrite the crisis screen", async ({ page }) => {
+  await page.goto("/?model=off&classifyDelayMs=400");
+  await startAs(page, "18-24");
+  await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
+  await page.getByTestId("need-submit").click();
+  await page.getByTestId("sos").click();
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  await page.waitForTimeout(600);
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  await expect(page.getByTestId("screen-suggest")).toHaveCount(0);
+});
+
+test("CH9 erase during classify does not put the need text back on screen", async ({ page }) => {
+  await page.goto("/?model=off&classifyDelayMs=400");
+  await startAs(page, "18-24");
+  await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
+  await page.getByTestId("need-submit").click();
+  await page.getByTestId("erase").click();
+  await expect(page.getByTestId("screen-start")).toBeVisible();
+  await page.waitForTimeout(600);
+  await expect(page.getByTestId("screen-start")).toBeVisible();
+  await expect(page.getByTestId("screen-suggest")).toHaveCount(0);
+  expect(await page.locator("body").innerText()).not.toContain("กลัวท้อง");
+});
+
+test("CH10 quick exit during classify stays on the neutral page", async ({ page }) => {
+  await page.goto("/?model=off&classifyDelayMs=400");
+  await startAs(page, "18-24");
+  await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
+  await page.getByTestId("need-submit").click();
+  await page.getByTestId("quick-exit").click();
+  await expect(page.getByTestId("screen-neutral")).toBeVisible();
+  await page.waitForTimeout(600);
+  await expect(page.getByTestId("screen-neutral")).toBeVisible();
+  await expect(page.getByTestId("screen-suggest")).toHaveCount(0);
+  expect(await page.locator("body").innerText()).not.toContain("กลัวท้อง");
+});
+
+test("CH11 SOS then continue back to describe re-enables buttons; crisis text still opens the crisis screen", async ({ page }) => {
+  await page.goto("/?model=off&classifyDelayMs=400");
+  await startAs(page, "18-24");
+  await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
+  await page.getByTestId("need-submit").click();
+  await expect(page.getByTestId("need-submit")).toHaveText("กำลังคิด…");
+  await page.getByTestId("sos").click();
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  await page.getByTestId("crisis-continue").click();
+  await expect(page.getByTestId("screen-describe")).toBeVisible();
+  await expect(page.getByTestId("need-submit")).toBeEnabled();
+  await expect(page.getByTestId("need-submit")).toHaveText("หาที่ปรึกษา");
+  await expect(page.getByTestId("open-chat")).toBeEnabled();
+  await page.waitForTimeout(600);
+  await expect(page.getByTestId("screen-describe")).toBeVisible();
+  await expect(page.getByTestId("screen-suggest")).toHaveCount(0);
+  await expect(page.getByTestId("need-submit")).toBeEnabled();
+  await page.getByTestId("need-input").fill("อยากตาย");
+  await page.getByTestId("need-submit").click();
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+});
+
+test("CH12 erase then age re-pick re-enables buttons; crisis text still opens the crisis screen", async ({ page }) => {
+  await page.goto("/?model=off&classifyDelayMs=400");
+  await startAs(page, "18-24");
+  await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
+  await page.getByTestId("need-submit").click();
+  await expect(page.getByTestId("need-submit")).toHaveText("กำลังคิด…");
+  await page.getByTestId("erase").click();
+  await expect(page.getByTestId("screen-start")).toBeVisible();
+  await page.getByTestId("age-18-24").click();
+  await expect(page.getByTestId("screen-describe")).toBeVisible();
+  await expect(page.getByTestId("need-submit")).toBeEnabled();
+  await expect(page.getByTestId("need-submit")).toHaveText("หาที่ปรึกษา");
+  await expect(page.getByTestId("open-chat")).toBeEnabled();
+  await page.waitForTimeout(600);
+  await expect(page.getByTestId("screen-describe")).toBeVisible();
+  await expect(page.getByTestId("screen-suggest")).toHaveCount(0);
+  await page.getByTestId("need-input").fill("อยากตาย");
+  await page.getByTestId("need-submit").click();
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+});
+
+test("CH13 after continue, opening chat is a real click and a late classify cannot steal the screen", async ({ page }) => {
+  await page.goto("/?model=off&classifyDelayMs=400");
+  await startAs(page, "18-24");
+  await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
+  await page.getByTestId("need-submit").click();
+  await expect(page.getByTestId("need-submit")).toHaveText("กำลังคิด…");
+  await page.getByTestId("sos").click();
+  await page.getByTestId("crisis-continue").click();
+  await expect(page.getByTestId("open-chat")).toBeEnabled();
+  await page.getByTestId("open-chat").click();
+  await expect(page.getByTestId("screen-chat")).toBeVisible();
+  await page.waitForTimeout(600);
+  await expect(page.getByTestId("screen-chat")).toBeVisible();
+  await expect(page.getByTestId("screen-suggest")).toHaveCount(0);
+  await page.getByTestId("chat-input").fill("อยากตาย");
+  await page.getByTestId("chat-send").click();
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+});
+
+async function markFocused(page: Page) {
+  return page.evaluate(() => {
+    const el = document.activeElement as HTMLTextAreaElement | null;
+    if (el) (el as HTMLTextAreaElement & { __keep?: number }).__keep = 1;
+    return { testid: el?.getAttribute("data-testid") ?? null, value: el?.value ?? null };
+  });
+}
+
+async function focusedStill(page: Page) {
+  return page.evaluate(() => {
+    const el = document.activeElement as (HTMLTextAreaElement & { __keep?: number }) | null;
+    return {
+      sameNode: !!(el && el.__keep === 1),
+      testid: el?.getAttribute("data-testid") ?? null,
+      value: el?.value ?? null,
+    };
+  });
+}
+
+test("CH14 late classify after SOS then continue does not steal describe focus or draft", async ({ page }) => {
+  await page.goto("/?model=off&classifyDelayMs=800");
+  await startAs(page, "18-24");
+  await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
+  await page.getByTestId("need-submit").click();
+  await expect(page.getByTestId("need-submit")).toHaveText("กำลังคิด…");
+  await page.getByTestId("sos").click();
+  await page.getByTestId("crisis-continue").click();
+  await expect(page.getByTestId("screen-describe")).toBeVisible();
+  const box = page.getByTestId("need-input");
+  await box.click();
+  await box.pressSequentially(" เพิ่ม");
+  const before = await markFocused(page);
+  expect(before.testid).toBe("need-input");
+  expect(before.value).toContain("เพิ่ม");
+  await page.waitForTimeout(1000);
+  const after = await focusedStill(page);
+  expect(after.sameNode).toBe(true);
+  expect(after.testid).toBe(before.testid);
+  expect(after.value).toBe(before.value);
+  await expect(page.getByTestId("screen-describe")).toBeVisible();
+  await expect(page.getByTestId("screen-suggest")).toHaveCount(0);
+});
+
+test("CH15 late classify after SOS then continue does not steal chat focus or draft", async ({ page }) => {
+  await page.goto("/?model=off&classifyDelayMs=800");
+  await startAs(page, "18-24");
+  await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
+  await page.getByTestId("need-submit").click();
+  await expect(page.getByTestId("need-submit")).toHaveText("กำลังคิด…");
+  await page.getByTestId("sos").click();
+  await page.getByTestId("crisis-continue").click();
+  await page.getByTestId("open-chat").click();
+  await expect(page.getByTestId("screen-chat")).toBeVisible();
+  const box = page.getByTestId("chat-input");
+  await box.click();
+  await box.pressSequentially("ข้อความที่พิมพ์");
+  const before = await markFocused(page);
+  expect(before.testid).toBe("chat-input");
+  expect(before.value).toBe("ข้อความที่พิมพ์");
+  await page.waitForTimeout(1000);
+  const after = await focusedStill(page);
+  expect(after.sameNode).toBe(true);
+  expect(after.testid).toBe(before.testid);
+  expect(after.value).toBe(before.value);
+  await expect(page.getByTestId("screen-chat")).toBeVisible();
+  await expect(page.getByTestId("screen-suggest")).toHaveCount(0);
+});
