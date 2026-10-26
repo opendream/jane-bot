@@ -2,34 +2,77 @@
 // Import both Dialogflow exports into the PRIVATE review queue (plan §2). Never writes inside the repo.
 //   node scripts/bank/import-df.mjs --bot /workspace/jane-df/sex-safe-safe-bot --jane /workspace/jane-df/sex-safe-safe-jane \
 //        --out /workspace/unicef-coder/jane-private/review-queue
-// Writes (all mode 0600):  intents.jsonl (normalised, merged, PII-scrubbed, phrases included for the off-repo held-out set)
-//                          review-queue.jsonl (one item per intent, status needs-review)  pii-hits.jsonl (for the human check)
+// Writes (all mode 0600):  intents.jsonl (normalised, merged, phrases as imported)
+//                          review-queue.jsonl (one item per intent, status needs-review; text as imported)
+//                          pii-hits.jsonl (flagged for the human check; importer does not redact)
 //                          summary.json (counts only)
 // Stdout: counts only, never export text.
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readExport, mergeExports, toQueueItem, piiHits } from "./df-lib.mjs";
-import { scrubPII } from "./pii-patterns.mjs";
 import { publicHandles } from "./guard.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, "../..");
 
+const SYMLINK_CYCLE = "refusing to write the review queue: symlink cycle at output path";
+const MAX_SYMLINK_HOPS = 32;
+
+/** Walk up to an existing ancestor, follow symlinks, then reattach the missing tail. */
+export function resolveQueueOutDir(out, repoRoot = repo) {
+  let cur = path.resolve(out);
+  const missing = [];
+  const seen = new Set();
+  let hops = 0;
+  for (;;) {
+    try {
+      const st = fs.lstatSync(cur);
+      if (st.isSymbolicLink()) {
+        if (seen.has(cur) || hops++ >= MAX_SYMLINK_HOPS) throw new Error(SYMLINK_CYCLE);
+        seen.add(cur);
+        cur = path.resolve(path.dirname(cur), fs.readlinkSync(cur));
+        continue;
+      }
+      const real = fs.realpathSync(cur);
+      cur = missing.length ? path.join(real, ...missing.reverse()) : real;
+      break;
+    } catch (e) {
+      if (e.code === "ELOOP" || /symlink cycle/i.test(e.message)) throw new Error(SYMLINK_CYCLE);
+      if (e.code !== "ENOENT") throw e;
+      const parent = path.dirname(cur);
+      if (parent === cur) {
+        cur = missing.length ? path.join(cur, ...missing.reverse()) : cur;
+        break;
+      }
+      missing.push(path.basename(cur));
+      cur = parent;
+    }
+  }
+  const realRepo = fs.realpathSync(repoRoot);
+  const rel = path.relative(realRepo, cur);
+  const sep = path.sep;
+  const inside = rel === "" || (rel !== ".." && !rel.startsWith(`..${sep}`) && !path.isAbsolute(rel));
+  if (inside) throw new Error("refusing to write the review queue inside the repo; use a dir outside it (e.g. ../jane-private/)");
+  return cur;
+}
+
 export function runImport({ bot, jane, out, now = new Date() }) {
-  const outDir = path.resolve(out);
-  const rel = path.relative(repo, outDir);
-  if (!rel.startsWith("..") && !path.isAbsolute(rel)) throw new Error("refusing to write the review queue inside the repo; use a dir outside it (e.g. ../jane-private/)");
+  const outDir = resolveQueueOutDir(out);
   const B = readExport(bot, "bot"), J = readExport(jane, "jane");
   const { merged, stats } = mergeExports(B, J);
   const opts = { allowHandles: publicHandles() };
   const queue = merged.map((r) => toQueueItem(r, opts));
   const hits = merged.flatMap((r) => piiHits(r, opts));
   fs.mkdirSync(outDir, { recursive: true, mode: 0o700 });
-  const write = (f, s) => fs.writeFileSync(path.join(outDir, f), s, { mode: 0o600 });
-  const scrubbed = merged.map((r) => ({ name: r.name, origin: r.origin, inputContexts: r.inputContexts, parent: !!r.parentId, conflict: r.conflict,
-    phrases: r.phrases.map((p) => scrubPII(p, opts).text) }));
-  write("intents.jsonl", scrubbed.map((x) => JSON.stringify(x)).join("\n") + "\n");
+  const write = (f, s) => {
+    const p = path.join(outDir, f);
+    fs.writeFileSync(p, s, { mode: 0o600 });
+    fs.chmodSync(p, 0o600);
+  };
+  const asImported = merged.map((r) => ({ name: r.name, origin: r.origin, inputContexts: r.inputContexts, parent: !!r.parentId, conflict: r.conflict,
+    phrases: r.phrases }));
+  write("intents.jsonl", asImported.map((x) => JSON.stringify(x)).join("\n") + "\n");
   write("review-queue.jsonl", queue.map((x) => JSON.stringify(x)).join("\n") + "\n");
   write("pii-hits.jsonl", hits.map((x) => JSON.stringify(x)).join("\n") + (hits.length ? "\n" : ""));
   const sum = (k) => queue.reduce((a, q) => a + q.stripped[k], 0);
