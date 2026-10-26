@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { ageAllowed, afterPick, isAdult, summaryAgeLabel, AGE_REDIRECT_CARD, AGE_REDIRECT_ID, AGE_REDIRECT_TEXT } from "../../src/core/age";
+import { draftSummaryForAge, pinnedAgeBand } from "../../src/core/summary-age";
 import type { BankCard } from "../../src/core/bank";
+import { SERVICES } from "../../src/core/referral";
+import { draftSummary } from "../../src/core/summary";
 
 const adult: BankCard = { ...AGE_REDIRECT_CARD, id: "other.adult_only.000", age_min: 18, answer_th: "PLACEHOLDER · 18+", key_facts: ["18+"], reword: false };
 const teen: BankCard = { ...AGE_REDIRECT_CARD, id: "other.teen.000", age_min: 15, answer_th: "PLACEHOLDER · 15+", key_facts: ["15+"] };
@@ -8,9 +11,9 @@ const teen: BankCard = { ...AGE_REDIRECT_CARD, id: "other.teen.000", age_min: 15
 describe("D5 age states", () => {
   it.each([
     ["15-17", false, "ต่ำกว่า 18 ปี"],
-    ["unspecified", false, "ต่ำกว่า 18 ปี"],
-    [null, false, "ต่ำกว่า 18 ปี"],
-    [undefined, false, "ต่ำกว่า 18 ปี"],
+    ["unspecified", false, "ไม่ระบุ"],
+    [null, false, "ไม่ระบุ"],
+    [undefined, false, "ไม่ระบุ"],
     ["18+", true, "18 ปีขึ้นไป"],
   ] as const)("%s → adult=%s summary=%s", (band, adultWant, label) => {
     expect(isAdult(band)).toBe(adultWant);
@@ -35,5 +38,25 @@ describe("D5 age states", () => {
     expect(AGE_REDIRECT_CARD.referral.offer).not.toBe("none");
     expect(AGE_REDIRECT_CARD.licence).toContain("Opendream");
     expect(AGE_REDIRECT_CARD.licence).not.toContain("OpenDream");
+  });
+
+  it("draftSummaryForAge rewrites the pinned age line without editing summary.ts", () => {
+    const s1663 = SERVICES.find((s) => s.id === "hotline_1663")!;
+    expect(pinnedAgeBand("15-17")).toBe("15-17");
+    expect(pinnedAgeBand("18+")).toBe("18-24");
+    expect(pinnedAgeBand(null)).toBe("unspecified");
+    const pinned = draftSummary({ service: s1663, needText: "กลัวท้อง", intent: "pregnancy", ageBand: "15-17" });
+    expect(pinned).toContain("ช่วงอายุ: 15–17 ปี");
+    const shown = draftSummaryForAge({ service: s1663, needText: "กลัวท้อง", intent: "pregnancy", ageBand: "15-17" });
+    expect(shown).toContain("ช่วงอายุ: ต่ำกว่า 18 ปี");
+    expect(shown).not.toContain("15–17");
+    const skipped = draftSummaryForAge({ service: s1663, needText: "กลัวท้อง", intent: "pregnancy", ageBand: "unspecified" });
+    const none = draftSummaryForAge({ service: s1663, needText: "กลัวท้อง", intent: "pregnancy", ageBand: null });
+    expect(skipped).toContain("ช่วงอายุ: ไม่ระบุ");
+    expect(none).toContain("ช่วงอายุ: ไม่ระบุ");
+    expect(skipped).not.toContain("ต่ำกว่า 18 ปี");
+    expect(isAdult("unspecified")).toBe(false);
+    expect(ageAllowed(adult, "unspecified")).toBe(false);
+    expect(ageAllowed(adult, null)).toBe(false);
   });
 });

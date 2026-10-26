@@ -1,6 +1,6 @@
-import type { AgeBand, CrisisCategory, Intent } from "./types";
+import type { CrisisCategory, CrisisResult, Intent } from "./types";
 import { type BankCard, type BankTopic, type CardNext, shippable } from "./bank";
-import { AGE_REDIRECT_CARD, AGE_REDIRECT_ID, afterPick } from "./age";
+import { AGE_REDIRECT_CARD, AGE_REDIRECT_ID, afterPick, type AgeState } from "./age";
 import { detectCrisis } from "./crisis";
 import { normalize, findPhrases } from "./text";
 import { stripPII } from "./summary";
@@ -31,14 +31,63 @@ export const MODEL_INPUT_CHARS = 200;
 export const HUMAN_ASK = ["อยากคุยกับเจ้าหน้าที่", "คุยกับเจ้าหน้าที่", "ขอคุยกับเจ้าหน้าที่", "คุยกับคนจริง", "อยากคุยกับคนจริง", "ขอคุยกับคน", "talk to a person", "talk to someone real"];
 
 export interface DialogState {
-  ageBand: AgeBand | null;
+  ageBand: AgeState;
   cardId: string | null;
   topic: BankTopic | null;
   pendingChips: CardNext[];
   turns: number;
+  /** Last 1–2 user lines, memory only. Used so a split crisis ("หนูอยาก" + "ตาย") still fires. */
+  recentUser: string[];
+  /** Once crisis has fired this session, later turns keep the help strip / offer visible. */
+  crisisFired: boolean;
+  crisisCategories: CrisisCategory[];
 }
 
-export const newDialog = (ageBand: AgeBand | null = null): DialogState => ({ ageBand, cardId: null, topic: null, pendingChips: [], turns: 0 });
+export const newDialog = (ageBand: AgeState = null): DialogState => ({
+  ageBand, cardId: null, topic: null, pendingChips: [], turns: 0, recentUser: [], crisisFired: false, crisisCategories: [],
+});
+
+/** Drop a late classify / polish once a newer request exists, the user left describe, or the session was erased / quick-exited. */
+export function shouldApplyAsyncResult(mine: number, current: number, screen: string): boolean {
+  return mine === current && screen !== "crisis" && screen !== "start" && screen !== "neutral" && screen !== "chat";
+}
+
+/** Classify generation: busy is owned by one seq and dies when that seq is bumped or ended. */
+export interface NeedGate { seq: number; busyFor: number }
+export const newNeedGate = (): NeedGate => ({ seq: 0, busyFor: 0 });
+export function bumpNeed(gate: NeedGate): number {
+  gate.seq += 1;
+  gate.busyFor = 0;
+  return gate.seq;
+}
+export function beginNeed(gate: NeedGate): number {
+  gate.seq += 1;
+  gate.busyFor = gate.seq;
+  return gate.seq;
+}
+export const needBusy = (gate: NeedGate): boolean => gate.busyFor !== 0 && gate.busyFor === gate.seq;
+export function endNeed(gate: NeedGate, mine: number): void {
+  if (gate.busyFor === mine) gate.busyFor = 0;
+}
+
+function uniqueCats(cats: CrisisCategory[]): CrisisCategory[] {
+  return [...new Set(cats)];
+}
+
+function joinedWindow(input: string, prev: string[]): string {
+  return prev.length ? [...prev.slice(-2), input].join(" ") : input;
+}
+
+/** Current line, then current + previous 1–2 user lines (in memory only). */
+function crisisForTurn(input: string, prev: string[]): CrisisResult {
+  const cur = detectCrisis(input);
+  if (cur.crisis) return cur;
+  if (prev.length) {
+    const joined = detectCrisis(joinedWindow(input, prev));
+    if (joined.crisis) return joined;
+  }
+  return cur;
+}
 
 export interface ShortlistItem { id: string; title_th: string }
 
@@ -114,15 +163,26 @@ export function welcome(state: DialogState, cards: BankCard[]): { state: DialogS
 
 export async function runTurn(state: DialogState, input: string, deps: TurnDeps): Promise<{ state: DialogState; reply: TurnReply }> {
   // 1. Crisis rules first, synchronously, on every message. Nothing before this line may await.
-  const crisis = detectCrisis(input);
-  if (crisis.crisis) return { state: { ...state, pendingChips: [] }, reply: { kind: "crisis", categories: crisis.categories } };
-  const banner = crisis.level === "banner" ? crisis.categories : [];
+  const recentUser = [...state.recentUser, input].slice(-2);
+  const crisis = crisisForTurn(input, state.recentUser);
+  if (crisis.crisis) {
+    return {
+      // Drop the lines that already fired so a later turn cannot re-join them.
+      state: { ...state, pendingChips: [], recentUser: [], crisisFired: true, crisisCategories: crisis.categories },
+      reply: { kind: "crisis", categories: crisis.categories },
+    };
+  }
+  const banner = uniqueCats([
+    ...(crisis.level === "banner" ? crisis.categories : []),
+    ...(state.crisisFired ? state.crisisCategories : []),
+  ]);
 
-  if (state.turns >= HARD_CAP) return { state, reply: { kind: "readonly" } };
+  if (state.turns >= HARD_CAP) return { state: { ...state, recentUser }, reply: { kind: "readonly" } };
   const turns = state.turns + 1;
   const capNotice: CapNotice = turns === HARD_CAP ? "hard" : turns === SOFT_CAP ? "soft" : null;
   const byId = new Map(deps.cards.map((c) => [c.id, c]));
   if (!byId.has(AGE_REDIRECT_ID)) byId.set(AGE_REDIRECT_ID, AGE_REDIRECT_CARD);
+  // 18+ cards stay in the pool so a match can redirect after pick. Crisis and human-ask never reach this.
   const usable = (c: BankCard | undefined): c is BankCard => !!c && shippable(c, deps.copyStatus);
   const fallback = byId.get(FALLBACK_ID);
   if (!fallback) throw new Error(`bank has no ${FALLBACK_ID}`);
@@ -133,17 +193,22 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     const card = afterPick(picked, state.ageBand, redirect);
     const shownVia: Via = card.id === AGE_REDIRECT_ID && picked.id !== AGE_REDIRECT_ID ? "age_redirect" : via;
     const r = card.reword ? await render(card, deps.signal ?? new AbortController().signal) : { text: card.answer_th, reworded: false };
-    const next: DialogState = { ...state, turns, cardId: card.id, topic: card.topic === "general" ? state.topic : card.topic, pendingChips: card.next };
-    return { state: next, reply: { kind: "card" as const, card, text: r.text, reworded: r.reworded, via: shownVia, banner, chips: card.next, offer: card.referral.offer, offerIntents: card.referral.intents, capNotice, ...(guard ? { guard } : {}) } };
+    const offer = state.crisisFired && card.referral.offer === "none" ? "soft" : card.referral.offer;
+    const offerIntents = offer === "none" ? card.referral.intents : (card.referral.intents.length ? card.referral.intents : asIntents(state.topic, ["other"]));
+    const next: DialogState = {
+      ...state, turns, recentUser, cardId: card.id,
+      topic: card.topic === "general" ? state.topic : card.topic, pendingChips: card.next,
+    };
+    return { state: next, reply: { kind: "card" as const, card, text: r.text, reworded: r.reworded, via: shownVia, banner, chips: card.next, offer, offerIntents, capNotice, ...(guard ? { guard } : {}) } };
   };
 
-  // 2. Input guard.
+  // 2. Input guard (image / method refusals). Abuse and complication detection is deferred to #21.
   const g = checkInput(input);
   if (g) return reply(REFUSAL_CARDS[g], "guard", g);
 
   // "Talk to a real person" → referral offer for the current topic.
   if (findPhrases(input, HUMAN_ASK).length) {
-    return { state: { ...state, turns, pendingChips: [] }, reply: { kind: "referral", intents: asIntents(state.topic, retrieve(input, []).prior.intents), banner, capNotice } };
+    return { state: { ...state, turns, recentUser, pendingChips: [] }, reply: { kind: "referral", intents: asIntents(state.topic, retrieve(input, []).prior.intents), banner, capNotice } };
   }
 
   // 3. Follow-up chips: a tap sends the chip label; short replies that equal a label also match.
@@ -179,7 +244,7 @@ export class DialogSession {
   state: DialogState;
   private inflight: AbortController | null = null;
   private seq = 0;
-  constructor(ageBand: AgeBand | null, private deps: Omit<TurnDeps, "signal">) { this.state = newDialog(ageBand); }
+  constructor(ageBand: AgeState, private deps: Omit<TurnDeps, "signal">) { this.state = newDialog(ageBand); }
   start(): TurnReply { const w = welcome(this.state, this.deps.cards); this.state = w.state; return w.reply; }
   setModel(model: DialogModel | null) { this.deps = { ...this.deps, model }; }
   async send(text: string): Promise<TurnReply | null> {

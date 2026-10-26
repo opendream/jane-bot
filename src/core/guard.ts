@@ -42,5 +42,5 @@ export const REFUSAL_CARDS: Record<GuardReason, BankCard> = Object.fromEntries(O
   id: `general.refusal_${r}.000`, topic: "general", title_th: "เรื่องนี้พี่ช่วยไม่ได้", answer_th: TEXT[r], key_facts: [], triggers: [],
   next: [], source_intents: [], source: [], review: { status: "draft", reviewer: null, reviewed_on: null, notes: "Fixed refusal copy, Thai review pending" },
   last_reviewed: null, flags: ["pii_checked"], referral: { offer: "soft", intents: REFERRAL[r] }, links: [], age_min: 15, reword: false,
-  licence: "Apache-2.0 (product copy, Opendream)",
+  licence: "Apache-2.0 (product copy, OpenDream)",
 } satisfies BankCard])) as unknown as Record<GuardReason, BankCard>;

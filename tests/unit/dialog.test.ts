@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import fpSet from "../../evals/crisis-fp-set.json";
-import { runTurn, newDialog, welcome, DialogSession, SOFT_CAP, HARD_CAP, FALLBACK_ID, MODEL_INPUT_CHARS, type DialogModel, type DialogState, type TurnDeps } from "../../src/core/dialog";
+import { runTurn, newDialog, welcome, DialogSession, SOFT_CAP, HARD_CAP, FALLBACK_ID, MODEL_INPUT_CHARS, shouldApplyAsyncResult, newNeedGate, beginNeed, bumpNeed, needBusy, endNeed, type DialogModel, type DialogState, type TurnDeps } from "../../src/core/dialog";
 import { REFUSAL_CARDS, checkInput, type GuardReason } from "../../src/core/guard";
 import { retrieve } from "../../src/core/retrieve";
 import { validateBank } from "../../src/core/bank";
@@ -30,6 +30,17 @@ async function talk(lines: string[], d: TurnDeps, st: DialogState = newDialog("1
   return { st, replies };
 }
 const FILLER = "อยากรู้เรื่องทั่วไปค่ะ"; // synthetic, no crisis words, matches nothing specific
+/** 18+ gating fixture: same triggers as a real card, but not a hotline or service referral. */
+function gatedNonHotline(base: (typeof BANK)[number]): (typeof BANK)[number] {
+  return {
+    ...base,
+    age_min: 18,
+    flags: base.flags.filter((f) => f !== "hotline" && f !== "hours"),
+    referral: { offer: "none", intents: [] },
+    answer_th: "PLACEHOLDER · ข้อความทดสอบสำหรับอายุ 18 ปีขึ้นไปเท่านั้น ไม่ใช่สายด่วน",
+    key_facts: ["18 ปีขึ้นไป"],
+  };
+}
 
 describe("crisis first: rules on every turn, never the model", () => {
   for (const at of [1, 5, 20]) {
@@ -59,10 +70,47 @@ describe("crisis first: rules on every turn, never the model", () => {
     expect((await runTurn(st, FILLER, deps())).reply.kind).toBe("readonly");
     expect((await runTurn(st, "อยากตาย", deps())).reply.kind).toBe("crisis");
   });
+  it("a crisis split across turns 1–2 is detected (in memory only)", async () => {
+    const { model, calls } = spyModel("ec.p000");
+    const { replies } = await talk(["หนูอยาก", "ตาย"], deps(model));
+    expect(replies[0].kind).not.toBe("crisis");
+    expect(replies[1].kind).toBe("crisis");
+    expect(calls.pick + calls.reword).toBe(0);
+  });
+  it("a crisis split across turns 19–20 is detected, with zero model calls", async () => {
+    const { model, calls } = spyModel("ec.p000");
+    const { replies } = await talk([...Array.from({ length: 18 }, () => FILLER), "หนูอยาก", "ตาย"], deps(model));
+    expect(replies[18].kind).not.toBe("crisis");
+    expect(replies[19].kind).toBe("crisis");
+    expect(calls.pick + calls.reword).toBe(0);
+  });
+  it("after a crisis has fired, later turns keep the help offer visible", async () => {
+    const { st, replies } = await talk(["ช่วงนี้เครียดมาก", "อยากตาย", "นอนไม่หลับทุกคืน"], deps());
+    expect(replies[1].kind).toBe("crisis");
+    expect(st.crisisFired).toBe(true);
+    expect(replies[2].kind).toBe("card");
+    if (replies[2].kind === "card") {
+      expect(replies[2].banner.length).toBeGreaterThan(0);
+      expect(replies[2].offer).not.toBe("none");
+    }
+  });
   it("the crisis check is fast (< 50 ms per turn)", async () => {
     const t = performance.now();
     for (let i = 0; i < 20; i++) await runTurn(newDialog(), "เลือดออกเยอะมาก หมดสติ", deps());
     expect((performance.now() - t) / 20).toBeLessThan(50);
+  });
+  it("stale classify results are dropped once a crisis screen is shown or a newer request exists", () => {
+    expect(shouldApplyAsyncResult(1, 1, "describe")).toBe(true);
+    expect(shouldApplyAsyncResult(1, 1, "suggest")).toBe(true);
+    expect(shouldApplyAsyncResult(1, 1, "crisis")).toBe(false);
+    expect(shouldApplyAsyncResult(1, 2, "describe")).toBe(false);
+    expect(shouldApplyAsyncResult(1, 1, "start")).toBe(false);
+    expect(shouldApplyAsyncResult(1, 1, "neutral")).toBe(false);
+  });
+  it("a late classify is dropped after the user has opened chat", () => {
+    expect(shouldApplyAsyncResult(1, 1, "chat")).toBe(false);
+    expect(shouldApplyAsyncResult(1, 2, "chat")).toBe(false);
+    expect(shouldApplyAsyncResult(2, 2, "describe")).toBe(true);
   });
   it("a new message aborts the pending model call; a crisis reply arrives without waiting for it", async () => {
     const { model, calls } = spyModel("ec.p000", 300);
@@ -78,6 +126,90 @@ describe("crisis first: rules on every turn, never the model", () => {
     expect(calls.lastSignal?.aborted).toBe(true);
     expect(await first).toBeNull(); // stale reply dropped
     expect(calls.pick).toBe(1);
+  });
+});
+
+describe("need-request gate: busy dies with its request", () => {
+  it("SOS then continue back to describe clears busy so a late classify cannot lock the UI", () => {
+    const g = newNeedGate();
+    const mine = beginNeed(g);
+    expect(needBusy(g)).toBe(true);
+    bumpNeed(g); // SOS
+    expect(needBusy(g)).toBe(false);
+    bumpNeed(g); // continue
+    expect(needBusy(g)).toBe(false);
+    endNeed(g, mine);
+    expect(needBusy(g)).toBe(false);
+    expect(shouldApplyAsyncResult(mine, g.seq, "describe")).toBe(false);
+  });
+
+  it("erase then age re-pick clears busy for the old classify", () => {
+    const g = newNeedGate();
+    const mine = beginNeed(g);
+    expect(needBusy(g)).toBe(true);
+    bumpNeed(g); // erase
+    expect(needBusy(g)).toBe(false);
+    bumpNeed(g); // age re-pick
+    expect(needBusy(g)).toBe(false);
+    endNeed(g, mine);
+    expect(needBusy(g)).toBe(false);
+    expect(shouldApplyAsyncResult(mine, g.seq, "describe")).toBe(false);
+  });
+
+  it("openChat, quick exit, and a classify error all clear busy for the old request", () => {
+    for (const leave of ["openChat", "quickExit", "classifyError"] as const) {
+      const g = newNeedGate();
+      const mine = beginNeed(g);
+      if (leave === "classifyError") endNeed(g, mine);
+      else bumpNeed(g);
+      expect(needBusy(g), leave).toBe(false);
+      endNeed(g, mine);
+      expect(needBusy(g), leave).toBe(false);
+    }
+  });
+
+  it("ending an old request does not clear a newer in-flight classify", () => {
+    const g = newNeedGate();
+    const old = beginNeed(g);
+    bumpNeed(g);
+    const next = beginNeed(g);
+    endNeed(g, old);
+    expect(needBusy(g)).toBe(true);
+    expect(g.busyFor).toBe(next);
+    endNeed(g, next);
+    expect(needBusy(g)).toBe(false);
+  });
+
+  it("success, stale drop, and a crisis bump without begin all leave the gate idle", () => {
+    const ok = newNeedGate();
+    const mine = beginNeed(ok);
+    endNeed(ok, mine);
+    expect(needBusy(ok)).toBe(false);
+
+    const stale = newNeedGate();
+    const a = beginNeed(stale);
+    bumpNeed(stale);
+    endNeed(stale, a);
+    expect(needBusy(stale)).toBe(false);
+    expect(shouldApplyAsyncResult(a, stale.seq, "describe")).toBe(false);
+
+    const crisis = newNeedGate();
+    bumpNeed(crisis);
+    expect(needBusy(crisis)).toBe(false);
+  });
+
+  it("after SOS then continue, the old classify no longer owns busy so a late finish must not re-render", () => {
+    const g = newNeedGate();
+    const mine = beginNeed(g);
+    expect(g.busyFor === mine).toBe(true);
+    expect(g.seq === mine).toBe(true);
+    bumpNeed(g); // SOS
+    bumpNeed(g); // continue
+    expect(g.busyFor === mine).toBe(false);
+    expect(g.seq === mine).toBe(false);
+    endNeed(g, mine);
+    expect(g.busyFor === mine).toBe(false);
+    expect(g.seq === mine).toBe(false);
   });
 });
 
@@ -148,7 +280,9 @@ describe("multi-turn flow (rules only)", () => {
     expect(replies[HARD_CAP].kind).toBe("readonly");
   });
   it("age gate: 18+ best match → redirect for 15–17, ไม่อยากบอก and none; 18+ sees the card", async () => {
-    const cards = BANK.map((c) => (c.id === "mental_health.p000" ? { ...c, age_min: 18 as const } : c));
+    const mh = BANK.find((c) => c.id === "mental_health.p000")!;
+    const adult = gatedNonHotline(mh);
+    const cards = BANK.map((c) => (c.id === mh.id ? adult : c));
     for (const band of ["15-17", "unspecified", null] as const) {
       const r = await runTurn(newDialog(band), "เครียดมาก นอนไม่หลับ", deps(null, { cards }));
       expect(r.reply.kind).toBe("card");
@@ -160,19 +294,44 @@ describe("multi-turn flow (rules only)", () => {
       }
     }
     const ok = await runTurn(newDialog("18+"), "เครียดมาก นอนไม่หลับ", deps(null, { cards }));
-    expect(ok.reply.kind === "card" && ok.reply.card.id).toBe("mental_health.p000");
+    expect(ok.reply.kind === "card" && ok.reply.card.id).toBe(adult.id);
   });
   it("crisis and talk-to-a-person are never age-filtered", async () => {
-    const cards = BANK.map((c) => (c.id === "mental_health.p000" ? { ...c, age_min: 18 as const } : c));
+    const mh = BANK.find((c) => c.id === "mental_health.p000")!;
+    const cards = BANK.map((c) => (c.id === mh.id ? gatedNonHotline(mh) : c));
     for (const band of ["15-17", "unspecified", null, "18+"] as const) {
       expect((await runTurn(newDialog(band), "อยากตาย", deps(null, { cards }))).reply.kind).toBe("crisis");
       const a = await runTurn(newDialog(band), "ช่วงนี้เครียดมาก", deps(null, { cards }));
       expect((await runTurn(a.state, "อยากคุยกับเจ้าหน้าที่", deps(null, { cards }))).reply.kind).toBe("referral");
     }
   });
+  it("a hotline card with age_min 18 fails validateBank (age_safety error)", () => {
+    const cards = BANK.map((c) => (c.id === "mental_health.p000" ? { ...c, age_min: 18 as const } : c));
+    const issues = validateBank(cards, bankContext());
+    expect(issues.some((i) => i.level === "error" && i.rule === "age_safety" && i.card === "mental_health.p000")).toBe(true);
+  });
+  it("15–17 asking for a hotline gets the hotline card, not the age redirect", async () => {
+    const r = await runTurn(newDialog("15-17"), "เครียดมาก นอนไม่หลับ", deps());
+    expect(r.reply.kind).toBe("card");
+    if (r.reply.kind === "card") {
+      expect(r.reply.card.id).toBe("mental_health.p000");
+      expect(r.reply.card.flags).toContain("hotline");
+      expect(r.reply.via).not.toBe("age_redirect");
+      expect(r.reply.card.id).not.toBe("general.age_redirect.000");
+    }
+  });
+  it("crisis fires before any card or age lookup, including with an empty bank", async () => {
+    for (const band of ["15-17", "unspecified", null, undefined, "18+"] as const) {
+      const t = performance.now();
+      const r = await runTurn(newDialog(band), "อยากตาย", deps(null, { cards: [] }));
+      expect(performance.now() - t).toBeLessThan(50);
+      expect(r.reply.kind).toBe("crisis");
+      if (r.reply.kind === "crisis") expect(r.reply.categories).toContain("self_harm");
+    }
+  });
   it("model pick of an 18+ card → redirect for under-18", async () => {
     const mh = BANK.find((c) => c.id === "mental_health.p000")!;
-    const adult = { ...mh, id: "other.adult_only.000", age_min: 18 as const };
+    const adult = { ...gatedNonHotline(mh), id: "other.adult_only.000" };
     const cards = [...BANK, adult];
     const { model, calls } = spyModel("other.adult_only.000");
     const r = await runTurn(newDialog("15-17"), "เครียดมาก นอนไม่หลับ", deps(model, { cards }));
@@ -206,6 +365,19 @@ describe("input guard", () => {
   });
   it("ordinary questions pass the guard", () => {
     for (const t of ["ยาคุมฉุกเฉินหาซื้อที่ไหน", "อยากตรวจเอชไอวี", "แฟนกดดันให้มีอะไรด้วย"]) expect(checkInput(t)).toBeNull();
+  });
+  it("plain image requests still get refusal_image", async () => {
+    for (const text of ["ส่งรูปให้ดูหน่อย", "ขอรูปได้ไหม", "send a photo", "ส่งรูปให้ดูได้ไหม"]) {
+      expect(checkInput(text)).toBe("image");
+      const r = await runTurn(newDialog(), text, deps());
+      expect(r.reply).toMatchObject({ kind: "card", via: "guard", guard: "image" });
+      expect(r.reply.kind === "card" && r.reply.card.id).toBe("general.refusal_image.000");
+    }
+  });
+  it("a how-to abortion question still gets the method refusal", async () => {
+    const r = await runTurn(newDialog(), "วิธีทำแท้งเองทำยังไง", deps());
+    expect(checkInput("วิธีทำแท้งเองทำยังไง")).toBe("abortion_method");
+    expect(r.reply).toMatchObject({ kind: "card", via: "guard", guard: "abortion_method" });
   });
   it("refusal cards pass the bank validator (no PII, no phones, verbatim)", () => {
     const issues = validateBank([...BANK, ...Object.values(REFUSAL_CARDS), AGE_REDIRECT_CARD], bankContext(undefined, "draft", "2026-10-22")).filter((i) => i.level === "error");

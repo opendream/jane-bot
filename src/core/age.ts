@@ -1,8 +1,11 @@
 import type { AgeBand } from "./types";
 import type { BankCard } from "./bank";
 
+/** Start-screen picks: 15–17 / 18+ / ไม่อยากบอก. */
+export type AgePick = "15-17" | "18+" | "unspecified";
+
 /** ไม่อยากบอก and no answer both count as under 18. Only an explicit 18+ pick is adult. */
-export type AgeState = AgeBand | null | undefined;
+export type AgeState = AgePick | AgeBand | null | undefined;
 
 export const AGE_REDIRECT_ID = "general.age_redirect.000";
 
@@ -10,11 +13,14 @@ export const AGE_REDIRECT_TEXT =
   "เรื่องนี้พี่เก็บไว้ตอบสำหรับคนอายุ 18 ปีขึ้นไปนะ ไม่ได้แปลว่าคำถามนี้ผิด สงสัยอะไรก็ถามได้เสมอ ถ้าอยากคุยเรื่องนี้กับคนที่เข้าใจวัยรุ่น โทรปรึกษา 1663 ได้ หรือให้พี่ช่วยหาที่ปรึกษาที่เปิดอยู่ตอนนี้ก็ได้";
 
 export function isAdult(age: AgeState): boolean {
-  return age === "18+";
+  return age === "18+" || age === "18-24" || age === "25+";
 }
 
+/** Handoff line only. Decline/skip stays ไม่ระบุ — gating still treats those as under 18. */
 export function summaryAgeLabel(age: AgeState): string {
-  return isAdult(age) ? "18 ปีขึ้นไป" : "ต่ำกว่า 18 ปี";
+  if (isAdult(age)) return "18 ปีขึ้นไป";
+  if (age === "15-17") return "ต่ำกว่า 18 ปี";
+  return "ไม่ระบุ";
 }
 
 export function ageAllowed(c: BankCard, age: AgeState): boolean {

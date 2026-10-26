@@ -39,11 +39,12 @@ export function bankContext(services: ServicesJson = data, copyStatus: "draft" |
 
 const files = import.meta.glob("../data/bank/*.json", { eager: true }) as Record<string, unknown>;
 
-/** Files that ship in the app. Fixture/test JSON and quiz.json never enter BANK. */
+/** Files that ship in the app. Fixture/spec/test JSON and quiz.json never enter BANK. */
 export function isProductionBankFile(name: string): boolean {
   const base = name.split("/").pop() ?? name;
   if (/quiz\.json$/i.test(base)) return false;
-  return !/(?:^|[-_.])(?:fixture|pii-gate|test)(?:[-_.]|$)/i.test(base);
+  if (/\.(?:test|spec)\./i.test(base)) return false;
+  return !/(?:^|[-_.])(?:fixture|pii-gate)(?:[-_.]|$)/i.test(base);
 }
 
 const production = Object.fromEntries(Object.entries(files).filter(([n]) => isProductionBankFile(n)));
