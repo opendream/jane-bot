@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { classifyNeed } from "../../src/core/intent";
 import { suggestServices } from "../../src/core/referral";
-import { detectCrisis, crisisOrder } from "../../src/core/crisis";
+import { detectCrisis } from "../../src/core/crisis";
+import { crisisOrder } from "../../src/core/crisis-order";
 import { draftSummary } from "../../src/core/summary";
 
 const at = (hhmm: string) => new Date(`2026-10-22T${hhmm}:00+07:00`);

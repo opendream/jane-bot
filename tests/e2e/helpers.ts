@@ -105,7 +105,7 @@ export async function startAs(page: Page, band: string) {
   await expect(page.getByTestId("brand")).toContainText("พี่เจน");
   await expect(page.getByTestId("brand")).toContainText("Jane");
   await expect(page.getByTestId("mark-small").locator("svg")).toBeVisible();
-  await expect(page.getByTestId("jane-header")).toBeVisible();
+  await expect(page.getByTestId("welcome-stars").locator('[data-testid="jane-star"]')).toHaveCount(3);
   await expect(page.getByTestId("art-credit")).toHaveText("Illustration © Opendream, 2018");
   await expect(page.getByTestId("promise-medical")).toContainText("พี่เจน เป็น AI");
   await expect(page.getByTestId("promise-medical")).toContainText("ไม่ใช่คำแนะนำทางการแพทย์");
@@ -124,5 +124,17 @@ export async function describe(page: Page, text: string) {
 /** Tap-to-call hrefs on the full crisis screen, in on-screen order (not the officer line). */
 export function crisisCallHrefs(page: Page) {
   return page.locator('[data-testid="screen-crisis"] [data-testid^="crisis-"] a').evaluateAll((as) => as.map((a) => a.getAttribute("href")));
+}
+
+/** Pinned crisis.ts strip order (all four, never hide). Category-first from the pin. */
+export const STRIP_HREFS = {
+  self_harm: ["tel:1323", "tel:1669", "tel:1300", "tel:191"],
+  sexual_violence: ["tel:1300", "tel:191", "tel:1669", "tel:1323"],
+  medical_emergency: ["tel:1669", "tel:191", "tel:1323", "tel:1300"],
+} as const;
+
+/** Tap-to-call hrefs on a crisis banner/strip, in on-screen order. */
+export function crisisBannerHrefs(page: Page) {
+  return page.getByTestId("crisis-banner").locator("a").evaluateAll((as) => as.map((a) => a.getAttribute("href")));
 }
 

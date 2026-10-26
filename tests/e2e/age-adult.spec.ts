@@ -55,7 +55,50 @@ test("D5 crisis phrase → crisis screen for 15–17, 18+ and ไม่อยา
     await page.getByTestId("need-submit").click();
     await expect(page.getByTestId("screen-crisis")).toBeVisible();
     expect(await crisisCallHrefs(page)).toEqual(["tel:1323", "tel:1669"]);
+    await expect(page.getByTestId("screen-crisis")).toContainText("1663");
     await assertNoStorage(page);
     await assertNetwork(page, rec);
   }
+});
+
+test("D5 SOS is not age-gated: 15–17, ไม่อยากบอก and 18+ all reach the crisis numbers", async ({ page }) => {
+  for (const band of ["15-17", "unspecified", "18+"] as const) {
+    const rec = await open(page, "14:00");
+    await startAs(page, band);
+    await expect(page.getByTestId("sos")).toBeVisible();
+    await page.getByTestId("sos").click();
+    await expect(page.getByTestId("screen-crisis")).toBeVisible();
+    expect(await crisisCallHrefs(page)).toEqual(["tel:1323", "tel:1300", "tel:1669", "tel:191"]);
+    await expect(page.getByTestId("screen-crisis")).toContainText("1663");
+    await assertNoStorage(page);
+    await assertNetwork(page, rec);
+  }
+});
+
+test("D5 under-15 screen still shows 1323/1300/1663 and SOS is not delayed by age", async ({ page }) => {
+  const rec = await open(page, "14:00");
+  await page.getByTestId("age-under").click();
+  await expect(page.getByTestId("screen-underage")).toBeVisible();
+  await expect(page.locator('a[href="tel:1323"]').first()).toBeVisible();
+  await expect(page.locator('a[href="tel:1300"]').first()).toBeVisible();
+  await expect(page.locator('a[href="tel:1663"]').first()).toBeVisible();
+  await expect(page.getByTestId("sos")).toBeVisible();
+  await page.getByTestId("sos").click();
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  expect(await crisisCallHrefs(page)).toEqual(["tel:1323", "tel:1300", "tel:1669", "tel:191"]);
+  await assertNoStorage(page);
+  await assertNetwork(page, rec);
+});
+
+test("D5 chat crisis for ไม่อยากบอก is not behind the age gate", async ({ page }) => {
+  const rec = await open(page, "14:00");
+  await startAs(page, "unspecified");
+  await page.getByTestId("open-chat").click();
+  await expect(page.getByTestId("screen-chat")).toBeVisible();
+  await page.getByTestId("chat-input").fill("ไม่อยากมีชีวิตอยู่แล้ว");
+  await page.getByTestId("chat-send").click();
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  expect(await crisisCallHrefs(page)).toEqual(["tel:1323", "tel:1669"]);
+  await assertNoStorage(page);
+  await assertNetwork(page, rec);
 });
