@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { draftSummary, stripPII, finalizeSummary, clip, MAX_NEED_CHARS } from "../../src/core/summary";
-import { draftSummaryForAge } from "../../src/core/age";
+import { draftSummaryForAge } from "../../src/core/summary-age";
 import { SERVICES } from "../../src/core/referral";
 import { acceptPolished, classifyWithFallback, polishWithFallback, type LLMAdapter } from "../../src/llm/adapter";
 

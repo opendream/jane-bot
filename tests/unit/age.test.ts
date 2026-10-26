@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { ageAllowed, afterPick, isAdult, summaryAgeLabel, draftSummaryForAge, pinnedAgeBand, AGE_REDIRECT_CARD, AGE_REDIRECT_ID, AGE_REDIRECT_TEXT } from "../../src/core/age";
+import { ageAllowed, afterPick, isAdult, summaryAgeLabel, AGE_REDIRECT_CARD, AGE_REDIRECT_ID, AGE_REDIRECT_TEXT } from "../../src/core/age";
+import { draftSummaryForAge, pinnedAgeBand } from "../../src/core/summary-age";
 import type { BankCard } from "../../src/core/bank";
 import { SERVICES } from "../../src/core/referral";
 import { draftSummary } from "../../src/core/summary";

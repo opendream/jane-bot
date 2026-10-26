@@ -1,6 +1,5 @@
 import type { AgeBand } from "./types";
 import type { BankCard } from "./bank";
-import { draftSummary, type SummaryInput } from "./summary";
 
 /** Start-screen picks: 15–17 / 18+ / ไม่อยากบอก. */
 export type AgePick = "15-17" | "18+" | "unspecified";
@@ -19,19 +18,6 @@ export function isAdult(age: AgeState): boolean {
 
 export function summaryAgeLabel(age: AgeState): string {
   return isAdult(age) ? "18 ปีขึ้นไป" : "ต่ำกว่า 18 ปี";
-}
-
-/** Map a live age state onto the pinned summary.ts AgeBand keys without editing that pin. */
-export function pinnedAgeBand(age: AgeState): AgeBand {
-  if (isAdult(age)) return "18-24";
-  if (age === "15-17") return "15-17";
-  return "unspecified";
-}
-
-/** Handoff summary with D5 age lines (ต่ำกว่า 18 ปี / 18 ปีขึ้นไป). */
-export function draftSummaryForAge(input: Omit<SummaryInput, "ageBand"> & { ageBand: AgeState }): string {
-  const raw = draftSummary({ ...input, ageBand: pinnedAgeBand(input.ageBand) });
-  return raw.replace(/^- ช่วงอายุ: .*$/m, `- ช่วงอายุ: ${summaryAgeLabel(input.ageBand)}`);
 }
 
 export function ageAllowed(c: BankCard, age: AgeState): boolean {
