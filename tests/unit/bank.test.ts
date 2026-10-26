@@ -219,6 +219,13 @@ describe("bundled bank (src/data/bank)", () => {
     expect(notice).not.toContain("OpenDream");
     expect(notice).toMatch(/CC BY-SA 4\.0|CC-BY-SA-4.0/);
     expect(notice).toContain("Judies, Opendream 2017");
+    expect(notice).toContain("does not cover illustrations, art, images, sprites");
+    const readme = fs.readFileSync(path.resolve(__dirname, "../../README.md"), "utf8");
+    expect(readme).not.toContain("OpenDream");
+    expect(readme).toContain("does not cover illustrations, art, images, sprites");
+    const artLine = readme.split("\n").find((l) => l.includes("Illustration ©"));
+    expect(artLine).toBe("Illustration © Opendream, 2018");
+    expect(artLine).not.toMatch(/CC BY-SA|CC-BY-SA/);
   });
   it("excludes fixture and test files from BANK", () => {
     expect(isProductionBankFile("../data/bank/pii-gate-fixture.json")).toBe(false);

@@ -131,6 +131,7 @@ function footer() {
     h("p", { class: "nmad", "data-testid": "not-medical-advice" }, "ข้อมูลทั่วไป ไม่ใช่คำแนะนำทางการแพทย์ · General information, not medical advice"),
     THAI_COPY_STATUS === "draft" && h("p", { class: "draft", "data-testid": "draft-flag" }, "ข้อความภาษาไทยเป็นฉบับร่าง รอผู้เชี่ยวชาญตรวจ · Thai copy is DRAFT, pending review"),
     h("p", { class: "meta" }, `ข้อมูลบริการตรวจสอบเมื่อ ${DATA_VERSION} · ทุกอย่างทำงานในเครื่องนี้ ไม่มีการบันทึก`),
+    h("p", { class: "meta", "data-testid": "art-credit" }, "Illustration © Opendream, 2018"),
   );
 }
 
