@@ -2,7 +2,7 @@ import "./styles.css";
 import { PRODUCT_NAME, PRODUCT_NAME_EN, MIN_AGE, THAI_COPY_STATUS } from "./config";
 import markSvg from "./assets/mark.svg?raw";
 import type { AgeBand, CrisisCategory, Intent, IntentResult } from "./core/types";
-import { detectCrisis } from "./core/crisis";
+import { detectCrisis, crisisOrder as pinnedCrisisOrder } from "./core/crisis";
 import { crisisOrder } from "./core/crisis-order";
 import { suggestServices, CRISIS_LINES, DATA_VERSION, INTENT_LABEL_TH, SUPPORT_LINE_TH, serviceHoursLabel, canPrepareMessage, type Suggestion } from "./core/referral";
 import { hoursLabel, hoursCitation } from "./core/openNow";
@@ -280,7 +280,7 @@ function channelEl(ch: { type: string; label_th: string; href?: string }) {
 function crisisStrip(categories: CrisisCategory[]) {
   return h("aside", { class: "crisis-strip", "data-testid": "crisis-banner" },
     h("p", {}, h("strong", {}, "ถ้าเรื่องนี้เกิดกับคุณ หรือคุณไม่ปลอดภัยตอนนี้ "), "โทรฟรี 24 ชั่วโมง:"),
-    h("div", { class: "chans" }, ...crisisOrder(categories).map((n) => h("a", { class: "btn-call small danger", href: `tel:${n}` }, `โทร ${n}`))),
+    h("div", { class: "chans" }, ...pinnedCrisisOrder(categories).map((n) => h("a", { class: "btn-call small danger", href: `tel:${n}` }, `โทร ${n}`))),
   );
 }
 

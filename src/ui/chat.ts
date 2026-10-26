@@ -1,7 +1,7 @@
 import type { AgeBand, CrisisCategory, Intent } from "../core/types";
 import type { CardNext } from "../core/bank";
 import { DialogSession, SOFT_CAP, type DialogModel, type TurnReply, type CapNotice } from "../core/dialog";
-import { crisisOrder } from "../core/crisis-order";
+import { crisisOrder } from "../core/crisis";
 import { BANK, bankContext } from "../core/bankData";
 import { THAI_COPY_STATUS } from "../config";
 import { h } from "./dom";
