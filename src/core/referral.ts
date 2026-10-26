@@ -35,6 +35,11 @@ export const PREFERENCE: Record<Intent, string[]> = {
 
 export interface Suggestion { service: Service; status: OpenStatus; reasonIntent: Intent }
 
+/** In-person-only cards stay informational — no handoff draft (pinned preferredChannel would say ออนไลน์). */
+export function canPrepareMessage(service: Service): boolean {
+  return service.channels.some((c) => c.type !== "in_person");
+}
+
 /**
  * Pick 1–3 services for the ranked intents.
  * Pool: every preferred service for the top intent, plus the first preferred service of each

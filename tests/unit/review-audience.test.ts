@@ -20,6 +20,17 @@ describe("review-pack audience → age_min", () => {
     }
   });
 
+  it("Approved/Edit with only proposed_card keeps id, content and age_min", () => {
+    const proposed_card = { id: "ec.p000", answer_th: "ข้อความทดสอบคุมฉุกเฉิน", flags: ["pii_checked"] };
+    const built = applyReviewRow({ status: "Approved", audience: "18+ only", proposed_card });
+    expect(built.id).toBe("ec.p000");
+    expect(built.answer_th).toBe("ข้อความทดสอบคุมฉุกเฉิน");
+    expect(built.flags).toEqual(["pii_checked"]);
+    expect(built.age_min).toBe(18);
+    const all15 = applyReviewRow({ status: "Edit", audience: "All (15+)", proposed_card });
+    expect(all15).toMatchObject({ id: "ec.p000", answer_th: "ข้อความทดสอบคุมฉุกเฉิน", age_min: 15 });
+  });
+
   it("the fixed redirect card general.age_redirect.000 is All (15+) even with a blank audience", () => {
     for (const status of ["Approved", "Edit"]) {
       const row = { status, audience: "", card: { id: "general.age_redirect.000", title_th: "สำหรับอายุ 18 ปีขึ้นไป" } };

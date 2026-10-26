@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   QUIZ_ITEMS, QUIZ_FILE_LICENCE, QUIZ_HOURS_1663, QUIZ_SESSION_LEN, QUIZ_WRAP,
+  QUIZ_OK, QUIZ_NO, QUIZ_PRAISE, quizCopyStatus,
   validateQuizItems, shippableQuiz, pickQuizItems, quizAgeAllowed, hasRelatedQuiz,
   isChoiceCorrect, isOrderCorrect, moveIndex, shuffledIndexes,
   startQuiz, answerChoice, answerOrder, advanceQuiz, choiceWasCorrect, currentItem,
@@ -8,6 +9,7 @@ import {
 } from "../../src/core/quiz";
 import { BANK_TEXT_LICENCE } from "../../src/core/bank";
 import { BANK } from "../../src/core/bankData";
+import { THAI_COPY_STATUS } from "../../src/config";
 
 const byId = (id: string) => QUIZ_ITEMS.find((q) => q.id === id)!;
 const clone = (id: string, over: Partial<QuizItem> = {}): QuizItem => ({ ...byId(id), ...over });
@@ -29,6 +31,32 @@ describe("D7 quiz items (PLACEHOLDER)", () => {
   it("nothing ships in reviewed mode until approved", () => {
     expect(shippableQuiz(QUIZ_ITEMS, "reviewed")).toEqual([]);
     expect(shippableQuiz(QUIZ_ITEMS, "draft").length).toBe(7);
+    expect(pickQuizItems("18+", null, QUIZ_ITEMS, 3, "reviewed")).toEqual([]);
+    expect(pickQuizItems("18+", "contraception", QUIZ_ITEMS, 3, "reviewed")).toEqual([]);
+    expect(startQuiz("18+", null, QUIZ_ITEMS, undefined, "reviewed")).toBeNull();
+    expect(startQuiz("18+", "contraception", QUIZ_ITEMS, undefined, "reviewed")).toBeNull();
+    expect(hasRelatedQuiz("contraception", "18+", QUIZ_ITEMS, "reviewed")).toBe(false);
+    expect(hasRelatedQuiz("contraception", "18+", QUIZ_ITEMS, "draft")).toBe(true);
+    expect(quizCopyStatus()).toBe(THAI_COPY_STATUS);
+    expect(pickQuizItems("18+", null).map((q) => q.id)).toEqual(
+      pickQuizItems("18+", null, QUIZ_ITEMS, QUIZ_SESSION_LEN, THAI_COPY_STATUS).map((q) => q.id),
+    );
+    const approved = [clone("QZ-01", { status: "approved" })];
+    expect(pickQuizItems("15-17", "contraception", approved, 3, "reviewed").map((q) => q.id)).toEqual(["QZ-01"]);
+    expect(startQuiz("15-17", "contraception", approved, undefined, "reviewed")?.items.map((q) => q.id)).toEqual(["QZ-01"]);
+  });
+  it("production ignores ?copy= and always uses THAI_COPY_STATUS", () => {
+    expect(quizCopyStatus(false, "?copy=reviewed")).toBe(THAI_COPY_STATUS);
+    expect(quizCopyStatus(false, "?copy=draft")).toBe(THAI_COPY_STATUS);
+    expect(quizCopyStatus(true, "?copy=reviewed")).toBe("reviewed");
+    expect(quizCopyStatus(true, "?copy=draft")).toBe("draft");
+    expect(pickQuizItems("18+", null, QUIZ_ITEMS, 3, quizCopyStatus(false, "?copy=reviewed"))).toEqual(
+      pickQuizItems("18+", null, QUIZ_ITEMS, 3, THAI_COPY_STATUS),
+    );
+    expect(hasRelatedQuiz("contraception", "18+", QUIZ_ITEMS, quizCopyStatus(false, "?copy=reviewed"))).toBe(
+      hasRelatedQuiz("contraception", "18+", QUIZ_ITEMS, THAI_COPY_STATUS),
+    );
+    expect(hasRelatedQuiz("contraception", "18+", QUIZ_ITEMS, quizCopyStatus(true, "?copy=reviewed"))).toBe(false);
   });
 });
 
@@ -57,13 +85,28 @@ describe("validator rules", () => {
     const q = byId("QZ-04");
     const blob = [q.prompt_th, q.prompt_en, q.explanation_th, q.explanation_en, q.correct_answer_text, ...(q.options ?? [])].join("\n");
     expect(q.explanation_th).toContain(QUIZ_HOURS_1663);
-    expect(QUIZ_HOURS_1663).toBe("ปรึกษาฟรี ทุกวัน 09:00–21:00 น. รวมวันหยุด");
+    expect(QUIZ_HOURS_1663).toBe("ปรึกษาฟรี ทุกวัน 09:00–21:00 น.");
+    expect(QUIZ_HOURS_1663).not.toContain("รวมวันหยุด");
+    expect(q.explanation_th).not.toContain("รวมวันหยุด");
+    expect(q.explanation_en).not.toMatch(/holiday/i);
     expect(q.options[2]).toBe("ค) หลังมีเพศสัมพันธ์ที่ไม่ได้ป้องกัน กินให้เร็วที่สุด ภายใน 72 ชม.");
     expect(blob).not.toMatch(/120\s*h|120\s*ชม|ulipristal|บาท|฿/i);
+  });
+  it("1663 hours in a quiz item must match the cited 09:00–21:00 window", () => {
+    const wrong = clone("QZ-04", { explanation_th: "โทร 1663 ปรึกษาฟรี ทุกวัน 09:00–21:00 น. เวลา 08:00–22:00" });
+    expect(validateQuizItems([wrong]).map((i) => i.rule)).toContain("hours_match_source");
+    const holiday = clone("QZ-04", { explanation_th: "โทร 1663 ปรึกษาฟรี ทุกวัน 09:00–21:00 น. รวมวันหยุด" });
+    expect(validateQuizItems([holiday]).map((i) => i.rule)).toContain("hours_1663");
   });
   it("QZ-02 and QZ-03 cannot drop to age_min 15", () => {
     expect(validateQuizItems([clone("QZ-02", { age_min: 15 })]).map((i) => i.rule)).toContain("age_min");
     expect(validateQuizItems([clone("QZ-03", { age_min: 15 })]).map((i) => i.rule)).toContain("age_min");
+  });
+  it("ship gate: reviewed copy rejects PLACEHOLDER/unapproved quiz items", () => {
+    expect(validateQuizItems(QUIZ_ITEMS, QUIZ_FILE_LICENCE, "reviewed").every((i) => i.rule === "ship_gate")).toBe(true);
+    expect(validateQuizItems(QUIZ_ITEMS, QUIZ_FILE_LICENCE, "reviewed")).toHaveLength(7);
+    expect(validateQuizItems([clone("QZ-01", { status: "approved" })], QUIZ_FILE_LICENCE, "reviewed")).toEqual([]);
+    expect(validateQuizItems(QUIZ_ITEMS)).toEqual([]);
   });
 });
 
@@ -150,5 +193,32 @@ describe("session flow: explain, next, stop, wrap-up with no score", () => {
     const done = answerOrder(at);
     expect(choiceWasCorrect(done)).toBe(true);
     expect(done.phase).toBe("explain");
+  });
+});
+
+describe("wrong-answer view is verdict + neutral explanation, never praise", () => {
+  it("every item's wrong-answer view uses ยังไม่ถูก and contains no praise phrase", () => {
+    expect(QUIZ_OK).toBe("ถูกต้อง");
+    expect(QUIZ_NO).toBe("ยังไม่ถูก");
+    for (const q of QUIZ_ITEMS) {
+      const view = `${QUIZ_NO}\n${q.explanation_th}`;
+      expect(view, q.id).not.toMatch(QUIZ_PRAISE);
+      expect(view, q.id).toContain(QUIZ_NO);
+      expect(view, q.id).not.toContain(QUIZ_OK);
+      expect(q.explanation_th, q.id).not.toMatch(QUIZ_PRAISE);
+    }
+  });
+  it("QZ-03 shuffled-order immediate confirm is wrong and not praise", () => {
+    let s = startQuiz("18+", "contraception", QUIZ_ITEMS, () => 0.99)!;
+    expect(s.items.some((q) => q.id === "QZ-03")).toBe(true);
+    s = answerChoice(s, 0);
+    s = advanceQuiz(s, () => 0.99);
+    expect(currentItem(s).id).toBe("QZ-03");
+    expect(s.order).not.toEqual([0, 1, 2, 3, 4]);
+    const done = answerOrder(s);
+    expect(choiceWasCorrect(done)).toBe(false);
+    const view = `${QUIZ_NO}\n${currentItem(done).explanation_th}`;
+    expect(view).not.toMatch(QUIZ_PRAISE);
+    expect(view).toContain(QUIZ_NO);
   });
 });
