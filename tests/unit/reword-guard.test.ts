@@ -116,16 +116,22 @@ describe("reword validator: details", () => {
     const d = mk("t.crisis.006", "ข้อความทดสอบ ถ้ารู้สึกอยากตาย โทร 1323 ได้ตลอดเวลา", ["1323"]);
     expect(rewordFailures(d, `${d.answer_th}นะ`, ctx)).toEqual([]);
   });
-  it("a particle at a mid-card clause end (before a space) is accepted", () => {
+  it("a particle at a mid-sentence space is not accepted", () => {
     const d = mk("t.mid.007", "ข้อความทดสอบ คุยกับเจ้าหน้าที่ได้ เป็นความลับ", ["เจ้าหน้าที่"]);
     const out = d.answer_th.replace("ได้ ", "ได้นะ ");
+    expect(rewordFailures(d, out, ctx)).toContain("particles");
+    expect(acceptReword(d, out, ctx).reworded).toBe(false);
+  });
+  it("at most one particle per sentence; นะค่ะ at the end falls back", () => {
+    const d = mk("t.cap.008", "ข้อความทดสอบ คุยกับเจ้าหน้าที่ได้", ["เจ้าหน้าที่"]);
+    expect(rewordFailures(d, `${d.answer_th}นะค่ะ`, ctx)).toContain("particles");
+    expect(rewordFailures(d, `${d.answer_th}นะค่ะจ้ะ`, ctx)).toContain("particles");
+  });
+  it("card text + นะ at the very end is accepted", () => {
+    const d = mk("t.end.009", "ข้อความทดสอบ คุยกับเจ้าหน้าที่ได้", ["เจ้าหน้าที่"]);
+    const out = `${d.answer_th}นะ`;
     expect(rewordFailures(d, out, ctx)).toEqual([]);
     expect(acceptReword(d, out, ctx)).toEqual({ text: out, reworded: true, failures: [] });
-  });
-  it("two particles at the end of one sentence are accepted; a third is not", () => {
-    const d = mk("t.cap.008", "ข้อความทดสอบ คุยกับเจ้าหน้าที่ได้", ["เจ้าหน้าที่"]);
-    expect(rewordFailures(d, `${d.answer_th}นะค่ะ`, ctx)).toEqual([]);
-    expect(rewordFailures(d, `${d.answer_th}นะค่ะจ้ะ`, ctx)).toContain("particles");
   });
   it("particle-only rewords of rewordable bank cards are counted (fail-closed share)", () => {
     const cards = BANK.filter((b) => b.reword);

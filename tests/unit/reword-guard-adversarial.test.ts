@@ -167,8 +167,86 @@ describe("reword guard adversarial cases: reorder, deletion, role and particle p
     mustFallback(c, "ข้อความทดสอบ เลยปรึกษาเภสัชกรที่ร้านขายยา");
   });
 
-  it("more than two particles in one sentence is not shown", () => {
+  it("more than one particle per sentence is not shown", () => {
     const c = mk("t.adv.cap", "ข้อความทดสอบ คุยกับเจ้าหน้าที่ได้", ["เจ้าหน้าที่"]);
     mustFallback(c, `${c.answer_th}นะค่ะจ้ะ`);
   });
+
+  it.each(["ec.p000", "pregnancy.p000", "contraception.p000", "consent.p000"] as const)(
+    "%s with แล้ว after ข้อความจริงรอผู้เชี่ยวชาญตรวจ falls back",
+    (id) => {
+      const c = card(id);
+      mustFallback(c, c.answer_th.replace("ข้อความจริงรอผู้เชี่ยวชาญตรวจ", "ข้อความจริงรอผู้เชี่ยวชาญตรวจแล้ว"));
+    },
+  );
+
+  it("…ไม่ถูกตัดสินแล้ว on pregnancy.p000 falls back", () => {
+    const c = card("pregnancy.p000");
+    mustFallback(c, c.answer_th.replace("ไม่ถูกตัดสิน", "ไม่ถูกตัดสินแล้ว"));
+  });
+
+  it("คุณมีสิทธิ์ปฏิเสธเสมอแล้ว on consent.p000 falls back", () => {
+    const c = card("consent.p000");
+    mustFallback(c, c.answer_th.replace("คุณมีสิทธิ์ปฏิเสธเสมอ", "คุณมีสิทธิ์ปฏิเสธเสมอแล้ว"));
+  });
+
+  it("แล้ว after a verb falls back", () => {
+    const c = mk("t.adv.laewverb", "ข้อความทดสอบ ปรึกษาเภสัชกรที่ร้านขายยา", ["เภสัชกร"]);
+    mustFallback(c, "ข้อความทดสอบ ปรึกษาแล้วเภสัชกรที่ร้านขายยา");
+  });
+
+  it("คะ at the end falls back", () => {
+    const c = mk("t.adv.kha", "ข้อความทดสอบ คุยกับเจ้าหน้าที่ได้", ["เจ้าหน้าที่"]);
+    mustFallback(c, `${c.answer_th}คะ`);
+  });
+
+  it("คุณมีสิทธิ์ปฏิเสธเสมอคะ? falls back (extra punctuation and คะ)", () => {
+    const c = card("consent.p000");
+    mustFallback(c, c.answer_th.replace("คุณมีสิทธิ์ปฏิเสธเสมอ", "คุณมีสิทธิ์ปฏิเสธเสมอคะ?"));
+  });
+
+  it("ec …ให้เร็วที่สุดคะ? falls back", () => {
+    const c = card("ec.p000");
+    mustFallback(c, c.answer_th.replace("ให้เร็วที่สุด", "ให้เร็วที่สุดคะ?"));
+  });
+
+  it("ec …ให้เร็วที่สุดนะ? falls back when the card has no ?", () => {
+    const c = card("ec.p000");
+    mustFallback(c, `${c.answer_th}นะ?`);
+  });
+
+  it("junk punctuation after an added particle falls back", () => {
+    const c = mk("t.adv.junk", "ข้อความทดสอบ ตรวจภายใน 72 ชั่วโมง", ["72 ชั่วโมง"]);
+    mustFallback(c, "ข้อความทดสอบ ตรวจนะ\"\"))]] ภายใน 72 ชั่วโมง");
+  });
+
+  it("'ตรวจ แล้ว ตอนนี้…' falls back", () => {
+    const c = card("ec.p000");
+    mustFallback(c, c.answer_th.replace("ตรวจ ตอนนี้", "ตรวจ แล้ว ตอนนี้"));
+  });
+
+  it("'ไม่ แล้ว ต้องรอ' falls back", () => {
+    const c = mk("t.adv.laewspace", "ข้อความทดสอบ ไม่ต้องรอผู้เชี่ยวชาญ", ["ผู้เชี่ยวชาญ"]);
+    mustFallback(c, "ข้อความทดสอบ ไม่ แล้ว ต้องรอผู้เชี่ยวชาญ");
+  });
+
+  it("'ภายใน 72 นะ ชั่วโมง' falls back", () => {
+    const c = mk("t.adv.numspace", "ข้อความทดสอบ ภายใน 72 ชั่วโมง", ["72 ชั่วโมง"]);
+    mustFallback(c, "ข้อความทดสอบ ภายใน 72 นะ ชั่วโมง");
+  });
+
+  it("นะ at a mid-sentence space falls back", () => {
+    const c = mk("t.adv.midspace", "ข้อความทดสอบ คุยกับเจ้าหน้าที่ได้ เป็นความลับ", ["เจ้าหน้าที่"]);
+    mustFallback(c, "ข้อความทดสอบนะ คุยกับเจ้าหน้าที่ได้ เป็นความลับ");
+  });
+
+  it("card text + นะ at the very end is accepted", () => {
+    const c = mk("t.adv.endok", "ข้อความทดสอบ คุยกับเจ้าหน้าที่ได้", ["เจ้าหน้าที่"]);
+    const out = `${c.answer_th}นะ`;
+    const r = acceptReword(c, out, ctx);
+    expect(r.reworded).toBe(true);
+    expect(r.text).toBe(out);
+    expect(rewordFailures(c, out, ctx)).toEqual([]);
+  });
 });
+
