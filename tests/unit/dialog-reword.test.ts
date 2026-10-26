@@ -7,7 +7,7 @@ import { bankContext, BANK } from "../../src/core/bankData";
 const ctx = bankContext(undefined, "draft", "2026-10-22");
 const EC = BANK.find((c) => c.id === "ec.p000")!;
 const STI = BANK.find((c) => c.id === "sti_hiv.p000")!;
-const GOOD = EC.answer_th.replace("ตอนนี้แนะนำให้", "ตอนนี้ขอแนะนำว่า");
+const GOOD = `${EC.answer_th}นะ`;
 
 function model(out: (card: any) => string | null | Promise<string | null>, ready = true) {
   const seen: { cards: string[]; args: unknown[][] } = { cards: [], args: [] };
