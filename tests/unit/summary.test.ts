@@ -10,8 +10,13 @@ describe("stripPII", () => {
     ["โทรหาหนูได้ที่ 081-234-5678 นะ", "081"],
     ["เบอร์ 0812345678", "0812345678"],
     ["+66 81 234 5678", "234"],
+    ["โทร +66 81 234 5678", "+66 81 234 5678"],
     ["โทร 08-1234-5678", "1234"],
     ["โทร ๐๘๑-๒๓๔-๕๖๗๘", "๐๘๑"],
+    ["โทร 08.12.34.56.78", "08.12.34.56.78"],
+    ["โทร 081.234.5678", "081.234.5678"],
+    ["โทร 081 - 234 - 5678", "081 - 234 - 5678"],
+    ["โทร 099-999-9999", "099-999-9999"],
     ["ไลน์ ploy_2009 ค่ะ", "ploy_2009"],
     ["ig: @ploy.cute", "ploy.cute"],
     ["อีเมล ploy@example.com", "ploy@example.com"],
@@ -28,6 +33,12 @@ describe("stripPII", () => {
   it("keeps ordinary text and short numbers", () => {
     expect(stripPII("ประจำเดือนมาช้า 2 อาทิตย์ อายุ 17 ปี")).toBe("ประจำเดือนมาช้า 2 อาทิตย์ อายุ 17 ปี");
     expect(stripPII("หนูไม่เชื่อว่าท้อง")).toBe("หนูไม่เชื่อว่าท้อง"); // เชื่อ ≠ ชื่อ
+  });
+  it("does not redact hour ranges (spaced, dotted, or en-dash)", () => {
+    expect(stripPII("เวลา 09:00 - 21:00 น.")).toBe("เวลา 09:00 - 21:00 น.");
+    expect(stripPII("เวลา 09.00-21.00")).toBe("เวลา 09.00-21.00");
+    expect(stripPII("เวลา 09:00–21:00 น.")).toBe("เวลา 09:00–21:00 น.");
+    expect(stripPII("เวลา 09.00–21.00 10.00-20.00")).toBe("เวลา 09.00–21.00 10.00-20.00");
   });
 });
 
@@ -49,6 +60,25 @@ describe("draftSummary", () => {
     expect(d).not.toContain("0812345678");
     expect(d).toContain("กลัวท้อง");
   });
+  it("redacts dotted, spaced, +66 and Thai-digit phones from the handoff summary", () => {
+    const phones = [
+      "08.12.34.56.78",
+      "081.234.5678",
+      "081 - 234 - 5678",
+      "+66 81 234 5678",
+      "๐๘๑-๒๓๔-๕๖๗๘",
+      "099-999-9999",
+    ];
+    const summary = draftSummary({
+      service: s1663,
+      needText: `กลัวท้อง โทร ${phones.join(" ")}`,
+      intent: "pregnancy",
+      ageBand: "15-17",
+    });
+    for (const phone of phones) expect(summary, phone).not.toContain(phone);
+    expect(finalizeSummary(summary)).not.toMatch(/08\.12|081\.234|081 - 234|\+66 81|๐๘๑|099-999/);
+    expect(summary).toContain("กลัวท้อง");
+  });
   it("is short", () => {
     expect(clip("ก".repeat(500)).length).toBeLessThanOrEqual(MAX_NEED_CHARS + 1);
     expect(d.length).toBeLessThan(450);
@@ -56,6 +86,20 @@ describe("draftSummary", () => {
   it("finalizeSummary strips PII typed into the editor at approval time", () => {
     const edited = d + "\nติดต่อกลับ 089-999-1111";
     expect(finalizeSummary(edited)).not.toContain("089-999-1111");
+  });
+  it("brand names, honorifics and a sentence-start capital survive the staff summary unchanged", () => {
+    const need = "Postinor Durex Plan B Teen Clinic นายแพทย์ นายจ้างไม่ให้ลาไปหาหมอ Yesterday I felt worried";
+    expect(stripPII(need)).toBe(need);
+    const summary = draftSummary({
+      service: s1663,
+      needText: need,
+      intent: "emergency_contraception",
+      ageBand: "15-17",
+    });
+    for (const keep of ["Postinor", "Durex", "Plan B", "Teen Clinic", "นายแพทย์", "นายจ้างไม่ให้ลาไปหาหมอ", "Yesterday"]) {
+      expect(summary).toContain(keep);
+    }
+    expect(summary).not.toContain("[ลบข้อมูลส่วนตัว]");
   });
 });
 

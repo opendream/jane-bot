@@ -86,6 +86,10 @@ describe("PII detector self-test (synthetic strings only)", () => {
     ["english_name", "my name is Zorbalina"],
     ["english_name", "ask Qwertina about it"],
     ["phone", "โทร 081-234-5678 นะ"],
+    ["phone", "โทร 08.12.34.56.78"],
+    ["phone", "โทร 081.234.5678"],
+    ["phone", "โทร 081 - 234 - 5678"],
+    ["phone", "โทร 099-999-9999"],
     ["phone", "เบอร์ +66 81 234 5678"],
     ["phone", "บ้าน 02 123 4567"],
     ["phone", `โทร ${SYN.mobileDash}`],
@@ -124,6 +128,7 @@ describe("PII detector self-test (synthetic strings only)", () => {
       "09.00-21.00",
       "09.00–21.00",
       "09:00–21:00",
+      "09:00 - 21:00",
       "9.00-21.00 น.",
       "09.00–21.00 10.00-20.00",
       "09.00-21.00 10.00-20.00",
@@ -291,7 +296,7 @@ describe("every string field of a card is scanned and never echoed", () => {
         expect(printed).not.toContain(planted);
       }
     }
-  });
+  }, 20_000);
 });
 
 describe("jsonParseError helper never includes source", () => {

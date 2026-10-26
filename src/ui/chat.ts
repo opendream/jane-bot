@@ -36,6 +36,8 @@ export interface ChatHooks {
   crisis(categories: CrisisCategory[]): void;
   /** Referral offer accepted (PR5 wires this to the service cards). */
   referral?(intents: Intent[]): void;
+  /** App-level generation (NeedGate seq). Bumped on erase, quick exit, SOS, openChat. */
+  seq?(): number;
 }
 
 export function newChat(ageBand: AgeBand, model: DialogModel | null): ChatState {
@@ -61,20 +63,38 @@ function fromReply(r: TurnReply): ChatMsg | null {
   return null;
 }
 
-/** Send one message. Crisis is decided inside runTurn() before anything else. */
+function chatDelayMs(): number {
+  try { return Number(new URLSearchParams(location.search).get("chatDelayMs") || 0); } catch { return 0; }
+}
+
+/** Send one message. Crisis is decided inside runTurn() before anything else, including after the hard cap. */
 export async function sendToChat(chat: ChatState, text: string, hooks: ChatHooks): Promise<void> {
   const t = text.trim();
-  if (!t || chat.readOnly) return;
+  if (!t) return;
+  const mine = hooks.seq?.() ?? -1;
+  const owns = () => hooks.seq == null || hooks.seq() === mine;
+  if (chat.readOnly) {
+    if (chatDelayMs() > 0) await new Promise((r) => setTimeout(r, chatDelayMs()));
+    if (!owns()) return;
+    const reply = await chat.session.send(t);
+    if (!owns()) return;
+    if (reply?.kind === "crisis") hooks.crisis(reply.categories);
+    return;
+  }
   chat.draft = "";
   push(chat, { from: "user", text: t });
   chat.busy = true; hooks.rerender();
+  if (chatDelayMs() > 0) await new Promise((r) => setTimeout(r, chatDelayMs()));
+  if (!owns()) { chat.busy = false; return; }
   const reply = await chat.session.send(t);
+  if (!owns()) { chat.busy = false; return; } // erase / quick exit / SOS / openChat bumped the seq: drop, no rerender
   chat.busy = false;
   if (!reply) return; // superseded by a newer message
   if (reply.kind === "crisis") { hooks.crisis(reply.categories); return; }
   if (reply.kind === "readonly" || (reply.kind === "card" && reply.capNotice === "hard")) chat.readOnly = true;
   push(chat, fromReply(reply));
   hooks.rerender();
+  if (reply.kind === "referral") hooks.referral?.(reply.intents);
 }
 
 function strip(categories: CrisisCategory[]) {
@@ -102,7 +122,7 @@ function bubble(m: ChatMsg, i: number, last: boolean, chat: ChatState, hooks: Ch
 
 export function chatView(chat: ChatState, hooks: ChatHooks): HTMLElement {
   const ta = h("textarea", { "data-testid": "chat-input", rows: 2, maxlength: 600, autocomplete: "off", spellcheck: "false",
-    placeholder: "พิมพ์ได้เลย ไม่ต้องบอกชื่อ เบอร์ หรือโรงเรียน", value: chat.draft, disabled: chat.readOnly }) as HTMLTextAreaElement;
+    placeholder: "พิมพ์ได้เลย ไม่ต้องบอกชื่อ เบอร์ หรือโรงเรียน", value: chat.draft }) as HTMLTextAreaElement;
   ta.addEventListener("input", () => { chat.draft = ta.value; });
   const submit = (e?: Event) => { e?.preventDefault(); void sendToChat(chat, ta.value, hooks); };
   ta.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey && !(e as KeyboardEvent).isComposing) submit(e); });
@@ -110,8 +130,9 @@ export function chatView(chat: ChatState, hooks: ChatHooks): HTMLElement {
   return h("main", { class: "screen chat", "data-testid": "screen-chat" },
     h("div", { class: "chat-log", "data-testid": "chat-log", "aria-live": "polite" }, ...chat.messages.map((m, i) => bubble(m, i, i === n - 1, chat, hooks))),
     chat.busy && h("p", { class: "note", "data-testid": "chat-busy" }, "พี่เจนกำลังพิมพ์…"),
+    chat.readOnly && h("p", { class: "note", "data-testid": "cap-hard" }, "แชทนี้ยาวมากแล้ว ตอนนี้ส่งข้อความเพิ่มไม่ได้ คุยกับเจ้าหน้าที่ตัวจริง หรือกดลบแชทเพื่อเริ่มใหม่ได้"),
     h("form", { class: "chat-form", onsubmit: submit },
       h("label", { class: "sr", for: "chat-input" }, "ข้อความถึงพี่เจน"), ta,
-      h("button", { class: "btn-primary", type: "submit", "data-testid": "chat-send", disabled: chat.readOnly }, "ส่ง")),
+      h("button", { class: "btn-primary", type: "submit", "data-testid": "chat-send" }, "ส่ง")),
   );
 }
