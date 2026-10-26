@@ -2,8 +2,9 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import data from "../../src/data/services.json";
-import { PREFERENCE, SERVICES, suggestServices } from "../../src/core/referral";
+import { PREFERENCE, SERVICES, suggestServices, canPrepareMessage } from "../../src/core/referral";
 import { hoursCitation, hoursLabel, isOpenAt, narrowestHours, openStatus } from "../../src/core/openNow";
+import { draftSummary } from "../../src/core/summary";
 
 const root = path.resolve(__dirname, "../..");
 const read = (...parts: string[]) => fs.readFileSync(path.join(root, ...parts), "utf8");
@@ -114,24 +115,60 @@ describe("fact-check (23 Oct 2026)", () => {
     }
   });
 
-  it("(h) female-officer line is ขอ…ได้, never with 191", () => {
-    const files = scanned;
-    let hits = 0;
-    for (const f of files) {
-      for (const line of read(f).split("\n")) {
-        if (!/พนักงานสอบสวนหญิง/.test(line)) continue;
-        hits += 1;
-        expect(line, f).toMatch(/ขอ.{0,40}ได้/);
-        expect(line, f).not.toContain("191");
-        expect(line, f).not.toMatch(/รับประกัน|ต้องได้|มีสิทธิ์?ได้แน่/);
+  it("(h) no female-officer / s.133 line on cards (absent on 2fe35a3)", () => {
+    for (const f of scanned) {
+      const text = read(f);
+      expect(text, f).not.toMatch(/พนักงานสอบสวนหญิง/);
+      expect(text, f).not.toMatch(/crisis-female-officer/);
+      expect(text, f).not.toMatch(/มาตรา\s*133|ส\.?\s*133|CrPC\s*s\.?\s*133/i);
+    }
+  });
+
+  it("(j) 1663 copy has ปรึกษาฟรี and daily hours, never รวมวันหยุด; สปสช. does not cover ฟรี or กด 2", () => {
+    const s1663 = (data.services as any[]).find((s) => s.id === "hotline_1663")!;
+    expect(JSON.stringify(s1663)).not.toContain("รวมวันหยุด");
+    expect(s1663.description_th).toContain("ปรึกษาฟรี");
+    expect(s1663.description_th).toContain("09:00–21:00");
+    const main = read("src/main.ts");
+    expect(main).not.toMatch(/1663[\s\S]{0,120}รวมวันหยุด|รวมวันหยุด[\s\S]{0,80}1663/);
+    for (const win of windowsAround(main, "1663", 80)) {
+      expect(win, win).not.toContain("รวมวันหยุด");
+    }
+    const nhsoEnd = s1663.description_th.indexOf("(ข้อมูล สปสช.)");
+    expect(nhsoEnd).toBeGreaterThan(0);
+    const nhsoClaim = s1663.description_th.slice(0, nhsoEnd);
+    expect(nhsoClaim).toContain("กด 1");
+    expect(nhsoClaim).not.toMatch(/ปรึกษาฟรี|กด 2/);
+    expect(s1663.description_th).toMatch(/กด 2[\s\S]{0,40}ข้อมูล กรมประชาสัมพันธ์/);
+    expect(s1663.description_th).toMatch(/ปรึกษาฟรี[\s\S]{0,40}ข้อมูล กรมประชาสัมพันธ์/);
+    const prd = s1663.sources.find((x: { url: string }) => /prd\.go\.th/.test(x.url))!;
+    expect(prd.title).toContain("ให้คำปรึกษาฟรีทุกวัน เวลา 09.00-21.00 น.");
+    expect(prd.title).not.toContain("รวมวันหยุด");
+    for (const win of windowsAround(main, "(ข้อมูล สปสช.)", 60)) {
+      if (!win.includes("1663") && !win.includes("serviceHoursLabel")) continue;
+      expect(win, win).not.toMatch(/ปรึกษาฟรี[\s\S]{0,40}\(ข้อมูล สปสช\.\)/);
+    }
+  });
+
+  it("(k) in-person-only services cannot yield a handoff draft containing ออนไลน์", () => {
+    const inPersonOnly = SERVICES.filter((s) => s.channels.length > 0 && s.channels.every((c) => c.type === "in_person"));
+    expect(inPersonOnly.map((s) => s.id)).toContain("oscc_hospital");
+    for (const s of inPersonOnly) {
+      expect(canPrepareMessage(s), s.id).toBe(false);
+    }
+    for (const s of SERVICES) {
+      if (!canPrepareMessage(s)) continue;
+      const draft = draftSummary({
+        service: s,
+        needText: "ข้อความทดสอบ อยากคุยกับเจ้าหน้าที่",
+        intent: "violence",
+        ageBand: "unspecified",
+      });
+      if (s.channels.every((c) => c.type === "in_person")) {
+        expect(draft, s.id).not.toContain("ออนไลน์");
       }
     }
-    expect(hits).toBeGreaterThan(0);
-    const cri12 = read("src/main.ts").split("\n").find((l) => l.includes("พนักงานสอบสวนหญิง"));
-    expect(cri12).toBeTruthy();
-    expect(cri12).toContain("data-testid");
-    expect(cri12).not.toContain("191");
-    expect(cri12).not.toContain("tel:191");
+    expect(read("src/main.ts")).toMatch(/canPrepareMessage\(s\.service\) && h\("button"/);
   });
 
   it("(i) 1300 is พม. 24 h every day and never ศูนย์พึ่งได้", () => {
