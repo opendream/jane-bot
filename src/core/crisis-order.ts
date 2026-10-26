@@ -22,3 +22,11 @@ export function crisisOrder(categories: CrisisCategory[]): string[] {
   if (unique.length !== 1) return [...ALL_FOUR];
   return [...CRISIS_PRIORITY[unique[0]]];
 }
+
+/** Thai "call now" line for a full crisis screen: same numbers and order as the buttons. */
+export function crisisCallNowLine(categories: CrisisCategory[]): string {
+  const nums = crisisOrder(categories);
+  if (nums.length === 1) return `โทร ${nums[0]} ทันที`;
+  if (nums.length === 2) return `โทร ${nums[0]} หรือ ${nums[1]} ทันที`;
+  return `โทร ${nums.slice(0, -1).join(", ")} หรือ ${nums[nums.length - 1]} ทันที`;
+}
