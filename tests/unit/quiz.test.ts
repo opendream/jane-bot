@@ -65,7 +65,7 @@ describe("validator rules", () => {
     expect(blob).not.toMatch(/120\s*h|120\s*ชม|ulipristal|บาท|฿/i);
   });
   it("1663 hours in a quiz item must match the cited 09:00–21:00 window", () => {
-    const wrong = clone("QZ-04", { explanation_th: "โทร 1663 ปรึกษาฟรี ทุกวัน 09:00–21:00 น. เวลา 10:00–20:00" });
+    const wrong = clone("QZ-04", { explanation_th: "โทร 1663 ปรึกษาฟรี ทุกวัน 09:00–21:00 น. เวลา 08:00–22:00" });
     expect(validateQuizItems([wrong]).map((i) => i.rule)).toContain("hours_match_source");
     const holiday = clone("QZ-04", { explanation_th: "โทร 1663 ปรึกษาฟรี ทุกวัน 09:00–21:00 น. รวมวันหยุด" });
     expect(validateQuizItems([holiday]).map((i) => i.rule)).toContain("hours_1663");
