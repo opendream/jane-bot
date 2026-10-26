@@ -55,7 +55,7 @@ export const BANK_TEXT_LICENCE = "CC-BY-SA-4.0";
 export function checkBankTextLicence(cards: BankCard[]): Issue[] {
   return cards
     .filter((c) => !isStr(c?.licence) || c.licence !== BANK_TEXT_LICENCE)
-    .map((c) => ({ level: "error" as const, card: isStr(c?.id) ? c.id : "(no id)", rule: "licence", msg: `licence must be ${BANK_TEXT_LICENCE}` }));
+    .map((c) => ({ level: "error" as const, card: safeCardId(c?.id), rule: "licence", msg: `licence must be ${BANK_TEXT_LICENCE}` }));
 }
 
 /** Eval question-set JSON files (46-item seed+paraphrase, plus the crisis FP probe). */
