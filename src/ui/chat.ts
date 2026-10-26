@@ -7,7 +7,6 @@ import { BANK, cardsForSession, bankContext } from "../core/bankData";
 import { THAI_COPY_STATUS } from "../config";
 import { QUIZ_CHIP, hasRelatedQuiz, quizCopyStatus, startQuiz, type QuizSession } from "../core/quiz";
 import { h } from "./dom";
-import { emptyChatArt, janeImg } from "./jane";
 import { quizPanel } from "./quiz";
 
 /* Multi-turn chat screen (plan §3, §5). Memory only: the transcript lives in this object and is
@@ -138,21 +137,18 @@ function bubble(m: ChatMsg, i: number, last: boolean, chat: ChatState, hooks: Ch
   if (m.from === "user") return h("div", { class: "msg user", "data-testid": "chat-msg", "data-from": "user" }, h("p", {}, m.text));
   const shown = m.reworded && m.showOriginal ? m.original! : m.text;
   return h("div", { class: "msg jane", "data-testid": "chat-msg", "data-from": "jane", "data-card": m.cardId ?? "", "data-reworded": String(!!m.reworded) },
-    janeImg("avatar96"),
-    h("div", { class: "msg-body" },
-      m.banner?.length ? strip(m.banner) : null,
-      m.placeholder && h("span", { class: "tag placeholder", "data-testid": "placeholder-tag" }, "PLACEHOLDER · เนื้อหาตัวอย่าง ยังไม่ใช่ข้อมูลจริง"),
-      h("p", { "data-testid": "chat-text" }, shown),
-      m.reworded && h("p", { class: "note", "data-testid": "reword-note" }, "เรียบเรียงโดยโมเดลในเครื่อง ",
-        h("button", { class: "link", "data-testid": "show-original", onclick: () => { m.showOriginal = !m.showOriginal; hooks.rerender(); } }, m.showOriginal ? "ดูฉบับเรียบเรียง" : "ดูข้อความต้นฉบับ")),
-      m.cap === "soft" && h("p", { class: "note", "data-testid": "cap-soft" }, `คุยกันมา ${SOFT_CAP} ข้อความแล้ว ลองคุยกับเจ้าหน้าที่ตัวจริง หรือกดลบแชทเพื่อเริ่มใหม่ก็ได้นะ`),
-      last && !chat.readOnly && !chat.quiz && m.chips?.length ? h("div", { class: "chips" }, ...m.chips.map((c, k) =>
-        h("button", { class: "chip", "data-testid": `chat-chip-${k}`, onclick: () => sendToChat(chat, c.label_th, hooks) }, c.label_th))) : null,
-      last && !chat.readOnly && !chat.busy && !chat.quiz && m.cardId && hasRelatedQuiz(BANK.find((c) => c.id === m.cardId)?.topic, chat.session.state.ageBand, undefined, quizCopyStatus())
-        ? h("button", { class: "chip", "data-testid": "quiz-start", type: "button", onclick: () => beginQuiz(chat, BANK.find((c) => c.id === m.cardId)?.topic ?? null, hooks) }, QUIZ_CHIP) : null,
-      last && m.offer && m.offer !== "none" && hooks.referral && !chat.quiz ? h("button", { class: m.offer === "strong" ? "btn-primary" : "btn-ghost", "data-testid": "chat-offer",
-        onclick: () => hooks.referral!(m.offerIntents ?? ["other"], m.banner) }, "ให้พี่ช่วยหาที่ปรึกษาที่เปิดอยู่ตอนนี้ไหม") : null,
-    ),
+    m.banner?.length ? strip(m.banner) : null,
+    m.placeholder && h("span", { class: "tag placeholder", "data-testid": "placeholder-tag" }, "PLACEHOLDER · เนื้อหาตัวอย่าง ยังไม่ใช่ข้อมูลจริง"),
+    h("p", { "data-testid": "chat-text" }, shown),
+    m.reworded && h("p", { class: "note", "data-testid": "reword-note" }, "เรียบเรียงโดยโมเดลในเครื่อง ",
+      h("button", { class: "link", "data-testid": "show-original", onclick: () => { m.showOriginal = !m.showOriginal; hooks.rerender(); } }, m.showOriginal ? "ดูฉบับเรียบเรียง" : "ดูข้อความต้นฉบับ")),
+    m.cap === "soft" && h("p", { class: "note", "data-testid": "cap-soft" }, `คุยกันมา ${SOFT_CAP} ข้อความแล้ว ลองคุยกับเจ้าหน้าที่ตัวจริง หรือกดลบแชทเพื่อเริ่มใหม่ก็ได้นะ`),
+    last && !chat.readOnly && !chat.quiz && m.chips?.length ? h("div", { class: "chips" }, ...m.chips.map((c, k) =>
+      h("button", { class: "chip", "data-testid": `chat-chip-${k}`, onclick: () => sendToChat(chat, c.label_th, hooks) }, c.label_th))) : null,
+    last && !chat.readOnly && !chat.busy && !chat.quiz && m.cardId && hasRelatedQuiz(BANK.find((c) => c.id === m.cardId)?.topic, chat.session.state.ageBand, undefined, quizCopyStatus())
+      ? h("button", { class: "chip", "data-testid": "quiz-start", type: "button", onclick: () => beginQuiz(chat, BANK.find((c) => c.id === m.cardId)?.topic ?? null, hooks) }, QUIZ_CHIP) : null,
+    last && m.offer && m.offer !== "none" && hooks.referral && !chat.quiz ? h("button", { class: m.offer === "strong" ? "btn-primary" : "btn-ghost", "data-testid": "chat-offer",
+      onclick: () => hooks.referral!(m.offerIntents ?? ["other"], m.banner) }, "ให้พี่ช่วยหาที่ปรึกษาที่เปิดอยู่ตอนนี้ไหม") : null,
   );
 }
 
@@ -163,10 +159,8 @@ export function chatView(chat: ChatState, hooks: ChatHooks): HTMLElement {
   const submit = (e?: Event) => { e?.preventDefault(); void sendToChat(chat, ta.value, hooks); };
   ta.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey && !(e as KeyboardEvent).isComposing) submit(e); });
   const n = chat.messages.length;
-  const empty = !chat.quiz && !chat.messages.some((m) => m.from === "user");
   return h("main", { class: "screen chat", "data-testid": "screen-chat" },
     h("div", { class: "chat-log", "data-testid": "chat-log", "aria-live": "polite" },
-      empty ? emptyChatArt() : null,
       ...chat.messages.map((m, i) => bubble(m, i, i === n - 1 && !chat.quiz, chat, hooks))),
     chat.quiz && quizPanel(chat.quiz, { update: (next) => applyQuizUpdate(chat, next, hooks) }),
     chat.busy && h("p", { class: "note", "data-testid": "chat-busy" }, "พี่เจนกำลังพิมพ์…"),
