@@ -1,19 +1,23 @@
 import { describe, it, expect } from "vitest";
-import type { Intent } from "../../src/core/types";
+import type { CrisisCategory, Intent } from "../../src/core/types";
 import { HARD_CAP, newNeedGate, bumpNeed } from "../../src/core/dialog";
 import { newChat, sendToChat, type ChatHooks } from "../../src/ui/chat";
 
 // SYNTHETIC chat lines only.
 const FILLER = "อยากรู้เรื่องทั่วไปค่ะ";
+const EC_TEXT = "ถุงยางรั่ว คุมฉุกเฉินทันไหม";
+const NEWS_ASK = "ข่าววันนี้ เรื่องฆ่าตัวตาย อยากคุยกับเจ้าหน้าที่";
 
 function hooks() {
   const referralIntents: Intent[][] = [];
-  const h: ChatHooks & { crisisCalls: number; referralIntents: Intent[][] } = {
+  const referralBanners: CrisisCategory[][] = [];
+  const h: ChatHooks & { crisisCalls: number; referralIntents: Intent[][]; referralBanners: CrisisCategory[][] } = {
     crisisCalls: 0,
     referralIntents,
+    referralBanners,
     rerender: () => {},
     crisis: () => { h.crisisCalls++; },
-    referral: (intents) => { referralIntents.push(intents); },
+    referral: (intents, banner = []) => { referralIntents.push(intents); referralBanners.push(banner); },
   };
   return h;
 }
@@ -25,7 +29,27 @@ describe("chat send path", () => {
     await sendToChat(chat, "ช่วงนี้เครียดมาก นอนไม่หลับ", h);
     await sendToChat(chat, "อยากคุยกับเจ้าหน้าที่", h);
     expect(h.referralIntents).toEqual([["mental_health"]]);
+    expect(h.referralBanners).toEqual([[]]);
     expect(h.crisisCalls).toBe(0);
+  });
+
+  it("passes the chat's active crisis banner into referral (sticky after override, and topic-context banner)", async () => {
+    const afterCrisis = newChat("15-17", null);
+    const h1 = hooks();
+    await sendToChat(afterCrisis, EC_TEXT, h1);
+    await sendToChat(afterCrisis, "อยากตาย", h1);
+    expect(h1.crisisCalls).toBe(1);
+    expect(afterCrisis.session.state.crisisFired).toBe(true);
+    await sendToChat(afterCrisis, "อยากคุยกับเจ้าหน้าที่", h1);
+    expect(h1.referralIntents.at(-1)).toEqual(["emergency_contraception"]);
+    expect(h1.referralBanners.at(-1)).toEqual(["self_harm"]);
+
+    const news = newChat("18-24", null);
+    const h2 = hooks();
+    await sendToChat(news, NEWS_ASK, h2);
+    expect(h2.crisisCalls).toBe(0);
+    expect(h2.referralIntents).toHaveLength(1);
+    expect(h2.referralBanners[0]).toEqual(["self_harm"]);
   });
 
   it("after the hard cap, crisis text still reaches detection and shows the crisis card", async () => {

@@ -382,3 +382,58 @@ test("CH19 slow chat turn after erase then quick exit never renders and focus st
   await expect(page.getByTestId("screen-chat")).toHaveCount(0);
   expect(await page.locator("body").innerText()).not.toContain("อยากตาย");
 });
+
+test("CH20 after a crisis override, talk-to-a-person keeps the sticky strip and 1323 on the EC cards", async ({ page }) => {
+  await open(page, "19:00");
+  await openChat(page);
+  await say(page, EC_TEXT);
+  await expect(lastJane(page)).toHaveAttribute("data-card", "ec.p000");
+  await say(page, "อยากตาย");
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  await page.getByTestId("crisis-continue").click();
+  await expect(page.getByTestId("screen-chat")).toBeVisible();
+  await say(page, "อยากคุยกับเจ้าหน้าที่");
+  await expect(page.getByTestId("screen-suggest")).toBeVisible();
+  await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
+  const strip = page.getByTestId("crisis-banner");
+  await expect(strip).toBeVisible();
+  await expect(strip.locator('a[href="tel:1323"]')).toBeVisible();
+  await expect(page.getByTestId("service-hotline_1663")).toBeVisible();
+  await expect(page.getByTestId("service-teen_club")).toBeVisible();
+  await expect(page.getByTestId("service-yfhs")).toBeVisible();
+});
+
+test("CH21 news-topic suicide mention plus talk-to-a-person shows the strip from chat, not the crisis screen", async ({ page }) => {
+  await open(page, "19:00");
+  await openChat(page);
+  await say(page, "ข่าววันนี้ เรื่องฆ่าตัวตาย อยากคุยกับเจ้าหน้าที่");
+  await expect(page.getByTestId("screen-suggest")).toBeVisible();
+  await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
+  const strip = page.getByTestId("crisis-banner");
+  await expect(strip).toBeVisible();
+  await expect(strip.locator('a[href="tel:1323"]')).toBeVisible();
+});
+
+test("CH22 SOS from chat-opened cards or summary then I'm-safe-now returns to the same chat", async ({ page }) => {
+  await open(page, "19:00");
+  await openChat(page);
+  await say(page, EC_TEXT);
+  await expect(lastJane(page)).toHaveAttribute("data-card", "ec.p000");
+  await lastJane(page).getByTestId("chat-offer").click();
+  await expect(page.getByTestId("screen-suggest")).toBeVisible();
+  await page.getByTestId("sos").click();
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  await page.getByTestId("crisis-continue").click();
+  await expect(page.getByTestId("screen-chat")).toBeVisible();
+  await expect(page.getByTestId("screen-describe")).toHaveCount(0);
+  await expect(lastJane(page)).toHaveAttribute("data-card", "ec.p000");
+  await lastJane(page).getByTestId("chat-offer").click();
+  await page.getByTestId("pick-hotline_1663").click();
+  await expect(page.getByTestId("screen-summary")).toBeVisible();
+  await page.getByTestId("sos").click();
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  await page.getByTestId("crisis-continue").click();
+  await expect(page.getByTestId("screen-chat")).toBeVisible();
+  await expect(page.getByTestId("screen-describe")).toHaveCount(0);
+  await expect(lastJane(page)).toHaveAttribute("data-card", "ec.p000");
+});

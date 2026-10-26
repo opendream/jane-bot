@@ -201,18 +201,31 @@ const chatHooks = {
   // Crisis rules decided this before any model step; show the existing crisis screen.
   crisis: (categories: CrisisCategory[]) => { bumpNeed(need); go({ screen: "crisis", crisisCategories: categories, crisisFrom: "chat" }); },
   // In-chat referral (plan v2 §5): the same service cards, summary, approval and DEMO handoff as the one-shot flow.
-  referral: (intents: Intent[]) => openReferralFromChat(intents),
+  referral: (intents: Intent[], banner?: CrisisCategory[]) => openReferralFromChat(intents, banner),
   seq: () => need.seq,
 };
 
+/** Sticky strip from the current reply, else the session's crisisFired categories (same as later chat turns). */
+function chatCrisisBanner(passed?: CrisisCategory[]): CrisisCategory[] {
+  if (passed?.length) return passed;
+  const d = state.chat?.session.state;
+  return d?.crisisFired ? d.crisisCategories : [];
+}
+
 /** Her last chat message (PII-stripped) is the summary's need line; the chat itself stays in memory to return to. */
-function openReferralFromChat(intents: Intent[]) {
+function openReferralFromChat(intents: Intent[], banner?: CrisisCategory[]) {
   const lastUser = [...(state.chat?.messages ?? [])].reverse().find((m) => m.from === "user");
   const list = (intents.length ? intents : ["other"]) as Intent[];
   const result: IntentResult = { intents: list, scores: {}, source: "rules" };
-  go({ needText: lastUser ? stripPII(lastUser.text) : "", result, suggestions: suggestServices(list, new Date()), screen: "suggest", referralFrom: "chat", crisisBanner: [] });
+  go({ needText: lastUser ? stripPII(lastUser.text) : "", result, suggestions: suggestServices(list, new Date()), screen: "suggest", referralFrom: "chat", crisisBanner: chatCrisisBanner(banner) });
 }
 const backToChat = () => state.referralFrom === "chat" && !!state.chat;
+/** SOS from chat-opened cards/summary must land back in the same chat, not on describe. */
+function crisisContinueScreen(): Screen {
+  if (state.crisisFrom === "start") return "start";
+  if ((state.crisisFrom === "chat" || backToChat()) && state.chat) return "chat";
+  return "describe";
+}
 
 function chatScreen() {
   return chatView(state.chat!, chatHooks);
@@ -363,7 +376,7 @@ function crisisScreen() {
     callList(order),
     h("p", {}, "ถ้ากำลังอยู่ในอันตรายตอนนี้ โทร 191 หรือ 1669 ทันที เรื่องท้องหรือเอชไอวีโทร 1663 (09:00–21:00 น.)"),
     h("p", { class: "src" }, "ที่มา: กรมสุขภาพจิต, กระทรวง พม., GCC Call Center ภาครัฐ, ศูนย์รับแจ้งเหตุ 191 (ตรวจ 2026-10-22)"),
-    h("button", { class: "btn-ghost", "data-testid": "crisis-continue", onclick: () => { bumpNeed(need); go({ screen: state.crisisFrom === "start" ? "start" : state.crisisFrom === "chat" && state.chat ? "chat" : "describe" }); } },
+    h("button", { class: "btn-ghost", "data-testid": "crisis-continue", onclick: () => { bumpNeed(need); go({ screen: crisisContinueScreen() }); } },
       "ฉันปลอดภัยแล้ว กลับไปต่อ"),
   );
 }
