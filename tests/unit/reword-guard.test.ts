@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { acceptReword, rewordFailures, LENGTH, type RewordCheck } from "../../src/llm/rewordGuard";
+import { acceptReword, rewordFailures, type RewordCheck } from "../../src/llm/rewordGuard";
 import { bankContext, BANK } from "../../src/core/bankData";
 import { REFUSAL_CARDS } from "../../src/core/guard";
 import type { BankCard } from "../../src/core/bank";
@@ -26,46 +26,46 @@ const REWORDABLE = [...SYN, ...BANK.filter((c) => c.reword)];
 type Mut = [name: string, expect: RewordCheck, f: (c: BankCard) => string | null];
 const firstDigit = (s: string) => s.search(/\d/);
 const MUTATIONS: Mut[] = [
-  ["change a digit", "numbers", (c) => { const i = firstDigit(c.answer_th); return i < 0 ? null : c.answer_th.slice(0, i) + (c.answer_th[i] === "9" ? "8" : String(+c.answer_th[i] + 1)) + c.answer_th.slice(i + 1); }],
-  ["add a number", "numbers", (c) => `${c.answer_th} ภายใน 3 วัน`],
-  ["drop a number", "numbers", (c) => (firstDigit(c.answer_th) < 0 ? null : c.answer_th.replace(/\d+/, ""))],
-  ["Thai-digit swap still counts as the same number", "numbers", (c) => (firstDigit(c.answer_th) < 0 ? null : c.answer_th.replace(/\d/, (d) => String.fromCharCode(0x0e50 + ((+d + 1) % 10))))],
-  ["change the phone", "phones", (c) => (c.answer_th.includes("1663") ? c.answer_th.replace("1663", "1323") : null)],
-  ["add a phone", "phones", (c) => `${c.answer_th} หรือโทร 1300`],
-  ["add an unknown hotline", "phones", (c) => `${c.answer_th} โทร 1111`],
-  ["change the hours", "hours", (c) => (c.answer_th.includes("17:00–23:00") ? c.answer_th.replace("17:00–23:00", "17:00–22:00") : null)],
-  ["add hours", "hours", (c) => `${c.answer_th} เปิด 24 ชั่วโมง`],
-  ["add a URL", "links", (c) => `${c.answer_th} ดูที่ example.com/x`],
-  ["add a short link", "links", (c) => `${c.answer_th} https://bit.ly/abc`],
-  ["add a LINE id", "links", (c) => `${c.answer_th} ไลน์ไอดี abc123`],
-  ["change a handle", "links", (c) => (c.answer_th.includes("@teen_club") ? c.answer_th.replace("@teen_club", "@teen_club2") : null)],
-  ["add a drug", "medical_claims", (c) => `${c.answer_th} ใช้ยาปฏิชีวนะได้`],
-  ["add a dose", "medical_claims", (c) => `${c.answer_th} กินหนึ่งเม็ด`],
-  ["add a cure claim", "medical_claims", (c) => `${c.answer_th} รักษาหายขาด`],
-  ["add 'no need for a doctor'", "medical_claims", (c) => `${c.answer_th} ไม่ต้องไปหาหมอ`],
-  ["add a diagnosis", "medical_claims", (c) => `${c.answer_th} คุณติดเชื้อแล้ว`],
-  ["drop a key fact", "facts", (c) => (c.key_facts.length ? c.answer_th.split(c.key_facts[0]).join("") : null)],
-  ["negate next to a key fact", "negation", (c) => (c.key_facts.length && !/^\d/.test(c.key_facts[0]) ? c.answer_th.replace(c.key_facts[0], `อย่า${c.key_facts[0]}`) : null)],
-  ["double the length", "length", (c) => `${c.answer_th} ${c.answer_th}`],
-  ["cut to a stub", "length", (c) => c.answer_th.slice(0, Math.floor(c.answer_th.length * 0.4))],
-  ["over the hard cap", "length", (c) => `${c.answer_th} ${"ก".repeat(LENGTH.hardCap)}`],
-  ["two paragraphs", "paragraph", (c) => c.answer_th.replace(" ", "\n")],
-  ["explicit term", "banned", (c) => `${c.answer_th} เงี่ยน`],
-  ["roleplay framing", "banned", (c) => `${c.answer_th} *กอด*`],
-  ["judging word", "banned", (c) => `${c.answer_th} น่าอาย`],
-  ["dosing instruction", "banned", (c) => `${c.answer_th} กินครั้งละสองเม็ด`],
-  ["abortion method", "banned", (c) => `${c.answer_th} ใช้ยาทำแท้ง`],
-  ["crisis words", "crisis", (c) => `${c.answer_th} อยากตาย`],
-  ["PII: phone", "pii", (c) => `${c.answer_th} 081-234-5678`],
-  ["PII: name", "pii", (c) => `${c.answer_th} ชื่อสมศรี`],
-  ["PII: email", "pii", (c) => `${c.answer_th} a@b.co`],
-  ["English only", "english_only", () => "This is general information. Please talk to a pharmacist or call a hotline soon, it is confidential."],
+  ["change a digit", "particles", (c) => { const i = firstDigit(c.answer_th); return i < 0 ? null : c.answer_th.slice(0, i) + (c.answer_th[i] === "9" ? "8" : String(+c.answer_th[i] + 1)) + c.answer_th.slice(i + 1); }],
+  ["add a number", "particles", (c) => `${c.answer_th} ภายใน 3 วัน`],
+  ["drop a number", "particles", (c) => (firstDigit(c.answer_th) < 0 ? null : c.answer_th.replace(/\d+/, ""))],
+  ["Thai-digit swap is not the original text", "particles", (c) => (firstDigit(c.answer_th) < 0 ? null : c.answer_th.replace(/\d/, (d) => String.fromCharCode(0x0e50 + ((+d + 1) % 10))))],
+  ["change the phone", "particles", (c) => (c.answer_th.includes("1663") ? c.answer_th.replace("1663", "1323") : null)],
+  ["add a phone", "particles", (c) => `${c.answer_th} หรือโทร 1300`],
+  ["add an unknown hotline", "particles", (c) => `${c.answer_th} โทร 1111`],
+  ["change the hours", "particles", (c) => (c.answer_th.includes("17:00–23:00") ? c.answer_th.replace("17:00–23:00", "17:00–22:00") : null)],
+  ["add hours", "particles", (c) => `${c.answer_th} เปิด 24 ชั่วโมง`],
+  ["add a URL", "particles", (c) => `${c.answer_th} ดูที่ example.com/x`],
+  ["add a short link", "particles", (c) => `${c.answer_th} https://bit.ly/abc`],
+  ["add a LINE id", "particles", (c) => `${c.answer_th} ไลน์ไอดี abc123`],
+  ["change a handle", "particles", (c) => (c.answer_th.includes("@teen_club") ? c.answer_th.replace("@teen_club", "@teen_club2") : null)],
+  ["add a drug", "particles", (c) => `${c.answer_th} ใช้ยาปฏิชีวนะได้`],
+  ["add a dose", "particles", (c) => `${c.answer_th} กินหนึ่งเม็ด`],
+  ["add a cure claim", "particles", (c) => `${c.answer_th} รักษาหายขาด`],
+  ["add 'no need for a doctor'", "particles", (c) => `${c.answer_th} ไม่ต้องไปหาหมอ`],
+  ["add a diagnosis", "particles", (c) => `${c.answer_th} คุณติดเชื้อแล้ว`],
+  ["drop a key fact", "particles", (c) => (c.key_facts.length ? c.answer_th.split(c.key_facts[0]).join("") : null)],
+  ["negate next to a key fact", "particles", (c) => (c.key_facts.length && !/^\d/.test(c.key_facts[0]) ? c.answer_th.replace(c.key_facts[0], `อย่า${c.key_facts[0]}`) : null)],
+  ["double the length", "particles", (c) => `${c.answer_th} ${c.answer_th}`],
+  ["cut to a stub", "particles", (c) => c.answer_th.slice(0, Math.floor(c.answer_th.length * 0.4))],
+  ["over the hard cap", "particles", (c) => `${c.answer_th} ${"ก".repeat(450)}`],
+  ["two paragraphs", "particles", (c) => c.answer_th.replace(" ", "\n\n·")],
+  ["explicit term", "particles", (c) => `${c.answer_th} เงี่ยน`],
+  ["roleplay framing", "particles", (c) => `${c.answer_th} *กอด*`],
+  ["judging word", "particles", (c) => `${c.answer_th} น่าอาย`],
+  ["dosing instruction", "particles", (c) => `${c.answer_th} กินครั้งละสองเม็ด`],
+  ["abortion method", "particles", (c) => `${c.answer_th} ใช้ยาทำแท้ง`],
+  ["crisis words", "particles", (c) => `${c.answer_th} อยากตาย`],
+  ["PII: phone", "particles", (c) => `${c.answer_th} 081-234-5678`],
+  ["PII: name", "particles", (c) => `${c.answer_th} ชื่อสมศรี`],
+  ["PII: email", "particles", (c) => `${c.answer_th} a@b.co`],
+  ["English only", "particles", () => "This is general information. Please talk to a pharmacist or call a hotline soon, it is confidential."],
   ["<think> remnant", "think", (c) => `<think>ok</think>${c.answer_th}`],
   ["empty", "empty", () => "   "],
-  ["PLACEHOLDER mark dropped", "placeholder", (c) => (c.answer_th.includes("PLACEHOLDER") ? c.answer_th.replace("PLACEHOLDER", "") : null)],
+  ["PLACEHOLDER mark dropped", "particles", (c) => (c.answer_th.includes("PLACEHOLDER") ? c.answer_th.replace("PLACEHOLDER", "") : null)],
 ];
 
-describe("reword validator: identity and reviewed variants are accepted (100%)", () => {
+describe("reword validator: identity and particle-only variants are accepted (100%)", () => {
   it.each(REWORDABLE.map((c) => [c.id, c] as const))("%s: canonical text passes every check", (_id, c) => {
     expect(rewordFailures(c, c.answer_th, ctx)).toEqual([]);
     expect(acceptReword(c, c.answer_th, ctx)).toMatchObject({ text: c.answer_th, reworded: false }); // identical → not labelled reworded
@@ -102,17 +102,30 @@ describe("reword validator: details", () => {
     expect(rewordFailures(c, null, ctx)).toEqual(["empty"]);
     expect(acceptReword(c, undefined, ctx)).toMatchObject({ text: c.answer_th, reworded: false });
   });
-  it("Thai and Arabic digits are the same number", () => expect(rewordFailures(c, c.answer_th.replace("72", "๗๒"), ctx)).not.toContain("numbers"));
-  it("a new negation next to a key fact is rejected", () => {
-    expect(rewordFailures(c, c.answer_th.replace("ร้านขายยา", "ไม่ใช่ร้านขายยา"), ctx)).toContain("negation");
+  it("Thai digits are not accepted as a reword of Arabic digits", () => {
+    expect(rewordFailures(c, c.answer_th.replace("72", "๗๒"), ctx)).toContain("particles");
   });
-  it("a medical term already in the canonical text is not 'new' when no new words are added", () => {
+  it("a new negation next to a key fact is rejected", () => {
+    expect(rewordFailures(c, c.answer_th.replace("ร้านขายยา", "ไม่ใช่ร้านขายยา"), ctx)).toContain("particles");
+  });
+  it("a medical term already in the canonical text is kept when only a particle is added", () => {
     const d = mk("t.drug.005", "ข้อความทดสอบ ยาต้านไวรัสต้องปรึกษาแพทย์ก่อนเสมอ อย่าซื้อเอง", ["ปรึกษาแพทย์"]);
     expect(rewordFailures(d, `${d.answer_th}นะ`, ctx)).toEqual([]);
   });
-  it("crisis level may stay the same but never rise", () => {
+  it("crisis words already in the canonical text stay when only a particle is added", () => {
     const d = mk("t.crisis.006", "ข้อความทดสอบ ถ้ารู้สึกอยากตาย โทร 1323 ได้ตลอดเวลา", ["1323"]);
     expect(rewordFailures(d, `${d.answer_th}นะ`, ctx)).toEqual([]);
+  });
+  it("a particle at a mid-card clause end (before a space) is accepted", () => {
+    const d = mk("t.mid.007", "ข้อความทดสอบ คุยกับเจ้าหน้าที่ได้ เป็นความลับ", ["เจ้าหน้าที่"]);
+    const out = d.answer_th.replace("ได้ ", "ได้นะ ");
+    expect(rewordFailures(d, out, ctx)).toEqual([]);
+    expect(acceptReword(d, out, ctx)).toEqual({ text: out, reworded: true, failures: [] });
+  });
+  it("two particles at the end of one sentence are accepted; a third is not", () => {
+    const d = mk("t.cap.008", "ข้อความทดสอบ คุยกับเจ้าหน้าที่ได้", ["เจ้าหน้าที่"]);
+    expect(rewordFailures(d, `${d.answer_th}นะค่ะ`, ctx)).toEqual([]);
+    expect(rewordFailures(d, `${d.answer_th}นะค่ะจ้ะ`, ctx)).toContain("particles");
   });
   it("particle-only rewords of rewordable bank cards are counted (fail-closed share)", () => {
     const cards = BANK.filter((b) => b.reword);

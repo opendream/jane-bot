@@ -90,3 +90,85 @@ describe("reword guard adversarial cases (not from the mutator)", () => {
     mustFallback(c, `${c.answer_th} ยาเหน็บ`);
   });
 });
+
+describe("reword guard adversarial cases: reorder, deletion, role and particle placement", () => {
+  it("ec.p000 'ตอนนี้แนะนำให้รอ' is not shown (recombination)", () => {
+    const c = card("ec.p000");
+    mustFallback(c, `${c.answer_th.split("ตอนนี้")[0]}ตอนนี้แนะนำให้รอ`);
+  });
+
+  it("ec.p000 'ยาคุมฉุกเฉินไม่ใช่ยาป้องกันการตั้งครรภ์ เป็นยาทำแท้ง' is not shown", () => {
+    const c = card("ec.p000");
+    mustFallback(c, "ยาคุมฉุกเฉินไม่ใช่ยาป้องกันการตั้งครรภ์ เป็นยาทำแท้ง");
+  });
+
+  it("consent.p000 'มีสิทธิ์ปฏิเสธคุณเสมอ' is not shown (role swap)", () => {
+    const c = card("consent.p000");
+    mustFallback(c, c.answer_th.replace("คุณมีสิทธิ์ปฏิเสธเสมอ", "มีสิทธิ์ปฏิเสธคุณเสมอ"));
+  });
+
+  it("consent.p000 'ถ้าคุณบังคับแฟน' is not shown", () => {
+    const c = card("consent.p000");
+    mustFallback(c, `${c.answer_th.split("คุณมี")[0]}ถ้าคุณบังคับแฟน`);
+  });
+
+  it("ec.p000 with รีบ and ให้เร็วที่สุด dropped is not shown", () => {
+    const c = card("ec.p000");
+    mustFallback(c, c.answer_th.replace("รีบ", "").replace("ให้เร็วที่สุด", "").replace(/\s+/g, " ").trim());
+  });
+
+  it("pregnancy.p000 'โดยไม่กังวล ถูกตัดสินได้' is not shown (negation moved)", () => {
+    const c = card("pregnancy.p000");
+    mustFallback(c, c.answer_th.replace("โดยไม่ถูกตัดสิน", "โดยไม่กังวล ถูกตัดสินได้"));
+  });
+
+  it("pregnancy.p000 'ที่ไม่ได้เสี่ยงท้องและโรค ป้องกัน' is not shown (negation moved)", () => {
+    const c = card("pregnancy.p000");
+    mustFallback(c, `${c.answer_th} ที่ไม่ได้เสี่ยงท้องและโรค ป้องกัน`.replace("โดยไม่ถูกตัดสิน", ""));
+  });
+
+  it("a deletion of a clause is not shown", () => {
+    const c = mk("t.adv.del", "ข้อความทดสอบ ใช้ยาภายใน 72 ชั่วโมง แล้วตรวจใน 21 วัน", ["72 ชั่วโมง"]);
+    mustFallback(c, "ข้อความทดสอบ ใช้ยาภายใน 72 ชั่วโมง");
+  });
+
+  it("a reorder of clauses is not shown", () => {
+    const c = mk("t.adv.reord", "ข้อความทดสอบ ใช้ยาภายใน 72 ชั่วโมง แล้วตรวจใน 21 วัน", ["72 ชั่วโมง"]);
+    mustFallback(c, "ข้อความทดสอบ แล้วตรวจใน 21 วัน ใช้ยาภายใน 72 ชั่วโมง");
+  });
+
+  it("a role swap on a synthetic card is not shown", () => {
+    const c = mk("t.adv.role", "ข้อความทดสอบ คุณมีสิทธิ์ปฏิเสธเสมอ", ["ปฏิเสธ"]);
+    mustFallback(c, "ข้อความทดสอบ มีสิทธิ์ปฏิเสธคุณเสมอ");
+  });
+
+  it("a negation moved onto another verb is not shown", () => {
+    const c = mk("t.adv.negmove", "ข้อความทดสอบ คุยกับเจ้าหน้าที่ได้โดยไม่ถูกตัดสิน", ["เจ้าหน้าที่"]);
+    mustFallback(c, "ข้อความทดสอบ คุยกับเจ้าหน้าที่ได้โดยไม่กังวล ถูกตัดสิน");
+  });
+
+  it("swapping the 72-hour and 21-day windows between clauses is not shown", () => {
+    const c = mk("t.adv.clauseNum", "ข้อความทดสอบ ใช้ยาภายใน 72 ชั่วโมง และตรวจใน 21 วัน", ["72 ชั่วโมง"]);
+    mustFallback(c, "ข้อความทดสอบ ใช้ยาภายใน 21 วัน และตรวจใน 72 ชั่วโมง");
+  });
+
+  it("a particle inside a word is not shown", () => {
+    const c = mk("t.adv.inside", "ข้อความทดสอบ ร้านขายยาใกล้บ้าน", ["ร้านขายยา"]);
+    mustFallback(c, "ข้อความทดสอบ ร้านนะขายยาใกล้บ้าน");
+  });
+
+  it("inserting แล้ว before a verb is not shown", () => {
+    const c = mk("t.adv.then", "ข้อความทดสอบ ใช้ภายใน 72 ชั่วโมง ยิ่งเร็วยิ่งดี", ["72 ชั่วโมง"]);
+    mustFallback(c, "ข้อความทดสอบ แล้วใช้ภายใน 72 ชั่วโมง ยิ่งเร็วยิ่งดี");
+  });
+
+  it("inserting เลย before a verb is not shown", () => {
+    const c = mk("t.adv.loei", "ข้อความทดสอบ ปรึกษาเภสัชกรที่ร้านขายยา", ["เภสัชกร"]);
+    mustFallback(c, "ข้อความทดสอบ เลยปรึกษาเภสัชกรที่ร้านขายยา");
+  });
+
+  it("more than two particles in one sentence is not shown", () => {
+    const c = mk("t.adv.cap", "ข้อความทดสอบ คุยกับเจ้าหน้าที่ได้", ["เจ้าหน้าที่"]);
+    mustFallback(c, `${c.answer_th}นะค่ะจ้ะ`);
+  });
+});
