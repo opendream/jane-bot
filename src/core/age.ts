@@ -16,8 +16,11 @@ export function isAdult(age: AgeState): boolean {
   return age === "18+" || age === "18-24" || age === "25+";
 }
 
+/** Handoff line only. Decline/skip stays ไม่ระบุ — gating still treats those as under 18. */
 export function summaryAgeLabel(age: AgeState): string {
-  return isAdult(age) ? "18 ปีขึ้นไป" : "ต่ำกว่า 18 ปี";
+  if (isAdult(age)) return "18 ปีขึ้นไป";
+  if (age === "15-17") return "ต่ำกว่า 18 ปี";
+  return "ไม่ระบุ";
 }
 
 export function ageAllowed(c: BankCard, age: AgeState): boolean {

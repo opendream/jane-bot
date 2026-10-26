@@ -105,7 +105,7 @@ test("S3 HIV test at 14:00 BKK → cancel, re-pick, approve", async ({ page }) =
   await page.getByTestId("cancel").click();
   await expect(page.getByTestId("screen-suggest")).toBeVisible();
   await page.getByTestId("pick-hotline_1663").click();
-  await expect(page.getByTestId("summary-input")).toHaveValue(/ช่วงอายุ: ต่ำกว่า 18 ปี/);
+  await expect(page.getByTestId("summary-input")).toHaveValue(/ช่วงอายุ: ไม่ระบุ/);
   await page.getByTestId("approve").click();
   await expect(page.getByTestId("demo-banner")).toBeVisible();
   await shot(page, "s3-03-handoff-demo");
