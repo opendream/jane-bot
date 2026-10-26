@@ -4,7 +4,6 @@ import path from "node:path";
 import data from "../../src/data/services.json";
 import { PREFERENCE, SERVICES, suggestServices } from "../../src/core/referral";
 import { hoursCitation, hoursLabel, isOpenAt, narrowestHours, openStatus } from "../../src/core/openNow";
-import { preferredChannel } from "../../src/core/summary";
 
 const root = path.resolve(__dirname, "../..");
 const read = (...parts: string[]) => fs.readFileSync(path.join(root, ...parts), "utf8");
@@ -85,7 +84,8 @@ describe("fact-check (23 Oct 2026)", () => {
     expect(oscc.hours).toEqual(un);
     expect(openStatus(oscc.hours).state).toBe("unknown");
     expect(hoursLabel(oscc.hours)).toBe("ไม่ระบุเวลาเปิด สอบถามที่โรงพยาบาล");
-    expect(preferredChannel(oscc)).toBe("ไปที่โรงพยาบาลด้วยตนเอง");
+    expect(oscc.channels[0].type).toBe("in_person");
+    expect(oscc.channels[0].label_th).toBe("ติดต่อศูนย์พึ่งได้ที่โรงพยาบาลรัฐใกล้บ้าน");
   });
 
   it("(f) a violence query gives separate 1300 and ศูนย์พึ่งได้ cards", () => {

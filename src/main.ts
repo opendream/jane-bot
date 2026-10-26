@@ -9,6 +9,7 @@ import { draftSummary, finalizeSummary, stripPII } from "./core/summary";
 import { classifyWithFallback, polishWithFallback, type LLMAdapter } from "./llm/adapter";
 import { startModel, type ModelStatus } from "./llm/runtime";
 import { toDialogModel } from "./llm/dialogModel";
+import { shouldApplyAsyncResult, newNeedGate, beginNeed, bumpNeed, needBusy, endNeed } from "./core/dialog";
 import { h } from "./ui/dom";
 import { newChat, chatView, type ChatState } from "./ui/chat";
 
@@ -48,8 +49,8 @@ let state: State = fresh();
 /** In-browser model (optional). Loads in the background; the flow uses rules until it is ready. */
 let model: LLMAdapter | null = null;
 let modelStatus: ModelStatus = { state: "loading", runtime: "rules", label: "", progress: 0 };
-let busy = false; // waiting for the model on a classify call
 let polishNote = false; // summary line was reworded by the model
+const need = newNeedGate(); // classify generation; busy is owned by the in-flight seq only
 
 const app = document.getElementById("app")!;
 document.title = `${PRODUCT_NAME} · ${PRODUCT_NAME_EN} (เดโม)`;
@@ -67,13 +68,23 @@ function go(next: Partial<State>) {
   window.scrollTo(0, 0);
 }
 
+function dropInflightChat() {
+  bumpNeed(need);
+  if (state.chat) {
+    state.chat.session.abort();
+    state.chat.busy = false;
+  }
+}
+
 function eraseAll(to: Screen = "start") {
+  dropInflightChat();
   state = { ...fresh(), screen: to };
   render();
 }
 
 function quickExit() {
   // Wipe memory, drop history entry text, show a neutral page. No navigation, no request.
+  dropInflightChat();
   state = { ...fresh(), screen: "neutral" };
   try { history.replaceState(null, "", location.pathname); } catch { /* ignore */ }
   document.title = "บันทึก";
@@ -89,7 +100,7 @@ function header() {
     h("div", { class: "brand", "data-testid": "brand" }, mark("small"), PRODUCT_NAME, h("span", { class: "en-name" }, PRODUCT_NAME_EN), h("span", { class: "tag" }, "เดโม")),
     h("div", { class: "bar-actions" },
       state.screen !== "start" && state.screen !== "crisis" &&
-        h("button", { class: "btn-sos", "data-testid": "sos", onclick: () => go({ screen: "crisis", crisisCategories: [], crisisFrom: state.screen }) }, "ช่วยด่วน"),
+        h("button", { class: "btn-sos", "data-testid": "sos", onclick: () => { dropInflightChat(); go({ screen: "crisis", crisisCategories: [], crisisFrom: state.screen }); } }, "ช่วยด่วน"),
       state.screen !== "start" && h("button", { class: "btn-ghost", "data-testid": "erase", onclick: () => eraseAll("start") }, "ลบแชท"),
       h("button", { class: "btn-exit", "data-testid": "quick-exit", "aria-label": "ออกด่วน (quick exit)", onclick: quickExit }, "ออกด่วน ✕"),
     ),
@@ -125,7 +136,7 @@ function footer() {
 /* ------------------------------------------ screens ------------------------------------------ */
 function startScreen() {
   const band = (b: AgeBand, label: string) =>
-    h("button", { class: "btn-choice", "data-testid": `age-${b}`, onclick: () => go({ ageBand: b, screen: "describe" }) }, label);
+    h("button", { class: "btn-choice", "data-testid": `age-${b}`, onclick: () => { bumpNeed(need); go({ ageBand: b, screen: "describe" }); } }, label);
   return h("main", { class: "screen start", "data-testid": "screen-start" },
     h("div", { class: "hero" }, mark("hero"),
       h("h1", {}, `สวัสดี เราคือ ${PRODUCT_NAME}`, h("span", { class: "en-name" }, PRODUCT_NAME_EN))),
@@ -173,13 +184,14 @@ function describeScreen() {
     h("h1", {}, "อยากคุยเรื่องอะไร"),
     h("p", { class: "lead" }, "พิมพ์ภาษาไทยได้เลย ไม่ต้องบอกชื่อ เบอร์โทร หรือโรงเรียน"),
     h("label", { for: "need", class: "sr" }, "เรื่องที่อยากปรึกษา"), ta,
-    h("button", { class: "btn-primary", "data-testid": "need-submit", onclick: submit, disabled: busy }, busy ? "กำลังคิด…" : "หาที่ปรึกษา"),
-    h("button", { class: "btn-ghost", "data-testid": "open-chat", onclick: openChat }, "หรือคุยกับพี่เจนแบบแชท (ทดลอง)"),
+    h("button", { class: "btn-primary", "data-testid": "need-submit", onclick: submit, disabled: needBusy(need) }, needBusy(need) ? "กำลังคิด…" : "หาที่ปรึกษา"),
+    h("button", { class: "btn-ghost", "data-testid": "open-chat", onclick: openChat, disabled: needBusy(need) }, "หรือคุยกับพี่เจนแบบแชท (ทดลอง)"),
   );
 }
 
 /* --------------------------------------- chat (v2) --------------------------------------- */
 function openChat() {
+  dropInflightChat();
   if (!state.chat) state.chat = newChat(state.ageBand, toDialogModel(model));
   go({ screen: "chat" });
 }
@@ -187,32 +199,56 @@ function openChat() {
 const chatHooks = {
   rerender: () => { if (state.screen === "chat") render(); },
   // Crisis rules decided this before any model step; show the existing crisis screen.
-  crisis: (categories: CrisisCategory[]) => go({ screen: "crisis", crisisCategories: categories, crisisFrom: "chat" }),
+  crisis: (categories: CrisisCategory[]) => { bumpNeed(need); go({ screen: "crisis", crisisCategories: categories, crisisFrom: "chat" }); },
   // In-chat referral (plan v2 §5): the same service cards, summary, approval and DEMO handoff as the one-shot flow.
-  referral: (intents: Intent[]) => openReferralFromChat(intents),
+  referral: (intents: Intent[], banner?: CrisisCategory[]) => openReferralFromChat(intents, banner),
+  seq: () => need.seq,
 };
 
+/** Sticky strip from the current reply, else the session's crisisFired categories (same as later chat turns). */
+function chatCrisisBanner(passed?: CrisisCategory[]): CrisisCategory[] {
+  if (passed?.length) return passed;
+  const d = state.chat?.session.state;
+  return d?.crisisFired ? d.crisisCategories : [];
+}
+
 /** Her last chat message (PII-stripped) is the summary's need line; the chat itself stays in memory to return to. */
-function openReferralFromChat(intents: Intent[]) {
+function openReferralFromChat(intents: Intent[], banner?: CrisisCategory[]) {
   const lastUser = [...(state.chat?.messages ?? [])].reverse().find((m) => m.from === "user");
   const list = (intents.length ? intents : ["other"]) as Intent[];
   const result: IntentResult = { intents: list, scores: {}, source: "rules" };
-  go({ needText: lastUser ? stripPII(lastUser.text) : "", result, suggestions: suggestServices(list, new Date()), screen: "suggest", referralFrom: "chat", crisisBanner: [] });
+  go({ needText: lastUser ? stripPII(lastUser.text) : "", result, suggestions: suggestServices(list, new Date()), screen: "suggest", referralFrom: "chat", crisisBanner: chatCrisisBanner(banner) });
 }
 const backToChat = () => state.referralFrom === "chat" && !!state.chat;
+/** SOS from chat-opened cards/summary must land back in the same chat, not on describe. */
+function crisisContinueScreen(): Screen {
+  if (state.crisisFrom === "start") return "start";
+  if ((state.crisisFrom === "chat" || backToChat()) && state.chat) return "chat";
+  return "describe";
+}
 
 function chatScreen() {
   return chatView(state.chat!, chatHooks);
 }
 
 async function handleNeed(text: string) {
-  // Safety first: rule-based crisis check, before and independent of any model.
+  // Safety first: rule-based crisis check, before and independent of any model. Never gated on busy.
   const c = detectCrisis(text);
-  if (c.crisis) { go({ needText: "", screen: "crisis", crisisCategories: c.categories, crisisFrom: "describe" }); return; }
-  busy = true; render();
-  const result = await classifyWithFallback(text, model).finally(() => { busy = false; });
-  const suggestions = suggestServices(result.intents, new Date());
-  go({ needText: text, result, suggestions, screen: "suggest", referralFrom: "describe", crisisBanner: c.level === "banner" ? c.categories : [] });
+  if (c.crisis) { bumpNeed(need); go({ needText: "", screen: "crisis", crisisCategories: c.categories, crisisFrom: "describe" }); return; }
+  const my = beginNeed(need);
+  render();
+  try {
+    const delayMs = Number(new URLSearchParams(location.search).get("classifyDelayMs") || 0);
+    if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
+    const result = await classifyWithFallback(text, model);
+    if (!shouldApplyAsyncResult(my, need.seq, state.screen)) return;
+    const suggestions = suggestServices(result.intents, new Date());
+    go({ needText: text, result, suggestions, screen: "suggest", referralFrom: "describe", crisisBanner: c.level === "banner" ? c.categories : [] });
+  } finally {
+    const owns = need.seq === my;
+    endNeed(need, my);
+    if (owns) render();
+  }
 }
 
 function statusBadge(s: Suggestion) {
@@ -342,7 +378,7 @@ function crisisScreen() {
     state.crisisCategories.includes("sexual_violence") && h("p", { "data-testid": "crisis-female-officer" }, "ถ้าจะแจ้งความเรื่องถูกล่วงละเมิดทางเพศ ผู้เสียหายที่เป็นผู้หญิงขอให้พนักงานสอบสวนหญิงเป็นผู้สอบปากคำได้"),
     h("p", {}, `ถ้ากำลังอยู่ในอันตรายตอนนี้ โทร 191 หรือ 1669 ทันที เรื่องท้องหรือเอชไอวี โทร 1663 ปรึกษาฟรี ${serviceHoursLabel("hotline_1663")} รวมวันหยุด`),
     h("p", { class: "src" }, "ที่มา: กรมสุขภาพจิต, กระทรวง พม., GCC Call Center ภาครัฐ, ศูนย์รับแจ้งเหตุ 191, สปสช. (1663), กระทรวงสาธารณสุข (ศูนย์พึ่งได้), สำนักงานตำรวจแห่งชาติ (สิทธิผู้เสียหาย) (ตรวจ 2026-10-23)"),
-    h("button", { class: "btn-ghost", "data-testid": "crisis-continue", onclick: () => go({ screen: state.crisisFrom === "start" ? "start" : state.crisisFrom === "chat" && state.chat ? "chat" : "describe" }) },
+    h("button", { class: "btn-ghost", "data-testid": "crisis-continue", onclick: () => { bumpNeed(need); go({ screen: crisisContinueScreen() }); } },
       "ฉันปลอดภัยแล้ว กลับไปต่อ"),
   );
 }
