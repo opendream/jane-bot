@@ -66,4 +66,4 @@ export interface CrisisResult {
   categories: CrisisCategory[];
 }
 
-export type AgeBand = "15-17" | "18+" | "unspecified";
+export type AgeBand = "15-17" | "18-24" | "25+" | "unspecified";

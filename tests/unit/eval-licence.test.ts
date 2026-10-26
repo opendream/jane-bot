@@ -37,5 +37,6 @@ describe("eval question-set licence", () => {
     expect(notice).toContain("Opendream");
     expect(notice).not.toContain("OpenDream");
     expect(notice).toMatch(/CC BY-SA 4\.0|CC-BY-SA-4.0/);
+    expect(notice).toContain("does not cover illustrations, art, images, sprites");
   });
 });

@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { ageAllowed, afterPick, isAdult, summaryAgeLabel, AGE_REDIRECT_CARD, AGE_REDIRECT_ID, AGE_REDIRECT_TEXT } from "../../src/core/age";
+import { ageAllowed, afterPick, isAdult, summaryAgeLabel, draftSummaryForAge, pinnedAgeBand, AGE_REDIRECT_CARD, AGE_REDIRECT_ID, AGE_REDIRECT_TEXT } from "../../src/core/age";
 import type { BankCard } from "../../src/core/bank";
+import { SERVICES } from "../../src/core/referral";
+import { draftSummary } from "../../src/core/summary";
 
 const adult: BankCard = { ...AGE_REDIRECT_CARD, id: "other.adult_only.000", age_min: 18, answer_th: "PLACEHOLDER · 18+", key_facts: ["18+"], reword: false };
 const teen: BankCard = { ...AGE_REDIRECT_CARD, id: "other.teen.000", age_min: 15, answer_th: "PLACEHOLDER · 15+", key_facts: ["15+"] };
@@ -35,5 +37,17 @@ describe("D5 age states", () => {
     expect(AGE_REDIRECT_CARD.referral.offer).not.toBe("none");
     expect(AGE_REDIRECT_CARD.licence).toContain("Opendream");
     expect(AGE_REDIRECT_CARD.licence).not.toContain("OpenDream");
+  });
+
+  it("draftSummaryForAge rewrites the pinned age line without editing summary.ts", () => {
+    const s1663 = SERVICES.find((s) => s.id === "hotline_1663")!;
+    expect(pinnedAgeBand("15-17")).toBe("15-17");
+    expect(pinnedAgeBand("18+")).toBe("18-24");
+    expect(pinnedAgeBand(null)).toBe("unspecified");
+    const pinned = draftSummary({ service: s1663, needText: "กลัวท้อง", intent: "pregnancy", ageBand: "15-17" });
+    expect(pinned).toContain("ช่วงอายุ: 15–17 ปี");
+    const shown = draftSummaryForAge({ service: s1663, needText: "กลัวท้อง", intent: "pregnancy", ageBand: "15-17" });
+    expect(shown).toContain("ช่วงอายุ: ต่ำกว่า 18 ปี");
+    expect(shown).not.toContain("15–17");
   });
 });

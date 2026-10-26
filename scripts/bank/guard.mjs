@@ -87,27 +87,52 @@ export function scanFile(f, allowHandles) {
   }
 }
 
+/** Shipped LICENSE/NOTICE filenames (plain text, not JSON). */
+export const NOTICE_NAMES = new Set(["LICENSE", "NOTICE"]);
+/** Phone/email only: CC legal code would false-positive on english_name. Reuses findPII from pii-patterns.mjs. */
+const NOTICE_CONTACT = new Set(["phone", "email"]);
+
+/** Scan one LICENSE/NOTICE file as text. Reports phone/email categories only; never the matched value. */
+export function scanPlainText(f, allowHandles = publicHandles()) {
+  const raw = fs.readFileSync(f, "utf8");
+  const rel = path.relative(root, f);
+  const hits = findPII(raw, { allowHandles });
+  return Object.keys(hits).filter((cat) => NOTICE_CONTACT.has(cat)).map((cat) => ({ file: rel, path: "$", category: cat }));
+}
+
+export function scanNoticeFiles(dir, allowHandles = publicHandles()) {
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir).filter((f) => NOTICE_NAMES.has(f)).flatMap((f) => scanPlainText(path.join(dir, f), allowHandles));
+}
+
 export function scanDir(dir = path.join(root, "src/data/bank"), opts = {}) {
   const requireFiles = opts.requireFiles !== false;
   if (!fs.existsSync(dir)) {
     if (requireFiles) throw new Error(`bank dir missing: ${path.relative(root, dir) || dir}`);
     return [];
   }
-  const files = fs.readdirSync(dir).filter((f) => f.endsWith(".json"));
+  const names = fs.readdirSync(dir);
+  const files = names.filter((f) => f.endsWith(".json"));
+  const notices = names.filter((f) => NOTICE_NAMES.has(f));
   if (!files.length) {
     if (requireFiles) throw new Error(`bank dir empty: ${path.relative(root, dir) || dir}`);
-    return [];
+    return notices.flatMap((f) => scanPlainText(path.join(dir, f)));
   }
   const handles = publicHandles();
-  return files.flatMap((f) => scanFile(path.join(dir, f), handles));
+  return [
+    ...files.flatMap((f) => scanFile(path.join(dir, f), handles)),
+    ...notices.flatMap((f) => scanPlainText(path.join(dir, f), handles)),
+  ];
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     const dirs = process.argv.slice(2);
     const defaultDir = path.join(root, "src/data/bank");
-    const found = (dirs.length ? dirs : [defaultDir]).flatMap((d) =>
-      scanDir(path.resolve(d), { requireFiles: dirs.length > 0 }));
+    const evalsDir = path.join(root, "evals");
+    const found = dirs.length
+      ? dirs.flatMap((d) => scanDir(path.resolve(d), { requireFiles: true }))
+      : [...scanDir(defaultDir, { requireFiles: false }), ...scanNoticeFiles(evalsDir)];
     for (const x of found) console.log(formatFinding(x));
     console.log(found.length ? `guard: ${found.length} finding(s)` : "guard: clean");
     process.exit(found.length ? 1 : 0);

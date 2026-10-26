@@ -24,8 +24,17 @@ describe("D3: 1663 hours 09:00–21:00, NHSO cited first", () => {
     expect(s1663.sources.map((x: any) => x.url)).toEqual(s1663.hours_sources.map((h: any) => h.url));
     expect(s1663.description_th).not.toMatch(/โทรฟรี|สายฟรี/);
     expect(s1663.description_th).toContain("ปรึกษาฟรี");
-    expect(s1663.description_th).toContain("รวมวันหยุด");
+    expect(s1663.description_th).not.toContain("รวมวันหยุด");
     expect(s1663.description_th).not.toMatch(/ศูนย์วิจัยโรคเอดส์|สภากาชาดไทย|โดย/);
+    const nhsoClaim = s1663.description_th.slice(0, s1663.description_th.indexOf("(ข้อมูล สปสช.)") + "(ข้อมูล สปสช.)".length);
+    expect(nhsoClaim).toContain("กด 1");
+    expect(nhsoClaim).toContain("09:00–21:00");
+    expect(nhsoClaim).not.toMatch(/ฟรี|กด 2/);
+    expect(s1663.description_th).toMatch(/กด 2[\s\S]{0,40}ข้อมูล กรมประชาสัมพันธ์/);
+    expect(s1663.description_th).toMatch(/ปรึกษาฟรี[\s\S]{0,40}ข้อมูล กรมประชาสัมพันธ์/);
+    const prd = s1663.sources.find((x: { url: string }) => /prd\.go\.th/.test(x.url));
+    expect(prd?.title).toContain("ให้คำปรึกษาฟรีทุกวัน เวลา 09.00-21.00 น.");
+    expect(prd?.title).not.toContain("รวมวันหยุด");
     const hoursFields = { ...s1663 };
     delete (hoursFields as { verification_note?: string }).verification_note;
     const blob = JSON.stringify(hoursFields);

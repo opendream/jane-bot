@@ -1,9 +1,68 @@
-// Dialogflow (ES) export → normalised, merged, scrubbed review queue (plan §2).
+// Dialogflow (ES) export → normalised, merged review queue (plan §2).
 // Node only, no dependencies. Pure functions plus readExport(); the CLI is import-df.mjs.
 // Nothing here prints export text. Output goes to a staging dir OUTSIDE the repo.
+// findPII + collectRedactionSpans flag hits for the human reviewer; the importer does not redact.
 import fs from "node:fs";
 import path from "node:path";
-import { scrubPII, findPII } from "./pii-patterns.mjs";
+import { findPII, collectRedactionSpans } from "./pii-patterns.mjs";
+
+/** Scheme-less domain+path (instagram.com/x). Flag-only; not in 45039e4 stripPII. */
+const SCHEMELESS_URL = /(?<![\w/@.])(?:[a-z0-9-]+\.)+(?:com|org|net|th|me|ly|gl|co|io|ee)\/[^\s"'<>)]+/gi;
+
+function escapeRe(x) { return String(x).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+
+/** Exact allowed-handle occurrences as whole tokens (not a prefix of a longer handle). */
+function wholeHandleSpans(s, handles) {
+  const src = String(s ?? "");
+  const out = [];
+  for (const h of handles ?? []) {
+    if (!h) continue;
+    const re = new RegExp(`(?<![\\w.])${escapeRe(h)}(?![A-Za-z0-9._])`, "gi");
+    for (const m of src.matchAll(re)) out.push([m.index, m.index + m[0].length]);
+  }
+  return out;
+}
+
+/** Subtract [start, end) holes from a span; return leftover pieces. */
+function leftoverSpans([start, end], holes) {
+  const relevant = holes.filter(([a, b]) => a < end && b > start).sort((x, y) => x[0] - y[0]);
+  const pieces = [];
+  let cursor = start;
+  for (const [a, b] of relevant) {
+    if (cursor < a) pieces.push([cursor, Math.min(a, end)]);
+    cursor = Math.max(cursor, b);
+    if (cursor >= end) break;
+  }
+  if (cursor < end) pieces.push([cursor, end]);
+  return pieces.filter(([a, b]) => b > a);
+}
+
+/** Leftover after removing an allowed handle: empty, or only a LINE/ig prefix, is not a hit. */
+const PREFIX_ONLY = /^(?:แอด)?(?:ไลน์|ไอดีไลน์|line\s*id|line|ig|ไอจี|เฟส|facebook|fb)\s*[:：]?\s*$/i;
+function leftoverWorthFlagging(slice) {
+  const t = String(slice ?? "").trim();
+  return t.length > 0 && !PREFIX_ONLY.test(t);
+}
+
+/** Flag rows for the human reviewer. Text is not redacted. */
+export function flagPII(s, flagOpts = {}) {
+  const src = String(s ?? "");
+  const rows = [];
+  const hits = findPII(src, flagOpts);
+  for (const [category, matches] of Object.entries(hits)) rows.push({ kind: "findPII", category, matches });
+  const allowed = wholeHandleSpans(src, flagOpts.allowHandles);
+  const addLeftovers = (span, kind, category) => {
+    for (const [p, q] of leftoverSpans(span, allowed)) {
+      const slice = src.slice(p, q);
+      if (leftoverWorthFlagging(slice)) rows.push({ kind, category, matches: [slice] });
+    }
+  };
+  for (const span of collectRedactionSpans(src)) addLeftovers(span, "strip", "redaction");
+  for (const m of src.matchAll(new RegExp(SCHEMELESS_URL.source, SCHEMELESS_URL.flags))) {
+    addLeftovers([m.index, m.index + m[0].length], "url", "url");
+  }
+  return rows;
+}
 
 /* ----------------------------------------- read ----------------------------------------- */
 
@@ -219,23 +278,44 @@ export function topicFor(name) {
 }
 
 /**
- * One queue item per merged intent. Status is always "needs-review"; text is PII-scrubbed;
- * the proposed card is a draft skeleton with EMPTY triggers (triggers are newly written, never copied).
+ * One queue item per merged intent. Status is always "needs-review"; text stays as imported.
+ * findPII and collectRedactionSpans flag hits for the human reviewer and do not redact.
+ * The proposed card is a draft skeleton with EMPTY triggers (triggers are newly written, never copied).
+ * On a bot/Jane response conflict: medical_review is true if either variant is flagged;
+ * chips_th is the de-duplicated union of bot then Jane quick replies.
  */
-export function toQueueItem(rec, scrubOpts = {}) {
+export function toQueueItem(rec, flagOpts = {}) {
   const pii = { categories: new Set(), count: 0 };
-  const scrub = (s) => { const r = scrubPII(s, scrubOpts); r.categories.forEach((c) => pii.categories.add(c)); pii.count += r.categories.length; return r.text; };
+  const flag = (s) => {
+    const rows = flagPII(s, flagOpts);
+    for (const r of rows) pii.categories.add(r.category);
+    pii.count += rows.length;
+  };
   const clean = cleanMessages(rec.messages);
-  const texts = clean.texts.map(scrub), chips = clean.chips.map(scrub);
-  const variants = rec.variants ? Object.fromEntries(Object.entries(rec.variants).map(([k, ms]) => [k, cleanMessages(ms).texts.map(scrub)])) : null;
-  const medical = medicalFlags(rec.name, allResponseStrings(rec.messages));
+  const janeMsgs = rec.variants?.jane;
+  const janeClean = janeMsgs ? cleanMessages(janeMsgs) : { chips: [] };
+  const texts = clean.texts;
+  const chips = [];
+  const seenC = new Set();
+  for (const c of [...clean.chips, ...janeClean.chips]) {
+    if (c && !seenC.has(c)) { seenC.add(c); chips.push(c); }
+  }
+  const variants = rec.variants ? Object.fromEntries(Object.entries(rec.variants).map(([k, ms]) => [k, cleanMessages(ms).texts])) : null;
+  for (const s of rec.phrases) flag(s);
+  for (const s of allResponseStrings(rec.messages)) flag(s);
+  if (janeMsgs) for (const s of allResponseStrings(janeMsgs)) flag(s);
+  for (const s of chips) flag(s);
+  const medical = [...new Set([
+    ...medicalFlags(rec.name, allResponseStrings(rec.messages)),
+    ...(janeMsgs ? medicalFlags(rec.name, allResponseStrings(janeMsgs)) : []),
+  ])];
   const flags = cardFlagsFor(medical);
   return {
     queue_id: `df:${rec.name}`,
     intent: rec.name,
     origin: rec.origin,
     status: "needs-review",
-    review: { medical_review: medical.length > 0, medical_flags: medical, pii_check: pii.count > 0 ? "hits-redacted" : "no-hits-sample-10pct", conflict: rec.conflict, phrase_conflicts: rec.phraseConflicts?.length ?? 0 },
+    review: { medical_review: medical.length > 0, medical_flags: medical, pii_check: pii.count > 0 ? "hits-flagged" : "no-hits-sample-10pct", conflict: rec.conflict, phrase_conflicts: rec.phraseConflicts?.length ?? 0 },
     context: { input: rec.inputContexts, output: rec.outputContexts, parent: !!rec.parentId, end: rec.endInteraction, webhook: rec.webhook, fallback: rec.fallback },
     stripped: clean.counts,
     pii: { categories: [...pii.categories], count: pii.count },
@@ -247,7 +327,8 @@ export function toQueueItem(rec, scrubOpts = {}) {
       id: null, topic: topicFor(rec.name), title_th: "", answer_th: texts[0] ?? "", key_facts: [], triggers: [],
       next: [], source_intents: [rec.name], source: [], review: { status: "draft", reviewer: null, reviewed_on: null },
       last_reviewed: null, flags, referral: { offer: "soft", intents: [] }, links: [], age_min: 15,
-      reword: !(flags.includes("hotline") || flags.includes("legal")), licence: "CC-BY-SA-4.0",
+      // Ownership is not checked at import; a human must set CC-BY-SA-4.0 on review. "unreviewed" cannot pass bank:validate.
+      reword: !(flags.includes("hotline") || flags.includes("legal")), licence: "unreviewed",
     },
   };
 }
@@ -275,10 +356,16 @@ export function applyReviewRow(row) {
   return { ...(row.card ?? {}), age_min };
 }
 
-/** PII hits with text, for the human check (staging only, mode 0600). */
-export function piiHits(rec, scrubOpts = {}) {
+/** PII hits with text, for the human check (staging only, mode 0600). Flags only; does not redact. */
+export function piiHits(rec, flagOpts = {}) {
   const out = [];
-  const strings = [...rec.phrases.map((s) => ["phrase", s]), ...cleanMessages(rec.messages).texts.map((s) => ["response", s])];
-  for (const [field, s] of strings) for (const [cat, ms] of Object.entries(findPII(s, scrubOpts))) out.push({ intent: rec.name, field, category: cat, matches: ms });
+  const strings = [
+    ...rec.phrases.map((s) => ["phrase", s]),
+    ...allResponseStrings(rec.messages).map((s) => ["response", s]),
+    ...(rec.variants?.jane ? allResponseStrings(rec.variants.jane).map((s) => ["response", s]) : []),
+  ];
+  for (const [field, s] of strings) {
+    for (const row of flagPII(s, flagOpts)) out.push({ intent: rec.name, field, kind: row.kind, category: row.category, matches: row.matches });
+  }
   return out;
 }
