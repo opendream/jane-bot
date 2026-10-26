@@ -152,17 +152,39 @@ test("D7 crisis phrase mid-quiz is recorded: sticky all-four strip, soft referra
   await assertNetwork(page, rec);
 });
 
-test("D7 reviewed copy hides both quiz entry points and never serves PLACEHOLDER items", async ({ page }) => {
+test("D7 production ignores ?copy=reviewed: both quiz entry points still follow THAI_COPY_STATUS", async ({ page }) => {
   const rec = await open(page, "14:00", "&copy=reviewed");
   await openChat(page, "18+");
-  await expect(page.getByTestId("quiz-menu")).toHaveCount(0);
   await expect(lastJane(page)).toHaveAttribute("data-card", "general.welcome.000");
   await expect(lastJane(page).getByTestId("placeholder-tag")).toBeVisible();
+  await expect(page.getByTestId("quiz-menu")).toBeVisible();
   await say(page, "ใช้ถุงยาง");
   await expect(lastJane(page)).toHaveAttribute("data-card", "contraception.p000");
-  await expect(page.getByTestId("quiz-start")).toHaveCount(0);
-  await expect(page.getByTestId("quiz-menu")).toHaveCount(0);
+  await expect(page.getByTestId("quiz-start")).toBeVisible();
+  await expect(page.getByTestId("quiz-menu")).toBeVisible();
+  await page.getByTestId("quiz-start").click();
+  await expect(page.getByTestId("quiz-panel")).toBeVisible();
+  await assertNoStorage(page);
+  await assertNetwork(page, rec);
+});
+
+test("D7 non-crisis text mid-quiz shows the bubble, drops the panel, and does not duplicate on a rapid second send", async ({ page }) => {
+  const rec = await open(page, "14:00");
+  await openChat(page, "15-17");
+  await page.getByTestId("quiz-menu").click();
+  await expect(page.getByTestId("quiz-panel")).toBeVisible();
+  const text = "อยากรู้เรื่องคุมกำเนิด";
+  await page.getByTestId("chat-input").fill(text);
+  const typing = page.getByTestId("chat-busy").waitFor({ state: "visible", timeout: 2000 });
+  await page.getByTestId("chat-send").click();
+  await page.getByTestId("chat-send").click();
+  await typing;
   await expect(page.getByTestId("quiz-panel")).toHaveCount(0);
+  const userHits = page.locator('[data-testid="chat-msg"][data-from="user"]').filter({ hasText: text });
+  await expect(userHits).toHaveCount(1);
+  await expect(lastJane(page)).toHaveAttribute("data-card", "contraception.p000");
+  await expect(page.getByTestId("quiz-panel")).toHaveCount(0);
+  await expect(page.getByTestId("chat-busy")).toHaveCount(0);
   await assertNoStorage(page);
   await assertNetwork(page, rec);
 });

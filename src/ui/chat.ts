@@ -77,12 +77,20 @@ export function beginQuiz(chat: ChatState, topic: BankTopic | null, hooks: ChatH
   hooks.rerender();
 }
 
+/** Ignore clicks from a panel that sendToChat already closed. */
+export function applyQuizUpdate(chat: ChatState, next: QuizSession | null, hooks: ChatHooks): void {
+  if (!chat.quiz) return;
+  chat.quiz = next;
+  hooks.rerender();
+}
+
 function chatDelayMs(): number {
   try { return Number(new URLSearchParams(location.search).get("chatDelayMs") || 0); } catch { return 0; }
 }
 
 /** Send one message. Crisis is decided inside runTurn() before anything else, including after the hard cap.
- *  A line typed during the quiz skips the delay and still goes through session.send (crisisFired / sticky strip). */
+ *  A line typed during the quiz still goes through session.send (crisisFired / sticky strip). Ordinary
+ *  (non-crisis) text uses the same busy path as normal chat; only the artificial chatDelayMs is skipped. */
 export async function sendToChat(chat: ChatState, text: string, hooks: ChatHooks): Promise<void> {
   const t = text.trim();
   if (!t) return;
@@ -100,11 +108,9 @@ export async function sendToChat(chat: ChatState, text: string, hooks: ChatHooks
   }
   chat.draft = "";
   push(chat, { from: "user", text: t });
-  if (!fromQuiz) {
-    chat.busy = true; hooks.rerender();
-    if (chatDelayMs() > 0) await new Promise((r) => setTimeout(r, chatDelayMs()));
-    if (!owns()) { chat.busy = false; return; }
-  } else if (!owns()) return;
+  chat.busy = true; hooks.rerender();
+  if (!fromQuiz && chatDelayMs() > 0) await new Promise((r) => setTimeout(r, chatDelayMs()));
+  if (!owns()) { chat.busy = false; return; }
   const reply = await chat.session.send(t);
   if (!owns()) { chat.busy = false; return; } // erase / quick exit / SOS / openChat bumped the seq: drop, no rerender
   chat.busy = false;
@@ -150,7 +156,7 @@ export function chatView(chat: ChatState, hooks: ChatHooks): HTMLElement {
   const n = chat.messages.length;
   return h("main", { class: "screen chat", "data-testid": "screen-chat" },
     h("div", { class: "chat-log", "data-testid": "chat-log", "aria-live": "polite" }, ...chat.messages.map((m, i) => bubble(m, i, i === n - 1 && !chat.quiz, chat, hooks))),
-    chat.quiz && quizPanel(chat.quiz, { update: (next) => { chat.quiz = next; hooks.rerender(); } }),
+    chat.quiz && quizPanel(chat.quiz, { update: (next) => applyQuizUpdate(chat, next, hooks) }),
     chat.busy && h("p", { class: "note", "data-testid": "chat-busy" }, "พี่เจนกำลังพิมพ์…"),
     chat.readOnly && h("p", { class: "note", "data-testid": "cap-hard" }, "แชทนี้ยาวมากแล้ว ตอนนี้ส่งข้อความเพิ่มไม่ได้ คุยกับเจ้าหน้าที่ตัวจริง หรือกดลบแชทเพื่อเริ่มใหม่ได้"),
     h("form", { class: "chat-form", onsubmit: submit },

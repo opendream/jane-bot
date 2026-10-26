@@ -1,7 +1,7 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import type { CrisisCategory, Intent } from "../../src/core/types";
 import { HARD_CAP, newNeedGate, bumpNeed } from "../../src/core/dialog";
-import { beginQuiz, newChat, sendToChat, type ChatHooks } from "../../src/ui/chat";
+import { applyQuizUpdate, beginQuiz, newChat, sendToChat, type ChatHooks } from "../../src/ui/chat";
 
 // SYNTHETIC chat lines only.
 const FILLER = "อยากรู้เรื่องทั่วไปค่ะ";
@@ -60,6 +60,83 @@ describe("chat send path", () => {
     expect(chat.messages.some((m) => m.cap === "hard" || m.note === "readonly")).toBe(true);
     await sendToChat(chat, "อยากตาย", h);
     expect(h.crisisCalls).toBe(1);
+  });
+
+  it("non-crisis text typed during the quiz uses the busy path; the closed quiz cannot come back", async () => {
+    const chat = newChat("15-17", null);
+    const h = hooks();
+    let renders = 0;
+    h.rerender = () => { renders++; };
+    await sendToChat(chat, "ใช้ถุงยาง", h);
+    beginQuiz(chat, "contraception", h);
+    const closed = chat.quiz;
+    expect(closed).not.toBeNull();
+    const orig = chat.session.send.bind(chat.session);
+    let release!: () => void;
+    const held = new Promise<void>((r) => { release = r; });
+    chat.session.send = async (text) => { await held; return orig(text); };
+    const pending = sendToChat(chat, "อยากรู้เรื่องคุมกำเนิด", h);
+    expect(chat.quiz).toBeNull();
+    expect(chat.busy).toBe(true);
+    expect(chat.draft).toBe("");
+    expect(chat.messages.filter((m) => m.from === "user" && m.text === "อยากรู้เรื่องคุมกำเนิด")).toHaveLength(1);
+    expect(renders).toBeGreaterThan(0);
+    applyQuizUpdate(chat, closed, h);
+    expect(chat.quiz).toBeNull();
+    release();
+    await pending;
+    expect(chat.busy).toBe(false);
+    expect(chat.quiz).toBeNull();
+    expect(chat.messages.filter((m) => m.from === "user" && m.text === "อยากรู้เรื่องคุมกำเนิด")).toHaveLength(1);
+    expect(chat.messages.some((m) => m.from === "jane" && m.cardId === "contraception.p000")).toBe(true);
+  });
+
+  it("a NeedGate bump during a mid-quiz send drops the landing and does not restore the quiz", async () => {
+    const chat = newChat("15-17", null);
+    const gate = newNeedGate();
+    let renders = 0;
+    const h: ChatHooks & { crisisCalls: number } = {
+      crisisCalls: 0,
+      seq: () => gate.seq,
+      rerender: () => { renders++; },
+      crisis: () => { h.crisisCalls++; },
+    };
+    await sendToChat(chat, "ใช้ถุงยาง", h);
+    beginQuiz(chat, "contraception", h);
+    const orig = chat.session.send.bind(chat.session);
+    chat.session.send = async (text) => {
+      await new Promise((r) => setTimeout(r, 60));
+      return orig(text);
+    };
+    const pending = sendToChat(chat, "อยากรู้เรื่องคุมกำเนิด", h);
+    expect(chat.busy).toBe(true);
+    expect(chat.quiz).toBeNull();
+    bumpNeed(gate);
+    bumpNeed(gate);
+    await pending;
+    expect(h.crisisCalls).toBe(0);
+    expect(chat.busy).toBe(false);
+    expect(chat.quiz).toBeNull();
+    expect(chat.messages.filter((m) => m.from === "jane" && m.cardId === "contraception.p000")).toHaveLength(1);
+  });
+
+  it("skips chatDelayMs for a line typed during the quiz but still sets busy immediately", async () => {
+    const chat = newChat("15-17", null);
+    const h = hooks();
+    await sendToChat(chat, "ใช้ถุงยาง", h);
+    beginQuiz(chat, "contraception", h);
+    vi.stubGlobal("location", { search: "?chatDelayMs=2000" });
+    try {
+      const started = Date.now();
+      const pending = sendToChat(chat, "อยากรู้เรื่องคุมกำเนิด", h);
+      expect(chat.busy).toBe(true);
+      expect(chat.quiz).toBeNull();
+      await pending;
+      expect(Date.now() - started).toBeLessThan(500);
+      expect(chat.busy).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("a crisis line typed during the quiz is recorded on the session; later turns keep the sticky banner and soft offer", async () => {

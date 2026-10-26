@@ -45,6 +45,19 @@ describe("D7 quiz items (PLACEHOLDER)", () => {
     expect(pickQuizItems("15-17", "contraception", approved, 3, "reviewed").map((q) => q.id)).toEqual(["QZ-01"]);
     expect(startQuiz("15-17", "contraception", approved, undefined, "reviewed")?.items.map((q) => q.id)).toEqual(["QZ-01"]);
   });
+  it("production ignores ?copy= and always uses THAI_COPY_STATUS", () => {
+    expect(quizCopyStatus(false, "?copy=reviewed")).toBe(THAI_COPY_STATUS);
+    expect(quizCopyStatus(false, "?copy=draft")).toBe(THAI_COPY_STATUS);
+    expect(quizCopyStatus(true, "?copy=reviewed")).toBe("reviewed");
+    expect(quizCopyStatus(true, "?copy=draft")).toBe("draft");
+    expect(pickQuizItems("18+", null, QUIZ_ITEMS, 3, quizCopyStatus(false, "?copy=reviewed"))).toEqual(
+      pickQuizItems("18+", null, QUIZ_ITEMS, 3, THAI_COPY_STATUS),
+    );
+    expect(hasRelatedQuiz("contraception", "18+", QUIZ_ITEMS, quizCopyStatus(false, "?copy=reviewed"))).toBe(
+      hasRelatedQuiz("contraception", "18+", QUIZ_ITEMS, THAI_COPY_STATUS),
+    );
+    expect(hasRelatedQuiz("contraception", "18+", QUIZ_ITEMS, quizCopyStatus(true, "?copy=reviewed"))).toBe(false);
+  });
 });
 
 describe("validator rules", () => {

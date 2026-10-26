@@ -66,14 +66,17 @@ export function shippableQuiz(items: QuizItem[], copyStatus: "draft" | "reviewed
   return items.filter((q) => (copyStatus === "reviewed" ? q.status === "approved" : q.status !== "rejected"));
 }
 
-/** Live copy status for quiz serving. `?copy=reviewed|draft` is a test hook; otherwise THAI_COPY_STATUS. */
-export function quizCopyStatus(): "draft" | "reviewed" {
-  try {
-    if (typeof location !== "undefined") {
-      const q = new URLSearchParams(location.search).get("copy");
+/** Live copy status for quiz serving. `?copy=reviewed|draft` is a DEV-only test hook; production always uses THAI_COPY_STATUS. */
+export function quizCopyStatus(
+  isDev: boolean = import.meta.env.DEV,
+  search: string | null = typeof location !== "undefined" ? location.search : null,
+): "draft" | "reviewed" {
+  if (isDev && search) {
+    try {
+      const q = new URLSearchParams(search).get("copy");
       if (q === "reviewed" || q === "draft") return q;
-    }
-  } catch { /* node */ }
+    } catch { /* node */ }
+  }
   return THAI_COPY_STATUS;
 }
 
