@@ -308,7 +308,7 @@ export function validateBank(cards: BankCard[], ctx: BankContext): Issue[] {
     }
     if (c.last_reviewed && ctx.today && monthsBetween(c.last_reviewed, ctx.today) > STALE_MONTHS) add("warning", c.id, "stale", `last reviewed ${c.last_reviewed}`);
     if (c.referral.offer !== "none" && !c.referral.intents.length) add("error", c.id, "referral_intents", "a referral offer needs at least one intent");
-    if (mustStayAge15(c) && c.age_min !== 15) add("error", c.id, "age_safety", "welcome, fallback, refusal, ending, referral, crisis and redirect cards must be age_min 15");
+    if (mustStayAge15(c) && c.age_min !== 15) add("error", c.id, "age_safety", "welcome, fallback, refusal, ending, crisis, redirect, hotline and service-referral cards must be age_min 15");
     if (c.age_min === 15) {
       for (const n of c.next) {
         const t = cards.find((x) => x.id === n.card_id);
@@ -361,6 +361,8 @@ function mustStayAge15(c: BankCard): boolean {
   if (c.id.startsWith("general.refusal_")) return true;
   if (c.topic === "ending") return true;
   if (/crisis|referral/.test(c.id)) return true;
+  if (c.flags.includes("hotline")) return true;
+  if (c.referral.offer !== "none") return true;
   return false;
 }
 

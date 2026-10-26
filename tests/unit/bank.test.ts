@@ -159,10 +159,16 @@ describe("bank rules: content", () => {
     const welcome = BANK.find((c) => c.id === "general.welcome.000")!;
     expect(rules(withCard((c) => { Object.assign(c, welcome); c.age_min = 18; }))).toContain("age_safety");
     const teen = { ...base()[0], id: "fixture.info.000", age_min: 15 as const, next: [{ label_th: "ต่อไป", card_id: "fixture.adult.000" }] };
-    const adult = { ...base()[1], id: "fixture.adult.000", age_min: 18 as const, next: [], referral: { offer: "none" as const, intents: [] } };
+    const adult = { ...base()[0], id: "fixture.adult.000", age_min: 18 as const, next: [], referral: { offer: "none" as const, intents: [] }, flags: [] };
     const warn = validateBank([teen, adult], ctx).filter((i) => i.rule === "age_safety");
     expect(warn.some((i) => i.level === "warning")).toBe(true);
     expect(errors([teen, adult])).toEqual([]);
+  });
+  it("age_safety: a hotline or service-referral card with age_min 18 is an error", () => {
+    expect(rules(withCard((c) => { c.age_min = 18; }, 1))).toContain("age_safety");
+    expect(rules(withCard((c) => { c.referral = { offer: "soft", intents: ["sti_hiv"] }; c.age_min = 18; }))).toContain("age_safety");
+    const hotline = withCard((c) => { c.flags = ["hotline"]; c.reword = false; c.age_min = 18; c.answer_th = "ข้อความทดสอบ โทร 1663 ได้"; c.key_facts = ["1663"]; });
+    expect(errors(hotline).filter((i) => i.rule === "age_safety" && i.level === "error")).not.toEqual([]);
   });
 });
 
