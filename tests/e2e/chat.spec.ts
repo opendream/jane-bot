@@ -213,3 +213,71 @@ test("CH13 after continue, opening chat is a real click and a late classify cann
   await page.getByTestId("chat-send").click();
   await expect(page.getByTestId("screen-crisis")).toBeVisible();
 });
+
+async function markFocused(page: Page) {
+  return page.evaluate(() => {
+    const el = document.activeElement as HTMLTextAreaElement | null;
+    if (el) (el as HTMLTextAreaElement & { __keep?: number }).__keep = 1;
+    return { testid: el?.getAttribute("data-testid") ?? null, value: el?.value ?? null };
+  });
+}
+
+async function focusedStill(page: Page) {
+  return page.evaluate(() => {
+    const el = document.activeElement as (HTMLTextAreaElement & { __keep?: number }) | null;
+    return {
+      sameNode: !!(el && el.__keep === 1),
+      testid: el?.getAttribute("data-testid") ?? null,
+      value: el?.value ?? null,
+    };
+  });
+}
+
+test("CH14 late classify after SOS then continue does not steal describe focus or draft", async ({ page }) => {
+  await page.goto("/?model=off&classifyDelayMs=800");
+  await startAs(page, "18-24");
+  await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
+  await page.getByTestId("need-submit").click();
+  await expect(page.getByTestId("need-submit")).toHaveText("กำลังคิด…");
+  await page.getByTestId("sos").click();
+  await page.getByTestId("crisis-continue").click();
+  await expect(page.getByTestId("screen-describe")).toBeVisible();
+  const box = page.getByTestId("need-input");
+  await box.click();
+  await box.pressSequentially(" เพิ่ม");
+  const before = await markFocused(page);
+  expect(before.testid).toBe("need-input");
+  expect(before.value).toContain("เพิ่ม");
+  await page.waitForTimeout(1000);
+  const after = await focusedStill(page);
+  expect(after.sameNode).toBe(true);
+  expect(after.testid).toBe(before.testid);
+  expect(after.value).toBe(before.value);
+  await expect(page.getByTestId("screen-describe")).toBeVisible();
+  await expect(page.getByTestId("screen-suggest")).toHaveCount(0);
+});
+
+test("CH15 late classify after SOS then continue does not steal chat focus or draft", async ({ page }) => {
+  await page.goto("/?model=off&classifyDelayMs=800");
+  await startAs(page, "18-24");
+  await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
+  await page.getByTestId("need-submit").click();
+  await expect(page.getByTestId("need-submit")).toHaveText("กำลังคิด…");
+  await page.getByTestId("sos").click();
+  await page.getByTestId("crisis-continue").click();
+  await page.getByTestId("open-chat").click();
+  await expect(page.getByTestId("screen-chat")).toBeVisible();
+  const box = page.getByTestId("chat-input");
+  await box.click();
+  await box.pressSequentially("ข้อความที่พิมพ์");
+  const before = await markFocused(page);
+  expect(before.testid).toBe("chat-input");
+  expect(before.value).toBe("ข้อความที่พิมพ์");
+  await page.waitForTimeout(1000);
+  const after = await focusedStill(page);
+  expect(after.sameNode).toBe(true);
+  expect(after.testid).toBe(before.testid);
+  expect(after.value).toBe(before.value);
+  await expect(page.getByTestId("screen-chat")).toBeVisible();
+  await expect(page.getByTestId("screen-suggest")).toHaveCount(0);
+});

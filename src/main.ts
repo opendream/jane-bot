@@ -215,8 +215,9 @@ async function handleNeed(text: string) {
     const suggestions = suggestServices(result.intents, new Date());
     go({ needText: text, result, suggestions, screen: "suggest", crisisBanner: c.level === "banner" ? c.categories : [] });
   } finally {
+    const owns = need.seq === my;
     endNeed(need, my);
-    render();
+    if (owns) render();
   }
 }
 

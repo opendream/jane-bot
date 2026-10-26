@@ -185,6 +185,20 @@ describe("need-request gate: busy dies with its request", () => {
     bumpNeed(crisis);
     expect(needBusy(crisis)).toBe(false);
   });
+
+  it("after SOS then continue, the old classify no longer owns busy so a late finish must not re-render", () => {
+    const g = newNeedGate();
+    const mine = beginNeed(g);
+    expect(g.busyFor === mine).toBe(true);
+    expect(g.seq === mine).toBe(true);
+    bumpNeed(g); // SOS
+    bumpNeed(g); // continue
+    expect(g.busyFor === mine).toBe(false);
+    expect(g.seq === mine).toBe(false);
+    endNeed(g, mine);
+    expect(g.busyFor === mine).toBe(false);
+    expect(g.seq === mine).toBe(false);
+  });
 });
 
 describe("crisis false positives stay at 0/24 inside the chat (evals/crisis-fp-set.json)", () => {
