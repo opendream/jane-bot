@@ -253,6 +253,30 @@ test("D7 hard cap mid-quiz closes the panel; read-only hides quiz entry and cris
   await assertNetwork(page, rec);
 });
 
+test("D7 delayed 30th send: quiz stays closed, cap notice and referral offer show, no duplicate bubble", async ({ page }) => {
+  const rec = await open(page, "14:00");
+  await openChat(page, "15-17");
+  for (let i = 0; i < 29; i++) await say(page, "อยากรู้เรื่องทั่วไปค่ะ");
+  await expect(page.getByTestId("quiz-menu")).toBeVisible();
+  await page.evaluate(() => history.replaceState(null, "", `${location.pathname}?model=off&chatDelayMs=800`));
+  const capLine = "อยากรู้เรื่องคุมกำเนิด";
+  await page.getByTestId("chat-input").fill(capLine);
+  await page.getByTestId("chat-send").click();
+  await expect(page.getByTestId("chat-busy")).toBeVisible();
+  await expect(page.getByTestId("quiz-menu")).toHaveCount(0);
+  await expect(page.getByTestId("quiz-start")).toHaveCount(0);
+  await expect(page.getByTestId("quiz-panel")).toHaveCount(0);
+  await page.clock.fastForward(800);
+  await expect(page.getByTestId("chat-busy")).toHaveCount(0);
+  await expect(page.getByTestId("quiz-panel")).toHaveCount(0);
+  await expect(page.getByTestId("cap-hard").first()).toBeVisible();
+  await expect(page.getByTestId("chat-offer")).toBeVisible();
+  await expect(page.getByTestId("quiz-menu")).toHaveCount(0);
+  await expect(page.locator('[data-testid="chat-msg"][data-from="user"]').filter({ hasText: capLine })).toHaveCount(1);
+  await assertNoStorage(page);
+  await assertNetwork(page, rec);
+});
+
 test("D7 SOS during the quiz opens the crisis screen and I'm safe returns to chat", async ({ page }) => {
   const rec = await open(page, "14:00");
   await openChat(page, "15-17");

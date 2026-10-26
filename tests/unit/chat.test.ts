@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import type { CrisisCategory, Intent } from "../../src/core/types";
 import { HARD_CAP, newNeedGate, bumpNeed } from "../../src/core/dialog";
+import { startQuiz } from "../../src/core/quiz";
 import { applyQuizUpdate, beginQuiz, newChat, sendToChat, type ChatHooks } from "../../src/ui/chat";
 
 // SYNTHETIC chat lines only.
@@ -217,6 +218,56 @@ describe("chat send path", () => {
     expect(last?.offer).not.toBe("none");
     await sendToChat(chat, "อยากคุยกับเจ้าหน้าที่", h);
     expect(h.referralBanners.at(-1)).toEqual(["self_harm"]);
+  });
+
+  it("opening a quiz during a delayed 30th send is closed when the hard-cap reply lands", async () => {
+    const chat = newChat("15-17", null);
+    const h = hooks();
+    for (let i = 0; i < HARD_CAP - 1; i++) await sendToChat(chat, FILLER, h);
+    expect(chat.readOnly).toBe(false);
+    const orig = chat.session.send.bind(chat.session);
+    let release!: () => void;
+    const held = new Promise<void>((r) => { release = r; });
+    chat.session.send = async (text) => { await held; return orig(text); };
+    const capLine = "อยากรู้เรื่องคุมกำเนิด";
+    const pending = sendToChat(chat, capLine, h);
+    expect(chat.busy).toBe(true);
+    expect(chat.messages.filter((m) => m.from === "user" && m.text === capLine)).toHaveLength(1);
+    chat.quiz = startQuiz(chat.session.state.ageBand, "contraception");
+    expect(chat.quiz).not.toBeNull();
+    release();
+    await pending;
+    expect(chat.busy).toBe(false);
+    expect(chat.readOnly).toBe(true);
+    expect(chat.quiz).toBeNull();
+    expect(chat.messages.filter((m) => m.from === "user" && m.text === capLine)).toHaveLength(1);
+    const last = [...chat.messages].reverse().find((m) => m.from === "jane");
+    expect(last?.cap === "hard" || last?.note === "readonly").toBe(true);
+    expect(last?.offer && last.offer !== "none").toBe(true);
+    applyQuizUpdate(chat, startQuiz(chat.session.state.ageBand, "contraception"), h);
+    expect(chat.quiz).toBeNull();
+  });
+
+  it("beginQuiz is a no-op while a reply is pending", async () => {
+    const chat = newChat("15-17", null);
+    const h = hooks();
+    let renders = 0;
+    h.rerender = () => { renders++; };
+    await sendToChat(chat, "ใช้ถุงยาง", h);
+    const orig = chat.session.send.bind(chat.session);
+    let release!: () => void;
+    const held = new Promise<void>((r) => { release = r; });
+    chat.session.send = async (text) => { await held; return orig(text); };
+    const pending = sendToChat(chat, FILLER, h);
+    expect(chat.busy).toBe(true);
+    const before = renders;
+    beginQuiz(chat, "contraception", h);
+    expect(chat.quiz).toBeNull();
+    expect(renders).toBe(before);
+    release();
+    await pending;
+    expect(chat.busy).toBe(false);
+    expect(chat.quiz).toBeNull();
   });
 
   it("a slow turn that no longer owns the NeedGate seq drops with no landing rerender and no crisis", async () => {

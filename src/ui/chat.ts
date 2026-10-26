@@ -72,7 +72,7 @@ export function lastCardTopic(chat: ChatState): BankTopic | null {
 }
 
 export function beginQuiz(chat: ChatState, topic: BankTopic | null, hooks: ChatHooks): void {
-  if (chat.readOnly) return;
+  if (chat.readOnly || chat.busy) return;
   const age = chat.session.state.ageBand;
   chat.quiz = startQuiz(age, topic, undefined, undefined, quizCopyStatus());
   hooks.rerender();
@@ -118,7 +118,10 @@ export async function sendToChat(chat: ChatState, text: string, hooks: ChatHooks
   chat.busy = false;
   if (!reply) return; // superseded by a newer message
   if (reply.kind === "crisis") { hooks.crisis(reply.categories); return; }
-  if (reply.kind === "readonly" || (reply.kind === "card" && reply.capNotice === "hard")) chat.readOnly = true;
+  if (reply.kind === "readonly" || (reply.kind === "card" && reply.capNotice === "hard")) {
+    chat.readOnly = true;
+    chat.quiz = null;
+  }
   push(chat, fromReply(reply));
   hooks.rerender();
   if (reply.kind === "referral") hooks.referral?.(reply.intents, reply.banner);
@@ -142,7 +145,7 @@ function bubble(m: ChatMsg, i: number, last: boolean, chat: ChatState, hooks: Ch
     m.cap === "soft" && h("p", { class: "note", "data-testid": "cap-soft" }, `คุยกันมา ${SOFT_CAP} ข้อความแล้ว ลองคุยกับเจ้าหน้าที่ตัวจริง หรือกดลบแชทเพื่อเริ่มใหม่ก็ได้นะ`),
     last && !chat.readOnly && !chat.quiz && m.chips?.length ? h("div", { class: "chips" }, ...m.chips.map((c, k) =>
       h("button", { class: "chip", "data-testid": `chat-chip-${k}`, onclick: () => sendToChat(chat, c.label_th, hooks) }, c.label_th))) : null,
-    last && !chat.readOnly && !chat.quiz && m.cardId && hasRelatedQuiz(BANK.find((c) => c.id === m.cardId)?.topic, chat.session.state.ageBand, undefined, quizCopyStatus())
+    last && !chat.readOnly && !chat.busy && !chat.quiz && m.cardId && hasRelatedQuiz(BANK.find((c) => c.id === m.cardId)?.topic, chat.session.state.ageBand, undefined, quizCopyStatus())
       ? h("button", { class: "chip", "data-testid": "quiz-start", type: "button", onclick: () => beginQuiz(chat, BANK.find((c) => c.id === m.cardId)?.topic ?? null, hooks) }, QUIZ_CHIP) : null,
     last && m.offer && m.offer !== "none" && hooks.referral && !chat.quiz ? h("button", { class: m.offer === "strong" ? "btn-primary" : "btn-ghost", "data-testid": "chat-offer",
       onclick: () => hooks.referral!(m.offerIntents ?? ["other"], m.banner) }, "ให้พี่ช่วยหาที่ปรึกษาที่เปิดอยู่ตอนนี้ไหม") : null,
