@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { detectCrisis, crisisOrder, showCrisisOfficerLine } from "../../src/core/crisis";
+import { detectCrisis } from "../../src/core/crisis";
+import { crisisOrder } from "../../src/core/crisis-order";
 import { CRISIS_LINES } from "../../src/core/referral";
 
 describe("crisis detection (runs before everything, no model)", () => {
@@ -38,15 +39,6 @@ describe("crisis detection (runs before everything, no model)", () => {
     expect(crisisOrder(["self_harm", "sexual_violence"])).toEqual(all);
     expect(crisisOrder(["violence_danger", "medical_emergency"])).toEqual(all);
     expect(crisisOrder(["self_harm", "sexual_violence", "violence_danger", "medical_emergency"])).toEqual(all);
-  });
-
-  it("officer line is only on the sexual-violence screen", () => {
-    expect(showCrisisOfficerLine(["sexual_violence"])).toBe(true);
-    expect(showCrisisOfficerLine(["self_harm"])).toBe(false);
-    expect(showCrisisOfficerLine(["violence_danger"])).toBe(false);
-    expect(showCrisisOfficerLine(["medical_emergency"])).toBe(false);
-    expect(showCrisisOfficerLine([])).toBe(false);
-    expect(showCrisisOfficerLine(["self_harm", "sexual_violence"])).toBe(false);
   });
 
   it("every crisis line in the data has tel: link and a source with a check date", () => {

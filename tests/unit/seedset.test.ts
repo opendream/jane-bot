@@ -1,7 +1,8 @@
 import { describe, it, expect, afterAll } from "vitest";
 import fs from "node:fs";
 import seed from "../../evals/seed-set.json";
-import { detectCrisis, crisisOrder } from "../../src/core/crisis";
+import { detectCrisis } from "../../src/core/crisis";
+import { crisisOrder } from "../../src/core/crisis-order";
 import { classifyNeed } from "../../src/core/intent";
 import { suggestServices } from "../../src/core/referral";
 
