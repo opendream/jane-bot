@@ -21,7 +21,7 @@ test("production ignores ?matcher=1: rules routing, no matcher fetch", async ({ 
   await say(page, "อยากรู้เรื่องคุมกำเนิด");
   await expect(lastJane(page)).toHaveAttribute("data-card", "birth.control.000");
   await expect(lastJane(page)).toHaveAttribute("data-reworded", "false");
-  expect(rec.all.filter((u) => /matcher|head\.json/i.test(u)), rec.all.join("\n")).toEqual([]);
+  expect(rec.all.filter((u) => /\/models\/matcher|head\.json/i.test(u)), rec.all.join("\n")).toEqual([]);
   await assertNoStorage(page);
   await assertNetwork(page, rec);
 });
