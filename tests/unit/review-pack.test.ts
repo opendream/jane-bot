@@ -10,6 +10,12 @@ const FALLBACK_TEXT = "ตอนนี้พี่เจนยังไม่ส
 const A5 = "ถ้าเพิ่งติดเชื้อ อาจมีอาการผิดปกติน้อย และอาการนั้นสามารถหายไปเองได้ใน 2-4 อาทิตย์ เช่น เจ็บคอ ปวดเมื่อยกล้ามเนื้อ มีไข้ต่ำๆ อ่อนเพลีย น้ำหนักลดเล็กน้อย ถ่ายอุจจาระเหลว ต่อมน้ำเหลืองโต ดังนั้นเพื่อให้ชัวร์ ควรไปตรวจจะดีกว่า\nคนไทยทุกคน ทุกสิทธิ ตรวจเอชไอวีฟรีปีละ 2 ครั้ง จะไปตรวจที่หน่วยบริการในระบบ สปสช. เช่น โรงพยาบาลรัฐใกล้บ้าน (ใช้บัตรประชาชน) หรือตรวจด้วยตัวเองด้วยชุดตรวจ HIV Self-Test ก็ได้ ถ้าผลเป็นบวก ต้องไปตรวจยืนยันที่โรงพยาบาลนะ\nถ้าอยากตรวจแบบไม่แจ้งชื่อ มีคลินิกนิรนาม แต่อาจมีค่าใช้จ่าย สอบถามคลินิกก่อนนะ\nหรือจะโทรปรึกษาสายด่วน 1663 ก่อนก็ได้ ปรึกษาฟรี ทุกวัน 09:00–21:00 น. รวมวันหยุด";
 const A28 = "สำหรับคนที่ต้องการทำแท้งอย่างปลอดภัยและถูกกฎหมาย ให้ลองติดต่อไปที่เครือข่ายอาสา RSA หรือเครือข่ายอาสาเพื่อยุติการตั้งครรภ์ที่ปลอดภัย ของกระทรวงสาธารณสุข เขามีหน่วยบริการยุติการตั้งครรภ์อยู่ทั่วประเทศ ลองค้นคำว่า \"เครือข่าย RSA\" เพื่อหาหน่วยบริการใกล้บ้านได้เลย";
 const A34 = "วัยรุ่นอายุ 13–18 ปี ตรวจเอชไอวีได้เองโดยไม่ต้องให้ผู้ปกครองยินยอม ถ้าเข้าใจว่าการตรวจคืออะไรและผลตรวจหมายถึงอะไร (แนวทางกรมควบคุมโรค 2021/22)";
+const A21 = [
+  "อยากรู้เรื่องยาคุมฉุกเฉินใช่มั้ย",
+  "ยาคุมฉุกเฉินเป็นฮอร์โมนสังเคราะห์ขนาดสูง ทำงานหลักๆ โดยยับยั้งหรือชะลอการตกไข่ ไข่เลยไม่เจอกับอสุจิ แต่ถ้าตั้งครรภ์ไปแล้ว ยานี้จะไม่ทำให้แท้งนะ",
+  "ยิ่งกินเร็วหลังมีเพศสัมพันธ์ที่ไม่ได้ป้องกัน ยิ่งได้ผลดี",
+  "คำว่าฉุกเฉินคือใช้ตอนฉุกเฉินจริงๆ นะ เพราะป้องกันได้ไม่ดีเท่ายาคุมแบบปกติหรือถุงยาง และอาจทำให้ประจำเดือนมาไม่ตรงหรือมีเลือดออกกะปริดกะปรอยได้ ถ้าต้องใช้บ่อยๆ ลองปรึกษาเรื่องวิธีคุมกำเนิดแบบประจำดีกว่า",
+].join("\n");
 const A1 = "สวัสดี เราชื่อพี่เจน :D";
 const A33 = "สงสัยอะไรก็มาคุยกันใหม่น้าาา";
 const CHT03 = "ขอบคุณที่คุยกันนะ ถ้าอยากคุยกับคนจริง กดปุ่มคุยกับเจ้าหน้าที่ได้ และลบแชทได้ทุกเมื่อ";
@@ -19,7 +25,7 @@ const byId = (id: string) => BANK.find((c) => c.id === id);
 describe("review pack decisions (Keng, 27 Oct 2026)", () => {
   it("THAI_COPY_STATUS is reviewed and every shipped card is approved, not a placeholder", () => {
     expect(THAI_COPY_STATUS).toBe("reviewed");
-    expect(BANK.length).toBeGreaterThan(0);
+    expect(BANK).toHaveLength(35);
     for (const c of BANK) {
       expect(c.placeholder, c.id).toBeFalsy();
       expect(c.review.status, c.id).toBe("approved");
@@ -50,11 +56,14 @@ describe("review pack decisions (Keng, 27 Oct 2026)", () => {
     expect(staff.answer_th).toBe(CHT03);
   });
 
-  it("Edits are present byte-exact: #2/#5/#28/#34 (not #21)", () => {
+  it("Edits are present byte-exact: #2/#5/#21/#28/#34; #21 is Audience All (15+)", () => {
     expect(byId(FALLBACK_ID)?.answer_th).toBe(FALLBACK_TEXT);
     expect(byId("disease.hiv.002")?.answer_th).toBe(A5);
     expect(byId("disease.hiv.002")?.answer_th).not.toContain("เป๋าตัง");
     expect(byId("disease.hiv.002")?.answer_th).not.toContain("@standbyyou");
+    const a21 = BANK.find((c) => c.source_intents.includes("20200708.urgent.pills.0000"));
+    expect(a21?.answer_th).toBe(A21);
+    expect(a21?.age_min).toBe(15);
     expect(byId("pregnancy.abortion.003")?.answer_th).toBe(A28);
     expect(byId("pregnancy.abortion.003")?.answer_th).not.toContain("→");
     expect(byId("hiv.test.under18.000")?.answer_th).toBe(A34);
@@ -64,10 +73,16 @@ describe("review pack decisions (Keng, 27 Oct 2026)", () => {
     expect(byId("ending.staff.000")?.answer_th).toBe(CHT03);
   });
 
-  it("#21 is held out: no 20200708.urgent.pills.0000 card and no implantation/2-pack EC intro", () => {
-    expect(BANK.some((c) => c.source_intents.includes("20200708.urgent.pills.0000"))).toBe(false);
-    expect(BANK.some((c) => c.answer_th.includes("ไม่ควรกินเกิน 2 แผงในรอบ 1 เดือน"))).toBe(false);
-    expect(BANK.some((c) => c.answer_th.includes("ขัดขวางไม่ให้ไข่ที่ผสมกับอสุจิแล้วไปฝังตัว"))).toBe(false);
+  it("#21 ships Edit All (15+); no implantation/2-pack, no dose, no hour window, no EC price", () => {
+    const c = BANK.find((x) => x.source_intents.includes("20200708.urgent.pills.0000"))!;
+    expect(c.answer_th).toBe(A21);
+    expect(c.age_min).toBe(15);
+    expect(c.answer_th).not.toContain("ไม่ควรกินเกิน 2 แผงในรอบ 1 เดือน");
+    expect(c.answer_th).not.toContain("ขัดขวางไม่ให้ไข่ที่ผสมกับอสุจิแล้วไปฝังตัว");
+    expect(c.answer_th).not.toMatch(/บาท/);
+    expect(c.answer_th).not.toMatch(/72\s*ชั่วโมง|120\s*(ชม|ชั่วโมง)|1\.5\s*mg/);
+    expect(BANK.some((x) => x.answer_th.includes("ไม่ควรกินเกิน 2 แผงในรอบ 1 เดือน"))).toBe(false);
+    expect(BANK.some((x) => x.answer_th.includes("ขัดขวางไม่ให้ไข่ที่ผสมกับอสุจิแล้วไปฝังตัว"))).toBe(false);
   });
 
   it("fallback is one reply with a เริ่มใหม่ chip and no extra variants or referral offer", () => {

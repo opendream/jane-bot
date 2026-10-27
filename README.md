@@ -80,7 +80,7 @@ WebGPU adapter (`--enable-unsafe-webgpu`) can run the q4f32_1 build on CPU (very
 ## Data sources
 
 Every service and crisis line cites a public source with a check date (BKK) in `src/data/services.json`.
-Items marked `"verification": "partial"` need re-checking before filming (Teen Club hours, YFHS list). 1663 hours are 09:00–21:00 daily (D3; operator / RSATHAI / NHSO).
+For teen_club, yfhs and oscc_hospital, hours and open-now show without a caveat, by owner decision (27 Oct 2026). 1663 hours are 09:00–21:00 daily (D3; operator / RSATHAI / NHSO).
 
 ## Run bundle for the filming laptop
 

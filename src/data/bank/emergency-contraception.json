@@ -1,8 +1,55 @@
 {
-  "$comment": "Reviewed 27 Oct 2026 (Keng). #22 ships. #21 (20200708.urgent.pills.0000) is held out pending an owner check. Answer-bank text CC BY-SA 4.0, attribution Opendream.",
+  "$comment": "Reviewed 27 Oct 2026 (Keng). #21 Edit (All 15+) and #22 Approve. Answer-bank text CC BY-SA 4.0, attribution Opendream.",
   "topic_file": "emergency_contraception",
   "licence": "CC-BY-SA-4.0",
   "cards": [
+    {
+      "id": "urgent.pills.000",
+      "topic": "emergency_contraception",
+      "title_th": "อยากรู้เรื่องยาคุมฉุกเฉินใช่มั้ย",
+      "answer_th": "อยากรู้เรื่องยาคุมฉุกเฉินใช่มั้ย\nยาคุมฉุกเฉินเป็นฮอร์โมนสังเคราะห์ขนาดสูง ทำงานหลักๆ โดยยับยั้งหรือชะลอการตกไข่ ไข่เลยไม่เจอกับอสุจิ แต่ถ้าตั้งครรภ์ไปแล้ว ยานี้จะไม่ทำให้แท้งนะ\nยิ่งกินเร็วหลังมีเพศสัมพันธ์ที่ไม่ได้ป้องกัน ยิ่งได้ผลดี\nคำว่าฉุกเฉินคือใช้ตอนฉุกเฉินจริงๆ นะ เพราะป้องกันได้ไม่ดีเท่ายาคุมแบบปกติหรือถุงยาง และอาจทำให้ประจำเดือนมาไม่ตรงหรือมีเลือดออกกะปริดกะปรอยได้ ถ้าต้องใช้บ่อยๆ ลองปรึกษาเรื่องวิธีคุมกำเนิดแบบประจำดีกว่า",
+      "key_facts": [
+        "ยับยั้งหรือชะลอการตกไข่"
+      ],
+      "triggers": [
+        "ยาคุมฉุกเฉินคืออะไร",
+        "อยากรู้เรื่องยาคุมฉุกเฉิน",
+        "ยาคุมฉุกเฉินทำงานยังไง"
+      ],
+      "next": [],
+      "source_intents": [
+        "20200708.urgent.pills.0000"
+      ],
+      "source": [
+        {
+          "by": "Opendream",
+          "url": "https://rsathai.org/qrcode",
+          "title": "Jane answer bank, Keng review 27 Oct 2026",
+          "checked": "2026-10-27"
+        }
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#21 Edit; Audience All (15+); no dose or hour window (rule 6)."
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked",
+        "medical"
+      ],
+      "referral": {
+        "offer": "soft",
+        "intents": [
+          "emergency_contraception"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "CC-BY-SA-4.0"
+    },
     {
       "id": "ec.timing.b001",
       "topic": "emergency_contraception",
@@ -32,7 +79,7 @@
         "status": "approved",
         "reviewer": "Keng",
         "reviewed_on": "2026-10-27",
-        "notes": "#22 Approve; doses/efficacy kept (rule 6 Option A). #21 held out."
+        "notes": "#22 Approve; doses/efficacy kept (rule 6 Option A)."
       },
       "last_reviewed": "2026-10-27",
       "flags": [
