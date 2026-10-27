@@ -9,9 +9,9 @@ import { compact, findPhrases } from "./text";
  *    or a victim marker). Negation only when ไม่, ไม่เคย or ไม่ได้ sits
  *    directly before the verb.
  *
- * 2. ตี is not followed by น, a tone mark, ตัว…ห่าง, or กลับ, and is not
- *    inside ปาร์ตี้ or ตี๋. Other hit verbs keep their everyday-compound
- *    lookaheads (ตีตั๋ว, ตบมือ, เตะบอล, …).
+ * 2. ตี is not the foot-word ตีน, a tone-marked ตี๋, ตีตัว…ห่าง, or ตีกลับ,
+ *    and is not inside ปาร์ตี้. น้อง after ตี still counts. Other hit verbs
+ *    keep their everyday-compound lookaheads (ตีตั๋ว, ตบมือ, เตะบอล, …).
  *
  * 3. ซ้อม: a person agent before the verb is enough (no object needed),
  *    except sport/music (แข่ง, บอล, ดนตรี, เต้น, ร้อง). ถูก/โดนซ้อม also
@@ -27,15 +27,15 @@ import { compact, findPhrases } from "./text";
  * banners violence. Lives outside pinned crisis.ts. Rules only — no model.
  */
 
-// Hitting verbs. ตี refuses a preceding thanthakhat (ปาร์ตี้) and a following
-// tone mark (ตี๋), น (ตีน), ตัว…ห่าง (ตีตัวออกห่าง), or กลับ (ตีกลับ).
+// Hitting verbs. ตี refuses a preceding thanthakhat (ปาร์ตี้), ตีน (foot; น
+// not starting น้อง), a following tone mark (ตี๋), ตัว…ห่าง, or กลับ.
 const HIT_VERBS =
-  "((?<!์)ตี(?![่้๊๋น]|กลับ|ตัว.{0,6}?ห่าง|ตั๋ว|ความ|สนิท|กิน|จาก|หน้า|ราคา|พิมพ์|เนียน|มึน|ลังกา|บ|หนึ่ง|สอง|สาม|สี่|ห้า|กอล์ฟ|แบด|เทนนิส|ปิงปอง|กลอง|ฉิ่ง|ไข่|แปลง|เส้น|ตลาด|โจทย์|วง|ซี้|ฝีปาก|บท|ค่า|มูลค่า|ระฆัง|ฆ้อง)" +
+  "((?<!์)ตี(?![่้๊๋]|น(?![่้๊๋])|กลับ|ตัว.{0,6}?ห่าง|ตั๋ว|ความ|สนิท|กิน|จาก|หน้า|ราคา|พิมพ์|เนียน|มึน|ลังกา|บ|หนึ่ง|สอง|สาม|สี่|ห้า|กอล์ฟ|แบด|เทนนิส|ปิงปอง|กลอง|ฉิ่ง|ไข่|แปลง|เส้น|ตลาด|โจทย์|วง|ซี้|ฝีปาก|บท|ค่า|มูลค่า|ระฆัง|ฆ้อง)" +
   "|ตบ(?!มือ|ยุง|แต่ง|เท้า|ไหล่|บ่า)|ต่อย(?!มวย)|เตะ(?!บอล|ฟุตบอล|ตะกร้อ)|ทุบ(?!หลัง|ไหล่|นวด|สถิติ|ทิ้ง)|กระทืบ|ถีบ(?!จักรยาน)|" +
   "ผลัก(?!ดัน|ให้ไป)|ชก(?!มวย)|กระชาก|บีบคอ|จิกหัว|จิกผม|ดึงผม|ทำร้าย(?!จิตใจ|ความรู้สึก|ใจ)|ใช้กำลัง(?!ใจ)|ลงไม้ลงมือ)";
-// ซ้อม is not sport/music practice (แข่ง/บอล/ดนตรี/เต้น/ร้อง). Bounded; no ReDoS.
-const ZOM =
-  "(?<!(?:แข่ง|บอล|ดนตรี|เต้น)[\\s\\S]{0,24})ซ้อม(?!(?:ร้อง(?!ไห้)|[\\s\\S]{0,32}?(?:แข่ง|บอล|ดนตรี|เต้น|ร้องเพลง)))";
+// ซ้อม is not sport/music practice sitting on the verb (ซ้อมบอล, ซ้อมดนตรี,
+// ซ้อม…ก่อนแข่ง). Bounded; no ReDoS. A later สนามบอล does not cancel a beating.
+const ZOM = "ซ้อม(?!(?:ร้อง(?!ไห้)|บอล|ดนตรี|เต้น|แข่ง|.{0,12}?ก่อนแข่ง))";
 const ZOM_HARM = "(?:จนเจ็บ|จนช้ำ|จนตัวเขียว|ตัวเขียว|ทุบ|ทำร้าย)";
 // Who does it (partner, family, carer, generic "he/they"). "พี่" is left out: Jane calls herself พี่.
 // Thai word-boundary: แม่/พ่อ are not the prefix of แม่ค้า/พ่อค้า; เขา is not the tail of ภูเขา.
@@ -54,7 +54,6 @@ const IMAGE_THREAT =
   `(ขู่|ข่มขู่|แบล็กเมล์|แบล็คเมล์).{0,20}?${CLIP}` +
   `|จะ(ปล่อย|ลง)${CLIP}.{0,20}?ถ้าไม่` +
   `|ถ้าไม่.{0,20}?จะ(ปล่อย|ลง)${CLIP}` +
-  `|เอาไปประจาน` +
   `|เอา${CLIP}.{0,10}?ไปประจาน` +
   `|${CLIP}${SEX_CLIP}.{0,10}?${ME}` +
   `|${ME}.{0,12}?${CLIP}${SEX_CLIP}` +

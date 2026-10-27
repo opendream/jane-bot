@@ -250,7 +250,9 @@ const CORPUS: CorpusRow[] = [
   { id: "r2/partner_retort", text: "แฟนตีกลับ", crisis: false },
   { id: "r2/sore_foot", text: "แฟนเจ็บตีน", crisis: false },
   { id: "r2/partner_hits_me", text: "แฟนตีหนู", crisis: true, cat: "violence_danger" },
+  { id: "r2/hits_sibling", text: "แฟนตีน้อง", crisis: true, cat: "violence_danger" },
   { id: "r2/hit_by_dad", text: "โดนพ่อตี", crisis: true, cat: "violence_danger" },
+  { id: "r2/blackmail_photo", text: "โดนแบล็กเมล์ด้วยรูป", crisis: true, cat: "sexual_violence" },
 
   // Round 2 — ซ้อม: person agent is enough; sport/music and verb-negation are not
   { id: "r2/husband_beats", text: "ผัวซ้อม", crisis: true, cat: "violence_danger" },
@@ -271,9 +273,9 @@ const CORPUS_NEG = CORPUS.filter((r): r is Extract<CorpusRow, { crisis: false }>
 
 describe("crisis extra corpus (original + review rounds)", () => {
   it(`splits ${CORPUS.length} cases into ${CORPUS_POS.length} crisis and ${CORPUS_NEG.length} no-crisis`, () => {
-    expect(CORPUS).toHaveLength(CORPUS_POS.length + CORPUS_NEG.length);
-    expect(CORPUS_POS.length).toBeGreaterThan(0);
-    expect(CORPUS_NEG.length).toBeGreaterThan(0);
+    expect(CORPUS_POS).toHaveLength(22);
+    expect(CORPUS_NEG).toHaveLength(21);
+    expect(CORPUS).toHaveLength(43);
   });
 
   it.each(CORPUS)("$id ($text)", (row) => {
