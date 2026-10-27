@@ -90,9 +90,10 @@ export function scanValue(value, file = "(value)", allowHandles = publicHandles(
     if (DF_EXPORT_KEYS.includes(s) && p.endsWith(`.${s}`)) { out.push({ file, path: p, category: "dialogflow_export_key" }); continue; }
     const hits = findPII(s, { allowHandles });
     for (const cat of Object.keys(hits)) {
-      // Citation fields hold public URLs and publisher names: only FB links/CDN images and email/id count there.
-      // URL path digits (e.g. an NHSO article slug) are not phone numbers.
-      if (/\.(url|by|title)$/.test(p) && !["facebook", "fb_cdn_image", "email", "national_id"].includes(cat)) continue;
+      // Citation URLs: path digits (an NHSO article slug) are not phones. A raw phone planted as the
+      // url value still fails. Publisher names on by/title are not english_name hits.
+      if (field === "url" && /^https?:\/\//i.test(s) && cat === "phone") continue;
+      if ((field === "by" || field === "title") && !["facebook", "fb_cdn_image", "email", "national_id", "phone"].includes(cat)) continue;
       // English metadata is not user-facing Thai text: capitalised words there are not names.
       if (METADATA_EN_FIELDS.has(field) && cat === "english_name") continue;
       if (quizFile && QUIZ_REVIEWER_EN_FIELDS.has(field) && cat === "english_name") continue;

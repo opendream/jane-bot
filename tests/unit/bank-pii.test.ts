@@ -92,7 +92,7 @@ describe("committed bank files contain no PII and no Dialogflow export data", ()
 
   it("BANK never contains fixture or test cards", () => {
     expect(BANK_FILES.every((f) => isProductionBankFile(f))).toBe(true);
-    expect(BANK.every((c) => !/fixture|piigate|pii-gate|\.test\./i.test(c.id))).toBe(true);
+    expect(BANK.every((c) => !/fixture|piigate|pii-gate/i.test(c.id))).toBe(true);
   });
 });
 

@@ -298,10 +298,11 @@ export function validateBank(cards: BankCard[], ctx: BankContext): Issue[] {
     const handles = [...ctx.handles];
     const reviewedCopy = c.review.status === "approved" && c.flags.includes("pii_checked") && !c.placeholder;
     for (const { path, value } of walkStrings(c)) {
-      if (/\.url$/.test(path)) continue;
       const hits = findPII(value, { allowHandles: handles }) as Record<string, string[]>;
+      const citationUrl = /\.url$/.test(path) && /^https?:\/\//i.test(value);
       const user = isUserFacingPath(path);
       for (const cat of Object.keys(hits)) {
+        if (citationUrl && cat === "phone") continue; // URL path digits, not a contact number
         if (!CONTACT_PII.has(cat) && (!user || reviewedCopy)) continue;
         add("error", c.id, "pii", `PII (${cat}) in ${safePath(path)}`);
       }

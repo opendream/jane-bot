@@ -392,11 +392,11 @@ describe("model pick (only when the rules are unsure)", () => {
   const unsure = "กลัวจะท้อง เพราะถุงยางรั่ว";
   it("the input is ambiguous for the rules", () => expect(retrieve(unsure, BANK).confident).toBe(false));
   it("a valid shortlist id from the model wins", async () => {
-    const { model, calls } = spyModel("birth.control.000");
+    const { model, calls } = spyModel("condom.leak.000");
     const r = await runTurn(newDialog(), unsure, deps(model));
     expect(calls.pick).toBe(1);
     expect(r.reply).toMatchObject({ kind: "card", via: "model" });
-    expect(r.reply.kind === "card" && r.reply.card.id).toBe("birth.control.000");
+    expect(r.reply.kind === "card" && r.reply.card.id).toBe("condom.leak.000");
   });
   it("an id outside the shortlist, 'none' or a timeout → rules top-1", async () => {
     for (const pick of ["general.welcome.000", "none", null]) {

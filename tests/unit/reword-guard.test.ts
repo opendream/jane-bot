@@ -20,6 +20,7 @@ const SYN: BankCard[] = [
     ["ข้อความทดสอบ ทักไลน์ @teen_club คุยกับเจ้าหน้าที่ได้ช่วง 17:00–23:00 น. ทุกวันนะ"]),
   mk("t.plain.004", "ข้อความทดสอบ ความรู้สึกแบบนี้เกิดขึ้นได้ คุณไม่ได้อยู่คนเดียว ลองคุยกับคนที่ไว้ใจดูนะ", ["ไม่ได้อยู่คนเดียว"],
     ["ข้อความทดสอบ ความรู้สึกแบบนี้เกิดขึ้นได้ คุณไม่ได้อยู่คนเดียว ลองคุยกับคนที่ไว้ใจดูนะค่ะ"]),
+  mk("t.placeholder.010", "ข้อความทดสอบ PLACEHOLDER คุยกับเจ้าหน้าที่ได้", ["เจ้าหน้าที่"]),
 ];
 const REWORDABLE = [...SYN, ...BANK.filter((c) => c.reword)];
 
@@ -49,7 +50,7 @@ const MUTATIONS: Mut[] = [
   ["double the length", "particles", (c) => `${c.answer_th} ${c.answer_th}`],
   ["cut to a stub", "particles", (c) => c.answer_th.slice(0, Math.floor(c.answer_th.length * 0.4))],
   ["over the hard cap", "particles", (c) => `${c.answer_th} ${"ก".repeat(450)}`],
-  ["two paragraphs", "particles", (c) => c.answer_th.replace(" ", "\n\n·")],
+  ["two paragraphs", "particles", (c) => { const out = c.answer_th.replace(" ", "\n\n·"); return out === c.answer_th ? null : out; }],
   ["explicit term", "particles", (c) => `${c.answer_th} เงี่ยน`],
   ["roleplay framing", "particles", (c) => `${c.answer_th} *กอด*`],
   ["judging word", "particles", (c) => `${c.answer_th} น่าอาย`],
@@ -135,11 +136,17 @@ describe("reword validator: details", () => {
   });
   it("particle-only rewords of rewordable bank cards are counted (fail-closed share)", () => {
     const cards = BANK.filter((b) => b.reword);
-    const pass = cards.filter((b) => acceptReword(b, `${b.answer_th}นะ`, ctx).reworded);
+    const openEnded = cards.filter((b) => {
+      const orig = b.answer_th.normalize("NFC").replace(/[ \t\u00A0]+$/u, "");
+      return !/[\n\r]$/u.test(orig) && !/\p{P}$/u.test(orig);
+    });
+    const stopped = cards.filter((b) => !openEnded.includes(b));
+    const pass = openEnded.filter((b) => acceptReword(b, `${b.answer_th}นะ`, ctx).reworded);
     // eslint-disable-next-line no-console
-    console.log(`reword pass share (particle นะ): ${pass.length}/${cards.length}`);
+    console.log(`reword pass share (particle นะ): ${pass.length}/${openEnded.length} open-ended, ${stopped.length} end with a stop`);
     expect(cards.length).toBeGreaterThan(0);
-    expect(pass.length).toBe(cards.length);
+    expect(pass.length).toBe(openEnded.length);
+    for (const b of stopped) expect(acceptReword(b, `${b.answer_th}นะ`, ctx).reworded, b.id).toBe(false);
   });
   it("cards marked reword: false are always verbatim", () => {
     const fixed = { ...SYN[3], reword: false };

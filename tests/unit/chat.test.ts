@@ -173,7 +173,8 @@ describe("chat send path", () => {
     expect(h.crisisCalls).toBe(0);
     expect(chat.busy).toBe(false);
     expect(chat.quiz).toBeNull();
-    expect(chat.messages.filter((m) => m.from === "jane" && m.cardId === "birth.control.000")).toHaveLength(1);
+    expect(chat.messages.filter((m) => m.from === "jane" && m.cardId === "condom.000")).toHaveLength(1);
+    expect(chat.messages.filter((m) => m.from === "jane" && m.cardId === "birth.control.000")).toHaveLength(0);
   });
 
   it("skips chatDelayMs for a line typed during the quiz but still sets busy immediately", async () => {
