@@ -5,6 +5,8 @@ import { stripPII } from "./summary";
 // Shared with the Node guard (plain JS). Phone matching blanks clock times first.
 // @ts-ignore
 import { findPII, findPhoneSpans, scrubPII, REDACTED } from "../../scripts/bank/pii-patterns.mjs";
+// @ts-ignore
+import { PII_NAME_ALLOWLIST, isAllowlistedNameSpan, allowlistedSpans } from "../../scripts/bank/pii-name-allowlist.mjs";
 
 /* ------------------------------------------------------------------------------------------
  * Answer bank (build plan v2 §1). One JSON file per topic under src/data/bank/.
@@ -97,6 +99,8 @@ export interface BankContext {
   handles: ReadonlySet<string>;
   copyStatus: "draft" | "reviewed";
   today?: string;
+  /** Override the reviewed name-detector allowlist (tests). Production uses PII_NAME_ALLOWLIST. */
+  nameAllowlist?: readonly { id: string; span: string; why: string }[];
 }
 
 export interface Issue { level: "error" | "warning"; card: string; rule: string; msg: string }
@@ -184,6 +188,7 @@ const USER_FACING_KEYS = new Set([
   "question", "question_th", "choices", "choice_th", "prompt_th", "hint_th", "body_th", "text_th",
 ]);
 const CONTACT_PII = new Set(["phone", "email", "national_id", "line_id", "handle", "facebook", "fb_cdn_image"]);
+const NAME_PII = new Set(["thai_name", "english_name"]);
 
 function pathKey(seg: string): string {
   return seg.replace(/\[\d+\]/g, "");
@@ -291,11 +296,12 @@ export function validateBank(cards: BankCard[], ctx: BankContext): Issue[] {
       if (urlsIn(value).length) add("error", c.id, "no_url_in_text", `URL in ${safePath(path)}`);
     }
     // PII: every string field is scanned. Draft/unreviewed user-facing copy uses the full detector
-    // + stripPII. Approved pii_checked cards (Keng's review) still fail on contact PII
-    // (phone, email, id, handle, facebook) but not on name-detector false positives
-    // ("เราชื่อพี่เจน", "ไม่แจ้งชื่อ", "HIV Self-Test"). Metadata/citation fields, including
-    // source URLs, only report contact PII; URL path digits are not phones.
+    // + stripPII. Approved pii_checked cards still fail on contact PII and on name-detector hits
+    // that are not on the card-scoped allowlist (scripts/bank/pii-name-allowlist.mjs).
+    // Metadata/citation fields, including source URLs, only report contact PII; URL path digits
+    // are not phones.
     const handles = [...ctx.handles];
+    const nameAllow = ctx.nameAllowlist ?? PII_NAME_ALLOWLIST;
     const reviewedCopy = c.review.status === "approved" && c.flags.includes("pii_checked") && !c.placeholder;
     for (const { path, value } of walkStrings(c)) {
       const hits = findPII(value, { allowHandles: handles }) as Record<string, string[]>;
@@ -303,12 +309,25 @@ export function validateBank(cards: BankCard[], ctx: BankContext): Issue[] {
       const user = isUserFacingPath(path);
       for (const cat of Object.keys(hits)) {
         if (citationUrl && cat === "phone") continue; // URL path digits, not a contact number
+        if (NAME_PII.has(cat)) {
+          if (!user) continue;
+          if (reviewedCopy) {
+            const leftover = (hits[cat] as string[]).filter((span) => !isAllowlistedNameSpan(c.id, span, nameAllow));
+            if (!leftover.length) continue;
+          }
+          add("error", c.id, "pii", `PII (${cat}) in ${safePath(path)}`);
+          continue;
+        }
         if (!CONTACT_PII.has(cat) && (!user || reviewedCopy)) continue;
         add("error", c.id, "pii", `PII (${cat}) in ${safePath(path)}`);
       }
-      if (user && !reviewedCopy) {
+      if (user) {
         let masked = value;
         for (const hnd of ctx.handles) masked = masked.split(hnd).join("");
+        if (reviewedCopy) {
+          const spans = [...allowlistedSpans(c.id, nameAllow)].sort((a: string, b: string) => b.length - a.length);
+          for (const span of spans) masked = masked.split(span).join("");
+        }
         const norm = masked.replace(/\s+/g, " ").trim();
         if (stripPII(masked) !== norm) add("error", c.id, "pii", `text at ${safePath(path)} changes under stripPII`);
       }
