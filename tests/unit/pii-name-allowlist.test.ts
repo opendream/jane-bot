@@ -15,6 +15,7 @@ const BANK_DIR = path.resolve(__dirname, "../../src/data/bank");
 /** SYNTHETIC personal names only. Never a real person's name. */
 const SYN_THAI_NAME = "หนูชื่อสมศรีค่ะ";
 const SYN_EN_NAME = "my name is Zorbalina";
+const SYN_GLUE = "สมศรีทดสอบ";
 
 const base = (): BankCard[] => JSON.parse(JSON.stringify(fixture.cards));
 const reviewedCtx = (allowlist = PII_NAME_ALLOWLIST) =>
@@ -88,6 +89,40 @@ describe("scoped PII name allowlist (synthetic data only)", () => {
     for (const e of PII_NAME_ALLOWLIST) {
       expect(e.why.trim().length, e.span).toBeGreaterThan(8);
       expect(BANK.some((c) => c.id === e.id), e.id).toBe(true);
+    }
+  });
+
+  it("an approved card that mentions โรงเรียน and มหาวิทยาลัย validates clean", () => {
+    const cards = approvedPlant("ข้อความทดสอบ เรียนที่โรงเรียน และมหาวิทยาลัย ได้");
+    expect(piiRules(cards)).toEqual([]);
+  });
+
+  it("a synthetic name glued to ชื่อพี่เจน fails bank:validate and guard", () => {
+    const span = "ชื่อพี่เจน";
+    const cards = JSON.parse(JSON.stringify(BANK)).map((c: BankCard) =>
+      c.id === "general.welcome.000" ? { ...c, answer_th: c.answer_th.replace(span, span + SYN_GLUE) } : c,
+    );
+    expect(piiRules(cards)).toContain("pii");
+    const card = cards.find((c: BankCard) => c.id === "general.welcome.000")!;
+    expect(guardFindings([card]).some((f) => f.category === "thai_name" || f.category === "english_name")).toBe(true);
+  });
+
+  it("a synthetic name glued to an allowlisted span on disease.hiv.002 fails bank:validate and guard", () => {
+    const span = "ชื่อ มีคลินิกนิรนาม";
+    const cards = JSON.parse(JSON.stringify(BANK)).map((c: BankCard) =>
+      c.id === "disease.hiv.002" ? { ...c, answer_th: c.answer_th.replace(span, span + SYN_GLUE) } : c,
+    );
+    expect(piiRules(cards)).toContain("pii");
+    const card = cards.find((c: BankCard) => c.id === "disease.hiv.002")!;
+    expect(guardFindings([card]).some((f) => f.category === "thai_name" || f.category === "english_name")).toBe(true);
+  });
+
+  it("unchanged general.welcome.000 and disease.hiv.002 still pass validate and guard", () => {
+    expect(piiRules(BANK)).toEqual([]);
+    for (const id of ["general.welcome.000", "disease.hiv.002"] as const) {
+      const card = BANK.find((c) => c.id === id)!;
+      const nameHits = guardFindings([card]).filter((f) => f.category === "thai_name" || f.category === "english_name");
+      expect(nameHits, id).toEqual([]);
     }
   });
 });

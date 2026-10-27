@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { findPII } from "./pii-patterns.mjs";
-import { PII_NAME_ALLOWLIST, isAllowlistedNameSpan } from "./pii-name-allowlist.mjs";
+import { PII_NAME_ALLOWLIST, isAllowlistedNameSpan, leftoverStripPIINameSpans } from "./pii-name-allowlist.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "../..");
@@ -106,7 +106,8 @@ export function scanValue(value, file = "(value)", allowHandles = publicHandles(
       // English metadata is not user-facing Thai text: capitalised words there are not names.
       if (METADATA_EN_FIELDS.has(field) && cat === "english_name") continue;
       if (quizFile && QUIZ_REVIEWER_EN_FIELDS.has(field) && cat === "english_name") continue;
-      // Approved pii_checked cards: only the card-scoped allowlist skips a name span. Contact PII still fails.
+      // Approved pii_checked cards: skip a name hit only when the detector's matched
+      // span equals that card's allowlisted text. Contact PII still fails.
       if (cardFlagsAt(value, p).includes("pii_checked") && (cat === "thai_name" || cat === "english_name")) {
         const leftover = (hits[cat] ?? []).filter((span) => !isAllowlistedNameSpan(cardIdAt(value, p), span, nameAllow));
         if (!leftover.length) continue;
@@ -118,6 +119,13 @@ export function scanValue(value, file = "(value)", allowHandles = publicHandles(
         if (!leftover.length) continue;
       }
       out.push({ file, path: p, category: cat });
+    }
+    // stripPII name rules on the original string: glued/extended allowlist
+    // occurrences fail even when findPII's generic filter would skip them.
+    if (cardFlagsAt(value, p).includes("pii_checked")) {
+      for (const span of leftoverStripPIINameSpans(cardIdAt(value, p), s, nameAllow)) {
+        out.push({ file, path: p, category: /^(?:my name is|i am called|i'm called)/i.test(span) ? "english_name" : "thai_name" });
+      }
     }
   }
   return out;

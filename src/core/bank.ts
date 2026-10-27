@@ -6,7 +6,7 @@ import { stripPII } from "./summary";
 // @ts-ignore
 import { findPII, findPhoneSpans, scrubPII, REDACTED } from "../../scripts/bank/pii-patterns.mjs";
 // @ts-ignore
-import { PII_NAME_ALLOWLIST, isAllowlistedNameSpan, allowlistedSpans } from "../../scripts/bank/pii-name-allowlist.mjs";
+import { PII_NAME_ALLOWLIST, isAllowlistedNameSpan, leftoverStripPIINameSpans } from "../../scripts/bank/pii-name-allowlist.mjs";
 
 /* ------------------------------------------------------------------------------------------
  * Answer bank (build plan v2 §1). One JSON file per topic under src/data/bank/.
@@ -296,10 +296,11 @@ export function validateBank(cards: BankCard[], ctx: BankContext): Issue[] {
       if (urlsIn(value).length) add("error", c.id, "no_url_in_text", `URL in ${safePath(path)}`);
     }
     // PII: every string field is scanned. Draft/unreviewed user-facing copy uses the full detector
-    // + stripPII. Approved pii_checked cards still fail on contact PII and on name-detector hits
-    // that are not on the card-scoped allowlist (scripts/bank/pii-name-allowlist.mjs).
-    // Metadata/citation fields, including source URLs, only report contact PII; URL path digits
-    // are not phones.
+    // + stripPII. Approved pii_checked cards still fail on contact PII and on name hits
+    // (findPII thai_name/english_name, and stripPII's name rules) whose matched span is not
+    // exactly the card-scoped allowlist entry. School/address (findPII and stripPII) stay
+    // skipped on approved pii_checked copy, same as at base. Metadata/citation fields,
+    // including source URLs, only report contact PII; URL path digits are not phones.
     const handles = [...ctx.handles];
     const nameAllow = ctx.nameAllowlist ?? PII_NAME_ALLOWLIST;
     const reviewedCopy = c.review.status === "approved" && c.flags.includes("pii_checked") && !c.placeholder;
@@ -321,13 +322,13 @@ export function validateBank(cards: BankCard[], ctx: BankContext): Issue[] {
         if (!CONTACT_PII.has(cat) && (!user || reviewedCopy)) continue;
         add("error", c.id, "pii", `PII (${cat}) in ${safePath(path)}`);
       }
-      if (user) {
+      if (user && reviewedCopy) {
+        if (leftoverStripPIINameSpans(c.id, value, nameAllow).length) {
+          add("error", c.id, "pii", `text at ${safePath(path)} changes under stripPII`);
+        }
+      } else if (user) {
         let masked = value;
         for (const hnd of ctx.handles) masked = masked.split(hnd).join("");
-        if (reviewedCopy) {
-          const spans = [...allowlistedSpans(c.id, nameAllow)].sort((a: string, b: string) => b.length - a.length);
-          for (const span of spans) masked = masked.split(span).join("");
-        }
         const norm = masked.replace(/\s+/g, " ").trim();
         if (stripPII(masked) !== norm) add("error", c.id, "pii", `text at ${safePath(path)} changes under stripPII`);
       }
