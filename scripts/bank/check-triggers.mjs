@@ -10,9 +10,17 @@ import { readExport, mergeExports, normPhrase } from "./df-lib.mjs";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const bankDir = path.resolve(here, "../../src/data/bank");
 
+function triggerParts(t) {
+  if (typeof t === "string") return [t];
+  if (t && typeof t === "object" && Array.isArray(t.all)) return t.all.filter((x) => typeof x === "string");
+  return [];
+}
+
 export function triggerOverlap(cards, phraseKeys) {
   const hits = [];
-  for (const c of cards) for (const t of c.triggers ?? []) if (phraseKeys.has(normPhrase(t))) hits.push(c.id);
+  for (const c of cards) for (const t of c.triggers ?? []) {
+    for (const part of triggerParts(t)) if (phraseKeys.has(normPhrase(part))) hits.push(c.id);
+  }
   return hits;
 }
 

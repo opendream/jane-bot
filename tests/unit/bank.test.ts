@@ -72,6 +72,21 @@ describe("bank rules: trigger compact duplicates", () => {
     expect(rules(withCard((c) => { c.triggers = ["กินยาคุม", { all: ["ยาคุม", "กี่ชั่วโมง"] }]; }))).not.toContain("trigger_compact_dup");
     expect(checkShape({ ...base()[0], triggers: [{ all: ["ยาคุมฉุกเฉิน", "กี่ชั่วโมง"] }] })).toEqual([]);
   });
+  it("rejects two {all} rules that compact to the same tokens", () => {
+    const cs = withCard((c) => { c.triggers = [{ all: ["ยาคุม", "กี่ ชั่วโมง"] }, { all: ["กี่ชั่วโมง", "ยาคุม"] }]; });
+    expect(rules(cs)).toContain("trigger_compact_dup");
+    const msg = errors(cs).find((e) => e.rule === "trigger_compact_dup")?.msg ?? "";
+    expect(msg).toMatch(/triggers\[0,1\]/);
+    expect(msg).not.toMatch(/ยาคุม|กี่ชั่วโมง|object/i);
+  });
+  it("rejects {all} twins whose tokens overlap or contain each other", () => {
+    const twins = withCard((c) => { c.triggers = [{ all: ["ยาคุมฉุกเฉิน", "ช้า"] }, { all: ["คุมฉุกเฉิน", "ช้า"] }]; });
+    expect(rules(twins)).toContain("trigger_compact_dup");
+    const contained = withCard((c) => { c.triggers = [{ all: ["ยาคุมฉุกเฉิน", "กี่ชั่วโมง"] }, { all: ["ยาคุมฉุกเฉิน", "ชั่วโมง"] }]; });
+    expect(rules(contained)).toContain("trigger_compact_dup");
+    const distinct = withCard((c) => { c.triggers = [{ all: ["ยาคุมฉุกเฉิน", "กี่ชั่วโมง"] }, { all: ["ยาคุมฉุกเฉิน", "ภายใน"] }]; });
+    expect(rules(distinct)).not.toContain("trigger_compact_dup");
+  });
 });
 
 describe("bank rules: cross-card", () => {

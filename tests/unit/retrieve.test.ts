@@ -75,6 +75,21 @@ describe("co-occurrence trigger form", () => {
       findPhrases("ยาคุมฉุกเฉินกี่ชั่วโมงมีผลข้างเคียง", ["ผลข้างเคียง"]).length + 1,
     );
   });
+
+  it("overlapping {all} twins on one query span count once", () => {
+    expect(countTriggerHits("หลังใช้ยาคุมฉุกเฉินควรตรวจครรภ์เมื่อไร", [
+      { all: ["ยาคุมฉุกเฉิน", "เมื่อไร"] },
+      { all: ["คุมฉุกเฉิน", "เมื่อไร"] },
+    ])).toBe(1);
+    expect(countTriggerHits("กี่ชั่วโมงยาคุมฉุกเฉิน", [
+      { all: ["ยาคุมฉุกเฉิน", "กี่ชั่วโมง"] },
+      { all: ["ยาคุมฉุกเฉิน", "ชั่วโมง"] },
+    ])).toBe(1);
+    expect(countTriggerHits("ภายในกี่ชั่วโมงต้องกินยาคุมฉุกเฉิน", [
+      { all: ["ยาคุมฉุกเฉิน", "ภายใน"] },
+      { all: ["ยาคุมฉุกเฉิน", "กี่ชั่วโมง"] },
+    ])).toBe(2);
+  });
 });
 
 describe("card #21 what-is EC vs timing", () => {
@@ -117,10 +132,6 @@ describe("card #21 what-is EC vs timing", () => {
     "ยาคุมฉุกเฉินกี่ชั่วโมงค่ะ",
     "ยาคุมฉุกเฉินกินเมื่อไรคะ",
     "กินยาคุมฉุกเฉินช้าไปแล้วครับ",
-    "ยาคุมฉุกเฉินคืออะไร กินได้กี่ชั่วโมง",
-    "อยากรู้เรื่องยาคุมฉุกเฉิน กินภายในกี่ชั่วโมง",
-    "ยาคุมฉุกเฉินทำงานยังไง ทันไหม",
-    "ยาคุมฉุกเฉินคืออะไร หลังมีเพศสัมพันธ์นานแค่ไหน",
   ];
 
   it.each(whatIs)("retrieve() and runTurn send %s to urgent.pills.000", async (q) => {
@@ -159,7 +170,6 @@ describe("card #21 what-is EC vs timing", () => {
       "ยาคุมฉุกเฉินต้องกินภายในกี่ชั่วโมง",
       "ยาคุมฉุกเฉินกินกี่ชั่วโมง",
       "กี่ชั่วโมงยาคุมฉุกเฉิน",
-      "ยาคุมฉุกเฉินคืออะไร กินได้กี่ชั่วโมง",
     ]) {
       const r = retrieve(q, pool);
       expect(r.ranked[0]?.card.id, q).toBe("ec.timing.b001");
@@ -195,6 +205,14 @@ describe("card #21 what-is EC vs timing", () => {
     expect(r.reply.kind).toBe("crisis");
     if (r.reply.kind === "crisis") expect(r.reply.categories).toContain("self_harm");
   });
+
+  it("post-EC follow-up questions are not rules-confident on ec.timing.b001", () => {
+    for (const q of POST_EC) {
+      const r = retrieve(q, pool);
+      const top = r.ranked[0]?.card.id;
+      expect(r.confident && top === "ec.timing.b001", `${q} → ${top}/${r.confident}`).toBe(false);
+    }
+  });
 });
 
 describe("approved-card trigger regression", () => {
@@ -207,6 +225,24 @@ describe("approved-card trigger regression", () => {
 
 /** A timing trigger must name EC. Generic post-sex / when / still-in-time fragments are unsafe. */
 const EC_TERM = /ยาคุมฉุกเฉิน|คุมฉุกเฉิน|ยาเม็ดคุมฉุกเฉิน|emergency contraception|postinor|morning after|(^|[^a-z])ec([^a-z]|$)/i;
+
+/** SYNTHETIC post-EC follow-ups: pregnancy-test timing, a late period, side-effect duration. */
+const POST_EC = [
+  "หลังใช้ยาคุมฉุกเฉินควรตรวจครรภ์เมื่อไร",
+  "ใช้ยาคุมฉุกเฉินแล้วตรวจท้องได้เมื่อไร",
+  "ใช้ยาคุมฉุกเฉินแล้วตรวจครรภ์เมื่อไร",
+  "หลังกินยาคุมฉุกเฉินตรวจท้องเมื่อไร",
+  "กินยาคุมฉุกเฉินไปแล้วควรตรวจครรภ์เมื่อไร",
+  "ใช้ยาคุมฉุกเฉินแล้วประจำเดือนมาช้า",
+  "กินยาคุมฉุกเฉินแล้วประจำเดือนไม่มา",
+  "ใช้ยาคุมฉุกเฉินประจำเดือนมาช้า",
+  "ยาคุมฉุกเฉินแล้วประจำเดือนไม่มา",
+  "ยาคุมฉุกเฉินคลื่นไส้นานแค่ไหน",
+  "ใช้ยาคุมฉุกเฉินแล้วเลือดออกนานแค่ไหน",
+  "กินยาคุมฉุกเฉินแล้วคลื่นไส้นานแค่ไหน",
+  "ยาคุมฉุกเฉินเลือดออกนานแค่ไหน",
+  "ใช้ยาคุมฉุกเฉินแล้วคลื่นไส้นานไหม",
+];
 
 const CROSS_TOPIC = [
   "PEP กินเมื่อไร หลังมีเพศสัมพันธ์ ยังทันไหม",
@@ -279,9 +315,12 @@ const CROSS_TOPIC = [
   "อยากรู้เรื่องยาคุมฉุกเฉิน กินภายในกี่ชั่วโมง",
   "ยาคุมฉุกเฉินทำงานยังไง ทันไหม",
   "ยาคุมฉุกเฉินคืออะไร หลังมีเพศสัมพันธ์นานแค่ไหน",
+  "กี่วันยาคุมฉุกเฉิน",
+  "ยาคุมฉุกเฉินหลังมีเพศสัมพันธ์",
+  ...POST_EC,
 ];
 
-/** Intended diffs vs c450e1f: EC info → #21; กิน- how-often/danger/side-effect → #21; one timing line gained confidence. */
+/** Intended diffs vs c450e1f: EC info → #21; กิน- how-often/danger/side-effect → #21; take-timing stays; post-EC follow-ups leave timing. */
 const INTENDED_VS_C450: Record<string, { id: string; conf: boolean }> = {
   "ยาคุมฉุกเฉินคืออะไร": { id: "urgent.pills.000", conf: true },
   "อยากรู้เรื่องยาคุมฉุกเฉิน": { id: "urgent.pills.000", conf: true },
@@ -300,6 +339,14 @@ const INTENDED_VS_C450: Record<string, { id: string; conf: boolean }> = {
   "เล่าเรื่องยาคุมฉุกเฉินให้หน่อย": { id: "urgent.pills.000", conf: true },
   "ยาคุมฉุกเฉินทำอะไร": { id: "urgent.pills.000", conf: true },
   "ถุงยางรั่ว ต้องทำยังไง คุมฉุกเฉินทันไหม": { id: "ec.timing.b001", conf: true },
+  "คุมฉุกเฉินกินเมื่อไร": { id: "ec.timing.b001", conf: false },
+  "คุมฉุกเฉิน กินเมื่อไร": { id: "ec.timing.b001", conf: false },
+  "ยาคุมฉุกเฉินช้า": { id: "ec.timing.b001", conf: false },
+  "ยาคุมฉุกเฉิน ช้า": { id: "ec.timing.b001", conf: false },
+  "คุมฉุกเฉินทัน": { id: "ec.timing.b001", conf: false },
+  "คุมฉุกเฉิน ทัน": { id: "ec.timing.b001", conf: false },
+  "คุมฉุกเฉินยังทัน": { id: "ec.timing.b001", conf: false },
+  "คุมฉุกเฉิน ยังทัน": { id: "ec.timing.b001", conf: false },
   "กินยาคุมฉุกเฉิน": { id: "urgent.pills.000", conf: false },
   "กิน ยาคุมฉุกเฉิน": { id: "urgent.pills.000", conf: false },
   "กินยาคุมฉุกเฉินได้กี่ครั้ง": { id: "urgent.pills.000", conf: true },
@@ -332,10 +379,24 @@ const INTENDED_VS_C450: Record<string, { id: string; conf: boolean }> = {
   "ยาคุมฉุกเฉินกี่ชั่วโมงค่ะ": { id: "ec.timing.b001", conf: true },
   "ยาคุมฉุกเฉินกินเมื่อไรคะ": { id: "ec.timing.b001", conf: true },
   "กินยาคุมฉุกเฉินช้าไปแล้วครับ": { id: "ec.timing.b001", conf: true },
-  "ยาคุมฉุกเฉินคืออะไร กินได้กี่ชั่วโมง": { id: "ec.timing.b001", conf: true },
-  "อยากรู้เรื่องยาคุมฉุกเฉิน กินภายในกี่ชั่วโมง": { id: "ec.timing.b001", conf: true },
-  "ยาคุมฉุกเฉินทำงานยังไง ทันไหม": { id: "ec.timing.b001", conf: true },
-  "ยาคุมฉุกเฉินคืออะไร หลังมีเพศสัมพันธ์นานแค่ไหน": { id: "ec.timing.b001", conf: true },
+  "ยาคุมฉุกเฉินคืออะไร กินได้กี่ชั่วโมง": { id: "urgent.pills.000", conf: true },
+  "อยากรู้เรื่องยาคุมฉุกเฉิน กินภายในกี่ชั่วโมง": { id: "urgent.pills.000", conf: true },
+  "ยาคุมฉุกเฉินทำงานยังไง ทันไหม": { id: "urgent.pills.000", conf: true },
+  "ยาคุมฉุกเฉินคืออะไร หลังมีเพศสัมพันธ์นานแค่ไหน": { id: "urgent.pills.000", conf: true },
+  "หลังใช้ยาคุมฉุกเฉินควรตรวจครรภ์เมื่อไร": { id: "urgent.pills.000", conf: false },
+  "ใช้ยาคุมฉุกเฉินแล้วตรวจท้องได้เมื่อไร": { id: "urgent.pills.000", conf: false },
+  "ใช้ยาคุมฉุกเฉินแล้วตรวจครรภ์เมื่อไร": { id: "urgent.pills.000", conf: false },
+  "หลังกินยาคุมฉุกเฉินตรวจท้องเมื่อไร": { id: "urgent.pills.000", conf: false },
+  "กินยาคุมฉุกเฉินไปแล้วควรตรวจครรภ์เมื่อไร": { id: "urgent.pills.000", conf: false },
+  "ใช้ยาคุมฉุกเฉินแล้วประจำเดือนมาช้า": { id: "birth.control.000", conf: false },
+  "กินยาคุมฉุกเฉินแล้วประจำเดือนไม่มา": { id: "birth.control.000", conf: false },
+  "ใช้ยาคุมฉุกเฉินประจำเดือนมาช้า": { id: "birth.control.000", conf: false },
+  "ยาคุมฉุกเฉินแล้วประจำเดือนไม่มา": { id: "birth.control.000", conf: false },
+  "ยาคุมฉุกเฉินคลื่นไส้นานแค่ไหน": { id: "urgent.pills.000", conf: false },
+  "ใช้ยาคุมฉุกเฉินแล้วเลือดออกนานแค่ไหน": { id: "urgent.pills.000", conf: false },
+  "กินยาคุมฉุกเฉินแล้วคลื่นไส้นานแค่ไหน": { id: "urgent.pills.000", conf: false },
+  "ยาคุมฉุกเฉินเลือดออกนานแค่ไหน": { id: "urgent.pills.000", conf: false },
+  "ใช้ยาคุมฉุกเฉินแล้วคลื่นไส้นานไหม": { id: "urgent.pills.000", conf: false },
 };
 
 const PEP_QUERIES = [
@@ -367,7 +428,7 @@ describe("retrieve baseline diff gate (c450e1f)", () => {
     const missing = [...triggerQs].filter((t) => !byQ.has(t));
     expect(missing, missing.join("\n")).toEqual([]);
     for (const q of CROSS_TOPIC) expect(byQ.has(q), q).toBe(true);
-    expect(rows).toHaveLength(157);
+    expect(rows).toHaveLength(173);
     expect(rows).toHaveLength(new Set(rows.map((r) => r.q)).size);
   });
 

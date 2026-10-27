@@ -45,6 +45,17 @@ export function triggerPhrases(triggers: readonly CardTrigger[] | undefined): st
   return out;
 }
 
+function compactAllKey(tokens: readonly string[]): string {
+  return tokens.map(compact).filter(Boolean).slice().sort().join("\0");
+}
+
+/** True when every compact token of `inner` is a substring of some compact token of `outer`. */
+function allTokensCover(inner: readonly string[], outer: readonly string[]): boolean {
+  const a = inner.map(compact).filter(Boolean);
+  const b = outer.map(compact).filter(Boolean);
+  return a.length > 0 && a.every((tok) => b.some((t) => t.includes(tok)));
+}
+
 function isCardTrigger(t: unknown): t is CardTrigger {
   if (typeof t === "string") return true;
   if (!t || typeof t !== "object" || Array.isArray(t)) return false;
@@ -273,16 +284,34 @@ export function validateBank(cards: BankCard[], ctx: BankContext): Issue[] {
     if (!shapeOk.has(c)) continue;
     const text = [c.answer_th, ...(c.variants_th ?? []), ...c.key_facts, ...triggerPhrases(c.triggers)];
     const compactIdx = new Map<string, number[]>();
+    const allIdx: { i: number; toks: string[] }[] = [];
     c.triggers.forEach((t, i) => {
-      if (typeof t !== "string") return;
-      const k = compact(t);
-      if (!k) return;
+      if (typeof t === "string") {
+        const k = compact(t);
+        if (!k) return;
+        const list = compactIdx.get(k) ?? [];
+        list.push(i);
+        compactIdx.set(k, list);
+        return;
+      }
+      if (!isAllTrigger(t)) return;
+      const k = `\x01all:${compactAllKey(t.all)}`;
       const list = compactIdx.get(k) ?? [];
       list.push(i);
       compactIdx.set(k, list);
+      allIdx.push({ i, toks: t.all });
     });
     for (const idxs of compactIdx.values()) {
       if (idxs.length > 1) add("error", c.id, "trigger_compact_dup", `triggers[${idxs.join(",")}] become the same phrase once spaces are stripped`);
+    }
+    for (let a = 0; a < allIdx.length; a++) {
+      for (let b = a + 1; b < allIdx.length; b++) {
+        const A = allIdx[a], B = allIdx[b];
+        if (compactAllKey(A.toks) === compactAllKey(B.toks)) continue;
+        if (allTokensCover(A.toks, B.toks) || allTokensCover(B.toks, A.toks)) {
+          add("error", c.id, "trigger_compact_dup", `triggers[${A.i},${B.i}] become the same phrase once spaces are stripped`);
+        }
+      }
     }
     for (let i = 0; i < c.next.length; i++) if (!ids.has(c.next[i].card_id)) add("error", c.id, "next_exists", `next[${i}] target does not exist`);
     for (let i = 0; i < c.key_facts.length; i++) if (!c.answer_th.includes(c.key_facts[i])) add("error", c.id, "key_facts", `key fact at key_facts[${i}] is not in answer_th`);

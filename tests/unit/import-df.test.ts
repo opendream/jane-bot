@@ -340,6 +340,13 @@ describe("output stays outside git", () => {
     const keys = new Set(["ลืมกินยา"]);
     expect(triggerOverlap([{ id: "a.000", triggers: ["ลืม กินยา"] }, { id: "b.000", triggers: ["ยาคุม"] }], keys)).toEqual(["a.000"]);
   });
+  it("trigger check flags an {all} token equal to an export phrase", () => {
+    const keys = new Set(["ลืมกินยา"]);
+    expect(triggerOverlap([
+      { id: "a.000", triggers: [{ all: ["ลืม กินยา", "ยาคุมฉุกเฉิน"] }] },
+      { id: "b.000", triggers: [{ all: ["ยาคุม", "บ่อย"] }] },
+    ], keys)).toEqual(["a.000"]);
+  });
 });
 
 // Optional: the real exports, counts only. Runs when JANE_DF_DIR points at the off-repo export folder.
