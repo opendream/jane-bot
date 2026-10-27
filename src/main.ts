@@ -15,7 +15,7 @@ import { toDialogModel } from "./llm/dialogModel";
 import { shouldApplyAsyncResult, newNeedGate, beginNeed, bumpNeed, needBusy, endNeed } from "./core/dialog";
 import { h } from "./ui/dom";
 import { newChat, chatView, beginQuiz, type ChatState } from "./ui/chat";
-import { ART_CREDIT, preloadJaneArt, welcomeStars } from "./ui/jane";
+import { ART_CREDIT, janeImg, preloadJaneArt, welcomeStars } from "./ui/jane";
 import { QUIZ_MENU, pickQuizItems, quizCopyStatus } from "./core/quiz";
 
 /* ------------------------------------------------------------------------------------------
@@ -146,7 +146,7 @@ function startScreen() {
   const band = (b: AgePick, label: string) =>
     h("button", { class: "btn-choice", "data-testid": `age-${b}`, onclick: () => { bumpNeed(need); go({ ageBand: b, screen: "describe" }); } }, label);
   return h("main", { class: "screen start", "data-testid": "screen-start" },
-    h("div", { class: "hero" }, welcomeStars(),
+    h("div", { class: "hero" }, janeImg("header"), welcomeStars(),
       h("h1", {}, `สวัสดี เราคือ ${PRODUCT_NAME}`, h("span", { class: "en-name" }, PRODUCT_NAME_EN))),
     h("p", { class: "lead" }, "ผู้ช่วยหาที่ปรึกษาเรื่องเพศและอนามัยเจริญพันธุ์ ที่เป็นมิตรกับวัยรุ่น"),
     h("ul", { class: "promises" },
@@ -412,10 +412,12 @@ function render() {
   revealQuizArt();
 }
 
-/** Keep quiz-success stars below the sticky header. Never run on the crisis screen. */
+/** Keep quiz art below the sticky header. Answering a question scrolls the option into view,
+ *  then the success/thinking image mounts at the top of the panel — under the ~125px bar.
+ *  Never run on the crisis screen: art must not cover or delay those helplines. */
 function revealQuizArt() {
   if (state.screen === "crisis") return;
-  const el = app.querySelector("[data-testid=quiz-success]") as HTMLElement | null;
+  const el = app.querySelector("[data-testid=quiz-success], [data-testid=quiz-thinking]") as HTMLElement | null;
   if (!el) return;
   const bar = app.querySelector("header.bar") as HTMLElement | null;
   const pad = (bar?.getBoundingClientRect().height ?? 0) + 8;

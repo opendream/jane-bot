@@ -1,22 +1,44 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { ART_CREDIT, JANE_STARS } from "../../src/ui/jane";
+import { ART_CREDIT, JANE_IMAGES, JANE_STARS, JANE_RASTER_ALLOWLIST } from "../../src/ui/jane";
 
 const ROOT = path.resolve(__dirname, "../..");
 const JANE_DIR = path.join(ROOT, "src/assets/jane");
 const FONT_DIR = path.join(ROOT, "src/assets/fonts");
+const DIST = path.join(ROOT, "dist");
 const CDN = /fonts\.googleapis|fonts\.gstatic|gstatic\.com|fonts\.cdn|cdnjs|jsdelivr|unpkg|cloudinary|imgur\.com|fbcdn|raw\.githubusercontent|github\.com\/.*\/releases/i;
+const RASTER = /\.(webp|png|jpe?g|gif|avif|jxl|bmp)$/i;
+const ALLOWED = new Set<string>(JANE_RASTER_ALLOWLIST);
 
 const EXPECTED_FILES = [
+  ...JANE_RASTER_ALLOWLIST,
   "star-yellow.svg", "star-lilac.svg", "star-lilac-2.svg", "star-pale-blue.svg",
   "star-pink.svg", "star-white.svg", "stars-sheet.svg", "tokens.css", "MANIFEST.md",
 ];
 
-const REMOVED_RASTERS = [
-  "avatar.webp", "avatar-96.webp", "header.webp", "empty.webp",
-  "quiz-thinking.webp", "quiz-surprised.webp", "quiz-back.webp",
-];
+function walkFiles(dir: string): string[] {
+  if (!fs.existsSync(dir)) return [];
+  const out: string[] = [];
+  for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, ent.name);
+    if (ent.isDirectory()) out.push(...walkFiles(p));
+    else out.push(p);
+  }
+  return out;
+}
+
+/** Vite emits `name-<hash>.ext`. Match longest stem first so `avatar-96-*` is not `avatar-*`. */
+function allowlistedRaster(file: string): string | null {
+  if (ALLOWED.has(file)) return file;
+  const ordered = [...ALLOWED].sort((a, b) => b.replace(/\.[^.]+$/, "").length - a.replace(/\.[^.]+$/, "").length);
+  for (const a of ordered) {
+    const stem = a.replace(/\.[^.]+$/, "");
+    const ext = a.slice(stem.length);
+    if (new RegExp(`^${stem}-[A-Za-z0-9_-]+\\${ext.replace(".", "\\.")}$`).test(file)) return a;
+  }
+  return null;
+}
 
 describe("Jane 2018 art and credit", () => {
   it("credit text is exact and shown from the helper", () => {
@@ -26,26 +48,49 @@ describe("Jane 2018 art and credit", () => {
     expect(main).toContain("art-credit");
   });
 
-  it("stars are decorative; no raster Jane images are shipped or referenced", () => {
+  it("each Jane image has Thai alt text; stars are decorative", () => {
+    for (const [k, spec] of Object.entries(JANE_IMAGES)) {
+      expect(spec.alt, k).toMatch(/[ก-๙]/);
+      expect(spec.alt, k).not.toBe("");
+      expect(spec.width, k).toBeGreaterThan(0);
+      expect(spec.height, k).toBeGreaterThan(0);
+    }
     for (const [k, spec] of Object.entries(JANE_STARS)) {
       expect(spec.decorative, k).toBe(true);
     }
     const src = fs.readFileSync(path.join(ROOT, "src/ui/jane.ts"), "utf8");
     expect(src).toMatch(/alt:\s*""/);
     expect(src).toContain('"aria-hidden": "true"');
-    expect(src).not.toMatch(/\.webp/);
-    expect(src).not.toContain("janeImg");
-    expect(src).not.toContain("JANE_IMAGES");
-    const files = fs.readdirSync(JANE_DIR);
-    expect(files.filter((f) => /\.(webp|png|jpe?g|gif|pdf)$/i.test(f))).toEqual([]);
-    for (const f of REMOVED_RASTERS) expect(files, f).not.toContain(f);
   });
 
-  it("ships the given SVG/tokens only (no new art, no condom mascot, no comic pages)", () => {
+  it("ships only the allowlisted rasters plus the given SVG/tokens (no other raster, no condom mascot, no comic pages)", () => {
     const files = fs.readdirSync(JANE_DIR).sort();
     for (const f of EXPECTED_FILES) expect(files, f).toContain(f);
     expect(files.some((f) => /condom|mascot|comic/i.test(f))).toBe(false);
-    expect(files.filter((f) => /\.(png|jpe?g|gif|pdf|webp)$/i.test(f))).toEqual([]);
+    const rasters = files.filter((f) => RASTER.test(f)).sort();
+    expect(rasters).toEqual([...ALLOWED].sort());
+    expect(files.filter((f) => /\.(png|jpe?g|gif|pdf)$/i.test(f))).toEqual([]);
+  });
+
+  it("src and dist (if built) contain no raster outside the Jane allowlist", () => {
+    const srcRasters = fs.readdirSync(JANE_DIR).filter((f) => RASTER.test(f)).sort();
+    expect(srcRasters).toEqual([...ALLOWED].sort());
+    if (!fs.existsSync(DIST)) return;
+    const distRasters = walkFiles(DIST).filter((p) => RASTER.test(p));
+    const mapped = distRasters.map((p) => {
+      const base = path.basename(p);
+      const allowed = allowlistedRaster(base);
+      expect(allowed, `unexpected raster in dist: ${path.relative(DIST, p)}`).not.toBeNull();
+      return allowed!;
+    });
+    expect([...new Set(mapped)].sort()).toEqual([...ALLOWED].sort());
+  });
+
+  it("avatar uses srcset for 96 / 192 / 256", () => {
+    expect(JANE_IMAGES.avatar96.srcset).toMatch(/96w/);
+    expect(JANE_IMAGES.avatar96.srcset).toMatch(/192w/);
+    expect(JANE_IMAGES.avatar96.srcset).toMatch(/256w/);
+    expect(JANE_IMAGES.avatar96.sizes).toBe("40px");
   });
 
   it("star SVGs are self-contained (no href, script, style or font)", () => {
@@ -92,16 +137,16 @@ describe("Jane 2018 art and credit", () => {
     expect(evals).toMatch(/not covered by this CC BY-SA notice/);
   });
 
-  it("quiz success helper uses stars only; question/wrong-answer have no raster fallback", () => {
+  it("quiz success helper uses the surprised image plus stars; question/wrong-answer have art helpers", () => {
     const src = fs.readFileSync(path.join(ROOT, "src/ui/jane.ts"), "utf8");
+    expect(src).toContain('janeImg("surprised")');
     expect(src).toContain("quiz-success");
     expect(src).toContain("quiz-stars");
-    expect(src).not.toContain("surprised");
-    expect(src).not.toContain("quizThinkingArt");
-    expect(src).not.toContain("quizTryAgainArt");
+    expect(src).toContain("quizThinkingArt");
+    expect(src).toContain("quizTryAgainArt");
     const quiz = fs.readFileSync(path.join(ROOT, "src/ui/quiz.ts"), "utf8");
     expect(quiz).toContain("quizSuccessArt()");
-    expect(quiz).not.toContain("quizThinkingArt");
-    expect(quiz).not.toContain("quizTryAgainArt");
+    expect(quiz).toContain("quizThinkingArt()");
+    expect(quiz).toContain("quizTryAgainArt()");
   });
 });
