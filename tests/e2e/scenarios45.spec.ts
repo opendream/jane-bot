@@ -88,8 +88,8 @@ test("C3 mental health + suicidal phrase → crisis override, 1323 first", async
 test("V1 violence (non-crisis) → OSCC card is in-person only: label shown, no prepare-message, no ออนไลน์ draft", async ({ page }) => {
   const rec = await open(page, "10:00");
   await startAs(page, "18+");
-  // Synthetic: blackmail without the extra image-threat patterns (ขู่ปล่อยคลิป is a crisis).
-  await describe(page, "โดนแบล็กเมล์ด้วยรูป ไม่รู้จะทำยังไง");
+  // Synthetic: blackmail without a photo/clip (แบล็กเมล์ + รูป/คลิป is an extra image-threat crisis).
+  await describe(page, "โดนแบล็กเมล์ ไม่รู้จะทำยังไง");
   await page.getByTestId("need-submit").click();
   await expect(page.getByTestId("screen-suggest")).toBeVisible();
   await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
