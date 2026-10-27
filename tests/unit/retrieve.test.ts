@@ -27,33 +27,28 @@ function triggerMisroutes(): string[] {
   return out;
 }
 
-/** Pre-existing short-trigger collisions (same score, earlier sibling wins). The check fails if this set changes. */
-const EXISTING_TRIGGER_COLLISIONS = [
-  row("condom.how_to.000", "วิธีใช้ถุงยาง", "condom.000"),
-  row("birth.control.pills.000", "ยาคุมรายเดือน", "birth.control.000"),
-  row("birth.control.pills.000", "กินยาคุมยังไง", "birth.control.000"),
-  row("birth.control.pills.000", "ยาคุม 21 เม็ด", "birth.control.000"),
-  row("birth.control.implant.000", "ฝังยาคุม", "birth.control.000"),
-  row("pregnancy.ec_ask.000", "วิธีการกินยาคุมฉุกเฉิน", "ec.timing.b001"),
-  row("disease.gonorrhea.001", "สงสัยว่าติดหนองใน", "disease.gonorrhea.000"),
-  row("disease.gonorrhea.001", "เป็นหนองใน", "disease.gonorrhea.000"),
-  row("disease.herpes.002", "เริมรักษาหาย", "disease.herpes.000"),
-  row("disease.herpes.002", "เริมหายขาด", "disease.herpes.000"),
-  row("disease.syphilis.001", "อาการซิฟิลิส", "disease.syphilis.000"),
-  row("disease.syphilis.001", "แผลซิฟิลิส", "disease.syphilis.000"),
-  row("price.trc.prep.000", "ราคาเพร็พ", "protection.prep.000"),
-  row("price.trc.prep.000", "เพร็พกี่บาท", "protection.prep.000"),
-  row("price.trc.prep.000", "ซื้อยาเพร็พ", "protection.prep.000"),
-];
-
 /**
- * Distinctive fragments added so a card's own trigger outranks a sibling stem
- * via the listed-match tie-break. Frozen 123/e948 tables stay the old queries.
+ * Distinctive fragments (and one whitespace twin) so a card's own trigger
+ * outranks a sibling stem via the listed-match tie-break. Frozen 123/e948
+ * tables stay the old query set; these strings are new.
  */
 const NEW_OWN_TRIGGER_FRAGMENTS = [
   "โดยไม่บอกผู้ปกครอง",
   "ไม่บอกผู้ปกครอง",
   "เด็กตรวจ",
+  "วิธีใช้ถุง",
+  "คุมรายเดือน",
+  "คุมยังไง",
+  "21 เม็ด",
+  "ฝังยา",
+  "สงสัยว่าติดหนอง",
+  "เป็นหนอง",
+  "เริม รักษาหาย",
+  "เริม หายขาด",
+  "อาการซิฟิ",
+  "แผลซิฟิ",
+  "ราคา เพร็พ",
+  "กี่บาท",
 ];
 
 function stubCard(id: string, triggers: string[], topic: BankTopic = "emergency_contraception"): BankCard {
@@ -155,11 +150,18 @@ describe("card #21 what-is EC vs timing", () => {
 });
 
 describe("approved-card trigger regression", () => {
-  it("fails on any card whose own triggers resolve elsewhere, and lists existing collisions", () => {
+  it("every approved card's own triggers retrieve that card", () => {
     const found = triggerMisroutes();
     expect(found.some((line) => line.startsWith("urgent.pills.000\t"))).toBe(false);
     expect(found.some((line) => line.startsWith("hiv.test.under18.000\t"))).toBe(false);
-    expect(found, found.join("\n")).toEqual(EXISTING_TRIGGER_COLLISIONS);
+    expect(found, found.join("\n")).toEqual([]);
+  });
+
+  it("pregnancy.ec_ask.000 is a chip prompt, not a retrieval target", () => {
+    const card = BANK.find((c) => c.id === "pregnancy.ec_ask.000")!;
+    expect(card.triggers).toEqual([]);
+    // วิธีการกินยาคุมฉุกเฉิน belongs to the timing card; stealing it would move EC.
+    expect(topId("วิธีการกินยาคุมฉุกเฉิน")).toBe("ec.timing.b001");
   });
 });
 
@@ -266,11 +268,22 @@ const INTENDED_VS_C450: Record<string, { id: string; conf: boolean }> = {
   "วิธีการกินยาคุมฉุกเฉิน": { id: "ec.timing.b001", conf: false },
   "กินยาคุมฉุกเฉินช้าไปแล้ว": { id: "ec.timing.b001", conf: false },
   "หลังมีเพศสัมพันธ์กี่ชั่วโมงยังกินยาคุมฉุกเฉินได้": { id: "ec.timing.b001", conf: false },
-  // เพร็พ ⊂ ยาเพร็พ: same PrEP card, overlap cluster drops confidence.
-  "ซื้อยาเพร็พ": { id: "protection.prep.000", conf: false },
-  // #34 own-trigger fragments outrank the adult HIV-test stem; confidence stays a tie.
+  // Own-trigger fragments outrank the sibling stem; unique-score tie keeps conf false.
   "ตรวจเอชไอวีโดยไม่บอกผู้ปกครอง": { id: "hiv.test.under18.000", conf: false },
   "เด็กตรวจเอชไอวีได้ไหม": { id: "hiv.test.under18.000", conf: false },
+  "วิธีใช้ถุงยาง": { id: "condom.how_to.000", conf: false },
+  "ยาคุมรายเดือน": { id: "birth.control.pills.000", conf: false },
+  "กินยาคุมยังไง": { id: "birth.control.pills.000", conf: false },
+  "ยาคุม 21 เม็ด": { id: "birth.control.pills.000", conf: false },
+  "ฝังยาคุม": { id: "birth.control.implant.000", conf: false },
+  "สงสัยว่าติดหนองใน": { id: "disease.gonorrhea.001", conf: false },
+  "เป็นหนองใน": { id: "disease.gonorrhea.001", conf: false },
+  "เริมรักษาหาย": { id: "disease.herpes.002", conf: false },
+  "เริมหายขาด": { id: "disease.herpes.002", conf: false },
+  "อาการซิฟิลิส": { id: "disease.syphilis.001", conf: false },
+  "แผลซิฟิลิส": { id: "disease.syphilis.001", conf: false },
+  "ราคาเพร็พ": { id: "price.trc.prep.000", conf: false },
+  "เพร็พกี่บาท": { id: "price.trc.prep.000", conf: false },
   // Space-twin / overlap: still top timing, no longer rules-confident.
   "กินยาคุมฉุกเฉิน": { id: "ec.timing.b001", conf: false },
   "กิน ยาคุมฉุกเฉิน": { id: "ec.timing.b001", conf: false },
@@ -343,9 +356,21 @@ const INTENDED_VS_E948: Record<string, { id: string; conf: boolean }> = {
   "ถุงยางรั่ว ต้องทำยังไง คุมฉุกเฉินทันไหม": { id: "ec.timing.b001", conf: false },
   "กินยาคุมฉุกเฉินช้าไปแล้ว": { id: "ec.timing.b001", conf: false },
   "หลังมีเพศสัมพันธ์กี่ชั่วโมงยังกินยาคุมฉุกเฉินได้": { id: "ec.timing.b001", conf: false },
-  "ซื้อยาเพร็พ": { id: "protection.prep.000", conf: false },
   "ตรวจเอชไอวีโดยไม่บอกผู้ปกครอง": { id: "hiv.test.under18.000", conf: false },
   "เด็กตรวจเอชไอวีได้ไหม": { id: "hiv.test.under18.000", conf: false },
+  "วิธีใช้ถุงยาง": { id: "condom.how_to.000", conf: false },
+  "ยาคุมรายเดือน": { id: "birth.control.pills.000", conf: false },
+  "กินยาคุมยังไง": { id: "birth.control.pills.000", conf: false },
+  "ยาคุม 21 เม็ด": { id: "birth.control.pills.000", conf: false },
+  "ฝังยาคุม": { id: "birth.control.implant.000", conf: false },
+  "สงสัยว่าติดหนองใน": { id: "disease.gonorrhea.001", conf: false },
+  "เป็นหนองใน": { id: "disease.gonorrhea.001", conf: false },
+  "เริมรักษาหาย": { id: "disease.herpes.002", conf: false },
+  "เริมหายขาด": { id: "disease.herpes.002", conf: false },
+  "อาการซิฟิลิส": { id: "disease.syphilis.001", conf: false },
+  "แผลซิฟิลิส": { id: "disease.syphilis.001", conf: false },
+  "ราคาเพร็พ": { id: "price.trc.prep.000", conf: false },
+  "เพร็พกี่บาท": { id: "price.trc.prep.000", conf: false },
   // Known gap #28: mixed what-is + hours still land on urgent.pills.000.
   "ยาคุมฉุกเฉินคืออะไร กินได้กี่ชั่วโมง": { id: "urgent.pills.000", conf: false },
   "อยากรู้เรื่องยาคุมฉุกเฉิน กินภายในกี่ชั่วโมง": { id: "urgent.pills.000", conf: false },
