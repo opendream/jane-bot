@@ -41,11 +41,19 @@ const EXISTING_TRIGGER_COLLISIONS = [
   row("disease.herpes.002", "เริมหายขาด", "disease.herpes.000"),
   row("disease.syphilis.001", "อาการซิฟิลิส", "disease.syphilis.000"),
   row("disease.syphilis.001", "แผลซิฟิลิส", "disease.syphilis.000"),
-  row("hiv.test.under18.000", "ตรวจเอชไอวีโดยไม่บอกผู้ปกครอง", "disease.hiv.002"),
-  row("hiv.test.under18.000", "เด็กตรวจเอชไอวีได้ไหม", "disease.hiv.002"),
   row("price.trc.prep.000", "ราคาเพร็พ", "protection.prep.000"),
   row("price.trc.prep.000", "เพร็พกี่บาท", "protection.prep.000"),
   row("price.trc.prep.000", "ซื้อยาเพร็พ", "protection.prep.000"),
+];
+
+/**
+ * Distinctive fragments added so a card's own trigger outranks a sibling stem
+ * via the listed-match tie-break. Frozen 123/e948 tables stay the old queries.
+ */
+const NEW_OWN_TRIGGER_FRAGMENTS = [
+  "โดยไม่บอกผู้ปกครอง",
+  "ไม่บอกผู้ปกครอง",
+  "เด็กตรวจ",
 ];
 
 function stubCard(id: string, triggers: string[], topic: BankTopic = "emergency_contraception"): BankCard {
@@ -150,7 +158,42 @@ describe("approved-card trigger regression", () => {
   it("fails on any card whose own triggers resolve elsewhere, and lists existing collisions", () => {
     const found = triggerMisroutes();
     expect(found.some((line) => line.startsWith("urgent.pills.000\t"))).toBe(false);
+    expect(found.some((line) => line.startsWith("hiv.test.under18.000\t"))).toBe(false);
     expect(found, found.join("\n")).toEqual(EXISTING_TRIGGER_COLLISIONS);
+  });
+});
+
+const UNDER18_HIV = "hiv.test.under18.000";
+const ADULT_HIV_TEST = "disease.hiv.002";
+
+/** Synthetic under-18 HIV-test questions. Must not be answered by the adult test card. */
+const UNDER18_HIV_QUESTIONS = [
+  "ตรวจเอชไอวีโดยไม่บอกผู้ปกครอง",
+  "เด็กตรวจเอชไอวีได้ไหม",
+  "อยากตรวจเอชไอวีโดยไม่บอกผู้ปกครอง",
+  "วัยรุ่นตรวจเอชไอวีโดยไม่บอกผู้ปกครอง",
+  "เด็กตรวจเอชไอวีโดยไม่บอกผู้ปกครอง",
+];
+
+describe("card #34 under-18 HIV test (safety)", () => {
+  it("each of hiv.test.under18.000's own triggers retrieves that card", () => {
+    const card = BANK.find((c) => c.id === UNDER18_HIV)!;
+    expect(card.triggers.length).toBeGreaterThan(0);
+    for (const trigger of card.triggers) {
+      expect(topId(trigger), trigger).toBe(UNDER18_HIV);
+    }
+  });
+
+  it.each(UNDER18_HIV_QUESTIONS)("under-18 HIV test question %s is not answered by the adult card", (q) => {
+    const r = retrieve(q, pool);
+    expect(r.ranked[0]?.card.id, q).toBe(UNDER18_HIV);
+    expect(r.ranked[0]?.card.id, q).not.toBe(ADULT_HIV_TEST);
+  });
+
+  it("adult HIV-test questions still land on disease.hiv.002", () => {
+    expect(outcome("ตรวจเอชไอวี")).toEqual({ id: ADULT_HIV_TEST, conf: true });
+    expect(outcome("อยากตรวจเอช")).toEqual({ id: ADULT_HIV_TEST, conf: true });
+    expect(outcome("อาการเอชไอวี")).toEqual({ id: ADULT_HIV_TEST, conf: true });
   });
 });
 
@@ -225,6 +268,9 @@ const INTENDED_VS_C450: Record<string, { id: string; conf: boolean }> = {
   "หลังมีเพศสัมพันธ์กี่ชั่วโมงยังกินยาคุมฉุกเฉินได้": { id: "ec.timing.b001", conf: false },
   // เพร็พ ⊂ ยาเพร็พ: same PrEP card, overlap cluster drops confidence.
   "ซื้อยาเพร็พ": { id: "protection.prep.000", conf: false },
+  // #34 own-trigger fragments outrank the adult HIV-test stem; confidence stays a tie.
+  "ตรวจเอชไอวีโดยไม่บอกผู้ปกครอง": { id: "hiv.test.under18.000", conf: false },
+  "เด็กตรวจเอชไอวีได้ไหม": { id: "hiv.test.under18.000", conf: false },
   // Space-twin / overlap: still top timing, no longer rules-confident.
   "กินยาคุมฉุกเฉิน": { id: "ec.timing.b001", conf: false },
   "กิน ยาคุมฉุกเฉิน": { id: "ec.timing.b001", conf: false },
@@ -298,6 +344,8 @@ const INTENDED_VS_E948: Record<string, { id: string; conf: boolean }> = {
   "กินยาคุมฉุกเฉินช้าไปแล้ว": { id: "ec.timing.b001", conf: false },
   "หลังมีเพศสัมพันธ์กี่ชั่วโมงยังกินยาคุมฉุกเฉินได้": { id: "ec.timing.b001", conf: false },
   "ซื้อยาเพร็พ": { id: "protection.prep.000", conf: false },
+  "ตรวจเอชไอวีโดยไม่บอกผู้ปกครอง": { id: "hiv.test.under18.000", conf: false },
+  "เด็กตรวจเอชไอวีได้ไหม": { id: "hiv.test.under18.000", conf: false },
   // Known gap #28: mixed what-is + hours still land on urgent.pills.000.
   "ยาคุมฉุกเฉินคืออะไร กินได้กี่ชั่วโมง": { id: "urgent.pills.000", conf: false },
   "อยากรู้เรื่องยาคุมฉุกเฉิน กินภายในกี่ชั่วโมง": { id: "urgent.pills.000", conf: false },
@@ -331,7 +379,7 @@ describe("retrieve baseline diff gate (c450e1f)", () => {
       for (const t of card.triggers) triggerQs.add(t);
     }
     const missing = [...triggerQs].filter((t) => !byQ.has(t));
-    expect(missing, missing.join("\n")).toEqual([]);
+    expect(missing.sort(), missing.join("\n")).toEqual([...NEW_OWN_TRIGGER_FRAGMENTS].sort());
     for (const q of CROSS_TOPIC) expect(byQ.has(q), q).toBe(true);
   });
 
