@@ -1,8 +1,16 @@
 import { test, expect, type Page } from "@playwright/test";
+import fs from "node:fs";
+import path from "node:path";
 import { open, viewportShot, assertHeaderDoesNotOverlap, assertNoStorage, assertNetwork, startAs } from "./helpers";
 
-const ART_CREDIT = "Illustration © Opendream, 2018";
+const ART_CREDIT = "Illustration © Opendream, 2018. Some figures redrawn with AI assistance, 2026.";
 const CDN = /fonts\.googleapis|fonts\.gstatic|gstatic\.com|googleapis\.com|cdnjs|jsdelivr|unpkg|cloudinary|imgur|fbcdn|raw\.githubusercontent|github\.com/i;
+const RASTER = /\.(webp|png|jpe?g|gif|avif|jxl|bmp)$/i;
+const JANE_RASTER_ALLOWLIST = [
+  "avatar.webp", "avatar-192.webp", "avatar-96.webp", "header.webp", "empty.webp",
+  "quiz-thinking.webp", "quiz-surprised.webp", "quiz-back.webp",
+] as const;
+const ALLOWED = new Set<string>(JANE_RASTER_ALLOWLIST);
 
 async function openChat(page: Page, band = "15-17") {
   await startAs(page, band);
@@ -10,18 +18,18 @@ async function openChat(page: Page, band = "15-17") {
   await expect(page.getByTestId("screen-chat")).toBeVisible();
 }
 
-async function assertStarAlts(page: Page) {
+async function assertJaneAlts(page: Page) {
   const imgs = await page.locator("img").evaluateAll((els) =>
     els.map((e) => ({
       alt: e.getAttribute("alt"),
       hidden: e.getAttribute("aria-hidden"),
       testid: e.getAttribute("data-testid"),
-      src: e.getAttribute("src") ?? "",
     })));
+  expect(imgs.length, "Jane UI should render images").toBeGreaterThan(0);
   for (const img of imgs) {
-    expect(img.src, img.testid ?? "img").not.toMatch(/\.webp(\?|$)/i);
     expect(img.alt, img.testid ?? "img").not.toBeNull();
     if (img.hidden === "true" || img.testid === "jane-star") expect(img.alt).toBe("");
+    else expect(img.alt!.length, img.testid ?? "img").toBeGreaterThan(0);
   }
 }
 
@@ -34,54 +42,112 @@ async function assertLocalOnly(rec: Awaited<ReturnType<typeof open>>) {
   expect(rec.flowRequests()).toEqual([]);
 }
 
-test("welcome screen shows vector stars, credit, and no raster Jane art", async ({ page }) => {
+function allowlistedRaster(file: string): string | null {
+  if (ALLOWED.has(file)) return file;
+  const ordered = [...ALLOWED].sort((a, b) => b.replace(/\.[^.]+$/, "").length - a.replace(/\.[^.]+$/, "").length);
+  for (const a of ordered) {
+    const stem = a.replace(/\.[^.]+$/, "");
+    const ext = a.slice(stem.length);
+    if (new RegExp(`^${stem}-[A-Za-z0-9_-]+${ext.replace(".", "\\.")}$`).test(file)) return a;
+  }
+  return null;
+}
+
+test("dist ships only the allowlisted Jane rasters", () => {
+  const dist = path.resolve("dist");
+  const found: string[] = [];
+  const walk = (dir: string) => {
+    for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, ent.name);
+      if (ent.isDirectory()) walk(p);
+      else if (RASTER.test(ent.name)) found.push(p);
+    }
+  };
+  walk(dist);
+  const mapped = found.map((p) => {
+    const allowed = allowlistedRaster(path.basename(p));
+    expect(allowed, `unexpected raster in dist: ${path.relative(dist, p)}`).not.toBeNull();
+    return allowed!;
+  });
+  expect([...new Set(mapped)].sort()).toEqual([...ALLOWED].sort());
+});
+
+test("welcome screen shows header art, credit, Thai alt, and no CDN", async ({ page }) => {
   const rec = await open(page, "14:00");
   await expect(page.getByTestId("screen-start")).toBeVisible();
   await expect(page.getByTestId("art-credit")).toHaveText(ART_CREDIT);
-  await expect(page.getByTestId("jane-header")).toHaveCount(0);
+  await expect(page.getByTestId("jane-header")).toBeVisible();
+  await expect(page.getByTestId("jane-header")).toHaveAttribute("alt", /[ก-๙]/);
   await expect(page.getByTestId("welcome-stars").locator('[data-testid="jane-star"]')).toHaveCount(3);
-  await assertStarAlts(page);
-  await viewportShot(page, "v12-01-welcome", page.getByTestId("screen-start"));
+  await assertJaneAlts(page);
+  await viewportShot(page, "v12-01-welcome", page.getByTestId("jane-header"));
   await assertNoStorage(page);
   await assertNetwork(page, rec);
   await assertLocalOnly(rec);
 });
 
-test("chat has no empty-state raster and no avatar; bubbles still work", async ({ page }) => {
+test("empty chat shows empty.webp on a white card; bot bubbles use the avatar srcset", async ({ page }) => {
   const rec = await open(page, "14:00");
   await openChat(page);
-  await expect(page.getByTestId("chat-empty")).toHaveCount(0);
-  await expect(page.getByTestId("jane-empty")).toHaveCount(0);
-  await expect(page.getByTestId("jane-avatar")).toHaveCount(0);
+  const empty = page.getByTestId("chat-empty");
+  await expect(empty).toBeVisible();
+  await expect(page.getByTestId("jane-empty")).toHaveAttribute("alt", /[ก-๙]/);
+  const bg = await empty.evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(bg).toMatch(/rgb\(255,\s*255,\s*255\)/);
+  const avatar = page.getByTestId("jane-avatar").first();
+  await expect(avatar).toBeVisible();
+  await expect(avatar).toHaveAttribute("alt", /[ก-๙]/);
+  const srcset = await avatar.getAttribute("srcset");
+  expect(srcset).toMatch(/96w/);
+  expect(srcset).toMatch(/192w/);
+  expect(srcset).toMatch(/256w/);
   await expect(page.getByTestId("art-credit")).toHaveText(ART_CREDIT);
-  await assertStarAlts(page);
-  await viewportShot(page, "v12-02-chat", page.getByTestId("chat-log"));
+  await assertJaneAlts(page);
+  await viewportShot(page, "v12-02-empty", page.getByTestId("chat-empty"));
   await page.getByTestId("chat-chip-1").click();
   await expect(page.locator('[data-testid="chat-msg"][data-from="jane"]').last()).toHaveAttribute("data-card", "pregnancy.p000");
-  await expect(page.getByTestId("jane-avatar")).toHaveCount(0);
-  await viewportShot(page, "v12-03-chat-followup", page.locator('[data-testid="chat-msg"][data-from="jane"]').last());
+  await expect(page.getByTestId("chat-empty")).toHaveCount(0);
+  await expect(page.getByTestId("jane-avatar")).toHaveCount(2);
+  await viewportShot(page, "v12-03-chat-avatar", page.locator('[data-testid="chat-msg"][data-from="jane"]').last());
   await assertNoStorage(page);
   await assertNetwork(page, rec);
   await assertLocalOnly(rec);
 });
 
-test("quiz question has no thinking raster; success shows stars only", async ({ page }) => {
+test("quiz question shows thinking; success shows surprised plus stars", async ({ page }) => {
   const rec = await open(page, "14:00");
   await openChat(page);
   await page.getByTestId("quiz-menu").click();
   await expect(page.getByTestId("quiz-panel")).toBeVisible();
-  await expect(page.getByTestId("quiz-thinking")).toHaveCount(0);
-  await expect(page.getByTestId("jane-quiz-thinking")).toHaveCount(0);
+  await expect(page.getByTestId("quiz-thinking")).toBeVisible();
+  await expect(page.getByTestId("jane-quiz-thinking")).toHaveAttribute("alt", /[ก-๙]/);
   await expect(page.getByTestId("quiz-success")).toHaveCount(0);
-  await viewportShot(page, "v12-04-quiz-question", page.getByTestId("quiz-panel"));
+  await viewportShot(page, "v12-04-quiz-thinking", page.getByTestId("quiz-thinking"));
   await page.getByTestId("quiz-opt-1").click();
   await expect(page.getByTestId("quiz-result")).toHaveAttribute("data-ok", "true");
   await expect(page.getByTestId("quiz-success")).toBeVisible();
-  await expect(page.getByTestId("jane-quiz-surprised")).toHaveCount(0);
+  await expect(page.getByTestId("jane-quiz-surprised")).toBeVisible();
   await expect(page.getByTestId("quiz-stars").locator('[data-testid="jane-star"]')).toHaveCount(4);
+  await assertHeaderDoesNotOverlap(page, "jane-quiz-surprised");
   await assertHeaderDoesNotOverlap(page, "quiz-stars");
   await viewportShot(page, "v12-05-quiz-success", page.getByTestId("quiz-success"));
-  await assertStarAlts(page);
+  await assertJaneAlts(page);
+  await assertNoStorage(page);
+  await assertNetwork(page, rec);
+  await assertLocalOnly(rec);
+});
+
+test("quiz wrong answer shows the back figure", async ({ page }) => {
+  const rec = await open(page, "14:00");
+  await openChat(page);
+  await page.getByTestId("quiz-menu").click();
+  await expect(page.getByTestId("quiz-panel")).toBeVisible();
+  await page.getByTestId("quiz-opt-0").click();
+  await expect(page.getByTestId("quiz-result")).toHaveAttribute("data-ok", "false");
+  await expect(page.getByTestId("quiz-try-again")).toBeVisible();
+  await expect(page.getByTestId("jane-quiz-back")).toHaveAttribute("alt", /[ก-๙]/);
+  await expect(page.getByTestId("quiz-success")).toHaveCount(0);
+  await viewportShot(page, "v12-05b-quiz-wrong", page.getByTestId("quiz-try-again"));
   await assertNoStorage(page);
   await assertNetwork(page, rec);
   await assertLocalOnly(rec);

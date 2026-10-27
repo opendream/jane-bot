@@ -1,46 +1,73 @@
 # Jane assets for `src/assets/jane/`
 
-Illustration © Opendream, 2018
+Illustration © Opendream, 2018. Some figures redrawn with AI assistance, 2026.
 
-Source: *Sex Safe Safe* manual (2018). **This repository does not contain the 2018 PDF** (no `.pdf` / `.ai` / `.eps` in the tree or git history), so no new vector objects were extracted in this round.
+`avatar.webp` (and its 192 and 96 sizes), `quiz-surprised.webp` and `quiz-back.webp` are an AI-assisted redraw (Grok Imagine), Opendream, 2026. `header.webp`, `empty.webp` and `quiz-thinking.webp` are native higher-res images from the 2018 PDF, with no AI.
 
-Owner ruling 27 Oct 2026 06:14 BKK: #15 may use only true vector art. Raster crops or renders from the PDF do not count. Nothing was redrawn, traced, auto-vectorized, generated with AI, or taken from the 2020 art round.
+Source: *Sex Safe Safe* manual (2018). The PDF is not in this repository. Page numbers are 1-based. **p4 is not used** (UFC marked it REMOVE). The condom mascot is not used. Nothing was taken from the 2020 art round.
 
-## Remaining assets
+The in-app credit is exactly `Illustration © Opendream, 2018. Some figures redrawn with AI assistance, 2026.`. The grant is all rights reserved; not covered by Apache-2.0 or CC BY-SA.
+
+## Encoder (all rasters)
+
+Shipped files are lossy WebP with a lossless alpha plane. Sources were the owner-approved RGBA PNGs. No upscale. No redraw or colour change beyond resize + encode.
+
+- Resize (when needed): Pillow 10.2 `Image.Resampling.LANCZOS` on premultiplied RGBA, then un-premultiply.
+- Encode: `cwebp` 1.3.2 `-q 80 -alpha_q 100 -m 6 -alpha_filter best -mt -exact`
+- `avatar-96.webp` and `avatar-192.webp` were encoded at native PNG size (already Lanczos / premultiplied downscales of `avatar.png`).
+
+| File | Output px | Bytes | KB |
+|---|---|---|---|
+| `header.webp` | 504×704 | 40164 | 39.2 |
+| `avatar.webp` | 256×256 | 12790 | 12.5 |
+| `avatar-192.webp` | 192×192 | 9260 | 9.0 |
+| `avatar-96.webp` | 96×96 | 4072 | 4.0 |
+| `empty.webp` | 680×600 | 68980 | 67.4 |
+| `quiz-thinking.webp` | 431×504 | 29812 | 29.1 |
+| `quiz-surprised.webp` | 357×501 | 31690 | 30.9 |
+| `quiz-back.webp` | 208×539 | 20578 | 20.1 |
+
+Output sizes are ~3× the CSS display box (header 168×235, empty ~226×200, quiz figures max-height 168 / 180, avatar 40px in bubbles / 64px large).
+
+## Raster provenance
+
+| File | Source PNG | Method |
+|---|---|---|
+| `header.webp` | `header.png` 1090×1522 | Native PDF image (p1, xref 1603), same crop as the original header. **No AI.** Figure only: the cover background, star, yellow blob and heart from the original header are left out because every file must be transparent. |
+| `empty.webp` | `empty.png` 1314×1160 | Native PDF image (p2, xref 1611). **No AI.** Background removed with a seeded watershed/flood fill. The tree and both students stay. |
+| `quiz-thinking.webp` | `quiz-thinking.png` 1283×1500 | Native PDF image (p1, xref 1603) with its own soft mask. **No AI.** |
+| `avatar.webp` | `avatar.png` 1024×1024 | AI-assisted redraw (Grok Imagine), Opendream, 2026 |
+| `avatar-192.webp` | `avatar-192.png` 192×192 | AI-assisted redraw (Grok Imagine), Opendream, 2026 |
+| `avatar-96.webp` | `avatar-96.png` 96×96 | AI-assisted redraw (Grok Imagine), Opendream, 2026 |
+| `quiz-surprised.webp` | `quiz-surprised.png` 729×1024 | AI-assisted redraw (Grok Imagine), Opendream, 2026 |
+| `quiz-back.webp` | `quiz-back.png` 395×1024 | AI-assisted redraw (Grok Imagine), Opendream, 2026 |
+
+## Vector stars (unchanged)
+
+True vector stars from the 2018 cover, shipped as of `0067a8f`. svgo 3.3.5. Self-contained: no href, script, style or font.
 
 | File | Source page / object | Production step |
 |---|---|---|
-| `star-yellow.svg` | 2018 cover, p1; path fill `#F8F6B2`; SVG `viewBox="157.02 732.48 34.72 35.66"` (cover user space) | Vector paths extracted from the cover; svgo 3.3.5. Shipped as of `0067a8f`. Self-contained: no href, script, style or font. |
+| `star-yellow.svg` | 2018 cover, p1; path fill `#F8F6B2`; SVG `viewBox="157.02 732.48 34.72 35.66"` | Vector paths extracted from the cover. |
 | `star-lilac.svg` | 2018 cover, p1; path fill `#D5C4E6`; SVG `viewBox="326.35 658.43 106.33 109.45"` | Same extraction as `star-yellow.svg`. |
 | `star-lilac-2.svg` | 2018 cover, p1; path fill `#D6C5E7`; SVG `viewBox="104.11 659.08 66.78 66.63"` | Same extraction as `star-yellow.svg`. |
 | `star-pale-blue.svg` | 2018 cover, p1; path fill `#EBF9FC`; SVG `viewBox="482.7 445.82 70.09 72.74"` | Same extraction as `star-yellow.svg`. |
 | `star-pink.svg` | 2018 cover, p1; path fill `#FBD0E7`; SVG `viewBox="41.35 191.71 29.75 30.77"` | Same extraction as `star-yellow.svg`. |
 | `star-white.svg` | 2018 cover, p1; path fill `#FFFFFF`; SVG `viewBox="44.59 119.57 35.09 35.01"` | Same extraction as `star-yellow.svg`. |
-| `stars-sheet.svg` | 2018 cover, p1; all 11 cover stars; SVG `viewBox="0 0 618 109"` | Vector paths extracted from the cover (all 11 stars); svgo 3.3.5. Shipped as of `0067a8f`. |
+| `stars-sheet.svg` | 2018 cover, p1; all 11 cover stars; SVG `viewBox="0 0 618 109"` | Vector paths extracted from the cover (all 11 stars). |
 | `tokens.css` | palette sampled from the 2018 manual spec | Tokens only; not an illustration. |
 | `MANIFEST.md` | — | this file |
 
-## Removed rasters (owner ruling 27 Oct 2026)
-
-These were PDF image-XObject crops / renders, not true vectors. They are no longer shipped. UI falls back to no image (no placeholder, no replacement art).
-
-| File | Was | Why removed |
-|---|---|---|
-| `avatar.webp` | p1 image xref 1603, bust crop, 256×256 | Raster crop from the 2018 PDF |
-| `avatar-96.webp` | same crop at 96×96 | Raster crop from the 2018 PDF |
-| `header.webp` | p1 cover clip rendered at 216 dpi, 642×897 | Raster render from the 2018 PDF |
-| `empty.webp` | p2 image xref 1611, 720×636 | Raster crop from the 2018 PDF |
-| `quiz-thinking.webp` | p1 image xref 1603, 400×468 | Raster crop from the 2018 PDF |
-| `quiz-surprised.webp` | p7 image xref 928, 400×562 | Raster crop from the 2018 PDF |
-| `quiz-back.webp` | p7 image xref 932, 340×881 | Raster crop from the 2018 PDF |
-
 ## Usage
-- **Welcome** uses the individual star SVGs (`star-yellow`, `star-lilac`, `star-pink`). No Jane figure.
-- **Quiz success** uses the same star SVGs (`yellow`, `lilac`, `pink`, `pale-blue`). No Jane figure. Quiz question / wrong-answer screens have no art.
-- Chat, empty state, and avatars have no art.
-- The condom mascot is **not used** and is not shipped.
-- Credit everywhere is exactly `Illustration © Opendream, 2018`. Don't name an illustrator. Don't add a licence label. The grant is all rights reserved; not covered by Apache-2.0 or CC BY-SA.
-- Decorative stars use `alt=""` / `aria-hidden="true"`.
+- **Welcome** = `header.webp` plus the cover star SVGs (`star-yellow`, `star-lilac`, `star-pink`).
+- **Chat empty** = `empty.webp` on a white (`--surface`) card. **Chat bubbles** = `avatar-96.webp` with `srcset` (`96w` / `192w` / `256w`).
+- **Quiz question** = `quiz-thinking.webp`. In the source this is a calm, smiling pose, not a literal "thinking" gesture.
+- **Quiz success** = `quiz-surprised.webp` with the star SVGs (`yellow`, `lilac`, `pink`, `pale-blue`).
+- **Quiz wrong** = `quiz-back.webp`.
+- Jane figures are WebP (RGBA); stars are SVG. The crisis screen has no `img` and no `svg`.
+- The condom mascot is **not used** in the UI and is not shipped.
+- Credit everywhere is exactly `Illustration © Opendream, 2018. Some figures redrawn with AI assistance, 2026.`. Don't name an illustrator. Don't add a licence label.
+- Each figure gets Thai `alt` text and a fixed `width`/`height` to prevent layout shift. Decorative stars use `alt=""` / `aria-hidden="true"`.
 - `--jane-line` is for decoration only (white on it = 3.07, fails AA). Use `--primary` for text and buttons.
 - No comic pages are included.
 

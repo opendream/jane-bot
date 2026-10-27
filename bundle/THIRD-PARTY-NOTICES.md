@@ -7,4 +7,4 @@
 - **Typhoon** models are *not* used (OpenTyphoon terms pending review).
 - **Answer-bank text** (cards compiled into `dist/assets`): CC BY-SA 4.0, attribution Opendream. Full legal code in `bank/LICENSE`; coverage and attribution in `bank/NOTICE`. That grant covers the answer-bank text only: it does not cover illustrations, art, images, sprites, or the brand mark. Quiz content is adapted from 'Judies, Opendream 2017' (Opendream owns Judies and relicenses its quiz content under CC BY-SA 4.0). The application code remains Apache-2.0 (`LICENSE` at the zip root).
 - **Mitr** UI font (SIL Open Font License 1.1, Cadson Demak): self-hosted WOFF2 in `dist/assets`. Full OFL text in `fonts/OFL.txt`.
-- **Illustrations** in the Jane UI (`src/assets/jane/`): © Opendream 2018, all rights reserved. Not covered by Apache-2.0 or CC BY-SA. In-app credit: Illustration © Opendream, 2018.
+- **Illustrations** in the Jane UI (`src/assets/jane/`): © Opendream 2018, all rights reserved. Not covered by Apache-2.0 or CC BY-SA. In-app credit: Illustration © Opendream, 2018. Some figures redrawn with AI assistance, 2026.

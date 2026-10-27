@@ -5,7 +5,7 @@ import {
   type QuizSession,
 } from "../core/quiz";
 import { h } from "./dom";
-import { quizSuccessArt } from "./jane";
+import { quizSuccessArt, quizThinkingArt, quizTryAgainArt } from "./jane";
 
 export interface QuizHooks {
   update(next: QuizSession | null): void;
@@ -24,7 +24,9 @@ export function quizPanel(s: QuizSession, hooks: QuizHooks): HTMLElement {
   const ask = s.phase === "ask";
   const correct = s.phase === "explain" && choiceWasCorrect(s);
   return h("section", { class: "quiz", "data-testid": "quiz-panel", "data-phase": s.phase, "data-format": item.format, "data-id": item.id },
+    ask ? quizThinkingArt() : null,
     correct ? quizSuccessArt() : null,
+    s.phase === "explain" && !correct ? quizTryAgainArt() : null,
     item.status === "PLACEHOLDER" && h("span", { class: "tag placeholder", "data-testid": "quiz-placeholder" }, QUIZ_PLACEHOLDER_TAG),
     h("p", { class: "quiz-prompt", "data-testid": "quiz-prompt" }, item.prompt_th),
     ask && item.format === "ordering" ? orderBlock(s, hooks) : null,
