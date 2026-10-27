@@ -139,6 +139,17 @@ function inScopeExamples(): { id: string; text: string }[] {
 }
 
 const deps = (): TurnDeps => ({ cards: BANK, model: null, copyStatus: "draft" });
+const FILLER = "อยากรู้เรื่องทั่วไปค่ะ"; // synthetic, no crisis words
+async function talkReview(first: string) {
+  let st = newDialog("15-17");
+  const replies = [];
+  for (const line of [first, FILLER]) {
+    const o = await runTurn(st, line, deps());
+    st = o.state;
+    replies.push(o.reply);
+  }
+  return { st, replies };
+}
 
 describe("iteration-3 contextual crisis patterns (rules only)", () => {
   it("adds 10 contextual patterns: 5 violence_danger and 5 sexual_violence", () => {
@@ -186,6 +197,73 @@ describe("everyday lookalikes stay off the crisis path", () => {
   it.each(LOOKALIKES)("%s is not a crisis", (text) => {
     expect(detectCrisisWithExtra(text).level, text).toBe("none");
     expect(matchCrisisExtra(text).level, text).toBe("none");
+  });
+});
+
+/** Synthetic review cases (Codex round 1). Everyday Thai that must not open the crisis screen. */
+const REVIEW_NEGATIVES: string[] = [
+  "แฟนไปซ้อมบอล",
+  "แฟนพาไปปาร์ตี้",
+  "แฟนชื่อตี๋",
+  "โดนแมวข่วน",
+  "แม่ค้าเตะมอไซค์ตอนเช้า",
+  "เดินขึ้นภูเขาเตะหินเล่น",
+  "จะปล่อยคลิปสอนแต่งหน้า",
+  "โดนเพื่อนถ่ายคลิปตอนเต้น",
+  "คลิปอนาจาร",
+];
+
+describe("review round: everyday Thai is not a crisis", () => {
+  it.each(REVIEW_NEGATIVES)("%s is not a crisis", (text) => {
+    expect(detectCrisisWithExtra(text).crisis, text).toBe(false);
+    expect(detectCrisisWithExtra(text).level, text).toBe("none");
+    expect(matchCrisisExtra(text).level, text).toBe("none");
+  });
+
+  it("ผัวไม่พอใจก็ซ้อมหนู still overrides as violence (ไม่ in ไม่พอใจ is not verb negation)", () => {
+    const text = "ผัวไม่พอใจก็ซ้อมหนู";
+    expect(squashHit(text, "violence_danger", "agent_hits")).toBe(true);
+    expect(matchCrisisExtra(text).crisis).toBe(true);
+    expect(matchCrisisExtra(text).categories).toContain("violence_danger");
+    const r = detectCrisisWithExtra(text);
+    expect(r.crisis).toBe(true);
+    expect(r.categories).toContain("violence_danger");
+    expect(crisisCallNowLine(r.categories)).toBe(crisisCallNowLine(["violence_danger"]));
+  });
+
+  it("a threat to leak a nude clip still overrides as sexual_violence", () => {
+    const text = "ขู่จะปล่อยคลิปเปลือยหนู";
+    expect(squashHit(text, "sexual_violence", "image_threat")).toBe(true);
+    const r = detectCrisisWithExtra(text);
+    expect(r.crisis).toBe(true);
+    expect(r.categories).toContain("sexual_violence");
+    expect(crisisCallNowLine(r.categories)).toBe(crisisCallNowLine(["sexual_violence"]));
+  });
+
+  it("merges base medical with extra sexual so 1669 is kept (base categories first)", () => {
+    const text = "หายใจไม่ออกนิดหน่อย มีคนแอบถ่าย";
+    const pinned = detectCrisis(text);
+    const extra = matchCrisisExtra(text);
+    expect(pinned.level).toBe("banner");
+    expect(pinned.categories).toContain("medical_emergency");
+    expect(extra.crisis).toBe(true);
+    expect(extra.categories).toContain("sexual_violence");
+    const comb = detectCrisisWithExtra(text);
+    expect(comb.crisis).toBe(true);
+    expect(comb.categories[0]).toBe("medical_emergency");
+    expect(comb.categories).toEqual([...new Set([...pinned.categories, ...extra.categories])]);
+    expect(comb.categories).toContain("sexual_violence");
+    expect(crisisCallNowLine(comb.categories)).toContain("1669");
+  });
+
+  it("a negative case does not stick the crisis strip on a later card", async () => {
+    for (const text of REVIEW_NEGATIVES) {
+      const { st, replies } = await talkReview(text);
+      expect(replies[0].kind, text).not.toBe("crisis");
+      expect(st.crisisFired, text).toBe(false);
+      expect(replies[1].kind, text).toBe("card");
+      if (replies[1].kind === "card") expect(replies[1].banner, text).toEqual([]);
+    }
   });
 });
 
