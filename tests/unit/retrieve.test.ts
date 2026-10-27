@@ -36,15 +36,14 @@ function triggerMisroutes(): string[] {
  */
 const NEW_OWN_TRIGGER_FRAGMENTS = [
   "ตรวจเอชไอวี โดยไม่บอกผู้ปกครอง",
-  "เอชไอวีโดยไม่บอกผู้ปกครอง",
-  "เอชไอวี โดยไม่บอกผู้ปกครอง",
+  "ตรวจ เอชไอวีโดยไม่บอกผู้ปกครอง",
   "เด็กตรวจเอชไอวี",
   "เด็กตรวจ เอชไอวี",
   "วิธีใช้ ถุงยาง",
-  "คุมรายเดือน",
+  "ยาคุม รายเดือน",
   "กิน ยาคุมยังไง",
-  "21 เม็ด",
-  "ฝังยา",
+  "คุม 21 เม็ด",
+  "ฝังยา คุม",
   "สงสัยว่าติด หนองใน",
   "เป็น หนองใน",
   "เริม รักษาหาย",
@@ -560,13 +559,22 @@ describe("synthetic extra routing (post-EC, how-often, hour-window, PEP)", () =>
 });
 
 describe("cross-topic negatives (synthetic)", () => {
-  it("has the e011cd0 pin and the price / teen-consent / pus / how-to / adult-HIV-privacy groups", () => {
+  it("has the e011cd0 pin and the price / teen-consent / pus / how-to / adult-HIV-privacy / fragment-sweep groups", () => {
     expect(crossTopicNegatives.base_commit).toBe("e011cd0a2c06cd44f2cf1fb6205790a17f2a3e59");
     const groups = new Set(crossTopicNegatives.queries.map((r) => r.group));
-    expect([...groups].sort()).toEqual(["adult_hiv_privacy", "how_to", "price", "pus", "teen_consent", "teen_consent_hiv"].sort());
+    expect([...groups].sort()).toEqual(["adult_hiv_privacy", "fragment_sweep", "how_to", "price", "pus", "teen_consent", "teen_consent_hiv"].sort());
+    const teenQs = new Set(crossTopicNegatives.queries.filter((r) => r.group === "teen_consent").map((r) => r.q));
+    for (const q of [
+      "อายุ 17 กินเพร็พป้องกันเอชไอวีโดยไม่บอกผู้ปกครองได้ไหม",
+      "ขอยา PEP ป้องกันเอชไอวีโดยไม่บอกผู้ปกครองได้ไหม",
+      "เพิ่งมีเซ็กส์ไม่ป้องกัน ขอยาป้องกันเอชไอวีโดยไม่บอกผู้ปกครองได้ไหม",
+      "ติดเชื้อเอชไอวีโดยไม่บอกผู้ปกครองรักษาได้ไหม",
+    ]) {
+      expect(teenQs.has(q), q).toBe(true);
+    }
   });
 
-  it("price / teen-consent / pus / how-to / adult-HIV-privacy rows stay off the wrong card and match e011cd0 except HIV teen-consent", () => {
+  it("price / teen-consent / pus / how-to / adult-HIV-privacy / fragment-sweep rows stay off the wrong card and match e011cd0 except HIV teen-consent", () => {
     const unexpected: string[] = [];
     for (const row of crossTopicNegatives.queries) {
       const got = outcome(row.q);

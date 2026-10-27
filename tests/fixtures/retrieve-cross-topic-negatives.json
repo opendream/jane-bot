@@ -1,5 +1,5 @@
 {
-  "$comment": "SYNTHETIC cross-topic negatives for v2/18. Queries are written for this gate, not user logs. e011cd0 is retrieve() at e011cd0a2c06cd44f2cf1fb6205790a17f2a3e59 (PR #29 base). Rows other than teen_consent_hiv must match that base (topic-bearing fragments must not steal). teen_consent_hiv is the intended #34 move. adult_hiv_privacy: adult HIV-test questions that mention โดยไม่บอก without ผู้ปกครอง/พ่อแม่ must stay confident on disease.hiv.002.",
+  "$comment": "SYNTHETIC cross-topic negatives for v2/18. Queries are written for this gate, not user logs. e011cd0 is retrieve() at e011cd0a2c06cd44f2cf1fb6205790a17f2a3e59 (PR #29 base). Rows other than teen_consent_hiv must match that base (topic-bearing fragments must not steal). teen_consent_hiv is the intended #34 move. adult_hiv_privacy: adult HIV-test questions that mention โดยไม่บอก without ผู้ปกครอง/พ่อแม่ must stay confident on disease.hiv.002. teen_consent also pins PEP/PrEP/ยาต้าน/รักษา/กินยา + ผู้ปกครอง/พ่อแม่ lines that contain เอชไอวี but are not HIV tests — they must not be confident on hiv.test.under18.000. fragment_sweep: new #29 fragments inside other-topic sentences (PEP, PrEP, EC, pregnancy test, abortion, condom, treatment, partner/adult privacy) must not steal; match e011cd0.",
   "base_commit": "e011cd0a2c06cd44f2cf1fb6205790a17f2a3e59",
   "queries": [
     { "q": "ตรวจ HIV กี่บาท", "group": "price", "e011cd0": { "id": "disease.hiv.000", "conf": false }, "not_id": "price.trc.prep.000" },
@@ -18,6 +18,21 @@
     { "q": "ซื้อถุงยางโดยไม่บอกผู้ปกครองได้ไหม", "group": "teen_consent", "e011cd0": { "id": "condom.000", "conf": false }, "not_confident_on": "hiv.test.under18.000" },
     { "q": "กินเพร็พโดยไม่บอกผู้ปกครองได้ไหม", "group": "teen_consent", "e011cd0": { "id": "protection.prep.000", "conf": true }, "not_confident_on": "hiv.test.under18.000" },
     { "q": "เด็กตรวจครรภ์ได้ไหม", "group": "teen_consent", "e011cd0": { "id": "pregnancy.ornot.000", "conf": false }, "not_confident_on": "hiv.test.under18.000" },
+    { "q": "อายุ 17 กินเพร็พป้องกันเอชไอวีโดยไม่บอกผู้ปกครองได้ไหม", "group": "teen_consent", "e011cd0": { "id": "protection.prep.000", "conf": true }, "not_confident_on": "hiv.test.under18.000" },
+    { "q": "ขอยา PEP ป้องกันเอชไอวีโดยไม่บอกผู้ปกครองได้ไหม", "group": "teen_consent", "e011cd0": { "id": "protection.pep.000", "conf": true }, "not_confident_on": "hiv.test.under18.000" },
+    { "q": "เพิ่งมีเซ็กส์ไม่ป้องกัน ขอยาป้องกันเอชไอวีโดยไม่บอกผู้ปกครองได้ไหม", "group": "teen_consent", "e011cd0": { "id": "disease.hiv.000", "conf": false }, "not_confident_on": "hiv.test.under18.000" },
+    { "q": "ติดเชื้อเอชไอวีโดยไม่บอกผู้ปกครองรักษาได้ไหม", "group": "teen_consent", "e011cd0": { "id": "disease.hiv.000", "conf": false }, "not_confident_on": "hiv.test.under18.000" },
+    { "q": "กินเพร็พป้องกันเอชไอวีโดยไม่บอกผู้ปกครองได้ไหม", "group": "teen_consent", "e011cd0": { "id": "protection.prep.000", "conf": true }, "not_confident_on": "hiv.test.under18.000" },
+    { "q": "กินเพร็พป้องกันเอชไอวีโดยไม่บอกพ่อแม่ได้ไหม", "group": "teen_consent", "e011cd0": { "id": "protection.prep.000", "conf": true }, "not_confident_on": "hiv.test.under18.000" },
+    { "q": "ขอยา PEP ป้องกันเอชไอวีโดยไม่บอกพ่อแม่ได้ไหม", "group": "teen_consent", "e011cd0": { "id": "protection.pep.000", "conf": true }, "not_confident_on": "hiv.test.under18.000" },
+    { "q": "ขอยาเป็ปป้องกันเอชไอวีโดยไม่บอกผู้ปกครองได้ไหม", "group": "teen_consent", "e011cd0": { "id": "protection.pep.000", "conf": true }, "not_confident_on": "hiv.test.under18.000" },
+    { "q": "กินยาต้านเอชไอวีโดยไม่บอกผู้ปกครองได้ไหม", "group": "teen_consent", "e011cd0": { "id": "disease.hiv.000", "conf": false }, "not_confident_on": "hiv.test.under18.000" },
+    { "q": "ยาต้านเอชไอวีโดยไม่บอกพ่อแม่", "group": "teen_consent", "e011cd0": { "id": "disease.hiv.000", "conf": false }, "not_confident_on": "hiv.test.under18.000" },
+    { "q": "รักษาเอชไอวีโดยไม่บอกผู้ปกครองได้ไหม", "group": "teen_consent", "e011cd0": { "id": "disease.hiv.000", "conf": false }, "not_confident_on": "hiv.test.under18.000" },
+    { "q": "รักษาเอชไอวีโดยไม่บอกพ่อแม่ได้ไหม", "group": "teen_consent", "e011cd0": { "id": "disease.hiv.000", "conf": false }, "not_confident_on": "hiv.test.under18.000" },
+    { "q": "กินยาเอชไอวีโดยไม่บอกผู้ปกครองได้ไหม", "group": "teen_consent", "e011cd0": { "id": "disease.hiv.000", "conf": false }, "not_confident_on": "hiv.test.under18.000" },
+    { "q": "กินยาป้องกันเอชไอวีโดยไม่บอกผู้ปกครองได้ไหม", "group": "teen_consent", "e011cd0": { "id": "disease.hiv.000", "conf": false }, "not_confident_on": "hiv.test.under18.000" },
+    { "q": "กินยาป้องกันเอชไอวีโดยไม่บอกพ่อแม่ได้ไหม", "group": "teen_consent", "e011cd0": { "id": "disease.hiv.000", "conf": false }, "not_confident_on": "hiv.test.under18.000" },
 
     { "q": "ตรวจเอชไอวีโดยไม่บอกผู้ปกครอง", "group": "teen_consent_hiv", "e011cd0": { "id": "disease.hiv.002", "conf": false }, "id": "hiv.test.under18.000" },
     { "q": "เด็กตรวจเอชไอวีได้ไหม", "group": "teen_consent_hiv", "e011cd0": { "id": "disease.hiv.002", "conf": false }, "id": "hiv.test.under18.000" },
@@ -37,6 +52,22 @@
 
     { "q": "คุมฉุกเฉินคุมยังไง", "group": "how_to", "e011cd0": { "id": "urgent.pills.000", "conf": true }, "not_id": "birth.control.pills.000", "keep_e011cd0": true },
     { "q": "ฉีดยาคุมยังไง", "group": "how_to", "e011cd0": { "id": "birth.control.000", "conf": true }, "not_id": "birth.control.pills.000" },
-    { "q": "ห่วงอนามัยคุมยังไง", "group": "how_to", "e011cd0": { "id": "condom.000", "conf": false }, "not_id": "birth.control.pills.000" }
+    { "q": "ห่วงอนามัยคุมยังไง", "group": "how_to", "e011cd0": { "id": "condom.000", "conf": false }, "not_id": "birth.control.pills.000" },
+
+    { "q": "เป็ปกิน 21 เม็ดได้ไหม", "group": "fragment_sweep", "e011cd0": { "id": "protection.pep.000", "conf": true }, "not_confident_on": "birth.control.pills.000" },
+    { "q": "กินเป็ปหลังฝังยาได้ไหม", "group": "fragment_sweep", "e011cd0": { "id": "protection.pep.000", "conf": true }, "not_confident_on": "birth.control.implant.000" },
+    { "q": "คุมรายเดือนแล้วกินเป็ปได้ไหม", "group": "fragment_sweep", "e011cd0": { "id": "protection.pep.000", "conf": true }, "not_confident_on": "birth.control.pills.000" },
+    { "q": "รักษาด้วยยา 21 เม็ด", "group": "fragment_sweep", "e011cd0": { "id": "general.fallback.000", "conf": false }, "not_confident_on": "birth.control.pills.000" },
+    { "q": "ฝังยารักษาอะไร", "group": "fragment_sweep", "e011cd0": { "id": "general.fallback.000", "conf": false }, "not_confident_on": "birth.control.implant.000" },
+    { "q": "คุมรายเดือนรักษาอะไร", "group": "fragment_sweep", "e011cd0": { "id": "general.fallback.000", "conf": false }, "not_confident_on": "birth.control.pills.000" },
+    { "q": "ตรวจครรภ์หลังกิน 21 เม็ด", "group": "fragment_sweep", "e011cd0": { "id": "pregnancy.ornot.000", "conf": false }, "not_confident_on": "birth.control.pills.000" },
+    { "q": "ทำแท้งหลังกินยา 21 เม็ดได้ไหม", "group": "fragment_sweep", "e011cd0": { "id": "pregnancy.ornot.000", "conf": false }, "not_confident_on": "birth.control.pills.000" },
+    { "q": "ฝังยาแล้วทำแท้งได้ไหม", "group": "fragment_sweep", "e011cd0": { "id": "pregnancy.ornot.000", "conf": false }, "not_confident_on": "birth.control.implant.000" },
+    { "q": "ใช้ถุงยางกับยา 21 เม็ด", "group": "fragment_sweep", "e011cd0": { "id": "condom.000", "conf": true }, "not_confident_on": "birth.control.pills.000" },
+    { "q": "คุมรายเดือนใช้ถุงยางด้วยไหม", "group": "fragment_sweep", "e011cd0": { "id": "condom.000", "conf": true }, "not_confident_on": "birth.control.pills.000" },
+    { "q": "ฝังยาแล้วใช้ถุงยางด้วยได้ไหม", "group": "fragment_sweep", "e011cd0": { "id": "condom.000", "conf": true }, "not_confident_on": "birth.control.implant.000" },
+    { "q": "ฝังยาโดยไม่บอกแฟนได้ไหม", "group": "fragment_sweep", "e011cd0": { "id": "sex.activity.consent.000", "conf": false }, "not_confident_on": "birth.control.implant.000" },
+    { "q": "คุมรายเดือนโดยไม่บอกแฟน", "group": "fragment_sweep", "e011cd0": { "id": "sex.activity.consent.000", "conf": false }, "not_confident_on": "birth.control.pills.000" },
+    { "q": "กินยา 21 เม็ดโดยไม่บอกแฟน", "group": "fragment_sweep", "e011cd0": { "id": "sex.activity.consent.000", "conf": false }, "not_confident_on": "birth.control.pills.000" }
   ]
 }
