@@ -2,7 +2,6 @@ import type { Intent } from "./types";
 import { AGE_REDIRECT_ID, ageAllowed as ageAllowedFor, type AgeState } from "./age";
 import { VALID_INTENTS } from "../llm/adapter";
 import { stripPII } from "./summary";
-import { compact } from "./text";
 // Shared with the Node guard (plain JS). Phone matching blanks clock times first.
 // @ts-ignore
 import { findPII, findPhoneSpans, scrubPII, REDACTED } from "../../scripts/bank/pii-patterns.mjs";
@@ -27,44 +26,6 @@ export interface CardNext { label_th: string; card_id: string }
 export interface CardLink { url: string; label_th: string }
 export interface CardReferral { offer: "none" | "soft" | "strong"; intents: Intent[] }
 
-/** Substring phrase, or every token present (any order). */
-export type CardTrigger = string | { all: string[] };
-
-export function isAllTrigger(t: unknown): t is { all: string[] } {
-  return typeof t === "object" && t !== null && Array.isArray((t as { all?: unknown }).all);
-}
-
-/** Flatten trigger phrases and co-occurrence tokens for validation / PII scan. */
-export function triggerPhrases(triggers: readonly CardTrigger[] | undefined): string[] {
-  if (!triggers) return [];
-  const out: string[] = [];
-  for (const t of triggers) {
-    if (typeof t === "string") out.push(t);
-    else if (isAllTrigger(t)) for (const tok of t.all) if (typeof tok === "string") out.push(tok);
-  }
-  return out;
-}
-
-function compactAllKey(tokens: readonly string[]): string {
-  return tokens.map(compact).filter(Boolean).slice().sort().join("\0");
-}
-
-/** True when every compact token of `inner` is a substring of some compact token of `outer`. */
-function allTokensCover(inner: readonly string[], outer: readonly string[]): boolean {
-  const a = inner.map(compact).filter(Boolean);
-  const b = outer.map(compact).filter(Boolean);
-  return a.length > 0 && a.every((tok) => b.some((t) => t.includes(tok)));
-}
-
-function isCardTrigger(t: unknown): t is CardTrigger {
-  if (typeof t === "string") return true;
-  if (!t || typeof t !== "object" || Array.isArray(t)) return false;
-  const keys = Object.keys(t);
-  if (keys.length !== 1 || keys[0] !== "all") return false;
-  const all = (t as { all: unknown }).all;
-  return Array.isArray(all) && all.length >= 2 && all.every((x) => typeof x === "string" && x.trim().length > 0);
-}
-
 export interface BankCard {
   id: string;
   topic: BankTopic;
@@ -72,7 +33,7 @@ export interface BankCard {
   answer_th: string;
   variants_th?: string[];
   key_facts: string[];
-  triggers: CardTrigger[];
+  triggers: string[];
   next: CardNext[];
   source_intents: string[];
   source: CardSource[];
@@ -191,7 +152,7 @@ export function checkShape(c: any): Issue[] {
   else if (c.answer_th.length > LIMITS.answer_th) err("answer_th", `answer_th is ${c.answer_th.length} chars (max ${LIMITS.answer_th})`);
   if (c.variants_th !== undefined && !isStrArr(c.variants_th)) err("variants_th", "variants_th must be string[]");
   if (!isStrArr(c.key_facts)) err("key_facts", "key_facts must be string[]");
-  if (!Array.isArray(c.triggers) || !c.triggers.every(isCardTrigger)) err("triggers", "triggers must be string or {all: string[2+]}[]");
+  if (!isStrArr(c.triggers)) err("triggers", "triggers must be string[]");
   if (!Array.isArray(c.next) || !c.next.every((n: any) => isStr(n?.label_th) && isStr(n?.card_id))) err("next", "next must be {label_th, card_id}[]");
   if (!isStrArr(c.source_intents)) err("source_intents", "source_intents must be string[]");
   if (!Array.isArray(c.source) || !c.source.every((s: any) => isStr(s?.by) && isStr(s?.url) && isStr(s?.title) && isStr(s?.checked))) err("source", "source must be {by, url, title, as_of?, checked}[]");
@@ -212,7 +173,7 @@ export function checkShape(c: any): Issue[] {
 export function visibleStrings(c: BankCard): string[] {
   return [
     c.title_th, c.answer_th, ...(c.variants_th ?? []),
-    ...c.key_facts, ...triggerPhrases(c.triggers),
+    ...c.key_facts, ...c.triggers,
     ...c.next.map((n) => n.label_th),
     ...c.links.map((l) => l.label_th),
   ];
@@ -282,37 +243,7 @@ export function validateBank(cards: BankCard[], ctx: BankContext): Issue[] {
 
   for (const c of cards) {
     if (!shapeOk.has(c)) continue;
-    const text = [c.answer_th, ...(c.variants_th ?? []), ...c.key_facts, ...triggerPhrases(c.triggers)];
-    const compactIdx = new Map<string, number[]>();
-    const allIdx: { i: number; toks: string[] }[] = [];
-    c.triggers.forEach((t, i) => {
-      if (typeof t === "string") {
-        const k = compact(t);
-        if (!k) return;
-        const list = compactIdx.get(k) ?? [];
-        list.push(i);
-        compactIdx.set(k, list);
-        return;
-      }
-      if (!isAllTrigger(t)) return;
-      const k = `\x01all:${compactAllKey(t.all)}`;
-      const list = compactIdx.get(k) ?? [];
-      list.push(i);
-      compactIdx.set(k, list);
-      allIdx.push({ i, toks: t.all });
-    });
-    for (const idxs of compactIdx.values()) {
-      if (idxs.length > 1) add("error", c.id, "trigger_compact_dup", `triggers[${idxs.join(",")}] become the same phrase once spaces are stripped`);
-    }
-    for (let a = 0; a < allIdx.length; a++) {
-      for (let b = a + 1; b < allIdx.length; b++) {
-        const A = allIdx[a], B = allIdx[b];
-        if (compactAllKey(A.toks) === compactAllKey(B.toks)) continue;
-        if (allTokensCover(A.toks, B.toks) || allTokensCover(B.toks, A.toks)) {
-          add("error", c.id, "trigger_compact_dup", `triggers[${A.i},${B.i}] become the same phrase once spaces are stripped`);
-        }
-      }
-    }
+    const text = [c.answer_th, ...(c.variants_th ?? []), ...c.key_facts, ...c.triggers];
     for (let i = 0; i < c.next.length; i++) if (!ids.has(c.next[i].card_id)) add("error", c.id, "next_exists", `next[${i}] target does not exist`);
     for (let i = 0; i < c.key_facts.length; i++) if (!c.answer_th.includes(c.key_facts[i])) add("error", c.id, "key_facts", `key fact at key_facts[${i}] is not in answer_th`);
     for (let vi = 0; vi < (c.variants_th ?? []).length; vi++) {
