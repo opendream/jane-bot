@@ -29,6 +29,8 @@ test("CH1 chat: welcome (PLACEHOLDER) → chip → follow-up chip → typed ques
   await expect(lastJane(page)).toHaveAttribute("data-card", "mental_health.p000");
   await expect(lastJane(page)).toHaveAttribute("data-reworded", "false");
   await expect(lastJane(page)).toContainText("1323");
+  await expect(lastJane(page).getByTestId("card-call-1323")).toHaveAttribute("href", "tel:1323");
+  await expect(lastJane(page).getByTestId("card-call-1323")).toHaveText("โทร 1323");
   await expect(page.getByTestId("not-medical-advice")).toBeVisible();
   await shot(page, "ch1-02-multi-turn");
   await assertNoStorage(page);

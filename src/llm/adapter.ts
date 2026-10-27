@@ -1,6 +1,6 @@
 import type { Intent, IntentResult } from "../core/types";
 import { classifyNeed } from "../core/intent";
-import { detectCrisis } from "../core/crisis";
+import { detectCrisisWithExtra } from "../core/crisis-extra";
 
 /**
  * Interface for an optional in-browser model (WebLLM / wllama). The deterministic rules are always
@@ -71,7 +71,7 @@ export function acceptPolished(draft: string, polished: string | null): string {
   const tokens = (x: string) => new Set(x.match(/\d{3,}|@[\w.\-]+|https?:\S+/g) ?? []);
   const known = tokens(draft);
   for (const t of tokens(polished)) if (!known.has(t)) return draft;
-  if (detectCrisis(polished).level !== "none" && detectCrisis(draft).level === "none") return draft;
+  if (detectCrisisWithExtra(polished).level !== "none" && detectCrisisWithExtra(draft).level === "none") return draft;
   if (polished.length > draft.length + 80) return draft;
   return polished;
 }

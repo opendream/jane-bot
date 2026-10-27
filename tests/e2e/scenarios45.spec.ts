@@ -88,7 +88,8 @@ test("C3 mental health + suicidal phrase → crisis override, 1323 first", async
 test("V1 violence (non-crisis) → OSCC card is in-person only: label shown, no prepare-message, no ออนไลน์ draft", async ({ page }) => {
   const rec = await open(page, "10:00");
   await startAs(page, "18+");
-  await describe(page, "แฟนเก่าขู่ปล่อยคลิป ไม่รู้จะทำยังไง");
+  // Synthetic: blackmail without a photo/clip (แบล็กเมล์ + รูป/คลิป is an extra image-threat crisis).
+  await describe(page, "โดนแบล็กเมล์ ไม่รู้จะทำยังไง");
   await page.getByTestId("need-submit").click();
   await expect(page.getByTestId("screen-suggest")).toBeVisible();
   await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
@@ -105,6 +106,19 @@ test("V1 violence (non-crisis) → OSCC card is in-person only: label shown, no 
   await expect(page.getByTestId("screen-suggest")).toBeVisible();
   await expect(page.getByTestId("summary-input")).toHaveCount(0);
   await shot(page, "v1-oscc-in-person-no-draft");
+  await assertNoStorage(page);
+  await assertNetwork(page, rec);
+});
+
+test("extra image-threat pattern from describe opens the crisis screen (191 then 1300)", async ({ page }) => {
+  const rec = await open(page, "10:00");
+  await startAs(page, "18+");
+  await describe(page, "แฟนเก่าขู่ปล่อยคลิป ไม่รู้จะทำยังไง");
+  await page.getByTestId("need-submit").click();
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  expect(await crisisCallHrefs(page)).toEqual(["tel:191", "tel:1300"]);
+  await expect(page.getByTestId("screen-crisis").locator("img")).toHaveCount(0);
+  await expect(page.getByTestId("screen-crisis").locator("svg")).toHaveCount(0);
   await assertNoStorage(page);
   await assertNetwork(page, rec);
 });
