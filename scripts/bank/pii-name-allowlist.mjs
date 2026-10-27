@@ -3,7 +3,7 @@
 // span on that card. A glued or extended match is a different span and still
 // fails bank:validate and guard. Draft and unreviewed cards never consult this list.
 //
-// Harvested from the 34 reviewed cards (27 Oct 2026 pack). Do not add a span
+// Harvested from the 35 reviewed cards (27 Oct 2026 pack, including #21). Do not add a span
 // unless findPII or stripPII's name rules flag it on that card today.
 // School/address skip on approved copy is not this list (same as at base).
 

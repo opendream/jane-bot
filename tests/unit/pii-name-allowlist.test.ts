@@ -39,9 +39,11 @@ function guardFindings(cards: BankCard[], allowlist = PII_NAME_ALLOWLIST) {
 }
 
 describe("scoped PII name allowlist (synthetic data only)", () => {
-  it("(a) all 34 current approved cards still validate clean", () => {
+  it("(a) all 35 current approved cards still validate clean", () => {
     const approved = BANK.filter((c) => c.review.status === "approved");
-    expect(approved).toHaveLength(34);
+    expect(approved).toHaveLength(35);
+    expect(approved.some((c) => c.id === "urgent.pills.000" && c.source_intents.includes("20200708.urgent.pills.0000"))).toBe(true);
+    expect(PII_NAME_ALLOWLIST.filter((e) => e.id === "urgent.pills.000")).toEqual([]);
     expect(approved.every((c) => c.flags.includes("pii_checked"))).toBe(true);
     const issues = validateBank(BANK, reviewedCtx()).filter((i) => i.level === "error");
     expect(issues).toEqual([]);
