@@ -15,11 +15,11 @@
 5. Clear between takes with **ลบแชท** (erase) or by reloading. Nothing is stored, so a reload is a clean slate.
 
 **Screens to show (synthetic text only, never real cases)**
-1. **Start**: three promises (not medical advice · on device, nothing sent · 15+), age band, **ออกด่วน** quick exit.
+1. **Start**: three promises (not medical advice · on device, nothing sent · 15+), four age bands (15–17 / 18–24 / 25+ / ไม่อยากบอก), **ออกทันที ✕** quick exit.
 2. **S1 flow**: type "ประจำเดือนมาช้าไปสองอาทิตย์ กลัวท้อง ไม่กล้าบอกใคร" → suggestions (1663 first, open-now badge) → summary → edit one line → approve.
 3. **Handoff**: the **DEMO — ยังไม่ได้ส่งอะไรเลย / nothing was sent** banner. Always keep this in frame.
 4. **Crisis**: type "ช่วงนี้ไม่อยากมีชีวิตอยู่แล้ว" → crisis screen, 1323 first, tap-to-call. Optional: S4 consent / S5 mental health.
-5. **Quick exit**: press ออกด่วน → neutral page; no trace of the text.
+5. **Quick exit**: press ออกทันที ✕ → neutral page; no trace of the text.
 6. **Model pill**: close-up of "โมเดลในเครื่อง … ออฟไลน์" with Wi-Fi visibly off in the menu bar.
 
 **Don't**: show the URL bar with query switches, type real names or phone numbers, or film with Wi-Fi on while claiming offline.

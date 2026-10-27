@@ -105,7 +105,7 @@ test("empty chat shows empty.webp on a white card; bot bubbles use the avatar sr
   await assertJaneAlts(page);
   await viewportShot(page, "v12-02-empty", page.getByTestId("chat-empty"));
   await page.getByTestId("chat-chip-1").click();
-  await expect(page.locator('[data-testid="chat-msg"][data-from="jane"]').last()).toHaveAttribute("data-card", "pregnancy.p000");
+  await expect(page.locator('[data-testid="chat-msg"][data-from="jane"]').last()).toHaveAttribute("data-card", "pregnancy.ornot.000");
   await expect(page.getByTestId("chat-empty")).toHaveCount(0);
   await expect(page.getByTestId("jane-avatar")).toHaveCount(2);
   await viewportShot(page, "v12-03-chat-avatar", page.locator('[data-testid="chat-msg"][data-from="jane"]').last());

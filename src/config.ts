@@ -11,8 +11,8 @@ export const PRODUCT_NAME_EN = "Jane";
 /** Lowest age for the demo. Open question for Keng; default 15+. */
 export const MIN_AGE = 15;
 
-/** All Thai copy and the crisis phrase list are DRAFT until a Thai SRH/safety reviewer signs off. */
-export const THAI_COPY_STATUS: "draft" | "reviewed" = "draft";
+/** Thai copy and the crisis phrase list: Keng's 27 Oct 2026 review pack. Crisis lists were all Approve (unchanged). */
+export const THAI_COPY_STATUS: "draft" | "reviewed" = "reviewed";
 
 /** Time zone for every "open now" check. */
 export const SERVICE_TZ = "Asia/Bangkok";

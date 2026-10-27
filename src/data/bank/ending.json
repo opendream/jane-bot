@@ -1,0 +1,76 @@
+{
+  "$comment": "Reviewed 27 Oct 2026 (Keng). CHT-03 staff ending + #33 bye. #32 talkadmin dropped. Answer-bank text CC BY-SA 4.0, attribution Opendream.",
+  "topic_file": "ending",
+  "licence": "CC-BY-SA-4.0",
+  "cards": [
+    {
+      "id": "ending.staff.000",
+      "topic": "ending",
+      "title_th": "คุยกับเจ้าหน้าที่",
+      "answer_th": "ขอบคุณที่คุยกันนะ ถ้าอยากคุยกับคนจริง กดปุ่มคุยกับเจ้าหน้าที่ได้ และลบแชทได้ทุกเมื่อ",
+      "key_facts": [
+        "คุยกับเจ้าหน้าที่"
+      ],
+      "triggers": [],
+      "next": [],
+      "source_intents": [],
+      "source": [],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "CHT-03 Edit. Talk-to-staff uses existing referral offer → suggest/SVC screens, not dropped #32."
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked"
+      ],
+      "referral": {
+        "offer": "strong",
+        "intents": [
+          "other"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "ending.byejane.000",
+      "topic": "ending",
+      "title_th": "บายพี่เจน",
+      "answer_th": "สงสัยอะไรก็มาคุยกันใหม่น้าาา",
+      "key_facts": [
+        "มาคุยกันใหม่"
+      ],
+      "triggers": [
+        "บายพี่เจน",
+        "พอแค่นี้ก่อน"
+      ],
+      "next": [],
+      "source_intents": [
+        "default.ending.byejane"
+      ],
+      "source": [],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#33 Approve"
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked"
+      ],
+      "referral": {
+        "offer": "none",
+        "intents": []
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "CC-BY-SA-4.0"
+    }
+  ]
+}

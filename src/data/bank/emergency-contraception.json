@@ -1,0 +1,108 @@
+{
+  "$comment": "Reviewed 27 Oct 2026 (Keng). #22 ships. #21 (20200708.urgent.pills.0000) is held out pending an owner check. Answer-bank text CC BY-SA 4.0, attribution Opendream.",
+  "topic_file": "emergency_contraception",
+  "licence": "CC-BY-SA-4.0",
+  "cards": [
+    {
+      "id": "ec.timing.b001",
+      "topic": "emergency_contraception",
+      "title_th": "ยาคุมฉุกเฉินกินเมื่อไร",
+      "answer_th": "ยาคุมฉุกเฉินนี่ยิ่งกินเร็วเท่าไหร่ประสิทธิภาพจะยิ่งดี ยิ่งกินทันทียิ่งเริ่ด\nถ้ากินทันทีเลย สามารถคุมกำเนิดได้ 85% ช้ากว่านั้นเปอร์เซ็นจะค่อยๆ ลด\nจนถึงตอน 72 ชั่วโมง ประสิทธิภาพการคุมกำเนิดก็จะอยู่ที่ 75% จ้ะ\nส่วนถ้ากินเลยจากนั้นล่ะก็ยามันไม่ได้ผลแล้วล่ะ",
+      "key_facts": [
+        "72 ชั่วโมง"
+      ],
+      "triggers": [
+        "ยาคุมฉุกเฉิน",
+        "คุมฉุกเฉิน",
+        "กินยาคุมฉุกเฉิน"
+      ],
+      "next": [],
+      "source_intents": [
+        "20200708.urgent.pills.b001"
+      ],
+      "source": [
+        {
+          "by": "Opendream",
+          "url": "https://rsathai.org/qrcode",
+          "title": "Jane answer bank, Keng review 27 Oct 2026",
+          "checked": "2026-10-27"
+        }
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#22 Approve; doses/efficacy kept (rule 6 Option A). #21 held out."
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked",
+        "medical"
+      ],
+      "referral": {
+        "offer": "strong",
+        "intents": [
+          "emergency_contraception"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "pregnancy.ec_ask.000",
+      "topic": "emergency_contraception",
+      "title_th": "อยากรู้เรื่องยาคุมฉุกเฉิน",
+      "answer_th": "อยากรู้เรื่องวิธีการกินยาคุมฉุกเฉินมั้ย?",
+      "key_facts": [
+        "วิธีการกินยาคุมฉุกเฉิน"
+      ],
+      "triggers": [
+        "วิธีการกินยาคุมฉุกเฉิน"
+      ],
+      "next": [
+        {
+          "label_th": "อยากรู้",
+          "card_id": "ec.timing.b001"
+        },
+        {
+          "label_th": "ไม่เอา",
+          "card_id": "general.welcome.000"
+        }
+      ],
+      "source_intents": [
+        "Pregnancy Intent - In - no - no - urgent:no - time:3"
+      ],
+      "source": [
+        {
+          "by": "Opendream",
+          "url": "https://rsathai.org/qrcode",
+          "title": "Jane answer bank, Keng review 27 Oct 2026",
+          "checked": "2026-10-27"
+        }
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#24 Approve. Follow-up 2-pill card excluded; chip points at #22."
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked",
+        "medical"
+      ],
+      "referral": {
+        "offer": "soft",
+        "intents": [
+          "emergency_contraception"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "CC-BY-SA-4.0"
+    }
+  ]
+}

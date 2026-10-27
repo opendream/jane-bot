@@ -1,0 +1,94 @@
+{
+  "$comment": "Reviewed 27 Oct 2026 (Keng). Consent and harassment. Answer-bank text CC BY-SA 4.0, attribution Opendream.",
+  "topic_file": "relationship_consent",
+  "licence": "CC-BY-SA-4.0",
+  "cards": [
+    {
+      "id": "sex.activity.consent.000",
+      "topic": "relationship_consent",
+      "title_th": "ความยินยอม",
+      "answer_th": "กอด จูบ ลูบ คลำ หรือมีเซ็กส์กัน ควรเกิดจากความเต็มใจของทั้งสองคน\nถ้าเรายังไม่พร้อม ไม่ยินยอม ก็บอกคู่ของเราไปตรงๆ เลย กลับกัน ถ้าคู่ของเราบอกว่าไม่พร้อม เราก็ต้องเคารพการตัดสินใจของเค้าด้วยน้า\nอีกอย่างก็คือ แม้ว่าคนสองคนจะยินยอมมีเซ็กส์กันแล้วครั้งนึง ก็ไม่ได้แปลว่าแต่ละคนจะพร้อมและยินดีมีเซ็กส์ด้วยทุกครั้งนะ เพราะงั้น อย่าลืมถามความสมัครใจของตัวเองและคู่ ว่ายินยอมกับเซ็กส์ครั้งที่กำลังจะเกิดขึ้นมั้ยด้วยล่ะ\nการที่เราหรือเค้าจะเกิดความรู้สึกว่าไม่อยากมีอะไรกัน ณ โมเมนต์นั้นๆ มันไม่ใช่เรื่องผิดเลยนะ ลองคุยกันตรงๆ ดู",
+      "key_facts": [
+        "ความเต็มใจของทั้งสองคน"
+      ],
+      "triggers": [
+        "ยินยอม",
+        "แฟนกดดัน",
+        "ความยินยอม"
+      ],
+      "next": [],
+      "source_intents": [
+        "sex.activity.consent.000"
+      ],
+      "source": [],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#29 Approve"
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked"
+      ],
+      "referral": {
+        "offer": "soft",
+        "intents": [
+          "relationship_consent"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "harassment.002",
+      "topic": "relationship_consent",
+      "title_th": "ถูกคุกคาม",
+      "answer_th": "อันดับแรก ตั้งสติก่อน และทำให้เขารู้ว่าเรารู้ตัว และเราไม่ยินยอม พยายามออกมาจากจุดนั้น และขอความช่วยเหลือจากคนรอบข้าง\nถ้ามันยังเกิดขึ้นอีก พี่เจนแนะนำให้เล่าให้คนที่ไว้ใจฟัง หรือโทรสายด่วน 1300 ศูนย์ช่วยเหลือสังคม กระทรวง พม. (โทรฟรี 24 ชั่วโมง ทุกวัน) เพื่อขอคำปรึกษาและความช่วยเหลือ\nถ้าตกอยู่ในอันตรายตอนนี้ โทรแจ้งเหตุด่วนเหตุร้าย ตำรวจ 191 ได้ทันที\nถ้าตัดสินใจแจ้งความเรื่องถูกล่วงละเมิดทางเพศ ผู้เสียหายที่เป็นผู้หญิงขอให้พนักงานสอบสวนหญิงเป็นผู้สอบปากคำได้",
+      "key_facts": [
+        "1300",
+        "191"
+      ],
+      "triggers": [
+        "ถูกคุกคาม",
+        "ถูกลวนลาม"
+      ],
+      "next": [],
+      "source_intents": [
+        "harassment.002"
+      ],
+      "source": [
+        {
+          "by": "พม.",
+          "url": "https://1300thailand.m-society.go.th/",
+          "title": "สายด่วน 1300 ศูนย์ช่วยเหลือสังคม",
+          "checked": "2026-10-27"
+        }
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#30 Approve"
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked",
+        "hotline",
+        "hours"
+      ],
+      "referral": {
+        "offer": "strong",
+        "intents": [
+          "relationship_consent"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": false,
+      "licence": "CC-BY-SA-4.0"
+    }
+  ]
+}

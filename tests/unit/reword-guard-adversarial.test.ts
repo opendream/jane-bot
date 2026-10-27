@@ -20,13 +20,13 @@ function mustFallback(c: BankCard, out: string) {
 }
 
 describe("reword guard adversarial cases (not from the mutator)", () => {
-  it("ปฏิเสธไม่ได้ on consent.p000 is not shown (negation after the verb)", () => {
-    const c = card("consent.p000");
+  it("ปฏิเสธไม่ได้ on a consent-style card is not shown (negation after the verb)", () => {
+    const c = mk("t.adv.refuse", "ข้อความทดสอบ คุณมีสิทธิ์ปฏิเสธเสมอ", ["ปฏิเสธ"]);
     mustFallback(c, c.answer_th.replace("ปฏิเสธเสมอ", "ปฏิเสธไม่ได้เสมอ"));
   });
 
-  it("ไม่ต้องปรึกษาเภสัชกร on ec.p000 is not shown", () => {
-    const c = card("ec.p000");
+  it("ไม่ต้องปรึกษาเภสัชกร is not shown", () => {
+    const c = mk("t.adv.pharm", "ข้อความทดสอบ ปรึกษาเภสัชกรที่ร้านขายยา", ["เภสัชกร"]);
     mustFallback(c, c.answer_th.replace("ปรึกษาเภสัชกร", "ไม่ต้องปรึกษาเภสัชกร"));
   });
 
@@ -45,8 +45,8 @@ describe("reword guard adversarial cases (not from the mutator)", () => {
     mustFallback(c, "ข้อความทดสอบ ไม่ต้องรีบนะ ความรู้สึกแบบนี้เกิดขึ้นได้ คุณไม่ได้อยู่คนเดียว ลองคุยกับคนที่ไว้ใจ");
   });
 
-  it("an added Thai number-word phrase on ec.p000 is not shown", () => {
-    const c = card("ec.p000");
+  it("an added Thai number-word phrase on ec.timing.b001 is not shown", () => {
+    const c = card("ec.timing.b001");
     mustFallback(c, `${c.answer_th} สองครั้งห่างกันสิบสองชั่วโมง`);
   });
 
@@ -76,12 +76,12 @@ describe("reword guard adversarial cases (not from the mutator)", () => {
   });
 
   it("ยาคุมฉุกเฉินทำให้เป็นหมัน is not shown", () => {
-    const c = card("ec.p000");
+    const c = card("ec.timing.b001");
     mustFallback(c, `${c.answer_th} ยาคุมฉุกเฉินทำให้เป็นหมัน`);
   });
 
-  it("ยาเหน็บ on pregnancy.p000 is not shown", () => {
-    const c = card("pregnancy.p000");
+  it("ยาเหน็บ on pregnancy.ornot.000 is not shown", () => {
+    const c = card("pregnancy.ornot.000");
     mustFallback(c, `${c.answer_th} ยาเหน็บ`);
   });
 
@@ -92,38 +92,38 @@ describe("reword guard adversarial cases (not from the mutator)", () => {
 });
 
 describe("reword guard adversarial cases: reorder, deletion, role and particle placement", () => {
-  it("ec.p000 'ตอนนี้แนะนำให้รอ' is not shown (recombination)", () => {
-    const c = card("ec.p000");
-    mustFallback(c, `${c.answer_th.split("ตอนนี้")[0]}ตอนนี้แนะนำให้รอ`);
+  it("ec.timing.b001 'ตอนนี้แนะนำให้รอ' is not shown (recombination)", () => {
+    const c = card("ec.timing.b001");
+    mustFallback(c, `${c.answer_th} ตอนนี้แนะนำให้รอ`);
   });
 
-  it("ec.p000 'ยาคุมฉุกเฉินไม่ใช่ยาป้องกันการตั้งครรภ์ เป็นยาทำแท้ง' is not shown", () => {
-    const c = card("ec.p000");
+  it("ec.timing.b001 'ยาคุมฉุกเฉินไม่ใช่ยาป้องกันการตั้งครรภ์ เป็นยาทำแท้ง' is not shown", () => {
+    const c = card("ec.timing.b001");
     mustFallback(c, "ยาคุมฉุกเฉินไม่ใช่ยาป้องกันการตั้งครรภ์ เป็นยาทำแท้ง");
   });
 
-  it("consent.p000 'มีสิทธิ์ปฏิเสธคุณเสมอ' is not shown (role swap)", () => {
-    const c = card("consent.p000");
+  it("consent-style 'มีสิทธิ์ปฏิเสธคุณเสมอ' is not shown (role swap)", () => {
+    const c = mk("t.adv.roleswap", "ข้อความทดสอบ คุณมีสิทธิ์ปฏิเสธเสมอ", ["ปฏิเสธ"]);
     mustFallback(c, c.answer_th.replace("คุณมีสิทธิ์ปฏิเสธเสมอ", "มีสิทธิ์ปฏิเสธคุณเสมอ"));
   });
 
-  it("consent.p000 'ถ้าคุณบังคับแฟน' is not shown", () => {
-    const c = card("consent.p000");
+  it("consent-style 'ถ้าคุณบังคับแฟน' is not shown", () => {
+    const c = mk("t.adv.force", "ข้อความทดสอบ คุณมีสิทธิ์ปฏิเสธเสมอ แฟนต้องเคารพ", ["ปฏิเสธ"]);
     mustFallback(c, `${c.answer_th.split("คุณมี")[0]}ถ้าคุณบังคับแฟน`);
   });
 
-  it("ec.p000 with รีบ and ให้เร็วที่สุด dropped is not shown", () => {
-    const c = card("ec.p000");
+  it("EC-style card with รีบ and ให้เร็วที่สุด dropped is not shown", () => {
+    const c = mk("t.adv.dropfast", "ข้อความทดสอบ รีบกินให้เร็วที่สุด ภายใน 72 ชั่วโมง", ["72 ชั่วโมง"]);
     mustFallback(c, c.answer_th.replace("รีบ", "").replace("ให้เร็วที่สุด", "").replace(/\s+/g, " ").trim());
   });
 
-  it("pregnancy.p000 'โดยไม่กังวล ถูกตัดสินได้' is not shown (negation moved)", () => {
-    const c = card("pregnancy.p000");
+  it("pregnancy-style 'โดยไม่กังวล ถูกตัดสินได้' is not shown (negation moved)", () => {
+    const c = mk("t.adv.judge", "ข้อความทดสอบ คุยกับเจ้าหน้าที่ได้โดยไม่ถูกตัดสิน", ["เจ้าหน้าที่"]);
     mustFallback(c, c.answer_th.replace("โดยไม่ถูกตัดสิน", "โดยไม่กังวล ถูกตัดสินได้"));
   });
 
-  it("pregnancy.p000 'ที่ไม่ได้เสี่ยงท้องและโรค ป้องกัน' is not shown (negation moved)", () => {
-    const c = card("pregnancy.p000");
+  it("pregnancy-style 'ที่ไม่ได้เสี่ยงท้องและโรค ป้องกัน' is not shown (negation moved)", () => {
+    const c = mk("t.adv.riskmove", "ข้อความทดสอบ คุยกับเจ้าหน้าที่ได้โดยไม่ถูกตัดสิน", ["เจ้าหน้าที่"]);
     mustFallback(c, `${c.answer_th} ที่ไม่ได้เสี่ยงท้องและโรค ป้องกัน`.replace("โดยไม่ถูกตัดสิน", ""));
   });
 
@@ -172,21 +172,18 @@ describe("reword guard adversarial cases: reorder, deletion, role and particle p
     mustFallback(c, `${c.answer_th}นะค่ะจ้ะ`);
   });
 
-  it.each(["ec.p000", "pregnancy.p000", "contraception.p000", "consent.p000"] as const)(
-    "%s with แล้ว after ข้อความจริงรอผู้เชี่ยวชาญตรวจ falls back",
-    (id) => {
-      const c = card(id);
-      mustFallback(c, c.answer_th.replace("ข้อความจริงรอผู้เชี่ยวชาญตรวจ", "ข้อความจริงรอผู้เชี่ยวชาญตรวจแล้ว"));
-    },
-  );
+  it("แล้ว after ข้อความจริงรอผู้เชี่ยวชาญตรวจ falls back", () => {
+    const c = mk("t.adv.draftmark", "ข้อความทดสอบ ข้อความจริงรอผู้เชี่ยวชาญตรวจ คุยกับเจ้าหน้าที่ได้", ["เจ้าหน้าที่"]);
+    mustFallback(c, c.answer_th.replace("ข้อความจริงรอผู้เชี่ยวชาญตรวจ", "ข้อความจริงรอผู้เชี่ยวชาญตรวจแล้ว"));
+  });
 
-  it("…ไม่ถูกตัดสินแล้ว on pregnancy.p000 falls back", () => {
-    const c = card("pregnancy.p000");
+  it("…ไม่ถูกตัดสินแล้ว on a pregnancy-style card falls back", () => {
+    const c = mk("t.adv.judgelaew", "ข้อความทดสอบ คุยกับเจ้าหน้าที่ได้โดยไม่ถูกตัดสิน", ["เจ้าหน้าที่"]);
     mustFallback(c, c.answer_th.replace("ไม่ถูกตัดสิน", "ไม่ถูกตัดสินแล้ว"));
   });
 
-  it("คุณมีสิทธิ์ปฏิเสธเสมอแล้ว on consent.p000 falls back", () => {
-    const c = card("consent.p000");
+  it("คุณมีสิทธิ์ปฏิเสธเสมอแล้ว falls back", () => {
+    const c = mk("t.adv.refuselaew", "ข้อความทดสอบ คุณมีสิทธิ์ปฏิเสธเสมอ", ["ปฏิเสธ"]);
     mustFallback(c, c.answer_th.replace("คุณมีสิทธิ์ปฏิเสธเสมอ", "คุณมีสิทธิ์ปฏิเสธเสมอแล้ว"));
   });
 
@@ -201,17 +198,17 @@ describe("reword guard adversarial cases: reorder, deletion, role and particle p
   });
 
   it("คุณมีสิทธิ์ปฏิเสธเสมอคะ? falls back (extra punctuation and คะ)", () => {
-    const c = card("consent.p000");
+    const c = mk("t.adv.refusekha", "ข้อความทดสอบ คุณมีสิทธิ์ปฏิเสธเสมอ", ["ปฏิเสธ"]);
     mustFallback(c, c.answer_th.replace("คุณมีสิทธิ์ปฏิเสธเสมอ", "คุณมีสิทธิ์ปฏิเสธเสมอคะ?"));
   });
 
-  it("ec …ให้เร็วที่สุดคะ? falls back", () => {
-    const c = card("ec.p000");
+  it("…ให้เร็วที่สุดคะ? falls back", () => {
+    const c = mk("t.adv.fastkha", "ข้อความทดสอบ กินให้เร็วที่สุด ภายใน 72 ชั่วโมง", ["72 ชั่วโมง"]);
     mustFallback(c, c.answer_th.replace("ให้เร็วที่สุด", "ให้เร็วที่สุดคะ?"));
   });
 
   it("ec …ให้เร็วที่สุดนะ? falls back when the card has no ?", () => {
-    const c = card("ec.p000");
+    const c = card("ec.timing.b001");
     mustFallback(c, `${c.answer_th}นะ?`);
   });
 
@@ -221,7 +218,7 @@ describe("reword guard adversarial cases: reorder, deletion, role and particle p
   });
 
   it("'ตรวจ แล้ว ตอนนี้…' falls back", () => {
-    const c = card("ec.p000");
+    const c = mk("t.adv.now", "ข้อความทดสอบ ตรวจ ตอนนี้ ได้เลย", ["ตรวจ"]);
     mustFallback(c, c.answer_th.replace("ตรวจ ตอนนี้", "ตรวจ แล้ว ตอนนี้"));
   });
 

@@ -60,7 +60,7 @@ test("S1 pregnancy worry at 19:00 BKK → 1663 (open) → edit → approve → D
 
 test("S2 condom broke at 08:30 BKK, with name + phone typed → PII stripped, open-now ordering", async ({ page }) => {
   const rec = await open(page, "08:30");
-  await startAs(page, "18+");
+  await startAs(page, "18-24");
   await describe(page, "เมื่อคืนถุงยางแตก หนูชื่อมายด์ เบอร์ 0891234567 ควรทำยังไงดี");
   await shot(page, "s2-01-describe");
   await page.getByTestId("need-submit").click();

@@ -104,7 +104,7 @@ export function hoursCitation(s: { hours_sources: { hours: Hours; by: string; ur
   return {
     effective_th: hoursLabel(eff),
     conflict,
-    conflict_note_th: conflict ? "แหล่งข้อมูลระบุเวลาไม่ตรงกัน จึงใช้ช่วงเวลาที่แคบกว่าในการบอกว่าเปิดอยู่หรือไม่" : null,
+    conflict_note_th: null, // SUG-06 dropped: conflict still narrows the window; the note is not shown.
     lines: s.hours_sources.map((x) =>
       `${x.by}: ${hoursLabel(x.hours)}${x.as_of ? ` (source ${x.as_of})` : ""} · ${host(x.url)} · ตรวจ ${x.checked}`),
   };

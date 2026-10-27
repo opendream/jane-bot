@@ -45,7 +45,7 @@ function gatedNonHotline(base: (typeof BANK)[number]): (typeof BANK)[number] {
 describe("crisis first: rules on every turn, never the model", () => {
   for (const at of [1, 5, 20]) {
     it(`a crisis message at turn ${at} overrides, with zero model calls on that turn`, async () => {
-      const { model, calls } = spyModel("ec.p000");
+      const { model, calls } = spyModel("ec.timing.b001");
       let st = newDialog("15-17");
       for (let i = 1; i < at; i++) st = (await runTurn(st, FILLER, deps(model))).state;
       const before = { ...calls };
@@ -58,7 +58,7 @@ describe("crisis first: rules on every turn, never the model", () => {
   }
   it("crisis wins even with pending follow-up chips that would match", async () => {
     let st = welcome(newDialog("15-17"), BANK).state;
-    st = { ...st, pendingChips: [{ label_th: "ถูกข่มขืน", card_id: "ec.p000" }] };
+    st = { ...st, pendingChips: [{ label_th: "ถูกข่มขืน", card_id: "ec.timing.b001" }] };
     expect((await runTurn(st, "ถูกข่มขืน", deps())).reply.kind).toBe("crisis");
   });
   it("crisis wins over the input guard and over 'talk to a person'", async () => {
@@ -71,14 +71,14 @@ describe("crisis first: rules on every turn, never the model", () => {
     expect((await runTurn(st, "อยากตาย", deps())).reply.kind).toBe("crisis");
   });
   it("a crisis split across turns 1–2 is detected (in memory only)", async () => {
-    const { model, calls } = spyModel("ec.p000");
+    const { model, calls } = spyModel("ec.timing.b001");
     const { replies } = await talk(["หนูอยาก", "ตาย"], deps(model));
     expect(replies[0].kind).not.toBe("crisis");
     expect(replies[1].kind).toBe("crisis");
     expect(calls.pick + calls.reword).toBe(0);
   });
   it("a crisis split across turns 19–20 is detected, with zero model calls", async () => {
-    const { model, calls } = spyModel("ec.p000");
+    const { model, calls } = spyModel("ec.timing.b001");
     const { replies } = await talk([...Array.from({ length: 18 }, () => FILLER), "หนูอยาก", "ตาย"], deps(model));
     expect(replies[18].kind).not.toBe("crisis");
     expect(replies[19].kind).toBe("crisis");
@@ -113,7 +113,7 @@ describe("crisis first: rules on every turn, never the model", () => {
     expect(shouldApplyAsyncResult(2, 2, "describe")).toBe(true);
   });
   it("a new message aborts the pending model call; a crisis reply arrives without waiting for it", async () => {
-    const { model, calls } = spyModel("ec.p000", 300);
+    const { model, calls } = spyModel("ec.timing.b001", 300);
     const s = new DialogSession("18+", deps(model));
     s.start();
     const first = s.send("กลัวจะท้อง เพราะถุงยางรั่ว"); // unsure → model pick (slow)
@@ -243,33 +243,34 @@ describe("multi-turn flow (rules only)", () => {
     const w = welcome(newDialog("15-17"), BANK);
     expect(w.reply.kind === "card" && w.reply.chips.length).toBeGreaterThan(0);
     const a = await runTurn(w.state, "กังวลเรื่องท้อง", deps());
-    expect(a.reply.kind === "card" && a.reply.card.id).toBe("pregnancy.p000");
+    expect(a.reply.kind === "card" && a.reply.card.id).toBe("pregnancy.ornot.000");
     expect(a.reply.kind === "card" && a.reply.via).toBe("followup");
     const b = await runTurn(a.state, "เพิ่งมีอะไรกันโดยไม่ป้องกัน", deps());
-    expect(b.reply.kind === "card" && b.reply.card.id).toBe("ec.p000");
+    expect(b.reply.kind === "card" && b.reply.card.id).toBe("ec.timing.b001");
     expect(b.state.topic).toBe("emergency_contraception");
     expect(b.state.turns).toBe(2);
   });
   it("free text is routed by triggers and the classifyNeed prior", async () => {
-    const r = await runTurn(newDialog(), "ช่วงนี้เครียดมาก นอนไม่หลับเลย", deps());
-    expect(r.reply.kind === "card" && r.reply.card.id).toBe("mental_health.p000");
+    const r = await runTurn(newDialog(), "อยากรู้เรื่องคุมกำเนิด", deps());
+    expect(r.reply.kind === "card" && r.reply.card.id).toBe("birth.control.000");
     expect(r.reply.kind === "card" && r.reply.via).toBe("rules");
     expect(r.reply.kind === "card" && r.reply.text).toBe(r.reply.kind === "card" && r.reply.card.answer_th); // verbatim in PR3
   });
-  it("nothing matches → the honest fallback card with a referral offer", async () => {
+  it("nothing matches → the honest fallback card with a เริ่มใหม่ chip and no referral offer", async () => {
     const r = await runTurn(newDialog(), "วันนี้อากาศดีจัง", deps());
     expect(r.reply.kind === "card" && r.reply.card.id).toBe(FALLBACK_ID);
-    expect(r.reply.kind === "card" && r.reply.offer).toBe("soft");
+    expect(r.reply.kind === "card" && r.reply.offer).toBe("none");
+    expect(r.reply.kind === "card" && r.reply.chips.map((c) => c.label_th)).toEqual(["เริ่มใหม่"]);
   });
   it("'talk to a real person' → referral offer for the current topic", async () => {
-    const a = await runTurn(newDialog(), "ช่วงนี้เครียดมาก", deps());
+    const a = await runTurn(newDialog(), "อยากรู้เรื่องคุมกำเนิด", deps());
     const b = await runTurn(a.state, "อยากคุยกับเจ้าหน้าที่", deps());
-    expect(b.reply).toMatchObject({ kind: "referral", intents: ["mental_health"] });
+    expect(b.reply).toMatchObject({ kind: "referral", intents: ["contraception"] });
   });
   it("after a crisis turn the chat continues and keeps its topic", async () => {
-    const { st, replies } = await talk(["ช่วงนี้เครียดมาก", "อยากตาย", "นอนไม่หลับทุกคืน"], deps());
+    const { st, replies } = await talk(["อยากรู้เรื่องคุมกำเนิด", "อยากตาย", "นอนไม่หลับทุกคืน"], deps());
     expect(replies.map((r) => r.kind)).toEqual(["card", "crisis", "card"]);
-    expect(st.topic).toBe("mental_health");
+    expect(st.topic).toBe("contraception");
   });
   it("soft cap at 20 turns, hard cap at 30, then read-only", async () => {
     const lines = Array.from({ length: HARD_CAP + 1 }, () => FILLER);
@@ -280,11 +281,11 @@ describe("multi-turn flow (rules only)", () => {
     expect(replies[HARD_CAP].kind).toBe("readonly");
   });
   it("age gate: 18+ best match → redirect for 15–17, ไม่อยากบอก and none; 18+ sees the card", async () => {
-    const mh = BANK.find((c) => c.id === "mental_health.p000")!;
-    const adult = gatedNonHotline(mh);
-    const cards = BANK.map((c) => (c.id === mh.id ? adult : c));
+    const seed = BANK.find((c) => c.id === "birth.control.000")!;
+    const adult = gatedNonHotline({ ...seed, id: "other.adult_only.000", triggers: ["เนื้อหาทดสอบสิบแปดบวก"] });
+    const cards = [...BANK, adult];
     for (const band of ["15-17", "unspecified", null] as const) {
-      const r = await runTurn(newDialog(band), "เครียดมาก นอนไม่หลับ", deps(null, { cards }));
+      const r = await runTurn(newDialog(band), "เนื้อหาทดสอบสิบแปดบวก", deps(null, { cards }));
       expect(r.reply.kind).toBe("card");
       if (r.reply.kind === "card") {
         expect(r.reply.card.id).toBe("general.age_redirect.000");
@@ -293,28 +294,29 @@ describe("multi-turn flow (rules only)", () => {
         expect(r.reply.offer).not.toBe("none");
       }
     }
-    const ok = await runTurn(newDialog("18+"), "เครียดมาก นอนไม่หลับ", deps(null, { cards }));
+    const ok = await runTurn(newDialog("18+"), "เนื้อหาทดสอบสิบแปดบวก", deps(null, { cards }));
     expect(ok.reply.kind === "card" && ok.reply.card.id).toBe(adult.id);
   });
   it("crisis and talk-to-a-person are never age-filtered", async () => {
-    const mh = BANK.find((c) => c.id === "mental_health.p000")!;
-    const cards = BANK.map((c) => (c.id === mh.id ? gatedNonHotline(mh) : c));
+    const seed = BANK.find((c) => c.id === "birth.control.000")!;
+    const adult = gatedNonHotline({ ...seed, id: "other.adult_only.000", triggers: ["เนื้อหาทดสอบสิบแปดบวก"] });
+    const cards = [...BANK, adult];
     for (const band of ["15-17", "unspecified", null, "18+"] as const) {
       expect((await runTurn(newDialog(band), "อยากตาย", deps(null, { cards }))).reply.kind).toBe("crisis");
-      const a = await runTurn(newDialog(band), "ช่วงนี้เครียดมาก", deps(null, { cards }));
+      const a = await runTurn(newDialog(band), "อยากรู้เรื่องคุมกำเนิด", deps(null, { cards }));
       expect((await runTurn(a.state, "อยากคุยกับเจ้าหน้าที่", deps(null, { cards }))).reply.kind).toBe("referral");
     }
   });
   it("a hotline card with age_min 18 fails validateBank (age_safety error)", () => {
-    const cards = BANK.map((c) => (c.id === "mental_health.p000" ? { ...c, age_min: 18 as const } : c));
+    const cards = BANK.map((c) => (c.id === "disease.hiv.002" ? { ...c, age_min: 18 as const } : c));
     const issues = validateBank(cards, bankContext());
-    expect(issues.some((i) => i.level === "error" && i.rule === "age_safety" && i.card === "mental_health.p000")).toBe(true);
+    expect(issues.some((i) => i.level === "error" && i.rule === "age_safety" && i.card === "disease.hiv.002")).toBe(true);
   });
   it("15–17 asking for a hotline gets the hotline card, not the age redirect", async () => {
-    const r = await runTurn(newDialog("15-17"), "เครียดมาก นอนไม่หลับ", deps());
+    const r = await runTurn(newDialog("15-17"), "ตรวจเอชไอวี", deps());
     expect(r.reply.kind).toBe("card");
     if (r.reply.kind === "card") {
-      expect(r.reply.card.id).toBe("mental_health.p000");
+      expect(r.reply.card.id).toBe("disease.hiv.002");
       expect(r.reply.card.flags).toContain("hotline");
       expect(r.reply.via).not.toBe("age_redirect");
       expect(r.reply.card.id).not.toBe("general.age_redirect.000");
@@ -330,22 +332,22 @@ describe("multi-turn flow (rules only)", () => {
     }
   });
   it("model pick of an 18+ card → redirect for under-18", async () => {
-    const mh = BANK.find((c) => c.id === "mental_health.p000")!;
-    const adult = { ...gatedNonHotline(mh), id: "other.adult_only.000" };
+    const seed = BANK.find((c) => c.id === "birth.control.000")!;
+    const adult = { ...gatedNonHotline(seed), id: "other.adult_only.000" };
     const cards = [...BANK, adult];
     const { model, calls } = spyModel("other.adult_only.000");
-    const r = await runTurn(newDialog("15-17"), "เครียดมาก นอนไม่หลับ", deps(model, { cards }));
+    const r = await runTurn(newDialog("15-17"), "อยากรู้เรื่องคุมกำเนิด", deps(model, { cards }));
     expect(calls.pick).toBeGreaterThan(0);
     expect(r.reply.kind === "card" && r.reply.card.id).toBe("general.age_redirect.000");
     expect(r.reply.kind === "card" && r.reply.via).toBe("age_redirect");
-    const ok = await runTurn(newDialog("18+"), "เครียดมาก นอนไม่หลับ", deps(model, { cards }));
+    const ok = await runTurn(newDialog("18+"), "อยากรู้เรื่องคุมกำเนิด", deps(model, { cards }));
     expect(ok.reply.kind === "card" && ok.reply.card.id).toBe("other.adult_only.000");
   });
   it("ship gate: rejected cards never show; with copy 'reviewed' unapproved cards never show", async () => {
-    const cards = BANK.map((c) => (c.id === "mental_health.p000" ? { ...c, review: { ...c.review, status: "rejected" as const } } : c));
-    const r = await runTurn(newDialog(), "เครียดมาก นอนไม่หลับ", deps(null, { cards }));
-    expect(r.reply.kind === "card" && r.reply.card.id).not.toBe("mental_health.p000");
-    const rev = await runTurn(newDialog(), "เครียดมาก นอนไม่หลับ", deps(null, { copyStatus: "reviewed" }));
+    const cards = BANK.map((c) => (c.id === "birth.control.000" ? { ...c, review: { ...c.review, status: "rejected" as const } } : c));
+    const r = await runTurn(newDialog(), "อยากรู้เรื่องคุมกำเนิด", deps(null, { cards }));
+    expect(r.reply.kind === "card" && r.reply.card.id).not.toBe("birth.control.000");
+    const rev = await runTurn(newDialog(), "วันนี้อากาศดีจัง", deps(null, { copyStatus: "reviewed" }));
     expect(rev.reply.kind === "card" && rev.reply.card.id).toBe(FALLBACK_ID);
   });
 });
@@ -357,7 +359,7 @@ describe("input guard", () => {
   ];
   it.each(cases)("%s → fixed refusal card, verbatim, with a referral offer", async (reason, text) => {
     expect(checkInput(text)).toBe(reason);
-    const { model, calls } = spyModel("ec.p000");
+    const { model, calls } = spyModel("ec.timing.b001");
     const r = await runTurn(newDialog(), text, deps(model));
     expect(r.reply).toMatchObject({ kind: "card", via: "guard", guard: reason, reworded: false });
     expect(r.reply.kind === "card" && r.reply.offer).not.toBe("none");
@@ -390,23 +392,23 @@ describe("model pick (only when the rules are unsure)", () => {
   const unsure = "กลัวจะท้อง เพราะถุงยางรั่ว";
   it("the input is ambiguous for the rules", () => expect(retrieve(unsure, BANK).confident).toBe(false));
   it("a valid shortlist id from the model wins", async () => {
-    const { model, calls } = spyModel("contraception.p000");
+    const { model, calls } = spyModel("birth.control.000");
     const r = await runTurn(newDialog(), unsure, deps(model));
     expect(calls.pick).toBe(1);
     expect(r.reply).toMatchObject({ kind: "card", via: "model" });
-    expect(r.reply.kind === "card" && r.reply.card.id).toBe("contraception.p000");
+    expect(r.reply.kind === "card" && r.reply.card.id).toBe("birth.control.000");
   });
   it("an id outside the shortlist, 'none' or a timeout → rules top-1", async () => {
     for (const pick of ["general.welcome.000", "none", null]) {
       const r = await runTurn(newDialog(), unsure, deps(spyModel(pick).model));
       expect(r.reply.kind === "card" && r.reply.via).toBe("rules_top1");
     }
-    const slow = await runTurn(newDialog(), unsure, deps(spyModel("ec.p000", 200).model, { pickTimeoutMs: 20 }));
+    const slow = await runTurn(newDialog(), unsure, deps(spyModel("ec.timing.b001", 200).model, { pickTimeoutMs: 20 }));
     expect(slow.reply.kind === "card" && slow.reply.via).toBe("rules_top1");
   });
   it("confident rules never call the model", async () => {
-    const { model, calls } = spyModel("ec.p000");
-    await runTurn(newDialog(), "เครียดมาก นอนไม่หลับ", deps(model));
+    const { model, calls } = spyModel("ec.timing.b001");
+    await runTurn(newDialog(), "อยากรู้เรื่องคุมกำเนิด", deps(model));
     expect(calls.pick).toBe(0);
   });
   it("the model only sees her message PII-stripped and clipped to 200 chars", async () => {

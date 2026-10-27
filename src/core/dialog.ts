@@ -231,7 +231,7 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     const picked = id && shortlist.some((s) => s.id === id) ? byId.get(id) : undefined;
     if (usable(picked)) return reply(picked, "model");
   }
-  // 6. Rules top-1 if anything scored, else the honest "don't know yet" card with a referral offer.
+  // 6. Rules top-1 if anything scored, else the honest "don't know yet" card (เริ่มใหม่ only).
   if (r.ranked.length) return reply(r.ranked[0].card, "rules_top1");
   return reply(fallback, "fallback");
 }

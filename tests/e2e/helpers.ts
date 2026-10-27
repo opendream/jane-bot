@@ -113,7 +113,9 @@ export async function startAs(page: Page, band: string) {
   await expect(page.getByTestId("promise-privacy")).toContainText("ไม่มีอะไรถูกส่งออกไป");
   await expect(page.getByTestId("promise-age")).toContainText("15 ปีขึ้นไป");
   await expect(page.getByTestId("quick-exit")).toBeVisible();
-  await expect(page.getByTestId("draft-flag")).toBeVisible();
+  await expect(page.getByTestId("quick-exit")).toHaveText("ออกทันที ✕");
+  await expect(page.getByTestId("quick-exit")).toHaveAttribute("aria-label", "ออกทันที ✕");
+  await expect(page.getByTestId("draft-flag")).toHaveCount(0);
   await page.getByTestId(`age-${band}`).click();
 }
 

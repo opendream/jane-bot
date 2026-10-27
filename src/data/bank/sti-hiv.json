@@ -1,0 +1,624 @@
+{
+  "$comment": "Reviewed 27 Oct 2026 (Keng). STI/HIV, PrEP/PEP. #21 not in this topic. Answer-bank text CC BY-SA 4.0, attribution Opendream.",
+  "topic_file": "sti_hiv",
+  "licence": "CC-BY-SA-4.0",
+  "cards": [
+    {
+      "id": "disease.hiv.000",
+      "topic": "sti_hiv",
+      "title_th": "เอชไอวีคืออะไร",
+      "answer_th": "เอชไอวี เป็นเชื้อไวรัสชนิดหนึ่งที่ทำลายระบบภูมิคุ้มกันของร่างกาย ส่งผลให้ระบบภูมิคุ้มกันทำงานบกพร่อง ไม่สามารถต่อสู้ หรือกำจัดเชื้อได้ ทำให้เสี่ยงต่อการติดเชื้อและป่วยเป็นโรคต่างๆ ได้ง่าย\nเชื้อเอชไอวีสามารถติดต่อได้ทางเลือด อสุจิ สารคัดหลั่งในช่องคลอด หรือน้ำนม",
+      "key_facts": [
+        "เชื้อไวรัส"
+      ],
+      "triggers": [
+        "เอชไอวีคืออะไร",
+        "hiv คือ",
+        "เอดส์คืออะไร"
+      ],
+      "next": [],
+      "source_intents": [
+        "disease.HIV.000"
+      ],
+      "source": [
+        {
+          "by": "Opendream",
+          "url": "https://rsathai.org/qrcode",
+          "title": "Jane answer bank, Keng review 27 Oct 2026",
+          "checked": "2026-10-27"
+        }
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#3 Approve"
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked",
+        "medical"
+      ],
+      "referral": {
+        "offer": "soft",
+        "intents": [
+          "sti_hiv"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "disease.hiv.001",
+      "topic": "sti_hiv",
+      "title_th": "เอชไอวีรักษาหายไหม",
+      "answer_th": "ปัจจุบันยังไม่มีวิธีการใดรักษาโรคติดเชื้อเอชไอวี แต่มียาที่จะยับยั้งการแบ่งตัวของเชื้อเอชไอวี ช่วยให้ผู้ติดเชื้อสามารถใช้ชีวิตร่วมกับผู้คนในสังคมได้เหมือนกับคนทั่วไป และสามารถมีชีวิตอยู่ต่อได้ตามอายุขัยของคนปกติ",
+      "key_facts": [
+        "ยังไม่มีวิธีการใดรักษา"
+      ],
+      "triggers": [
+        "เอชไอวีรักษาหาย",
+        "เอดส์รักษาหาย"
+      ],
+      "next": [],
+      "source_intents": [
+        "disease.HIV.001"
+      ],
+      "source": [
+        {
+          "by": "Opendream",
+          "url": "https://rsathai.org/qrcode",
+          "title": "Jane answer bank, Keng review 27 Oct 2026",
+          "checked": "2026-10-27"
+        }
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#4 Approve"
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked",
+        "medical"
+      ],
+      "referral": {
+        "offer": "soft",
+        "intents": [
+          "sti_hiv"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "disease.hiv.002",
+      "topic": "sti_hiv",
+      "title_th": "อาการและการตรวจเอชไอวี",
+      "answer_th": "ถ้าเพิ่งติดเชื้อ อาจมีอาการผิดปกติน้อย และอาการนั้นสามารถหายไปเองได้ใน 2-4 อาทิตย์ เช่น เจ็บคอ ปวดเมื่อยกล้ามเนื้อ มีไข้ต่ำๆ อ่อนเพลีย น้ำหนักลดเล็กน้อย ถ่ายอุจจาระเหลว ต่อมน้ำเหลืองโต ดังนั้นเพื่อให้ชัวร์ ควรไปตรวจจะดีกว่า\nคนไทยทุกคน ทุกสิทธิ ตรวจเอชไอวีฟรีปีละ 2 ครั้ง จะไปตรวจที่หน่วยบริการในระบบ สปสช. เช่น โรงพยาบาลรัฐใกล้บ้าน (ใช้บัตรประชาชน) หรือตรวจด้วยตัวเองด้วยชุดตรวจ HIV Self-Test ก็ได้ ถ้าผลเป็นบวก ต้องไปตรวจยืนยันที่โรงพยาบาลนะ\nถ้าอยากตรวจแบบไม่แจ้งชื่อ มีคลินิกนิรนาม แต่อาจมีค่าใช้จ่าย สอบถามคลินิกก่อนนะ\nหรือจะโทรปรึกษาสายด่วน 1663 ก่อนก็ได้ ปรึกษาฟรี ทุกวัน 09:00–21:00 น. รวมวันหยุด",
+      "key_facts": [
+        "ตรวจเอชไอวีฟรีปีละ 2 ครั้ง",
+        "1663"
+      ],
+      "triggers": [
+        "อาการเอชไอวี",
+        "ตรวจเอชไอวี",
+        "อยากตรวจเอช"
+      ],
+      "next": [],
+      "source_intents": [
+        "disease.HIV.002"
+      ],
+      "source": [
+        {
+          "by": "สปสช.",
+          "url": "https://www.nhso.go.th/th/communicate-th/thnewsforperson/2025-09-03-07-16-57",
+          "title": "สปสช. ตรวจเอชไอวีฟรี / เพร็พฟรี",
+          "checked": "2026-10-22"
+        }
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#5 Edit: free self-test kit sentence removed."
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked",
+        "medical",
+        "hotline",
+        "hours"
+      ],
+      "referral": {
+        "offer": "strong",
+        "intents": [
+          "sti_hiv"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": false,
+      "licence": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "disease.gonorrhea.000",
+      "topic": "sti_hiv",
+      "title_th": "หนองในคืออะไร",
+      "answer_th": "หนองในคือโรคติดต่อทางเพศสัมพันธ์ ที่เกิดจากเชื้อแบคทีเรีย\nสาเหตุของการติดเชื้อมาจากการมีเพศสัมพันธ์กับผู้ติดเชื้อโดยไม่ใช้ถุงยางอนามัย หรือมีการสัมผัสเยื่อบุช่องคลอด ช่องปาก ทวารหนัก องคชาติ โดยไม่จำเป็นต้องมีการหลั่งน้ำอสุจิ\nนอกจากนี้ ทารกอาจติดเชื้อจากแม่ได้ระหว่างคลอดด้วย\nวิธีสังเกตตัวเองคือ ถ้าเป็นผู้ชายจะมีอาการปัสสาวะแสบขัด หรือมีอาการปวด มีหนองไหลจากท่อปัสสาวะ หรือเกิดผื่นที่ไม่พึงประสงค์ขึ้นที่บริเวณอวัยวะเพศ",
+      "key_facts": [
+        "หนองในคือโรคติดต่อทางเพศสัมพันธ์"
+      ],
+      "triggers": [
+        "หนองใน",
+        "หนองในคืออะไร"
+      ],
+      "next": [],
+      "source_intents": [
+        "disease.gonorrhea.000"
+      ],
+      "source": [
+        {
+          "by": "Opendream",
+          "url": "https://rsathai.org/qrcode",
+          "title": "Jane answer bank, Keng review 27 Oct 2026",
+          "checked": "2026-10-27"
+        }
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#6 Approve"
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked",
+        "medical"
+      ],
+      "referral": {
+        "offer": "soft",
+        "intents": [
+          "sti_hiv"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "disease.gonorrhea.001",
+      "topic": "sti_hiv",
+      "title_th": "สงสัยหนองใน",
+      "answer_th": "ถ้าสงสัยว่าติดเชื้อ ควรหยุดการมีเพศสัมพันธ์ แล้วรีบไปหาหมอ เพื่อรับรักษาด้วยการใช้ยาปฏิชีวนะ เพื่อป้องกันการเกิดภาวะแทรกซ้อน เช่น โรคข้ออักเสบติดเชื้อจากหนองใน ความเสี่ยงในการติดเชื้อเอชไอวีและซิฟิลิสที่มากกว่าคนทั่วไป โดยอาจรุนแรงถึงขั้นติดเชื้อในกระแสเลือดและเสียชีวิตได้",
+      "key_facts": [
+        "ยาปฏิชีวนะ"
+      ],
+      "triggers": [
+        "สงสัยว่าติดหนองใน",
+        "เป็นหนองใน"
+      ],
+      "next": [],
+      "source_intents": [
+        "disease.gonorrhea.001"
+      ],
+      "source": [
+        {
+          "by": "Opendream",
+          "url": "https://rsathai.org/qrcode",
+          "title": "Jane answer bank, Keng review 27 Oct 2026",
+          "checked": "2026-10-27"
+        }
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#7 Approve"
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked",
+        "medical"
+      ],
+      "referral": {
+        "offer": "soft",
+        "intents": [
+          "sti_hiv"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "disease.herpes.000",
+      "topic": "sti_hiv",
+      "title_th": "เริมคืออะไร",
+      "answer_th": "เริมไม่ได้เป็นโรคติดต่อจากทางเพศสัมพันธ์เท่านั้นนะ\nเริม เป็นโรคติดเชื้อไวรัสเฮอร์พีส์ ซิมเพล็กซ์ โดยจะมีตุ่มน้ำใสบริเวณที่ติดเชื้อ เช่น ปาก อวัยวะเพศ ทวารหนัก บั้นท้าย หรือต้นขา และจะมีอาการเจ็บปวด แสบที่บริเวณแผล\nเริมสามารถติดต่อกันได้ผ่านการสัมผัสโดยตรงกับผู้ที่เป็นโรค ซึ่งคนคนนั้นอาจแสดงอาการหรือไม่แสดงอาการก็ได้",
+      "key_facts": [
+        "ไวรัสเฮอร์พีส์"
+      ],
+      "triggers": [
+        "เริม",
+        "เริมคืออะไร",
+        "เฮอร์พีส์"
+      ],
+      "next": [],
+      "source_intents": [
+        "disease.herpes.000"
+      ],
+      "source": [
+        {
+          "by": "Opendream",
+          "url": "https://rsathai.org/qrcode",
+          "title": "Jane answer bank, Keng review 27 Oct 2026",
+          "checked": "2026-10-27"
+        }
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#8 Approve"
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked",
+        "medical"
+      ],
+      "referral": {
+        "offer": "soft",
+        "intents": [
+          "sti_hiv"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "disease.herpes.002",
+      "topic": "sti_hiv",
+      "title_th": "เริมรักษาหายไหม",
+      "answer_th": "เริมยังเป็นโรคที่ไม่สามารถรักษาให้หายสนิทได้ เพราะแม้อาการจะหายแล้ว เชื้อเริมจะเข้าไปซ่อนที่ปมประสาทในบริเวณใต้ผิวหนังหรือเยื่อบุ",
+      "key_facts": [
+        "รักษาให้หายสนิท"
+      ],
+      "triggers": [
+        "เริมรักษาหาย",
+        "เริมหายขาด"
+      ],
+      "next": [],
+      "source_intents": [
+        "disease.herpes.002"
+      ],
+      "source": [
+        {
+          "by": "Opendream",
+          "url": "https://rsathai.org/qrcode",
+          "title": "Jane answer bank, Keng review 27 Oct 2026",
+          "checked": "2026-10-27"
+        }
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#9 Approve"
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked",
+        "medical"
+      ],
+      "referral": {
+        "offer": "soft",
+        "intents": [
+          "sti_hiv"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "disease.syphilis.000",
+      "topic": "sti_hiv",
+      "title_th": "ซิฟิลิสคืออะไร",
+      "answer_th": "ซิฟิลิสเป็นโรคติดต่อทางเพศสัมพันธ์ที่เกิดจากเชื้อแบคทีเรีย ทำให้เกิดผื่นหรือแผลตามผิวหนัง สามารถรักษาให้หายขาดได้ด้วยยาปฏิชีวนะ แต่ถ้าปล่อยทิ้งไว้ในระยะยาว อาจเกิดภาวะแทรกซ้อนร้ายแรง\nซิฟิลิสนั้นติดต่อได้สามทาง คือ ทางเพศสัมพันธ์ ผ่านเยื่อบุช่องคลอด ท่อปัสสาวะ ผ่านการสัมผัสแผลที่มีเชื้อ บนผิวหนัง หรือเยื่อบุต่างๆ และจากแม่สู่ลูก",
+      "key_facts": [
+        "ซิฟิลิสเป็นโรคติดต่อทางเพศสัมพันธ์"
+      ],
+      "triggers": [
+        "ซิฟิลิส",
+        "ซิฟิลิสคืออะไร"
+      ],
+      "next": [],
+      "source_intents": [
+        "disease.syphilis.000"
+      ],
+      "source": [
+        {
+          "by": "Opendream",
+          "url": "https://rsathai.org/qrcode",
+          "title": "Jane answer bank, Keng review 27 Oct 2026",
+          "checked": "2026-10-27"
+        }
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#10 Approve"
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked",
+        "medical"
+      ],
+      "referral": {
+        "offer": "soft",
+        "intents": [
+          "sti_hiv"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "disease.syphilis.001",
+      "topic": "sti_hiv",
+      "title_th": "อาการซิฟิลิส",
+      "answer_th": "บางคนอาจมีแผลที่ขอบยกนูนแข็ง บ้างก็มีผื่นตามผิวหนังและเยื่อบุ แต่บางคนติดเชื้อแล้วแต่ไม่มีอาการหลายปีก็มี ดังนั้น หากสงสัยว่าเราอาจติดเชื้อ ควรไปตรวจดูนะ",
+      "key_facts": [
+        "แผลที่ขอบยกนูนแข็ง"
+      ],
+      "triggers": [
+        "อาการซิฟิลิส",
+        "แผลซิฟิลิส"
+      ],
+      "next": [],
+      "source_intents": [
+        "disease.syphilis.001"
+      ],
+      "source": [
+        {
+          "by": "Opendream",
+          "url": "https://rsathai.org/qrcode",
+          "title": "Jane answer bank, Keng review 27 Oct 2026",
+          "checked": "2026-10-27"
+        }
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#11 Approve"
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked",
+        "medical"
+      ],
+      "referral": {
+        "offer": "soft",
+        "intents": [
+          "sti_hiv"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "protection.prep.000",
+      "topic": "sti_hiv",
+      "title_th": "เพร็พคืออะไร",
+      "answer_th": "เพร็พ (PrEP) คือยาสำหรับลดความเสี่ยงในการติดเชื้อ HIV โดยจะต้องกินกันไว้ก่อนจะมีกิจกรรมที่เสี่ยงต่อการติดเชื้อ\nมีไว้กินวันละ 1 เม็ด ซึ่งถ้ากินยาอย่างสม่ำเสมอ จะสามารถลดโอกาสในการติดเชื้อเอชไอวีได้กว่า 90%\nคนไทยทุกคน ทุกสิทธิ รับเพร็พ (PrEP) ฟรีได้ที่หน่วยบริการที่ร่วมโครงการ ใช้บัตรประชาชน",
+      "key_facts": [
+        "กินวันละ 1 เม็ด",
+        "รับเพร็พ (PrEP) ฟรี"
+      ],
+      "triggers": [
+        "เพร็พ",
+        "prep",
+        "ยาเพร็พ"
+      ],
+      "next": [],
+      "source_intents": [
+        "protection.prep"
+      ],
+      "source": [
+        {
+          "by": "สปสช.",
+          "url": "https://www.nhso.go.th/th/communicate-th/thnewsforperson/2025-09-03-07-16-57",
+          "title": "สปสช. ตรวจเอชไอวีฟรี / เพร็พฟรี",
+          "checked": "2026-10-22"
+        }
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#12 Approve; doses kept (rule 6 Option A)."
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked",
+        "medical"
+      ],
+      "referral": {
+        "offer": "soft",
+        "intents": [
+          "sti_hiv"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "protection.pep.000",
+      "topic": "sti_hiv",
+      "title_th": "เป็ปคืออะไร",
+      "answer_th": "เป็ป (PEP) คือยาป้องกันการติดเชื้อเอชไอวีในกรณีฉุกเฉิน\nต้องกินให้เร็วที่สุดหลังเกิดกิจกรรมเสี่ยง และต้องเริ่มภายใน 72 ชั่วโมง และต้องกินยาติดต่อกันนานอย่างน้อย 28 วัน\nถ้ากินถูกต้องครบถ้วน จะสามารถป้องกันการติดเชื้อเอชไอวีได้กว่า 80%\nเป็ปฟรีสำหรับคนไทยทุกคน รวมถึงผู้ที่ถูกล่วงละเมิดทางเพศ",
+      "key_facts": [
+        "ภายใน 72 ชั่วโมง",
+        "กินยาติดต่อกันนานอย่างน้อย 28 วัน"
+      ],
+      "triggers": [
+        "เป็ป",
+        "pep",
+        "ยาเป็ป"
+      ],
+      "next": [],
+      "source_intents": [
+        "protection.pep"
+      ],
+      "source": [
+        {
+          "by": "สปสช.",
+          "url": "https://www.nhso.go.th/th/communicate-th/thnewsforperson/2025-09-03-07-16-57",
+          "title": "สปสช. ตรวจเอชไอวีฟรี / เพร็พฟรี",
+          "checked": "2026-10-22"
+        }
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#13 Approve; doses kept (rule 6 Option A)."
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked",
+        "medical"
+      ],
+      "referral": {
+        "offer": "soft",
+        "intents": [
+          "sti_hiv"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "hiv.test.under18.000",
+      "topic": "sti_hiv",
+      "title_th": "วัยรุ่นตรวจเอชไอวี",
+      "answer_th": "วัยรุ่นอายุ 13–18 ปี ตรวจเอชไอวีได้เองโดยไม่ต้องให้ผู้ปกครองยินยอม ถ้าเข้าใจว่าการตรวจคืออะไรและผลตรวจหมายถึงอะไร (แนวทางกรมควบคุมโรค 2021/22)",
+      "key_facts": [
+        "ไม่ต้องให้ผู้ปกครองยินยอม"
+      ],
+      "triggers": [
+        "ตรวจเอชไอวีโดยไม่บอกผู้ปกครอง",
+        "เด็กตรวจเอชไอวีได้ไหม"
+      ],
+      "next": [],
+      "source_intents": [
+        "hiv.test.under18"
+      ],
+      "source": [
+        {
+          "by": "กรมควบคุมโรค",
+          "url": "https://ddc.moph.go.th/uploads/publish/1281020230201071837.pdf",
+          "title": "แนวทางกรมควบคุมโรค 2021/22 (HIV testing, ages 13–18)",
+          "checked": "2026-10-27"
+        }
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#34 Edit option A, DDC only."
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked",
+        "legal"
+      ],
+      "referral": {
+        "offer": "soft",
+        "intents": [
+          "sti_hiv"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": false,
+      "licence": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "price.trc.prep.000",
+      "topic": "sti_hiv",
+      "title_th": "ราคาเพร็พ",
+      "answer_th": "ราคาจากรายการยาของสภากาชาดไทย (ปรับปรุง 1 ก.ย. 2568): ถ้าอยากซื้อยาเอง ยา TENOF-EM (FTC/TDF) 30 เม็ด ราคา 270 บาท ยาฉีดเพร็พออกฤทธิ์นาน APRETUDE เข็มละ 14,900 บาท ต้องมีใบสั่งแพทย์ ซื้อนอกเวลาราชการแพงขึ้น 10% ราคาอาจเปลี่ยนได้ สอบถามก่อนนะ\nแต่ถ้าเป็นคนไทย รับเพร็พแบบกินฟรีได้ที่หน่วยบริการที่ร่วมโครงการ ใช้บัตรประชาชน",
+      "key_facts": [
+        "270 บาท",
+        "รับเพร็พแบบกินฟรี"
+      ],
+      "triggers": [
+        "ราคาเพร็พ",
+        "เพร็พกี่บาท",
+        "ซื้อยาเพร็พ"
+      ],
+      "next": [],
+      "source_intents": [
+        "price.trc.prep"
+      ],
+      "source": [
+        {
+          "by": "สภากาชาดไทย",
+          "url": "https://th.aidsid.or.th/medical-service/",
+          "title": "รายการยาของสภากาชาดไทย 1 ก.ย. 2568",
+          "checked": "2026-10-27"
+        },
+        {
+          "by": "สปสช.",
+          "url": "https://www.nhso.go.th/th/communicate-th/thnewsforperson/2025-09-03-07-16-57",
+          "title": "สปสช. ตรวจเอชไอวีฟรี / เพร็พฟรี",
+          "checked": "2026-10-22"
+        }
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#35 Approve; prices in this card only."
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked",
+        "medical",
+        "price"
+      ],
+      "referral": {
+        "offer": "soft",
+        "intents": [
+          "sti_hiv"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": false,
+      "licence": "CC-BY-SA-4.0"
+    }
+  ]
+}

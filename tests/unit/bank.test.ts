@@ -33,7 +33,7 @@ describe("bank schema: shape", () => {
     ["topic", (c: any) => { c.topic = "jokes"; }],
     ["title_th", (c: any) => { c.title_th = "ก".repeat(41); }],
     ["title_th", (c: any) => { c.title_th = " "; }],
-    ["answer_th", (c: any) => { c.answer_th = "ก".repeat(401); }],
+    ["answer_th", (c: any) => { c.answer_th = "ก".repeat(801); }],
     ["answer_th", (c: any) => { delete c.answer_th; }],
     ["variants_th", (c: any) => { c.variants_th = "not-an-array"; }],
     ["key_facts", (c: any) => { c.key_facts = [1]; }],
@@ -128,6 +128,22 @@ describe("bank rules: content", () => {
     expect(rules(withCard((c) => { c.answer_th = "ข้อความทดสอบ อีเมล test@example.com"; c.key_facts = []; }))).toContain("pii");
     expect(rules(withCard((c) => { c.answer_th = "ข้อความทดสอบ ทักไลน์ @teen_club ได้"; c.key_facts = []; }))).not.toContain("pii");
   });
+  it("approved pii_checked copy still fails on a phone, not on name-detector false positives", () => {
+    const ok = withCard((c) => {
+      c.review = { status: "approved", reviewer: "Keng", reviewed_on: "2026-10-27" };
+      c.flags = ["pii_checked"];
+      c.answer_th = "สวัสดี เราชื่อพี่เจน :D ตรวจแบบไม่แจ้งชื่อ มีคลินิกนิรนาม HIV Self-Test";
+      c.key_facts = [];
+    });
+    expect(rules(ok)).not.toContain("pii");
+    const phone = withCard((c) => {
+      c.review = { status: "approved", reviewer: "Keng", reviewed_on: "2026-10-27" };
+      c.flags = ["pii_checked"];
+      c.answer_th = "ข้อความทดสอบ ติดต่อ 081 234 5678";
+      c.key_facts = [];
+    });
+    expect(rules(phone)).toContain("pii");
+  });
   it("placeholder cards must say PLACEHOLDER and can never be approved", () => {
     expect(rules(withCard((c) => { c.placeholder = true; }))).toContain("placeholder_mark");
     expect(rules(withCard((c) => { c.placeholder = true; c.answer_th = "PLACEHOLDER ข้อความทดสอบ"; }))).toEqual([]);
@@ -153,6 +169,8 @@ describe("bank rules: content", () => {
     expect(ageAllowed(c, "unspecified")).toBe(false);
     expect(ageAllowed(c, null)).toBe(false);
     expect(ageAllowed(c, "18+")).toBe(true);
+    expect(ageAllowed(c, "18-24")).toBe(true);
+    expect(ageAllowed(c, "25+")).toBe(true);
     expect(ageAllowed(base()[0], "15-17")).toBe(true);
   });
   it("age_safety: welcome/fallback/ending/redirect must be 15; 15+ → 18+ next is a warning", () => {

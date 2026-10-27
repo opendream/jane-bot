@@ -27,9 +27,9 @@ describe("chat send path", () => {
   it("talk-to-a-person calls the referral hook with the current topic (no empty promise)", async () => {
     const chat = newChat("18-24", null);
     const h = hooks();
-    await sendToChat(chat, "ช่วงนี้เครียดมาก นอนไม่หลับ", h);
+    await sendToChat(chat, "อยากรู้เรื่องคุมกำเนิด", h);
     await sendToChat(chat, "อยากคุยกับเจ้าหน้าที่", h);
-    expect(h.referralIntents).toEqual([["mental_health"]]);
+    expect(h.referralIntents).toEqual([["contraception"]]);
     expect(h.referralBanners).toEqual([[]]);
     expect(h.crisisCalls).toBe(0);
   });
@@ -144,7 +144,7 @@ describe("chat send path", () => {
     expect(chat.busy).toBe(false);
     expect(chat.quiz).toBeNull();
     expect(chat.messages.filter((m) => m.from === "user" && m.text === "อยากรู้เรื่องคุมกำเนิด")).toHaveLength(1);
-    expect(chat.messages.some((m) => m.from === "jane" && m.cardId === "contraception.p000")).toBe(true);
+    expect(chat.messages.some((m) => m.from === "jane" && m.cardId === "birth.control.000")).toBe(true);
   });
 
   it("a NeedGate bump during a mid-quiz send drops the landing and does not restore the quiz", async () => {
@@ -173,7 +173,7 @@ describe("chat send path", () => {
     expect(h.crisisCalls).toBe(0);
     expect(chat.busy).toBe(false);
     expect(chat.quiz).toBeNull();
-    expect(chat.messages.filter((m) => m.from === "jane" && m.cardId === "contraception.p000")).toHaveLength(1);
+    expect(chat.messages.filter((m) => m.from === "jane" && m.cardId === "birth.control.000")).toHaveLength(1);
   });
 
   it("skips chatDelayMs for a line typed during the quiz but still sets busy immediately", async () => {

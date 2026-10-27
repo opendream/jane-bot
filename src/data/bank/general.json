@@ -1,0 +1,95 @@
+{
+  "$comment": "Reviewed 27 Oct 2026 (Keng). Welcome, fallback. Age redirect stays in src/core/age.ts (#36). Answer-bank text CC BY-SA 4.0, attribution Opendream.",
+  "topic_file": "general",
+  "licence": "CC-BY-SA-4.0",
+  "cards": [
+    {
+      "id": "general.welcome.000",
+      "topic": "general",
+      "title_th": "คำทักทาย",
+      "answer_th": "สวัสดี เราชื่อพี่เจน :D",
+      "key_facts": [
+        "พี่เจน"
+      ],
+      "triggers": [
+        "สวัสดีพี่เจน",
+        "เริ่มใหม่",
+        "ทักทาย"
+      ],
+      "next": [
+        {
+          "label_th": "ยาคุมฉุกเฉิน",
+          "card_id": "ec.timing.b001"
+        },
+        {
+          "label_th": "กังวลเรื่องท้อง",
+          "card_id": "pregnancy.ornot.000"
+        },
+        {
+          "label_th": "ตรวจเอชไอวี",
+          "card_id": "disease.hiv.002"
+        }
+      ],
+      "source_intents": [
+        "Default Welcome Intent"
+      ],
+      "source": [],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "Answer #1 Approve. Chips from CHT-01 except เครียด ไม่สบายใจ (no reviewed mental-health card)."
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked"
+      ],
+      "referral": {
+        "offer": "none",
+        "intents": []
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "general.fallback.000",
+      "topic": "general",
+      "title_th": "ตอบไม่ได้",
+      "answer_th": "ตอนนี้พี่เจนยังไม่สามารถตอบเรื่องนั้นได้ค่ะ",
+      "key_facts": [
+        "ยังไม่สามารถตอบ"
+      ],
+      "triggers": [],
+      "next": [
+        {
+          "label_th": "เริ่มใหม่",
+          "card_id": "general.welcome.000"
+        }
+      ],
+      "source_intents": [
+        "Default Fallback Intent"
+      ],
+      "source": [],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "Answer #2 + CHT-02 Edit: one reply, เริ่มใหม่ button only. Variants collapsed."
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked"
+      ],
+      "referral": {
+        "offer": "none",
+        "intents": []
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "CC-BY-SA-4.0"
+    }
+  ]
+}
