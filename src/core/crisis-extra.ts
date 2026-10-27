@@ -3,61 +3,56 @@ import { CRISIS_RULES, detectCrisis, MILD_MARKERS, TOPIC_MARKERS } from "./crisi
 import { compact, findPhrases } from "./text";
 
 /**
- * Extra crisis rules (outside pinned crisis.ts). Shapes:
+ * Extra crisis rules (outside pinned crisis.ts). Round 3 (final, narrow).
+ * Four high-precision shapes only:
  *
- * 1. Violence = (harm verb with Thai word boundaries) AND (a person agent
- *    or a victim marker). Negation only when ไม่, ไม่เคย or ไม่ได้ sits
- *    directly before the verb.
+ * (a) Threats to leak, post, or spread images/clips with any ถ้า-condition
+ *     (ถ้า…จะปล่อย/ประจาน, not only ถ้าไม่), filming sex, and blackmail
+ *     with a photo or clip. ลง is only a leak with คลิป or nude media
+ *     (ถ้าว่างจะลงรูปเที่ยว is not). Bare จะปล่อยคลิปสอนแต่งหน้า is not.
  *
- * 2. ตี is not the foot-word ตีน, a tone-marked ตี๋, ตีตัว…ห่าง, or ตีกลับ,
- *    and is not inside ปาร์ตี้. น้อง after ตี still counts. Other hit verbs
- *    keep their everyday-compound lookaheads (ตีตั๋ว, ตบมือ, เตะบอล, …).
+ * (b) Coercion to send nudes: บังคับ/ขู่ให้ส่งรูปโป๊/รูปเปลือย/คลิป.
  *
- * 3. ซ้อม: a person agent before the verb is enough (no object needed),
- *    except sport/music (แข่ง, บอล, ดนตรี, เต้น, ร้อง). ถูก/โดนซ้อม also
- *    needs a person agent or a harm word (จนเจ็บ, จนช้ำ, ทุบ, ทำร้าย,
- *    จนตัวเขียว). ข่วน needs a person agent (แมวข่วน is not).
+ * (c) Passive โดน/ถูก + ซ้อม/ตี (including รุม and an optional person),
+ *     excluding sport or performance on ซ้อม (วิ่ง, กีตาร์, รำ, พูด,
+ *     ก่อนแข่ง, …). ตี is not ตีน, ตี๋, ตีตัว…ห่าง, or ตีกลับ.
  *
- * 4. Images/clips → sexual_violence only with explicit threat/coercion
- *    (ขู่, ข่มขู่, แบล็กเมล์, จะปล่อย|ลง … ถ้าไม่ …, เอาไปประจาน) or
- *    sexual content (โป๊, เปลือย, ตอนอาบน้ำ, ตอนมีอะไรกัน, อนาจาร with
- *    a first-person marker). ตามตื๊อ is not violence.
+ * (d) A named partner, family member, friend, teacher, or similar agent
+ *     (แฟน, ผัว, สามี, พ่อ, แม่, เพื่อน, …) hitting or beating 'me'
+ *     (หนู, ฉัน, เรา, ผม, …). ไม่ / ไม่เคย / ไม่ได้ negate only on the verb.
  *
- * Matched on compact text. Contextual: topic → banner; mild qualifier
- * banners violence. Lives outside pinned crisis.ts. Rules only — no model.
+ * Dropped: bare person + ตี/เตะ/ซ้อม/ข่วน with no victim; generic force,
+ * threat, harass, covert photo, and non-partner touch. Those stay with
+ * pinned detectCrisis. Matched on compact text. Contextual: topic → banner;
+ * mild qualifier banners violence. Rules only — no model.
  */
 
-// Hitting verbs. ตี refuses a preceding thanthakhat (ปาร์ตี้), ตีน (foot; น
-// not starting น้อง), a following tone mark (ตี๋), ตัว…ห่าง, or กลับ.
-const HIT_VERBS =
-  "((?<!์)ตี(?![่้๊๋]|น(?![่้๊๋])|กลับ|ตัว.{0,6}?ห่าง|ตั๋ว|ความ|สนิท|กิน|จาก|หน้า|ราคา|พิมพ์|เนียน|มึน|ลังกา|บ|หนึ่ง|สอง|สาม|สี่|ห้า|กอล์ฟ|แบด|เทนนิส|ปิงปอง|กลอง|ฉิ่ง|ไข่|แปลง|เส้น|ตลาด|โจทย์|วง|ซี้|ฝีปาก|บท|ค่า|มูลค่า|ระฆัง|ฆ้อง)" +
-  "|ตบ(?!มือ|ยุง|แต่ง|เท้า|ไหล่|บ่า)|ต่อย(?!มวย)|เตะ(?!บอล|ฟุตบอล|ตะกร้อ)|ทุบ(?!หลัง|ไหล่|นวด|สถิติ|ทิ้ง)|กระทืบ|ถีบ(?!จักรยาน)|" +
-  "ผลัก(?!ดัน|ให้ไป)|ชก(?!มวย)|กระชาก|บีบคอ|จิกหัว|จิกผม|ดึงผม|ทำร้าย(?!จิตใจ|ความรู้สึก|ใจ)|ใช้กำลัง(?!ใจ)|ลงไม้ลงมือ)";
-// ซ้อม is not sport/music practice sitting on the verb (ซ้อมบอล, ซ้อมดนตรี,
-// ซ้อม…ก่อนแข่ง). Bounded; no ReDoS. A later สนามบอล does not cancel a beating.
-const ZOM = "ซ้อม(?!(?:ร้อง(?!ไห้)|บอล|ดนตรี|เต้น|แข่ง|.{0,12}?ก่อนแข่ง))";
-const ZOM_HARM = "(?:จนเจ็บ|จนช้ำ|จนตัวเขียว|ตัวเขียว|ทุบ|ทำร้าย)";
-// Who does it (partner, family, carer, generic "he/they"). "พี่" is left out: Jane calls herself พี่.
+// Who does it (partner, family, friend, carer). "พี่" is left out: Jane calls herself พี่.
 // Thai word-boundary: แม่/พ่อ are not the prefix of แม่ค้า/พ่อค้า; เขา is not the tail of ภูเขา.
-const AGENT = "(แฟน|ผัว|สามี|เมีย|ภรรยา|พ่อเลี้ยง|แม่เลี้ยง|พ่อ(?!ค้า)|แม่(?!ค้า|น้ำ|บ้าน|แรง|แบบ|พิมพ์)|พี่ชาย|ลุง|ครู|(?<!ภู)เขา|ผู้ชาย|คนที่บ้าน|คนในบ้าน)";
-// Up to 12 code units between subject and verb ("ผัวเมาแล้วซ้อม", "ผัวไม่พอใจก็ซ้อม").
+const AGENT = "(แฟน|ผัว|สามี|เมีย|ภรรยา|พ่อเลี้ยง|แม่เลี้ยง|พ่อ(?!ค้า)|แม่(?!ค้า|น้ำ|บ้าน|แรง|แบบ|พิมพ์)|พี่ชาย|พี่สาว|ลุง|ป้า|น้า|อา|ยาย|ย่า|ตา|ปู่|ครู|เพื่อน|(?<!ภู)เขา|ผู้ชาย|คนที่บ้าน|คนในบ้าน)";
+// Up to 12 code units between subject and verb ("ผัวไม่พอใจก็ซ้อมหนู").
 const GAP = ".{0,12}?";
 // ไม่ / ไม่เคย / ไม่ได้ only when they sit directly before the harm verb (not ไม่พอใจ).
 const NOT_NEGATED = "(?<!ไม่)(?<!ไม่เคย)(?<!ไม่ได้)";
 // Victim marker; ถูก excludes "correct/cheap/like" senses.
 const VICTIM = "(โดน|ถูก(?!ต้อง|ใจ|กว่า|ที่|ไหม|มั้ย|และ|ๆ|ด้วย|วิธี|เวลา|สุด|มาก))";
-const SEXUAL_TOUCH = "(จับ(หน้าอก|นม|ก้น|ของสงวน|จู๋|หี|จิ๋ม)|ลูบคลำ|ลวนลาม|แทะโลม|คุกคามทางเพศ|แอบถ่าย)";
+const ME = "(หนู|ฉัน|เรา|ผม|ดิฉัน|ชั้น)";
 const CLIP = "(คลิป|รูป|ภาพ)";
-const SEX_CLIP = "(โป๊|เปลือย|อนาจาร|แก้ผ้า|เปลือยกาย)";
-const ME = "(หนู|ฉัน|เรา)";
+const SEX_CLIP = "(โป๊|เปลือย|อนาจาร)";
+// ซ้อม is not sport/music/performance practice sitting on the verb. Bounded; no ReDoS.
+const ZOM_SPORT = "(?:ร้อง(?!ไห้)|บอล|ดนตรี|เต้น|แข่ง|วิ่ง|กีตาร์|รำ|พูด|ว่ายน้ำ|โยคะ|เปียโน|บาส|วอลเลย์|ขับ|แบด|เชียร์|อ่าน|ฟุตซอล|สูตร|.{0,12}?ก่อนแข่ง)";
+const ZOM = `ซ้อม(?!${ZOM_SPORT})`;
+// ตี is not the foot-word ตีน, a tone-marked ตี๋, ตีตัว…ห่าง, or ตีกลับ.
+const TEE = "ตี(?![่้๊๋]|น(?![่้๊๋])|กลับ|ตัว.{0,6}?ห่าง)";
 const IMAGE_THREAT =
-  `(ขู่|ข่มขู่|แบล็กเมล์|แบล็คเมล์).{0,20}?${CLIP}` +
-  `|จะ(ปล่อย|ลง)${CLIP}.{0,20}?ถ้าไม่` +
-  `|ถ้าไม่.{0,20}?จะ(ปล่อย|ลง)${CLIP}` +
+  `(ขู่|ข่มขู่|แบล็กเมล์|แบล็คเมล์).{0,24}?${CLIP}` +
+  `|ถ้า.{0,24}?จะ(ปล่อย|ประจาน)${CLIP}` +
+  `|จะ(ปล่อย|ประจาน)${CLIP}.{0,24}?ถ้า` +
+  `|ถ้า.{0,24}?จะลง(คลิป|(รูป|ภาพ)${SEX_CLIP})` +
   `|เอา${CLIP}.{0,10}?ไปประจาน` +
-  `|${CLIP}${SEX_CLIP}.{0,10}?${ME}` +
-  `|${ME}.{0,12}?${CLIP}${SEX_CLIP}` +
-  `|(ถ่าย|ปล่อย)${CLIP}.{0,12}?(ตอน)?(อาบน้ำ|มีอะไรกัน|แก้ผ้า|${SEX_CLIP})`;
+  `|(ถ่าย|ปล่อย)${CLIP}.{0,12}?(ตอน)?(อาบน้ำ|มีอะไรกัน|แก้ผ้า|${SEX_CLIP})` +
+  `|โดน(แบล็กเมล์|แบล็คเมล์).{0,12}?(ด้วย)?${CLIP}`;
+const COERCE_NUDES = `(บังคับ|ขู่)ให้ส่ง((รูป|ภาพ)${SEX_CLIP}|คลิป${SEX_CLIP}?)`;
 
 function uniqueCats(cats: CrisisCategory[]): CrisisCategory[] {
   return [...new Set(cats)];
@@ -65,26 +60,20 @@ function uniqueCats(cats: CrisisCategory[]): CrisisCategory[] {
 
 export const EXTRA_CONTEXTUAL: Partial<Record<CrisisCategory, { id: string; re: RegExp }[]>> = {
   violence_danger: [
-    { id: "agent_hits", re: new RegExp(`${AGENT}${GAP}${NOT_NEGATED}(?:${HIT_VERBS}|${ZOM}|ข่วน)`) },
     {
       id: "victim_hit",
       re: new RegExp(
-        `${VICTIM}${GAP}${NOT_NEGATED}${HIT_VERBS}` +
-          `|${VICTIM}${GAP}${AGENT}${GAP}${NOT_NEGATED}${ZOM}` +
-          `|${VICTIM}${GAP}${NOT_NEGATED}${ZOM}.{0,16}?${ZOM_HARM}` +
-          `|${VICTIM}${GAP}${AGENT}${GAP}${NOT_NEGATED}ข่วน`,
+        `${VICTIM}${GAP}${NOT_NEGATED}(?:รุม)?(?:${AGENT}${GAP})?(?:รุม)?(?:${ZOM}|${TEE})`,
       ),
     },
-    { id: "force_words", re: /ใช้กำลัง(?!ใจ)|ลงไม้ลงมือ|ใช้ความรุนแรง|ความรุนแรงในครอบครัว|กระทืบ/ },
-    { id: "threat", re: /ข่มขู่|ขู่(จะ|ว่าจะ)?(ทำร้าย|ตี|ตบ|ซ้อม|ฆ่า|เอาชีวิต|ฟัน|แทง|ยิง)/ },
-    { id: "harass_generic", re: /คุกคาม(?!ทางเพศ)|สะกดรอย/ },
+    {
+      id: "partner_hits_me",
+      re: new RegExp(`${AGENT}${GAP}${NOT_NEGATED}(?:${ZOM}|${TEE})${ME}`),
+    },
   ],
   sexual_violence: [
-    { id: "harass_sexual", re: new RegExp(`คุกคามทางเพศ|แทะโลม|ลูบคลำ|${ME}.{0,10}?อนาจาร|อนาจาร.{0,10}?${ME}`) },
-    { id: "victim_touch", re: new RegExp(`${VICTIM}${GAP}${NOT_NEGATED}${SEXUAL_TOUCH}`) },
     { id: "image_threat", re: new RegExp(IMAGE_THREAT) },
-    { id: "covert_photo", re: /แอบถ่าย|ถ่ายใต้กระโปรง/ },
-    { id: "nonpartner_touch", re: new RegExp(`(พ่อเลี้ยง|ลุง|ครู|ญาติ|ผู้ชาย|คนแปลกหน้า|หัวหน้า|รุ่นพี่|คนในบ้าน|คนที่บ้าน)${GAP}${NOT_NEGATED}(จับ(หน้าอก|นม|ก้น|ของสงวน|ตรงนั้น|ตัว(?!อย่าง))|ลูบ(ตัว|ขา|ก้น|หน้าอก|นม))`) },
+    { id: "coerce_nudes", re: new RegExp(COERCE_NUDES) },
   ],
 };
 
