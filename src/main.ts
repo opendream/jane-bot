@@ -1,5 +1,6 @@
 import "./styles.css";
-import { PRODUCT_NAME, PRODUCT_NAME_EN, MIN_AGE, THAI_COPY_STATUS } from "./config";
+import { PRODUCT_NAME, PRODUCT_NAME_EN, MIN_AGE, THAI_COPY_STATUS, MATCHER } from "./config";
+import { matcherEnabled, readMatcherFlag, type IntentMatcher } from "./core/matcher";
 import markSvg from "./assets/mark.svg?raw";
 import type { CrisisCategory, Intent, IntentResult } from "./core/types";
 import { type AgePick } from "./core/age";
@@ -55,6 +56,8 @@ const fresh = (): State => ({
 let state: State = fresh();
 /** In-browser model (optional). Loads in the background; the flow uses rules until it is ready. */
 let model: LLMAdapter | null = null;
+/** Embedding matcher: null unless the desktop-dev flag is on. Never set on phones. */
+let matcher: IntentMatcher | null = null;
 let modelStatus: ModelStatus = { state: "loading", runtime: "rules", label: "", progress: 0 };
 let polishNote = false; // summary line was reworded by the model
 const need = newNeedGate(); // classify generation; busy is owned by the in-flight seq only
@@ -192,7 +195,7 @@ function describeScreen() {
 /* --------------------------------------- chat (v2) --------------------------------------- */
 function openChat() {
   dropInflightChat();
-  if (!state.chat) state.chat = newChat(state.ageBand, toDialogModel(model));
+  if (!state.chat) state.chat = newChat(state.ageBand, toDialogModel(model), matcher);
   go({ screen: "chat" });
 }
 
@@ -421,9 +424,21 @@ const applyAdapter = (a: LLMAdapter | null) => {
   model = a;
   state.chat?.session.setModel(toDialogModel(a));
 };
+const applyMatcher = (m: IntentMatcher | null) => {
+  matcher = m;
+  state.chat?.session.setMatcher(m);
+};
+async function resolveMatcher(): Promise<IntentMatcher | null> {
+  const search = typeof location !== "undefined" ? location.search : "";
+  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+  if (!matcherEnabled(readMatcherFlag(MATCHER, search), ua)) return null;
+  const { loadMatcher } = await import("./matcher/load");
+  return loadMatcher({ search });
+}
 // Status updates only swap the small indicator, so typing is never interrupted.
 startModel((st) => {
   modelStatus = st;
   const old = app.querySelector('[data-testid="model-status"]');
   if (old) old.replaceWith(modelPill());
 }, { onAdapter: applyAdapter }).then(applyAdapter);
+void resolveMatcher().then(applyMatcher);

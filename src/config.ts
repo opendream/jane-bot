@@ -31,6 +31,16 @@ export const MAX_SUGGESTIONS = 3;
 export const MODEL: "qwen3-1.7b" | "qwen3-4b" | "off" = "qwen3-1.7b";
 
 /**
+ * Fine-tuned embedding intent matcher (e5-small int8). Off by default and never on
+ * phones: iteration 3 failed gate 2 (in-scope abstain 32–45% vs ≤20%) and leaked 1–3
+ * normal cards on the development harassment/crisis sets (gate 1). The shipped router
+ * is rules (crisis first, then trigger retrieval, then the fallback card).
+ * Desktop-dev only: set MATCHER true here, or ?matcher=1. Weights, if any, load from a
+ * local gitignored dir (`models/matcher/` or ?matcherWeights=models/...). Not committed.
+ */
+export const MATCHER = false;
+
+/**
  * Chat reword (plan v2 §4): which runtimes may reword curated cards. The validator shows the exact text on any
  * failure. WASM is off: Qwen3-1.7B on WASM measured median 2.3 s, p90 3.3 s per short rewrite on the studio Mac
  * (22 Oct 2026, n=16), over the 3 s rule, so WASM shows cards verbatim. Card picking stays on for both.

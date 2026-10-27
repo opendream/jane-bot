@@ -2,6 +2,7 @@ import type { CrisisCategory, Intent } from "../core/types";
 import type { AgeState } from "../core/age";
 import type { BankTopic, CardNext } from "../core/bank";
 import { DialogSession, SOFT_CAP, type DialogModel, type TurnReply, type CapNotice } from "../core/dialog";
+import type { IntentMatcher } from "../core/matcher";
 import { crisisOrder } from "../core/crisis";
 import { BANK, cardsForSession, bankContext } from "../core/bankData";
 import { THAI_COPY_STATUS } from "../config";
@@ -44,8 +45,8 @@ export interface ChatHooks {
   seq?(): number;
 }
 
-export function newChat(ageBand: AgeState, model: DialogModel | null): ChatState {
-  const session = new DialogSession(ageBand, { cards: cardsForSession(), model, copyStatus: THAI_COPY_STATUS, rewordCtx: bankContext() });
+export function newChat(ageBand: AgeState, model: DialogModel | null, matcher: IntentMatcher | null = null): ChatState {
+  const session = new DialogSession(ageBand, { cards: cardsForSession(), model, matcher, copyStatus: THAI_COPY_STATUS, rewordCtx: bankContext() });
   const chat: ChatState = { session, messages: [], busy: false, draft: "", readOnly: false, quiz: null };
   push(chat, fromReply(session.start()));
   return chat;
