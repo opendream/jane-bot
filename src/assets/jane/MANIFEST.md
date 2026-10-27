@@ -1,12 +1,12 @@
 # Jane assets for `src/assets/jane/`
 
-Illustration © Opendream, 2018
+Illustration © Opendream, 2018. Some figures redrawn with AI assistance, 2026.
 
 AI-assisted high-res redraw of Opendream's 2018 illustrations, Grok Imagine, 2026
 
 Source: *Sex Safe Safe* manual (2018). The PDF is not in this repository. Page numbers are 1-based. **p4 is not used** (UFC marked it REMOVE). The condom mascot is not used. Nothing was taken from the 2020 art round.
 
-The in-app credit is exactly `Illustration © Opendream, 2018`. The grant is all rights reserved; not covered by Apache-2.0 or CC BY-SA.
+The in-app credit is exactly `Illustration © Opendream, 2018. Some figures redrawn with AI assistance, 2026.`. The grant is all rights reserved; not covered by Apache-2.0 or CC BY-SA.
 
 ## Encoder (all rasters)
 
@@ -66,7 +66,7 @@ True vector stars from the 2018 cover, shipped as of `0067a8f`. svgo 3.3.5. Self
 - **Quiz wrong** = `quiz-back.webp`.
 - Jane figures are WebP (RGBA); stars are SVG. The crisis screen has no `img` and no `svg`.
 - The condom mascot is **not used** in the UI and is not shipped.
-- Credit everywhere is exactly `Illustration © Opendream, 2018`. Don't name an illustrator. Don't add a licence label.
+- Credit everywhere is exactly `Illustration © Opendream, 2018. Some figures redrawn with AI assistance, 2026.`. Don't name an illustrator. Don't add a licence label.
 - Each figure gets Thai `alt` text and a fixed `width`/`height` to prevent layout shift. Decorative stars use `alt=""` / `aria-hidden="true"`.
 - `--jane-line` is for decoration only (white on it = 3.07, fails AA). Use `--primary` for text and buttons.
 - No comic pages are included.

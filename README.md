@@ -6,7 +6,7 @@ Private prototype. Not published, no remote, no deploy.
 
 The **code** is under the Apache License 2.0 (see the root `LICENSE`). The **answer-bank text** (cards under `src/data/bank/`: `answer_th`, titles, variants, key facts, triggers, chip labels) is licensed CC BY-SA 4.0 (see `src/data/bank/LICENSE`; attribution Opendream). That CC BY-SA grant covers the answer-bank text only: it does not cover illustrations, art, images, sprites, or the brand mark. The **eval question set** (`evals/` item files) is separately licensed CC BY-SA 4.0 as text (see `evals/LICENSE`; attribution Opendream). Quiz content is adapted from 'Judies, Opendream 2017' (Opendream owns Judies and relicenses its quiz content under CC BY-SA 4.0).
 Name: **พี่เจน** (Thai) / **Jane** (English), `PRODUCT_NAME` / `PRODUCT_NAME_EN` in `src/config.ts` (Keng, 22 Oct 19:49 BKK).
-Illustration © Opendream, 2018
+Illustration © Opendream, 2018. Some figures redrawn with AI assistance, 2026.
 Art: 2018 *Sex Safe Safe* vector stars and approved figures in `src/assets/jane/` (all rights reserved; not covered by Apache-2.0 or CC BY-SA). Provenance: native 2018 PDF crops plus an AI-assisted high-res redraw of Opendream's 2018 illustrations, Grok Imagine, 2026 (see `src/assets/jane/MANIFEST.md`). The small mark (`src/assets/mark.svg`) was drawn in code for this build and is also the favicon. Never use the 2020 Jane art. UI font is self-hosted Mitr (SIL OFL 1.1, Cadson Demak). Minimum age: `MIN_AGE` (default 15).
 **All Thai copy and the crisis phrase list are DRAFT** until a Thai SRH/safety reviewer signs off.
 

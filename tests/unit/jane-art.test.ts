@@ -42,7 +42,7 @@ function allowlistedRaster(file: string): string | null {
 
 describe("Jane 2018 art and credit", () => {
   it("credit text is exact and shown from the helper", () => {
-    expect(ART_CREDIT).toBe("Illustration © Opendream, 2018");
+    expect(ART_CREDIT).toBe("Illustration © Opendream, 2018. Some figures redrawn with AI assistance, 2026.");
     const main = fs.readFileSync(path.join(ROOT, "src/main.ts"), "utf8");
     expect(main).toContain("ART_CREDIT");
     expect(main).toContain("art-credit");
@@ -126,7 +126,7 @@ describe("Jane 2018 art and credit", () => {
     expect(notice).toMatch(/not covered by the repository's other licences/i);
     expect(notice).not.toMatch(/illustrations[^\n]*(CC BY-SA|CC-BY-SA)/i);
     const readme = fs.readFileSync(path.join(ROOT, "README.md"), "utf8");
-    expect(readme).toContain("Illustration © Opendream, 2018");
+    expect(readme).toContain("Illustration © Opendream, 2018. Some figures redrawn with AI assistance, 2026.");
     expect(readme).toMatch(/not cover the illustrations|not covered by Apache-2\.0 or CC BY-SA/);
     expect(readme).not.toMatch(/art is (licensed )?CC BY-SA/i);
     expect(readme).toMatch(/Never use the 2020 Jane art/);

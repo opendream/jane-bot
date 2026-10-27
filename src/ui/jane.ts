@@ -16,7 +16,7 @@ import starsSheet from "../assets/jane/stars-sheet.svg";
 import { h } from "./dom";
 
 /** Exact in-app credit. Do not add a licence label or an illustrator name. */
-export const ART_CREDIT = "Illustration © Opendream, 2018";
+export const ART_CREDIT = "Illustration © Opendream, 2018. Some figures redrawn with AI assistance, 2026.";
 
 export interface JaneImageSpec {
   src: string;

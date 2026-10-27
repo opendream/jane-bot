@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { open, viewportShot, assertHeaderDoesNotOverlap, assertNoStorage, assertNetwork, startAs } from "./helpers";
 
-const ART_CREDIT = "Illustration © Opendream, 2018";
+const ART_CREDIT = "Illustration © Opendream, 2018. Some figures redrawn with AI assistance, 2026.";
 const CDN = /fonts\.googleapis|fonts\.gstatic|gstatic\.com|googleapis\.com|cdnjs|jsdelivr|unpkg|cloudinary|imgur|fbcdn|raw\.githubusercontent|github\.com/i;
 const RASTER = /\.(webp|png|jpe?g|gif|avif|jxl|bmp)$/i;
 const JANE_RASTER_ALLOWLIST = [

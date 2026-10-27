@@ -241,7 +241,7 @@ describe("bundled bank (src/data/bank)", () => {
     expect(readme).not.toContain("OpenDream");
     expect(readme).toContain("does not cover illustrations, art, images, sprites");
     const artLine = readme.split("\n").find((l) => l.includes("Illustration ©"));
-    expect(artLine).toBe("Illustration © Opendream, 2018");
+    expect(artLine).toBe("Illustration © Opendream, 2018. Some figures redrawn with AI assistance, 2026.");
     expect(artLine).not.toMatch(/CC BY-SA|CC-BY-SA/);
   });
   it("licence errors redact a SYNTHETIC phone in the card id and never print it", () => {
