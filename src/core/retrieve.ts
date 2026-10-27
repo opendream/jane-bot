@@ -1,5 +1,5 @@
 import type { IntentResult } from "./types";
-import type { BankCard, BankTopic } from "./bank";
+import { isAllTrigger, type BankCard, type BankTopic, type CardTrigger } from "./bank";
 import { classifyNeed } from "./intent";
 import { findPhrases } from "./text";
 
@@ -14,11 +14,30 @@ export interface Retrieval { ranked: Scored[]; confident: boolean; prior: Intent
 
 const NO_PRIOR: BankTopic[] = ["general", "ending", "quiz"];
 
+/**
+ * Hits for one card. String triggers use findPhrases (unchanged). `{ all: tokens }` counts as
+ * one extra hit when every token is present, in any order. String-only lists score identically
+ * to `findPhrases(text, triggers).length`.
+ */
+export function countTriggerHits(text: string, triggers: readonly CardTrigger[]): number {
+  const phrases: string[] = [];
+  const groups: string[][] = [];
+  for (const t of triggers) {
+    if (typeof t === "string") phrases.push(t);
+    else if (isAllTrigger(t)) groups.push(t.all);
+  }
+  let n = findPhrases(text, phrases).length;
+  for (const g of groups) {
+    if (g.length >= 2 && g.every((tok) => typeof tok === "string" && tok.trim() && findPhrases(text, [tok]).length > 0)) n += 1;
+  }
+  return n;
+}
+
 export function retrieve(text: string, cards: BankCard[], contextTopic: BankTopic | null = null): Retrieval {
   const prior = classifyNeed(text);
   const priorIdx = (t: BankTopic) => (NO_PRIOR.includes(t) || !prior.scores[t as keyof typeof prior.scores] ? -1 : prior.intents.indexOf(t as any));
   const scored = cards.map((card, i) => {
-    const triggerHits = findPhrases(text, card.triggers).length;
+    const triggerHits = countTriggerHits(text, card.triggers);
     let score = triggerHits * WEIGHTS.trigger;
     const p = priorIdx(card.topic);
     if (p === 0) score += WEIGHTS.priorTop; else if (p > 0) score += WEIGHTS.priorOther;

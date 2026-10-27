@@ -25,6 +25,7 @@ export function findPhrases(raw: string, needles: readonly string[]): string[] {
   const comp = norm.replace(/\s+/g, "");
   const hits: string[] = [];
   for (const n of needles) {
+    if (typeof n !== "string") continue;
     const k = normalize(n);
     if (!k) continue;
     if (SHORT_LATIN.test(k)) {

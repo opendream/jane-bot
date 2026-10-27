@@ -38,6 +38,8 @@ describe("bank schema: shape", () => {
     ["variants_th", (c: any) => { c.variants_th = "not-an-array"; }],
     ["key_facts", (c: any) => { c.key_facts = [1]; }],
     ["triggers", (c: any) => { c.triggers = null; }],
+    ["triggers", (c: any) => { c.triggers = [{ all: ["ก"] }]; }],
+    ["triggers", (c: any) => { c.triggers = [{ all: ["ก", "ข"], extra: true }]; }],
     ["next", (c: any) => { c.next = [{ label_th: "x" }]; }],
     ["source", (c: any) => { c.source = [{ url: "https://rsathai.org" }]; }],
     ["review", (c: any) => { c.review = { status: "ok" }; }],
@@ -55,6 +57,20 @@ describe("bank schema: shape", () => {
     expect(checkShape({ ...base()[0], id: "ec.000" })).toEqual([]);
     expect(checkShape({ ...base()[0], id: "ec.a001" })).toEqual([]);
     expect(checkShape({ ...base()[0], id: "pregnancy.late.012" })).toEqual([]);
+  });
+});
+
+describe("bank rules: trigger compact duplicates", () => {
+  it("rejects two triggers that match the same once spaces are stripped", () => {
+    const cs = withCard((c) => { c.triggers = ["กินยาคุม", "กิน ยาคุม"]; });
+    expect(rules(cs)).toContain("trigger_compact_dup");
+    const msg = errors(cs).find((e) => e.rule === "trigger_compact_dup")?.msg ?? "";
+    expect(msg).toMatch(/triggers\[0,1\]/);
+    expect(msg).not.toMatch(/กินยาคุม/);
+  });
+  it("allows a co-occurrence trigger and unique phrases", () => {
+    expect(rules(withCard((c) => { c.triggers = ["กินยาคุม", { all: ["ยาคุม", "กี่ชั่วโมง"] }]; }))).not.toContain("trigger_compact_dup");
+    expect(checkShape({ ...base()[0], triggers: [{ all: ["ยาคุมฉุกเฉิน", "กี่ชั่วโมง"] }] })).toEqual([]);
   });
 });
 
