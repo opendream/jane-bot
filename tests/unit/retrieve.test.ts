@@ -3,6 +3,7 @@ import { BANK } from "../../src/core/bankData";
 import { shippable } from "../../src/core/bank";
 import { retrieve } from "../../src/core/retrieve";
 import { FALLBACK_ID, WELCOME_ID, runTurn, newDialog, type TurnDeps } from "../../src/core/dialog";
+import baselineFile from "../fixtures/retrieve-c450-baseline.json";
 
 // All queries here are SYNTHETIC, written for these tests.
 
@@ -104,5 +105,125 @@ describe("approved-card trigger regression", () => {
     const found = triggerMisroutes();
     expect(found.some((line) => line.startsWith("urgent.pills.000\t"))).toBe(false);
     expect(found, found.join("\n")).toEqual(EXISTING_TRIGGER_COLLISIONS);
+  });
+});
+
+/** A timing trigger must name EC. Generic post-sex / when / still-in-time fragments are unsafe. */
+const EC_TERM = /ยาคุมฉุกเฉิน|คุมฉุกเฉิน|ยาเม็ดคุมฉุกเฉิน|emergency contraception|postinor|morning after|(^|[^a-z])ec([^a-z]|$)/i;
+
+const CROSS_TOPIC = [
+  "PEP กินเมื่อไร หลังมีเพศสัมพันธ์ ยังทันไหม",
+  "กินเป็ปทันไหม",
+  "เป็ปกินเมื่อไร",
+  "เพร็พกินเมื่อไร",
+  "prep กินเมื่อไร",
+  "เพร็พทันไหม",
+  "หลังมีเพศสัมพันธ์ แสบ คัน",
+  "เลือดออกหลังมีเพศสัมพันธ์",
+  "หลังมีเพศสัมพันธ์ ปวด",
+  "หลังมีเพศสัมพันธ์ คัน",
+  "ตรวจครรภ์เมื่อไร",
+  "ที่ตรวจครรภ์กี่วัน",
+  "ตรวจครรภ์กี่วันหลังมีเพศสัมพันธ์",
+  "ถุงยางรั่ว",
+  "ถุงยางแตก",
+  "ถุงยางรั่ว ต้องทำยังไง",
+  "ลืมกินยาคุม",
+  "กินยาคุมยังไง",
+  "ยาคุมรายเดือน",
+  "ยาคุมฉุกเฉิน",
+  "คุมฉุกเฉิน",
+  "ยาคุมฉุกเฉินอันตรายไหม",
+  "ยาคุมฉุกเฉินมีผลข้างเคียงไหม",
+  "ยาคุมฉุกเฉินกินได้กี่ครั้ง",
+  "ยาคุมฉุกเฉินคืออะไร",
+  "อยากรู้เรื่องยาคุมฉุกเฉิน",
+  "ยาคุมฉุกเฉินทำงานยังไง",
+  "ยาคุมฉุกเฉินคืออะไรคะ",
+  "เล่าเรื่องยาคุมฉุกเฉินให้หน่อย",
+  "ยาคุมฉุกเฉินทำอะไร",
+  "ถุงยางรั่ว ต้องทำยังไง คุมฉุกเฉินทันไหม",
+  "ยาคุมฉุกเฉินกินเมื่อไร",
+  "กินยาคุมฉุกเฉินช้าไปแล้ว",
+  "หลังมีเพศสัมพันธ์กี่ชั่วโมงยังกินยาคุมฉุกเฉินได้",
+  "อยากรู้เรื่องคุมกำเนิด",
+  "กลัวจะท้อง เพราะถุงยางรั่ว",
+];
+
+/** Bare / generic EC → #21; one timing line gained confidence. Recorded vs c450e1f. */
+const INTENDED_VS_C450: Record<string, { id: string; conf: boolean }> = {
+  "ยาคุมฉุกเฉินคืออะไร": { id: "urgent.pills.000", conf: true },
+  "อยากรู้เรื่องยาคุมฉุกเฉิน": { id: "urgent.pills.000", conf: true },
+  "ยาคุมฉุกเฉินทำงานยังไง": { id: "urgent.pills.000", conf: true },
+  "ยาคุมฉุกเฉินคือ": { id: "urgent.pills.000", conf: true },
+  "เรื่องยาคุมฉุกเฉิน": { id: "urgent.pills.000", conf: true },
+  "ยาคุมฉุกเฉินทำ": { id: "urgent.pills.000", conf: true },
+  "คุมฉุกเฉิน": { id: "urgent.pills.000", conf: true },
+  "ยาคุมฉุกเฉินอันตราย": { id: "urgent.pills.000", conf: true },
+  "ยาคุมฉุกเฉินมีผลข้างเคียง": { id: "urgent.pills.000", conf: true },
+  "ยาคุมฉุกเฉินกินได้กี่ครั้ง": { id: "urgent.pills.000", conf: true },
+  "ยาคุมฉุกเฉิน": { id: "urgent.pills.000", conf: false },
+  "ยาคุมฉุกเฉินอันตรายไหม": { id: "urgent.pills.000", conf: true },
+  "ยาคุมฉุกเฉินมีผลข้างเคียงไหม": { id: "urgent.pills.000", conf: true },
+  "ยาคุมฉุกเฉินคืออะไรคะ": { id: "urgent.pills.000", conf: true },
+  "เล่าเรื่องยาคุมฉุกเฉินให้หน่อย": { id: "urgent.pills.000", conf: true },
+  "ยาคุมฉุกเฉินทำอะไร": { id: "urgent.pills.000", conf: true },
+  "ถุงยางรั่ว ต้องทำยังไง คุมฉุกเฉินทันไหม": { id: "ec.timing.b001", conf: true },
+};
+
+const PEP_QUERIES = [
+  "PEP กินเมื่อไร หลังมีเพศสัมพันธ์ ยังทันไหม",
+  "กินเป็ปทันไหม",
+  "เป็ปกินเมื่อไร",
+  "เป็ป",
+  "pep",
+  "ยาเป็ป",
+];
+
+function outcome(q: string) {
+  const r = retrieve(q, pool);
+  return { id: r.ranked[0]?.card.id ?? FALLBACK_ID, conf: r.confident };
+}
+
+describe("retrieve baseline diff gate (c450e1f)", () => {
+  const rows = baselineFile.queries;
+  const byQ = new Map(rows.map((r) => [r.q, r]));
+
+  it("has the frozen c450e1f table and a fixed corpus of every approved trigger plus cross-topic lines", () => {
+    expect(baselineFile.baseline_commit).toBe("c450e1fbfa8f2618e86107f5e6cd2f41cc3de8f3");
+    expect(rows).toHaveLength(123);
+    const triggerQs = new Set<string>();
+    for (const card of BANK) {
+      if (card.review.status !== "approved") continue;
+      if (card.id === FALLBACK_ID || card.id === WELCOME_ID) continue;
+      for (const t of card.triggers) triggerQs.add(t);
+    }
+    const missing = [...triggerQs].filter((t) => !byQ.has(t));
+    expect(missing, missing.join("\n")).toEqual([]);
+    for (const q of CROSS_TOPIC) expect(byQ.has(q), q).toBe(true);
+  });
+
+  it("every ec.timing trigger names an EC term", () => {
+    const timing = BANK.find((c) => c.id === "ec.timing.b001")!;
+    const bare = timing.triggers.filter((t) => !EC_TERM.test(t));
+    expect(bare, bare.join("\n")).toEqual([]);
+  });
+
+  it("matches c450e1f except the intended EC moves, and PEP is unchanged", () => {
+    const unexpected: string[] = [];
+    for (const row of rows) {
+      const got = outcome(row.q);
+      const intended = INTENDED_VS_C450[row.q];
+      const want = intended ?? { id: row.id, conf: row.conf };
+      if (got.id !== want.id || got.conf !== want.conf) {
+        unexpected.push(`${row.q}\tc450=${row.id}/${row.conf}\tgot=${got.id}/${got.conf}\twant=${want.id}/${want.conf}`);
+      }
+    }
+    expect(unexpected, unexpected.join("\n")).toEqual([]);
+    for (const q of PEP_QUERIES) {
+      const base = byQ.get(q)!;
+      expect(outcome(q), q).toEqual({ id: base.id, conf: base.conf });
+      expect(outcome(q).id, q).toBe("protection.pep.000");
+    }
   });
 });
