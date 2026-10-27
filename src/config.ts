@@ -35,7 +35,8 @@ export const MODEL: "qwen3-1.7b" | "qwen3-4b" | "off" = "qwen3-1.7b";
  * phones: iteration 3 failed gate 2 (in-scope abstain 32–45% vs ≤20%) and leaked 1–3
  * normal cards on the development harassment/crisis sets (gate 1). The shipped router
  * is rules (crisis first, then trigger retrieval, then the fallback card).
- * Desktop-dev only: set MATCHER true here, or ?matcher=1. Weights, if any, load from a
+ * Desktop-dev only (`import.meta.env.DEV`): set MATCHER true here, or ?matcher=1.
+ * Production builds never enable it. Weights, if any, load from a
  * local gitignored dir (`models/matcher/` or ?matcherWeights=models/...). Not committed.
  */
 export const MATCHER = false;

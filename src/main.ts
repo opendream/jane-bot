@@ -429,6 +429,7 @@ const applyMatcher = (m: IntentMatcher | null) => {
   state.chat?.session.setMatcher(m);
 };
 async function resolveMatcher(): Promise<IntentMatcher | null> {
+  if (!import.meta.env.DEV) return null;
   const search = typeof location !== "undefined" ? location.search : "";
   const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
   if (!matcherEnabled(readMatcherFlag(MATCHER, search), ua)) return null;

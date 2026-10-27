@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { BANK } from "../../src/core/bankData";
@@ -19,6 +19,10 @@ import baselineFile from "../fixtures/retrieve-c450-baseline.json";
 import extraFile from "../fixtures/retrieve-routing-extra.json";
 
 // All queries here are SYNTHETIC, written for these tests.
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 const DESKTOP_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 const IPHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
@@ -53,12 +57,21 @@ describe("matcher flag defaults off", () => {
     expect(matcherEnabled(false, DESKTOP_UA)).toBe(false);
   });
 
-  it("?matcher=1 enables only when the config/url flag is on and the UA is not a phone", () => {
-    expect(readMatcherFlag(false, "?matcher=1")).toBe(true);
-    expect(readMatcherFlag(false, "?matcher=on")).toBe(true);
-    expect(readMatcherFlag(true, "?matcher=0")).toBe(false);
-    expect(readMatcherFlag(true, "?matcher=off")).toBe(false);
-    expect(matcherEnabled(true, DESKTOP_UA)).toBe(true);
+  it("?matcher=1 enables only in DEV when the config/url flag is on and the UA is not a phone", () => {
+    expect(readMatcherFlag(false, "?matcher=1", true)).toBe(true);
+    expect(readMatcherFlag(false, "?matcher=on", true)).toBe(true);
+    expect(readMatcherFlag(true, "?matcher=0", true)).toBe(false);
+    expect(readMatcherFlag(true, "?matcher=off", true)).toBe(false);
+    expect(matcherEnabled(true, DESKTOP_UA, true)).toBe(true);
+  });
+
+  it("production ignores ?matcher=1 and never enables the matcher", () => {
+    expect(readMatcherFlag(false, "?matcher=1", false)).toBe(false);
+    expect(readMatcherFlag(false, "?matcher=on", false)).toBe(false);
+    expect(readMatcherFlag(true, "?matcher=1", false)).toBe(false);
+    expect(readMatcherFlag(true, "", false)).toBe(false);
+    expect(matcherEnabled(true, DESKTOP_UA, false)).toBe(false);
+    expect(matcherEnabled(readMatcherFlag(false, "?matcher=1", false), DESKTOP_UA, false)).toBe(false);
   });
 });
 
@@ -146,10 +159,21 @@ describe("matcher weights stay local and uncommitted", () => {
     expect(localMatcherDir("?matcherWeights=models/matcher/e5-small-int8")).toBe("models/matcher/e5-small-int8");
   });
 
-  it("loadMatcher is a no-op stub (no network, no weights in-repo) and the impl id is unique", async () => {
+  it("loadMatcher is a no-op stub and performs no fetch or XHR", async () => {
     expect(MATCHER_IMPL_ID).toBe("JANE_MATCHER_E5_SMALL_INT8");
-    const m = await loadMatcher({ search: "", probe: async () => false });
+    vi.stubGlobal("document", { baseURI: "http://127.0.0.1:4173/" });
+    const fetchSpy = vi.fn(async () => ({ ok: true }));
+    vi.stubGlobal("fetch", fetchSpy);
+    const xhrOpen = vi.fn();
+    vi.stubGlobal("XMLHttpRequest", class {
+      open = xhrOpen;
+      send = vi.fn();
+      setRequestHeader = vi.fn();
+    });
+    const m = await loadMatcher({ search: "?matcherWeights=models/matcher" });
     expect(await m.match("อยากรู้เรื่องคุมกำเนิด")).toEqual({ kind: "abstain" });
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(xhrOpen).not.toHaveBeenCalled();
   });
 });
 
@@ -173,11 +197,28 @@ describe("default bundle does not contain matcher implementation", () => {
     expect(main).toMatch(/import\(["']\.\/matcher\/load["']\)/);
   });
 
-  it("production index chunk omits the matcher impl id when dist exists", () => {
+  it("main.ts dead-code-eliminates the matcher loader in production via import.meta.env.DEV", () => {
+    const main = fs.readFileSync(path.join(root, "src/main.ts"), "utf8");
+    const devGate = main.indexOf("import.meta.env.DEV");
+    const dynImport = main.indexOf('import("./matcher/load")');
+    expect(devGate, "resolveMatcher must gate on import.meta.env.DEV").toBeGreaterThanOrEqual(0);
+    expect(dynImport, "dynamic import of matcher/load must remain").toBeGreaterThanOrEqual(0);
+    expect(devGate, "DEV gate must precede the matcher/load import so Vite DCE can drop it").toBeLessThan(dynImport);
+    expect(main).toMatch(/if\s*\(\s*!import\.meta\.env\.DEV\s*\)\s*return null/);
+  });
+
+  it("production bundle has no reachable matcher loader path", () => {
     const assets = path.join(root, "dist/assets");
-    if (!fs.existsSync(assets)) return;
-    const js = fs.readdirSync(assets).filter((f) => f.endsWith(".js") && !f.includes("load") && !f.includes("matcher"));
-    const hits = js.filter((f) => fs.readFileSync(path.join(assets, f), "utf8").includes(MATCHER_IMPL_ID));
-    expect(hits, hits.join("\n")).toEqual([]);
+    expect(fs.existsSync(assets), "vite build must write dist/assets (prod bundle check)").toBe(true);
+    const js = fs.readdirSync(assets).filter((f) => f.endsWith(".js"));
+    expect(js.length).toBeGreaterThan(0);
+    const hits: string[] = [];
+    for (const f of js) {
+      const text = fs.readFileSync(path.join(assets, f), "utf8");
+      if (text.includes(MATCHER_IMPL_ID) || text.includes("matcher/load") || /head\.json/.test(text) && /models\/matcher/.test(text)) {
+        hits.push(f);
+      }
+    }
+    expect(hits, `matcher loader reachable in ${hits.join("\n")}`).toEqual([]);
   });
 });

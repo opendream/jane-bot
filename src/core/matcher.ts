@@ -25,8 +25,12 @@ export function isMobileUserAgent(ua: string): boolean {
   return MOBILE_UA.test(ua);
 }
 
-/** URL override: ?matcher=1|on|true enables, ?matcher=0|off|false disables. Otherwise the config flag. */
-export function readMatcherFlag(configFlag: boolean, search: string): boolean {
+/**
+ * URL override: ?matcher=1|on|true enables, ?matcher=0|off|false disables. Otherwise the config flag.
+ * Production builds (`isDev` false) never honour the URL or the config flag — same pattern as quiz.ts `?copy=`.
+ */
+export function readMatcherFlag(configFlag: boolean, search: string, isDev: boolean = import.meta.env.DEV): boolean {
+  if (!isDev) return false;
   const q = search.startsWith("?") ? search.slice(1) : search;
   const v = (new URLSearchParams(q).get("matcher") ?? "").toLowerCase();
   if (v === "0" || v === "off" || v === "false") return false;
@@ -34,9 +38,9 @@ export function readMatcherFlag(configFlag: boolean, search: string): boolean {
   return configFlag;
 }
 
-/** True only when the flag is on and the user agent is not a phone / tablet. */
-export function matcherEnabled(flag: boolean, userAgent: string): boolean {
-  return flag && !isMobileUserAgent(userAgent);
+/** True only in DEV, when the flag is on, and the user agent is not a phone / tablet. Production never enables. */
+export function matcherEnabled(flag: boolean, userAgent: string, isDev: boolean = import.meta.env.DEV): boolean {
+  return isDev && flag && !isMobileUserAgent(userAgent);
 }
 
 const DEFAULT_DIR = "models/matcher";
