@@ -68,7 +68,7 @@ export const JANE_RASTER_ALLOWLIST = [
 ] as const;
 
 export function janeImg(kind: JaneImageKind, extra: Record<string, unknown> = {}) {
-  const spec = JANE_IMAGES[kind];
+  const spec: JaneImageSpec = JANE_IMAGES[kind];
   return h("img", {
     src: spec.src,
     alt: spec.alt,
