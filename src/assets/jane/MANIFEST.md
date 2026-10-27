@@ -2,7 +2,7 @@
 
 Illustration © Opendream, 2018. Some figures redrawn with AI assistance, 2026.
 
-`avatar.webp` (and its 192 and 96 sizes), `quiz-surprised.webp` and `quiz-back.webp` are an AI-assisted high-res redraw of Opendream's 2018 illustrations, Grok Imagine, 2026. `header.webp`, `empty.webp` and `quiz-thinking.webp` are native higher-res images from the 2018 PDF, with no AI.
+`avatar.webp` (and its 192 and 96 sizes), `quiz-surprised.webp` and `quiz-back.webp` are an AI-assisted redraw (Grok Imagine), Opendream, 2026. `header.webp`, `empty.webp` and `quiz-thinking.webp` are native higher-res images from the 2018 PDF, with no AI.
 
 Source: *Sex Safe Safe* manual (2018). The PDF is not in this repository. Page numbers are 1-based. **p4 is not used** (UFC marked it REMOVE). The condom mascot is not used. Nothing was taken from the 2020 art round.
 
@@ -36,11 +36,11 @@ Output sizes are ~3× the CSS display box (header 168×235, empty ~226×200, qui
 | `header.webp` | `header.png` 1090×1522 | Native PDF image (p1, xref 1603), same crop as the original header. **No AI.** Figure only: the cover background, star, yellow blob and heart from the original header are left out because every file must be transparent. |
 | `empty.webp` | `empty.png` 1314×1160 | Native PDF image (p2, xref 1611). **No AI.** Background removed with a seeded watershed/flood fill. The tree and both students stay. |
 | `quiz-thinking.webp` | `quiz-thinking.png` 1283×1500 | Native PDF image (p1, xref 1603) with its own soft mask. **No AI.** |
-| `avatar.webp` | `avatar.png` 1024×1024 | Grok Imagine 2026 redraw of the 2018 figure, made by Miyazaki (Opendream's design bot) and registered to the native bust crop (mean diff about 3.5/255). Matte comes from the native image. #D1F0F6 circle with transparent corners. Lanczos downscale to 256×256 (premultiplied). |
-| `avatar-192.webp` | `avatar-192.png` 192×192 | Same Grok Imagine 2026 redraw; Lanczos downscale of `avatar.png` (premultiplied), encoded as-is. |
-| `avatar-96.webp` | `avatar-96.png` 96×96 | Same Grok Imagine 2026 redraw; Lanczos downscale of `avatar.png` (premultiplied), encoded as-is. |
-| `quiz-surprised.webp` | `quiz-surprised.png` 729×1024 | Grok Imagine 2026 redraw of the 2018 figure (2nd attempt; 1st rejected for mouth/brows), made by Miyazaki (Opendream's design bot) and registered to the native crop (p7, xref 928). Matte comes from the original alpha. |
-| `quiz-back.webp` | `quiz-back.png` 395×1024 | Grok Imagine 2026 redraw of the 2018 figure (1st attempt), made by Miyazaki (Opendream's design bot) and registered to the native crop (p7, xref 932), cropped to the original framing. Matte made with flood fill / closing. Neck line closed by hand. |
+| `avatar.webp` | `avatar.png` 1024×1024 | AI-assisted redraw (Grok Imagine), Opendream, 2026 |
+| `avatar-192.webp` | `avatar-192.png` 192×192 | AI-assisted redraw (Grok Imagine), Opendream, 2026 |
+| `avatar-96.webp` | `avatar-96.png` 96×96 | AI-assisted redraw (Grok Imagine), Opendream, 2026 |
+| `quiz-surprised.webp` | `quiz-surprised.png` 729×1024 | AI-assisted redraw (Grok Imagine), Opendream, 2026 |
+| `quiz-back.webp` | `quiz-back.png` 395×1024 | AI-assisted redraw (Grok Imagine), Opendream, 2026 |
 
 ## Vector stars (unchanged)
 
@@ -66,7 +66,7 @@ True vector stars from the 2018 cover, shipped as of `0067a8f`. svgo 3.3.5. Self
 - **Quiz wrong** = `quiz-back.webp`.
 - Jane figures are WebP (RGBA); stars are SVG. The crisis screen has no `img` and no `svg`.
 - The condom mascot is **not used** in the UI and is not shipped.
-- Credit everywhere is exactly `Illustration © Opendream, 2018. Some figures redrawn with AI assistance, 2026.`. Don't name the 2018 human illustrator; AI redraws may name the Opendream tool or bot that made them. Don't add a licence label.
+- Credit everywhere is exactly `Illustration © Opendream, 2018. Some figures redrawn with AI assistance, 2026.`. Don't name an illustrator. Don't add a licence label.
 - Each figure gets Thai `alt` text and a fixed `width`/`height` to prevent layout shift. Decorative stars use `alt=""` / `aria-hidden="true"`.
 - `--jane-line` is for decoration only (white on it = 3.07, fails AA). Use `--primary` for text and buttons.
 - No comic pages are included.
