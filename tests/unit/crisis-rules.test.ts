@@ -27,16 +27,10 @@ function squashHit(text: string, cat: CrisisCategory, id: string): boolean {
 }
 
 const POSITIVES: { id: string; cat: CrisisCategory; text: string }[] = [
-  { id: "agent_hits", cat: "violence_danger", text: "ผัวซ้อมหนูเมื่อคืน" },
+  { id: "partner_hits_me", cat: "violence_danger", text: "ผัวซ้อมหนูเมื่อคืน" },
   { id: "victim_hit", cat: "violence_danger", text: "โดนซ้อมจนตัวเขียว" },
-  { id: "force_words", cat: "violence_danger", text: "บ้านนี้มีความรุนแรงในครอบครัว" },
-  { id: "threat", cat: "violence_danger", text: "เขาข่มขู่หนูทุกวัน" },
-  { id: "harass_generic", cat: "violence_danger", text: "มีคนสะกดรอยตามจากโรงเรียน" },
-  { id: "harass_sexual", cat: "sexual_violence", text: "เพื่อนร่วมงานแทะโลมหนู" },
-  { id: "victim_touch", cat: "sexual_violence", text: "โดนจับหน้าอกบนรถเมล์" },
   { id: "image_threat", cat: "sexual_violence", text: "เขาขู่จะปล่อยคลิปหนู" },
-  { id: "covert_photo", cat: "sexual_violence", text: "มีคนแอบถ่ายในห้องน้ำ" },
-  { id: "nonpartner_touch", cat: "sexual_violence", text: "ลุงจับก้นหนู" },
+  { id: "coerce_nudes", cat: "sexual_violence", text: "บังคับให้ส่งรูปโป๊" },
 ];
 
 const SOFT: string[] = [
@@ -152,12 +146,12 @@ async function talkReview(first: string) {
 }
 
 describe("iteration-3 contextual crisis patterns (rules only)", () => {
-  it("adds 10 contextual patterns: 5 violence_danger and 5 sexual_violence", () => {
+  it("adds 4 high-precision extra shapes: 2 violence_danger and 2 sexual_violence", () => {
     expect(EXTRA_CONTEXTUAL.violence_danger?.map((x) => x.id)).toEqual([
-      "agent_hits", "victim_hit", "force_words", "threat", "harass_generic",
+      "victim_hit", "partner_hits_me",
     ]);
     expect(EXTRA_CONTEXTUAL.sexual_violence?.map((x) => x.id)).toEqual([
-      "harass_sexual", "victim_touch", "image_threat", "covert_photo", "nonpartner_touch",
+      "image_threat", "coerce_nudes",
     ]);
   });
 
@@ -201,30 +195,46 @@ describe("everyday lookalikes stay off the crisis path", () => {
 });
 
 /**
- * Table-driven extra-pattern corpus. Synthetic Thai only.
- * Original 10 true cases + review round 1 + Codex round 2.
- * Each row is either a crisis (with category) or no-crisis.
+ * Cumulative extra-pattern corpus. Synthetic Thai only. CI gate: `npm test`.
+ * Original 10 true cases + Codex rounds 1–3. Extra matcher keeps only the
+ * four high-precision shapes in crisis-extra.ts. Rows with extra: false stay
+ * in the table (kept from earlier rounds) but are left to pinned detectCrisis
+ * — extra must not widen to catch them.
  */
-type CorpusRow =
-  | { id: string; text: string; crisis: true; cat: CrisisCategory }
-  | { id: string; text: string; crisis: false };
+type CorpusFire = { id: string; text: string; crisis: true; cat: CrisisCategory; extra?: true };
+type CorpusBaseOnly = { id: string; text: string; crisis: true; cat: CrisisCategory; extra: false };
+type CorpusNeg = { id: string; text: string; crisis: false };
+type CorpusRow = CorpusFire | CorpusBaseOnly | CorpusNeg;
 
 const CORPUS: CorpusRow[] = [
   // Original 10 extra-pattern true cases
   { id: "orig/agent_hits", text: "ผัวซ้อมหนูเมื่อคืน", crisis: true, cat: "violence_danger" },
   { id: "orig/victim_hit", text: "โดนซ้อมจนตัวเขียว", crisis: true, cat: "violence_danger" },
-  { id: "orig/force_words", text: "บ้านนี้มีความรุนแรงในครอบครัว", crisis: true, cat: "violence_danger" },
-  { id: "orig/threat", text: "เขาข่มขู่หนูทุกวัน", crisis: true, cat: "violence_danger" },
-  { id: "orig/harass_generic", text: "มีคนสะกดรอยตามจากโรงเรียน", crisis: true, cat: "violence_danger" },
-  { id: "orig/harass_sexual", text: "เพื่อนร่วมงานแทะโลมหนู", crisis: true, cat: "sexual_violence" },
-  { id: "orig/victim_touch", text: "โดนจับหน้าอกบนรถเมล์", crisis: true, cat: "sexual_violence" },
+  // base detector only — dropped force_words shape
+  { id: "orig/force_words", text: "บ้านนี้มีความรุนแรงในครอบครัว", crisis: true, cat: "violence_danger", extra: false },
+  // base detector only — dropped generic threat shape
+  { id: "orig/threat", text: "เขาข่มขู่หนูทุกวัน", crisis: true, cat: "violence_danger", extra: false },
+  // base detector only — dropped harass_generic shape
+  { id: "orig/harass_generic", text: "มีคนสะกดรอยตามจากโรงเรียน", crisis: true, cat: "violence_danger", extra: false },
+  // base detector only — dropped harass_sexual shape
+  { id: "orig/harass_sexual", text: "เพื่อนร่วมงานแทะโลมหนู", crisis: true, cat: "sexual_violence", extra: false },
+  // base detector only — dropped victim_touch shape
+  { id: "orig/victim_touch", text: "โดนจับหน้าอกบนรถเมล์", crisis: true, cat: "sexual_violence", extra: false },
   { id: "orig/image_threat", text: "เขาขู่จะปล่อยคลิปหนู", crisis: true, cat: "sexual_violence" },
-  { id: "orig/covert_photo", text: "มีคนแอบถ่ายในห้องน้ำ", crisis: true, cat: "sexual_violence" },
-  { id: "orig/nonpartner_touch", text: "ลุงจับก้นหนู", crisis: true, cat: "sexual_violence" },
+  // base detector only — dropped covert_photo shape
+  { id: "orig/covert_photo", text: "มีคนแอบถ่ายในห้องน้ำ", crisis: true, cat: "sexual_violence", extra: false },
+  // base detector only — dropped nonpartner_touch shape
+  { id: "orig/nonpartner_touch", text: "ลุงจับก้นหนู", crisis: true, cat: "sexual_violence", extra: false },
 
-  // Round 1 — still crisis
+  // Round 1 — still extra-fire
   { id: "r1/zom_not_negation", text: "ผัวไม่พอใจก็ซ้อมหนู", crisis: true, cat: "violence_danger" },
   { id: "r1/nude_clip_threat", text: "ขู่จะปล่อยคลิปเปลือยหนู", crisis: true, cat: "sexual_violence" },
+  { id: "r1/conditional_nude_clip", text: "จะปล่อยคลิปโป๊ถ้าหนูไม่ยอม", crisis: true, cat: "sexual_violence" },
+  { id: "r1/ex_clip_threat", text: "แฟนเก่าขู่ปล่อยคลิป", crisis: true, cat: "sexual_violence" },
+  // base detector only — ซ้อม+me with no named agent (not shapes c/d)
+  { id: "r1/beat_me_zom", text: "ซ้อมหนู", crisis: true, cat: "violence_danger", extra: false },
+  { id: "r1/beat_me_chan", text: "ซ้อมฉัน", crisis: true, cat: "violence_danger", extra: false },
+  { id: "r1/obscene_clip_me", text: "หนูโดนคลิปอนาจาร", crisis: true, cat: "sexual_violence", extra: false },
 
   // Round 1 — everyday Thai, not a crisis
   { id: "r1/practice_ball", text: "แฟนไปซ้อมบอล", crisis: false },
@@ -236,6 +246,8 @@ const CORPUS: CorpusRow[] = [
   { id: "r1/makeup_clip", text: "จะปล่อยคลิปสอนแต่งหน้า", crisis: false },
   { id: "r1/dance_clip", text: "โดนเพื่อนถ่ายคลิปตอนเต้น", crisis: false },
   { id: "r1/bare_obscene_clip", text: "คลิปอนาจาร", crisis: false },
+  { id: "r1/recipe_practice", text: "แม่ค้าซ้อมสูตรขนม", crisis: false },
+  { id: "r1/bare_ball_practice", text: "ซ้อมบอล", crisis: false },
 
   // Round 2 — image/clip only with threat, coercion, or sexual content
   { id: "r2/fortune_photo", text: "จะส่งรูปให้หมอดูถ้าไม่หาย", crisis: false },
@@ -250,43 +262,86 @@ const CORPUS: CorpusRow[] = [
   { id: "r2/partner_retort", text: "แฟนตีกลับ", crisis: false },
   { id: "r2/sore_foot", text: "แฟนเจ็บตีน", crisis: false },
   { id: "r2/partner_hits_me", text: "แฟนตีหนู", crisis: true, cat: "violence_danger" },
-  { id: "r2/hits_sibling", text: "แฟนตีน้อง", crisis: true, cat: "violence_danger" },
+  // base detector only — hitting น้อง is not hitting 'me'
+  { id: "r2/hits_sibling", text: "แฟนตีน้อง", crisis: true, cat: "violence_danger", extra: false },
   { id: "r2/hit_by_dad", text: "โดนพ่อตี", crisis: true, cat: "violence_danger" },
   { id: "r2/blackmail_photo", text: "โดนแบล็กเมล์ด้วยรูป", crisis: true, cat: "sexual_violence" },
 
-  // Round 2 — ซ้อม: person agent is enough; sport/music and verb-negation are not
-  { id: "r2/husband_beats", text: "ผัวซ้อม", crisis: true, cat: "violence_danger" },
-  { id: "r2/drunk_beats", text: "ผัวเมาแล้วซ้อม", crisis: true, cat: "violence_danger" },
-  { id: "r2/dad_beats_mom", text: "พ่อซ้อมแม่", crisis: true, cat: "violence_danger" },
+  // Round 2 — person+ซ้อม with no victim is a dropped bare verb; sport/negation stay no-fire
+  // base detector only — person + ซ้อม with no 'me'
+  { id: "r2/husband_beats", text: "ผัวซ้อม", crisis: true, cat: "violence_danger", extra: false },
+  { id: "r2/drunk_beats", text: "ผัวเมาแล้วซ้อม", crisis: true, cat: "violence_danger", extra: false },
+  { id: "r2/dad_beats_mom", text: "พ่อซ้อมแม่", crisis: true, cat: "violence_danger", extra: false },
   { id: "r2/pre_match_drill", text: "ถูกซ้อมหนักก่อนแข่ง", crisis: false },
   { id: "r2/never_beats", text: "แฟนไม่เคยซ้อมหนู", crisis: false },
   { id: "r2/music_practice", text: "ซ้อมดนตรี", crisis: false },
 
-  // Round 2 — persistence is not violence; partner scratch is
+  // Round 2 — persistence is not violence; ข่วน is a dropped bare verb
   { id: "r2/persistent", text: "ผู้ชายตามตื๊อ", crisis: false },
-  { id: "r2/partner_scratch_bleed", text: "แฟนข่วนจนเลือดออก", crisis: true, cat: "violence_danger" },
-  { id: "r2/husband_scratch", text: "โดนผัวข่วน", crisis: true, cat: "violence_danger" },
+  // base detector only — ข่วน is not ซ้อม/ตี
+  { id: "r2/partner_scratch_bleed", text: "แฟนข่วนจนเลือดออก", crisis: true, cat: "violence_danger", extra: false },
+  { id: "r2/husband_scratch", text: "โดนผัวข่วน", crisis: true, cat: "violence_danger", extra: false },
+
+  // Round 3 — extra-fire (passive ซ้อม/ตี, leak with any ถ้า, coerce nudes, friend beating me)
+  { id: "r3/passive_beat", text: "โดนซ้อม", crisis: true, cat: "violence_danger" },
+  { id: "r3/passive_beat_daily", text: "ถูกซ้อมทุกวัน", crisis: true, cat: "violence_danger" },
+  { id: "r3/ganged_beat", text: "โดนรุมซ้อม", crisis: true, cat: "violence_danger" },
+  { id: "r3/friend_beats_me", text: "เพื่อนซ้อมหนู", crisis: true, cat: "violence_danger" },
+  { id: "r3/breakup_leak", text: "ถ้าเลิกกันจะปล่อยคลิป", crisis: true, cat: "sexual_violence" },
+  { id: "r3/breakup_leak_me", text: "ถ้าเลิกกันจะปล่อยคลิปหนู", crisis: true, cat: "sexual_violence" },
+  { id: "r3/force_nudes", text: "บังคับให้ส่งรูปโป๊", crisis: true, cat: "sexual_violence" },
+
+  // Round 3 — practice / instrument / sport / idiom no-fire (plus repeats already above)
+  { id: "r3/practice_run", text: "แฟนไปซ้อมวิ่ง", crisis: false },
+  { id: "r3/practice_guitar", text: "แฟนซ้อมกีตาร์", crisis: false },
+  { id: "r3/practice_dance", text: "แม่ไปซ้อมรำ", crisis: false },
+  { id: "r3/practice_speech", text: "ครูให้ซ้อมพูด", crisis: false },
+  { id: "r3/ranat", text: "ตีระนาด", crisis: false },
+  { id: "r3/spread_idiom", text: "ตีแผ่", crisis: false },
+  { id: "r3/futsal", text: "เตะฟุตซอล", crisis: false },
+  { id: "r3/cat_scratched_partner", text: "แฟนโดนแมวข่วน", crisis: false },
+
+  // More practice, instrument, and sport verbs (round 3 extras)
+  { id: "r3/practice_swim", text: "แฟนไปซ้อมว่ายน้ำ", crisis: false },
+  { id: "r3/practice_piano", text: "แฟนซ้อมเปียโน", crisis: false },
+  { id: "r3/practice_yoga", text: "ไปซ้อมโยคะ", crisis: false },
+  { id: "r3/practice_basketball", text: "ซ้อมบาสที่สนาม", crisis: false },
+  { id: "r3/practice_volleyball", text: "ซ้อมวอลเลย์", crisis: false },
+  { id: "r3/practice_driving", text: "แม่ไปซ้อมขับ", crisis: false },
+  { id: "r3/practice_badminton", text: "แฟนไปซ้อมแบดมินตัน", crisis: false },
+  { id: "r3/practice_reading", text: "ครูให้ซ้อมอ่าน", crisis: false },
+  { id: "r3/khim", text: "ตีขิม", crisis: false },
+  { id: "r3/angklung", text: "ตีอังกะลุง", crisis: false },
+  { id: "r3/cheer", text: "ซ้อมเชียร์ลีดเดอร์", crisis: false },
 ];
 
-const CORPUS_POS = CORPUS.filter((r): r is Extract<CorpusRow, { crisis: true }> => r.crisis);
-const CORPUS_NEG = CORPUS.filter((r): r is Extract<CorpusRow, { crisis: false }> => !r.crisis);
+const CORPUS_POS = CORPUS.filter((r): r is CorpusFire => r.crisis && r.extra !== false);
+const CORPUS_BASE = CORPUS.filter((r): r is CorpusBaseOnly => r.crisis && r.extra === false);
+const CORPUS_NEG = CORPUS.filter((r): r is CorpusNeg => !r.crisis);
 
-describe("crisis extra corpus (original + review rounds)", () => {
-  it(`splits ${CORPUS.length} cases into ${CORPUS_POS.length} crisis and ${CORPUS_NEG.length} no-crisis`, () => {
-    expect(CORPUS_POS).toHaveLength(22);
-    expect(CORPUS_NEG).toHaveLength(21);
-    expect(CORPUS).toHaveLength(43);
+describe("crisis extra corpus (original + review rounds 1–3, CI gate)", () => {
+  it(`splits ${CORPUS.length} cases into ${CORPUS_POS.length} extra-fire, ${CORPUS_BASE.length} base-detector-only, and ${CORPUS_NEG.length} no-fire`, () => {
+    expect(CORPUS_POS).toHaveLength(18);
+    expect(CORPUS_BASE).toHaveLength(16);
+    expect(CORPUS_NEG).toHaveLength(42);
+    expect(CORPUS).toHaveLength(76);
   });
 
   it.each(CORPUS)("$id ($text)", (row) => {
     const extra = matchCrisisExtra(row.text);
     const comb = detectCrisisWithExtra(row.text);
-    if (row.crisis) {
+    const pinned = detectCrisis(row.text);
+    if (row.crisis && row.extra !== false) {
       expect(extra.crisis, row.text).toBe(true);
       expect(extra.categories, row.text).toContain(row.cat);
       expect(comb.crisis, row.text).toBe(true);
       expect(comb.categories, row.text).toContain(row.cat);
       expect(crisisCallNowLine(comb.categories), row.text).toBe(crisisCallNowLine([row.cat]));
+    } else if (row.crisis && row.extra === false) {
+      // base detector only: extra must not widen; combined follows pinned detectCrisis
+      expect(extra.crisis, row.text).toBe(false);
+      expect(comb.crisis, row.text).toBe(pinned.crisis);
+      expect(comb.categories, row.text).toEqual(pinned.categories);
     } else {
       expect(comb.crisis, row.text).toBe(false);
       expect(comb.level, row.text).toBe("none");
@@ -296,17 +351,25 @@ describe("crisis extra corpus (original + review rounds)", () => {
 });
 
 describe("review round: keep-passing extras around the corpus", () => {
-  it("ผัวไม่พอใจก็ซ้อมหนู still matches agent_hits (ไม่ in ไม่พอใจ is not verb negation)", () => {
+  it("ผัวไม่พอใจก็ซ้อมหนู still matches partner_hits_me (ไม่ in ไม่พอใจ is not verb negation)", () => {
     const text = "ผัวไม่พอใจก็ซ้อมหนู";
-    expect(squashHit(text, "violence_danger", "agent_hits")).toBe(true);
+    expect(squashHit(text, "violence_danger", "partner_hits_me")).toBe(true);
   });
 
   it("a threat to leak a nude clip still matches image_threat", () => {
     expect(squashHit("ขู่จะปล่อยคลิปเปลือยหนู", "sexual_violence", "image_threat")).toBe(true);
   });
 
+  // Codex round-1 extra-negation probes. Pinned detectCrisis still matches ตีหนู.
+  it("extra does not fire on แฟนไม่เคยตีหนู / แฟนไม่ตีหนู (pinned ตีหนู still matches detectCrisis)", () => {
+    for (const text of ["แฟนไม่เคยตีหนู", "แฟนไม่ตีหนู"]) {
+      expect(matchCrisisExtra(text).crisis, text).toBe(false);
+      expect(detectCrisis(text).crisis, text).toBe(true);
+    }
+  });
+
   it("merges base medical with extra sexual so 1669 is kept (base categories first)", () => {
-    const text = "หายใจไม่ออกนิดหน่อย มีคนแอบถ่าย";
+    const text = "หายใจไม่ออกนิดหน่อย เขาขู่จะปล่อยคลิปหนู";
     const pinned = detectCrisis(text);
     const extra = matchCrisisExtra(text);
     expect(pinned.level).toBe("banner");
