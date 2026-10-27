@@ -1,7 +1,7 @@
 import type { CrisisCategory, CrisisResult, Intent } from "./types";
 import { type BankCard, type BankTopic, type CardNext, shippable } from "./bank";
 import { AGE_REDIRECT_CARD, AGE_REDIRECT_ID, afterPick, type AgeState } from "./age";
-import { detectCrisis } from "./crisis";
+import { detectCrisisWithExtra } from "./crisis-extra";
 import { normalize, findPhrases } from "./text";
 import { stripPII } from "./summary";
 import { checkInput, REFUSAL_CARDS, type GuardReason } from "./guard";
@@ -80,10 +80,10 @@ function joinedWindow(input: string, prev: string[]): string {
 
 /** Current line, then current + previous 1–2 user lines (in memory only). */
 function crisisForTurn(input: string, prev: string[]): CrisisResult {
-  const cur = detectCrisis(input);
+  const cur = detectCrisisWithExtra(input);
   if (cur.crisis) return cur;
   if (prev.length) {
-    const joined = detectCrisis(joinedWindow(input, prev));
+    const joined = detectCrisisWithExtra(joinedWindow(input, prev));
     if (joined.crisis) return joined;
   }
   return cur;

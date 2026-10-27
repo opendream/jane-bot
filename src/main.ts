@@ -4,7 +4,8 @@ import markSvg from "./assets/mark.svg?raw";
 import type { CrisisCategory, Intent, IntentResult } from "./core/types";
 import { type AgePick } from "./core/age";
 import { draftSummaryForAge } from "./core/summary-age";
-import { detectCrisis, crisisOrder as pinnedCrisisOrder } from "./core/crisis";
+import { crisisOrder as pinnedCrisisOrder } from "./core/crisis";
+import { detectCrisisWithExtra } from "./core/crisis-extra";
 import { crisisOrder, crisisCallNowLine } from "./core/crisis-order";
 import { suggestServices, CRISIS_LINES, DATA_VERSION, INTENT_LABEL_TH, SUPPORT_LINE_TH, serviceHoursLabel, canPrepareMessage, type Suggestion } from "./core/referral";
 import { hoursLabel, hoursCitation } from "./core/openNow";
@@ -233,7 +234,7 @@ function chatScreen() {
 
 async function handleNeed(text: string) {
   // Safety first: rule-based crisis check, before and independent of any model. Never gated on busy.
-  const c = detectCrisis(text);
+  const c = detectCrisisWithExtra(text);
   if (c.crisis) { bumpNeed(need); go({ needText: "", screen: "crisis", crisisCategories: c.categories, crisisFrom: "describe" }); return; }
   const my = beginNeed(need);
   render();
@@ -340,7 +341,7 @@ function summaryScreen() {
 
 function approve(edited: string) {
   // Crisis override applies to anything she types, including edits to the summary.
-  const c = detectCrisis(edited);
+  const c = detectCrisisWithExtra(edited);
   if (c.crisis) { go({ summary: "", screen: "crisis", crisisCategories: c.categories, crisisFrom: backToChat() ? "chat" : "describe" }); return; }
   go({ summary: finalizeSummary(edited), screen: "handoff" });
 }

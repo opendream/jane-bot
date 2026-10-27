@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { detectCrisis, EXTRA_CONTEXTUAL } from "../../src/core/crisis";
+import fs from "node:fs";
+import path from "node:path";
+import { detectCrisis } from "../../src/core/crisis";
+import { detectCrisisWithExtra, EXTRA_CONTEXTUAL, matchCrisisExtra } from "../../src/core/crisis-extra";
+import { crisisCallNowLine } from "../../src/core/crisis-order";
 import type { CrisisCategory } from "../../src/core/types";
 import { classifyNeed } from "../../src/core/intent";
 import { compact } from "../../src/core/text";
@@ -8,6 +12,7 @@ import { BANK, BANK_FIXTURES } from "../../src/core/bankData";
 import { runTurn, newDialog, type TurnDeps } from "../../src/core/dialog";
 import seed from "../../evals/seed-set.json";
 import quiz from "../../src/data/bank/quiz.json";
+import fpSet from "../../evals/crisis-fp-set.json";
 
 /**
  * Iteration-3 contextual patterns + mental-health routing.
@@ -147,21 +152,40 @@ describe("iteration-3 contextual crisis patterns (rules only)", () => {
 
   it.each(POSITIVES)("$id ($cat) fires on $text", ({ id, cat, text }) => {
     expect(squashHit(text, cat, id), `${id} must match ${text}`).toBe(true);
-    const r = detectCrisis(text);
+    expect(matchCrisisExtra(text).crisis, text).toBe(true);
+    expect(matchCrisisExtra(text).categories, text).toContain(cat);
+    const r = detectCrisisWithExtra(text);
     expect(r.crisis, text).toBe(true);
     expect(r.categories, text).toContain(cat);
+    expect(crisisCallNowLine(r.categories), text).toBe(crisisCallNowLine([cat]));
+  });
+
+  it("extra pattern fires crisis before any model call", async () => {
+    const model = {
+      ready: () => true,
+      pickCard: async () => { throw new Error("model must not run on a crisis turn"); },
+      reword: async () => { throw new Error("model must not run on a crisis turn"); },
+    };
+    const out = await runTurn(newDialog("15-17"), "ผัวซ้อมหนูเมื่อคืน", { ...deps(), model });
+    expect(out.reply.kind).toBe("crisis");
+    if (out.reply.kind === "crisis") {
+      expect(out.reply.categories[0]).toBe("violence_danger");
+      expect(crisisCallNowLine(out.reply.categories)).toBe("โทร 1300 หรือ 191 ทันที");
+    }
   });
 });
 
 describe("everyday unease stays off the crisis path", () => {
   it.each(SOFT)("%s is not a crisis", (text) => {
-    expect(detectCrisis(text).level, text).toBe("none");
+    expect(detectCrisisWithExtra(text).level, text).toBe("none");
+    expect(matchCrisisExtra(text).level, text).toBe("none");
   });
 });
 
 describe("everyday lookalikes stay off the crisis path", () => {
   it.each(LOOKALIKES)("%s is not a crisis", (text) => {
-    expect(detectCrisis(text).level, text).toBe("none");
+    expect(detectCrisisWithExtra(text).level, text).toBe("none");
+    expect(matchCrisisExtra(text).level, text).toBe("none");
   });
 });
 
@@ -171,7 +195,7 @@ describe("in-scope bank / quiz / seed examples are not a crisis", () => {
     expect(rows.length).toBeGreaterThan(20);
   });
   it.each(rows)("$id does not trigger crisis", ({ text }) => {
-    expect(detectCrisis(text).crisis, text).toBe(false);
+    expect(detectCrisisWithExtra(text).crisis, text).toBe(false);
   });
 });
 
@@ -189,7 +213,7 @@ describe("mental-health card always offers 1323 tap-to-call", () => {
 describe("ไม่สบายใจ routes to mental health, not crisis", () => {
   it("alone and in a short everyday sentence", async () => {
     for (const text of ["ไม่สบายใจ", "วันนี้ไม่สบายใจเลย"]) {
-      expect(detectCrisis(text).level, text).toBe("none");
+      expect(detectCrisisWithExtra(text).level, text).toBe("none");
       expect(classifyNeed(text).intents[0], text).toBe("mental_health");
       const out = await runTurn(newDialog("15-17"), text, deps());
       expect(out.reply.kind, text).toBe("card");
@@ -201,3 +225,99 @@ describe("ไม่สบายใจ routes to mental health, not crisis", () =
     }
   });
 });
+
+const EXISTING_CRISIS: { id: string; text: string; cat: string }[] = [
+  { id: "unit:self_harm_1", text: "ไม่อยากมีชีวิตอยู่แล้ว", cat: "self_harm" },
+  { id: "unit:self_harm_2", text: "คิดจะฆ่าตัวตาย", cat: "self_harm" },
+  { id: "unit:self_harm_spaced", text: "อยาก ตาย", cat: "self_harm" },
+  { id: "unit:sexual_1", text: "หนูถูกข่มขืน", cat: "sexual_violence" },
+  { id: "unit:sexual_2", text: "โดนบังคับมีเซ็กส์", cat: "sexual_violence" },
+  { id: "unit:violence_1", text: "พ่อเลี้ยงทุบตีทุกวัน", cat: "violence_danger" },
+  { id: "unit:violence_2", text: "แฟนขู่จะฆ่า", cat: "violence_danger" },
+  { id: "unit:medical", text: "เลือดออกเยอะมาก หลังกินยา", cat: "medical_emergency" },
+  { id: "unit:en", text: "I want to kill myself", cat: "self_harm" },
+];
+
+function fpCrisisItems(): { id: string; text: string; first: string }[] {
+  const S = fpSet as { crisis: { id: string; text: string; first: string }[]; heldout_crisis: { id: string; text: string; first: string }[] };
+  return [...S.crisis, ...S.heldout_crisis];
+}
+
+describe("existing crisis cases keep category and call-now line", () => {
+  it.each(EXISTING_CRISIS)("$id still overrides as $cat", ({ text, cat }) => {
+    const pinned = detectCrisis(text);
+    const comb = detectCrisisWithExtra(text);
+    expect(pinned.crisis, text).toBe(true);
+    expect(comb.crisis, text).toBe(true);
+    expect(comb.categories, text).toEqual(pinned.categories);
+    expect(comb.categories, text).toContain(cat);
+    expect(crisisCallNowLine(comb.categories), text).toBe(crisisCallNowLine(pinned.categories));
+  });
+
+  it.each(fpCrisisItems())("fixture $id keeps first-number order", ({ text, first }) => {
+    const pinned = detectCrisis(text);
+    const comb = detectCrisisWithExtra(text);
+    expect(comb.crisis, text).toBe(true);
+    expect(comb.categories, text).toEqual(pinned.categories);
+    expect(crisisCallNowLine(comb.categories), text).toBe(crisisCallNowLine(pinned.categories));
+    expect(crisisCallNowLine(comb.categories), text).toContain(first);
+  });
+
+  it("seed safety items keep category and call-now line", () => {
+    const items = (seed.items as { id: string; text: string; crisis?: boolean; first?: string }[]).filter((x) => x.crisis);
+    expect(items.length).toBeGreaterThan(0);
+    for (const it of items) {
+      const pinned = detectCrisis(it.text);
+      const comb = detectCrisisWithExtra(it.text);
+      expect(comb.crisis, it.id).toBe(true);
+      expect(comb.categories, it.id).toEqual(pinned.categories);
+      expect(crisisCallNowLine(comb.categories), it.id).toBe(crisisCallNowLine(pinned.categories));
+      if (it.first) expect(crisisCallNowLine(comb.categories), it.id).toContain(it.first);
+    }
+  });
+
+  it("bank and fixture visible strings match the pinned detector", () => {
+    const rows: { id: string; text: string }[] = [];
+    for (const c of [...BANK, ...BANK_FIXTURES]) {
+      for (const [i, t] of visibleStrings(c).entries()) rows.push({ id: `${c.id}/visible[${i}]`, text: t });
+    }
+    expect(rows.length).toBeGreaterThan(20);
+    for (const { id, text } of rows) {
+      const pinned = detectCrisis(text);
+      const comb = detectCrisisWithExtra(text);
+      expect(comb.crisis, id).toBe(pinned.crisis);
+      expect(comb.categories, id).toEqual(pinned.categories);
+      expect(crisisCallNowLine(comb.categories), id).toBe(crisisCallNowLine(pinned.categories));
+    }
+  });
+});
+
+const CLEARLY_SAFE = [
+  "ประจำเดือนมาช้า กลัวท้อง",
+  "อยากกินยาคุม",
+  "ชักชวนเพื่อนไปตรวจเลือด",
+  "แฟนกดดันให้มีเซ็กส์",
+  "วันนี้อากาศดีมาก",
+];
+
+describe("clearly non-crisis messages stay off the crisis path", () => {
+  it.each(CLEARLY_SAFE)("%s is not a crisis", (text) => {
+    expect(detectCrisisWithExtra(text).crisis, text).toBe(false);
+    expect(detectCrisisWithExtra(text).level, text).toBe("none");
+  });
+});
+
+describe("crisis screen has zero img and zero svg", () => {
+  it("crisisScreen in main.ts never builds img or svg", () => {
+    const src = fs.readFileSync(path.resolve(__dirname, "../../src/main.ts"), "utf8");
+    const start = src.indexOf("function crisisScreen()");
+    expect(start).toBeGreaterThan(-1);
+    const next = src.indexOf("\nfunction ", start + 1);
+    const body = src.slice(start, next === -1 ? undefined : next);
+    expect(body).toContain("screen-crisis");
+    expect(body).not.toMatch(/["']img["']/);
+    expect(body).not.toMatch(/["']svg["']/);
+    expect(body).not.toMatch(/<img|<svg|\.svg|janeStar|janeImg|webp/i);
+  });
+});
+
