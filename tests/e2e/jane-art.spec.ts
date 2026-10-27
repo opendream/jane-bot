@@ -48,7 +48,7 @@ function allowlistedRaster(file: string): string | null {
   for (const a of ordered) {
     const stem = a.replace(/\.[^.]+$/, "");
     const ext = a.slice(stem.length);
-    if (new RegExp(`^${stem}-[A-Za-z0-9_-]+\\${ext.replace(".", "\\.")}$`).test(file)) return a;
+    if (new RegExp(`^${stem}-[A-Za-z0-9_-]+${ext.replace(".", "\\.")}$`).test(file)) return a;
   }
   return null;
 }
