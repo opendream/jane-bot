@@ -1,5 +1,5 @@
 {
-  "$comment": "SYNTHETIC cross-topic negatives for v2/18. Queries are written for this gate, not user logs. e011cd0 is retrieve() at e011cd0a2c06cd44f2cf1fb6205790a17f2a3e59 (PR #29 base). Rows other than teen_consent_hiv must match that base (topic-bearing fragments must not steal). teen_consent_hiv is the intended #34 move.",
+  "$comment": "SYNTHETIC cross-topic negatives for v2/18. Queries are written for this gate, not user logs. e011cd0 is retrieve() at e011cd0a2c06cd44f2cf1fb6205790a17f2a3e59 (PR #29 base). Rows other than teen_consent_hiv must match that base (topic-bearing fragments must not steal). teen_consent_hiv is the intended #34 move. adult_hiv_privacy: adult HIV-test questions that mention โดยไม่บอก without ผู้ปกครอง/พ่อแม่ must stay confident on disease.hiv.002.",
   "base_commit": "e011cd0a2c06cd44f2cf1fb6205790a17f2a3e59",
   "queries": [
     { "q": "ตรวจ HIV กี่บาท", "group": "price", "e011cd0": { "id": "disease.hiv.000", "conf": false }, "not_id": "price.trc.prep.000" },
@@ -24,6 +24,12 @@
     { "q": "อยากตรวจเอชไอวีโดยไม่บอกผู้ปกครอง", "group": "teen_consent_hiv", "e011cd0": { "id": "disease.hiv.002", "conf": false }, "id": "hiv.test.under18.000" },
     { "q": "วัยรุ่นตรวจเอชไอวีโดยไม่บอกผู้ปกครอง", "group": "teen_consent_hiv", "e011cd0": { "id": "disease.hiv.002", "conf": false }, "id": "hiv.test.under18.000" },
     { "q": "เด็กตรวจเอชไอวีโดยไม่บอกผู้ปกครอง", "group": "teen_consent_hiv", "e011cd0": { "id": "disease.hiv.002", "conf": false }, "id": "hiv.test.under18.000" },
+
+    { "q": "ตรวจเอชไอวีโดยไม่บอกแฟน", "group": "adult_hiv_privacy", "e011cd0": { "id": "disease.hiv.002", "conf": true } },
+    { "q": "ตรวจเอชไอวีโดยไม่บอกใคร", "group": "adult_hiv_privacy", "e011cd0": { "id": "disease.hiv.002", "conf": true } },
+    { "q": "ตรวจเอชไอวีโดยไม่บอกสามี", "group": "adult_hiv_privacy", "e011cd0": { "id": "disease.hiv.002", "conf": true } },
+    { "q": "ตรวจเอชไอวีโดยไม่บอกชื่อ", "group": "adult_hiv_privacy", "e011cd0": { "id": "disease.hiv.002", "conf": true } },
+    { "q": "อายุ 30 ตรวจเอชไอวีโดยไม่บอกแฟนได้ไหม", "group": "adult_hiv_privacy", "e011cd0": { "id": "disease.hiv.002", "conf": true } },
 
     { "q": "เป็นเริมมีตุ่มเป็นหนอง", "group": "pus", "e011cd0": { "id": "disease.herpes.000", "conf": true }, "not_confident_on": "disease.gonorrhea.001" },
     { "q": "ซิฟิลิสแผลเป็นหนองไหม", "group": "pus", "e011cd0": { "id": "disease.syphilis.000", "conf": true }, "not_confident_on": "disease.gonorrhea.001" },

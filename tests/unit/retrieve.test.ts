@@ -35,8 +35,9 @@ function triggerMisroutes(): string[] {
  * topic word — the list is not a silent exemption.
  */
 const NEW_OWN_TRIGGER_FRAGMENTS = [
-  "ตรวจเอชไอวีโดยไม่บอก",
-  "ตรวจเอชไอวี โดยไม่บอก",
+  "ตรวจเอชไอวี โดยไม่บอกผู้ปกครอง",
+  "เอชไอวีโดยไม่บอกผู้ปกครอง",
+  "เอชไอวี โดยไม่บอกผู้ปกครอง",
   "เด็กตรวจเอชไอวี",
   "เด็กตรวจ เอชไอวี",
   "วิธีใช้ ถุงยาง",
@@ -559,13 +560,13 @@ describe("synthetic extra routing (post-EC, how-often, hour-window, PEP)", () =>
 });
 
 describe("cross-topic negatives (synthetic)", () => {
-  it("has the e011cd0 pin and the price / teen-consent / pus / how-to groups", () => {
+  it("has the e011cd0 pin and the price / teen-consent / pus / how-to / adult-HIV-privacy groups", () => {
     expect(crossTopicNegatives.base_commit).toBe("e011cd0a2c06cd44f2cf1fb6205790a17f2a3e59");
     const groups = new Set(crossTopicNegatives.queries.map((r) => r.group));
-    expect([...groups].sort()).toEqual(["how_to", "price", "pus", "teen_consent", "teen_consent_hiv"].sort());
+    expect([...groups].sort()).toEqual(["adult_hiv_privacy", "how_to", "price", "pus", "teen_consent", "teen_consent_hiv"].sort());
   });
 
-  it("price / teen-consent / pus / how-to rows stay off the wrong card and match e011cd0 except HIV teen-consent", () => {
+  it("price / teen-consent / pus / how-to / adult-HIV-privacy rows stay off the wrong card and match e011cd0 except HIV teen-consent", () => {
     const unexpected: string[] = [];
     for (const row of crossTopicNegatives.queries) {
       const got = outcome(row.q);
