@@ -78,6 +78,18 @@ describe("trigger matches count once per card", () => {
     // Distinct non-overlapping phrases still add.
     expect(countTriggerHits("pep ยาคุม", ["pep", "ยาคุม"])).toBe(2);
   });
+
+  it("overlapping but different triggers score the same as the strongest alone", () => {
+    const q = "alpha-beta-gamma";
+    const overlapping = ["alpha-beta", "beta-gamma"];
+    const strongest = ["alpha-beta-gamma"];
+    expect(countTriggerHits(q, overlapping)).toBe(1);
+    expect(countTriggerHits(q, overlapping)).toBe(countTriggerHits(q, strongest));
+    const both = stubCard("t.overlap.000", overlapping, "general");
+    const one = stubCard("t.overlap.000", strongest, "general");
+    expect(retrieve(q, [both]).ranked[0]!.score).toBe(retrieve(q, [one]).ranked[0]!.score);
+    expect(retrieve(q, [both]).ranked[0]!.triggerHits).toBe(1);
+  });
 });
 
 describe("card #21 what-is EC vs timing", () => {
@@ -103,12 +115,12 @@ describe("card #21 what-is EC vs timing", () => {
     expect(turn.reply.kind === "card" && turn.reply.card.id, q).toBe("urgent.pills.000");
   });
 
-  it("the three card-#21 triggers are rules-confident", () => {
+  it("card-#21 what-is lines still land on urgent.pills.000 after overlap merge", () => {
     for (const q of ["ยาคุมฉุกเฉินคืออะไร", "อยากรู้เรื่องยาคุมฉุกเฉิน", "ยาคุมฉุกเฉินทำงานยังไง"]) {
       const r = retrieve(q, pool);
-      expect(r.confident, q).toBe(true);
       expect(r.ranked[0]?.card.id, q).toBe("urgent.pills.000");
-      expect(r.ranked[0]!.score).toBeGreaterThan(r.ranked[1]?.score ?? 0);
+      // Nested what-is fragments occupy one overlapping cluster, so they are not rules-confident.
+      expect(r.confident, q).toBe(false);
     }
   });
 
@@ -184,26 +196,36 @@ const CROSS_TOPIC = [
   "กลัวจะท้อง เพราะถุงยางรั่ว",
 ];
 
-/** Bare / generic EC → #21; one timing line gained confidence. Recorded vs c450e1f. */
+/** Bare / generic EC → #21. Overlap merge: nested fragments on one card score once. */
 const INTENDED_VS_C450: Record<string, { id: string; conf: boolean }> = {
-  "ยาคุมฉุกเฉินคืออะไร": { id: "urgent.pills.000", conf: true },
-  "อยากรู้เรื่องยาคุมฉุกเฉิน": { id: "urgent.pills.000", conf: true },
-  "ยาคุมฉุกเฉินทำงานยังไง": { id: "urgent.pills.000", conf: true },
-  "ยาคุมฉุกเฉินคือ": { id: "urgent.pills.000", conf: true },
-  "เรื่องยาคุมฉุกเฉิน": { id: "urgent.pills.000", conf: true },
-  "ยาคุมฉุกเฉินทำ": { id: "urgent.pills.000", conf: true },
+  "ยาคุมฉุกเฉินคืออะไร": { id: "urgent.pills.000", conf: false },
+  "อยากรู้เรื่องยาคุมฉุกเฉิน": { id: "urgent.pills.000", conf: false },
+  "ยาคุมฉุกเฉินทำงานยังไง": { id: "urgent.pills.000", conf: false },
+  "ยาคุมฉุกเฉินคือ": { id: "urgent.pills.000", conf: false },
+  "เรื่องยาคุมฉุกเฉิน": { id: "urgent.pills.000", conf: false },
+  "ยาคุมฉุกเฉินทำ": { id: "urgent.pills.000", conf: false },
   "คุมฉุกเฉิน": { id: "urgent.pills.000", conf: true },
-  "ยาคุมฉุกเฉินอันตราย": { id: "urgent.pills.000", conf: true },
-  "ยาคุมฉุกเฉินมีผลข้างเคียง": { id: "urgent.pills.000", conf: true },
-  "ยาคุมฉุกเฉินกินได้กี่ครั้ง": { id: "urgent.pills.000", conf: true },
+  "ยาคุมฉุกเฉินอันตราย": { id: "urgent.pills.000", conf: false },
+  "ยาคุมฉุกเฉินมีผลข้างเคียง": { id: "urgent.pills.000", conf: false },
+  "ยาคุมฉุกเฉินกินได้กี่ครั้ง": { id: "urgent.pills.000", conf: false },
   "ยาคุมฉุกเฉิน": { id: "urgent.pills.000", conf: false },
-  "ยาคุมฉุกเฉินอันตรายไหม": { id: "urgent.pills.000", conf: true },
-  "ยาคุมฉุกเฉินมีผลข้างเคียงไหม": { id: "urgent.pills.000", conf: true },
-  "ยาคุมฉุกเฉินคืออะไรคะ": { id: "urgent.pills.000", conf: true },
-  "เล่าเรื่องยาคุมฉุกเฉินให้หน่อย": { id: "urgent.pills.000", conf: true },
-  "ยาคุมฉุกเฉินทำอะไร": { id: "urgent.pills.000", conf: true },
-  "ถุงยางรั่ว ต้องทำยังไง คุมฉุกเฉินทันไหม": { id: "ec.timing.b001", conf: true },
-  // Space-twin triggers counted once: still top timing, no longer rules-confident.
+  "ยาคุมฉุกเฉินอันตรายไหม": { id: "urgent.pills.000", conf: false },
+  "ยาคุมฉุกเฉินมีผลข้างเคียงไหม": { id: "urgent.pills.000", conf: false },
+  "ยาคุมฉุกเฉินคืออะไรคะ": { id: "urgent.pills.000", conf: false },
+  "เล่าเรื่องยาคุมฉุกเฉินให้หน่อย": { id: "urgent.pills.000", conf: false },
+  "ยาคุมฉุกเฉินทำอะไร": { id: "urgent.pills.000", conf: false },
+  "ถุงยางรั่ว ต้องทำยังไง คุมฉุกเฉินทันไหม": { id: "ec.timing.b001", conf: false },
+  "คุมฉุกเฉินทันไหม": { id: "ec.timing.b001", conf: false },
+  "ยาคุมฉุกเฉินกินเมื่อไร": { id: "ec.timing.b001", conf: false },
+  "กินยาคุมฉุกเฉินช้า": { id: "ec.timing.b001", conf: false },
+  "ยังกินยาคุมฉุกเฉิน": { id: "ec.timing.b001", conf: false },
+  "ยาคุมฉุกเฉินยังทัน": { id: "ec.timing.b001", conf: false },
+  "วิธีการกินยาคุมฉุกเฉิน": { id: "ec.timing.b001", conf: false },
+  "กินยาคุมฉุกเฉินช้าไปแล้ว": { id: "ec.timing.b001", conf: false },
+  "หลังมีเพศสัมพันธ์กี่ชั่วโมงยังกินยาคุมฉุกเฉินได้": { id: "ec.timing.b001", conf: false },
+  // เพร็พ ⊂ ยาเพร็พ: same PrEP card, overlap cluster drops confidence.
+  "ซื้อยาเพร็พ": { id: "protection.prep.000", conf: false },
+  // Space-twin / overlap: still top timing, no longer rules-confident.
   "กินยาคุมฉุกเฉิน": { id: "ec.timing.b001", conf: false },
   "กิน ยาคุมฉุกเฉิน": { id: "ec.timing.b001", conf: false },
   "คุมฉุกเฉินกินเมื่อไร": { id: "ec.timing.b001", conf: false },
@@ -220,7 +242,7 @@ const INTENDED_VS_C450: Record<string, { id: string; conf: boolean }> = {
   "คุมฉุกเฉิน ยังทัน": { id: "ec.timing.b001", conf: false },
 };
 
-/** Twin-dedupe vs e948e1c: same top card, confidence drops where space-twins had added +4. */
+/** Twin-dedupe + overlap merge vs e948e1c: same top card; stacked spans no longer add. */
 const INTENDED_VS_E948: Record<string, { id: string; conf: boolean }> = {
   "กินยาคุมฉุกเฉิน": { id: "ec.timing.b001", conf: false },
   "กิน ยาคุมฉุกเฉิน": { id: "ec.timing.b001", conf: false },
@@ -247,6 +269,38 @@ const INTENDED_VS_E948: Record<string, { id: string; conf: boolean }> = {
   "กินยาคุมฉุกเฉินได้กี่ครั้ง": { id: "ec.timing.b001", conf: false },
   "กินยาคุมฉุกเฉินบ่อยอันตรายไหม": { id: "ec.timing.b001", conf: false },
   "กินยาคุมฉุกเฉินแล้วมีผลข้างเคียงไหม": { id: "ec.timing.b001", conf: false },
+  "กินยาคุมฉุกเฉินกี่วันประจำเดือนมา": { id: "ec.timing.b001", conf: false },
+  "กินยาคุมฉุกเฉินกี่วันตรวจครรภ์ได้": { id: "ec.timing.b001", conf: false },
+  "กินยาคุมฉุกเฉินกี่ชั่วโมงหายคลื่นไส้": { id: "ec.timing.b001", conf: false },
+  "หลังกินยาคุมฉุกเฉินกี่วันตรวจครรภ์ได้": { id: "ec.timing.b001", conf: false },
+  "ยังกินยาคุมฉุกเฉินได้กี่ครั้ง": { id: "ec.timing.b001", conf: false },
+  "ยาคุมฉุกเฉินคืออะไร": { id: "urgent.pills.000", conf: false },
+  "อยากรู้เรื่องยาคุมฉุกเฉิน": { id: "urgent.pills.000", conf: false },
+  "ยาคุมฉุกเฉินทำงานยังไง": { id: "urgent.pills.000", conf: false },
+  "ยาคุมฉุกเฉินคือ": { id: "urgent.pills.000", conf: false },
+  "เรื่องยาคุมฉุกเฉิน": { id: "urgent.pills.000", conf: false },
+  "ยาคุมฉุกเฉินทำ": { id: "urgent.pills.000", conf: false },
+  "ยาคุมฉุกเฉินอันตราย": { id: "urgent.pills.000", conf: false },
+  "ยาคุมฉุกเฉินมีผลข้างเคียง": { id: "urgent.pills.000", conf: false },
+  "ยาคุมฉุกเฉินกินได้กี่ครั้ง": { id: "urgent.pills.000", conf: false },
+  "ยาคุมฉุกเฉินอันตรายไหม": { id: "urgent.pills.000", conf: false },
+  "ยาคุมฉุกเฉินมีผลข้างเคียงไหม": { id: "urgent.pills.000", conf: false },
+  "ยาคุมฉุกเฉินคืออะไรคะ": { id: "urgent.pills.000", conf: false },
+  "เล่าเรื่องยาคุมฉุกเฉินให้หน่อย": { id: "urgent.pills.000", conf: false },
+  "ยาคุมฉุกเฉินทำอะไร": { id: "urgent.pills.000", conf: false },
+  "คุมฉุกเฉินทันไหม": { id: "ec.timing.b001", conf: false },
+  "ยาคุมฉุกเฉินกินเมื่อไร": { id: "ec.timing.b001", conf: false },
+  "กินยาคุมฉุกเฉินช้า": { id: "ec.timing.b001", conf: false },
+  "ยังกินยาคุมฉุกเฉิน": { id: "ec.timing.b001", conf: false },
+  "ยาคุมฉุกเฉินยังทัน": { id: "ec.timing.b001", conf: false },
+  "วิธีการกินยาคุมฉุกเฉิน": { id: "ec.timing.b001", conf: false },
+  "ถุงยางรั่ว ต้องทำยังไง คุมฉุกเฉินทันไหม": { id: "ec.timing.b001", conf: false },
+  "กินยาคุมฉุกเฉินช้าไปแล้ว": { id: "ec.timing.b001", conf: false },
+  "หลังมีเพศสัมพันธ์กี่ชั่วโมงยังกินยาคุมฉุกเฉินได้": { id: "ec.timing.b001", conf: false },
+  "ซื้อยาเพร็พ": { id: "protection.prep.000", conf: false },
+  // Known gap #28: mixed what-is + hours still land on urgent.pills.000.
+  "ยาคุมฉุกเฉินคืออะไร กินได้กี่ชั่วโมง": { id: "urgent.pills.000", conf: false },
+  "อยากรู้เรื่องยาคุมฉุกเฉิน กินภายในกี่ชั่วโมง": { id: "urgent.pills.000", conf: false },
 };
 
 const PEP_QUERIES = [
@@ -308,16 +362,28 @@ describe("retrieve baseline diff gate (c450e1f)", () => {
 
 const extraByGroup = (g: string) => extraFile.queries.filter((r) => r.group === g).map((r) => r.q);
 
-/** Recorded landings after the matcher dedupe (known gap, issue #28). */
+/**
+ * Hour-window landings after matcher work. Routing is recorded, not desired.
+ * Mixed what-is + hours stay on urgent.pills.000 (known gap,
+ * https://github.com/opendream/jane-bot/issues/28), not the 72h card.
+ */
 const HOUR_WINDOW_NOW: Record<string, { id: string; conf: boolean }> = {
   "ยาคุมฉุกเฉินกินภายในกี่ชั่วโมง": { id: "urgent.pills.000", conf: false },
   "ยาคุมฉุกเฉินควรกินเมื่อไร": { id: "urgent.pills.000", conf: false },
   "ยาคุมฉุกเฉิน 3 วันยังทันไหม": { id: "urgent.pills.000", conf: false },
-  "ยาคุมฉุกเฉินคืออะไร กินได้กี่ชั่วโมง": { id: "urgent.pills.000", conf: true },
-  "อยากรู้เรื่องยาคุมฉุกเฉิน กินภายในกี่ชั่วโมง": { id: "urgent.pills.000", conf: true },
+  // Known gap #28: mixed what-is + hours still land on urgent.pills.000.
+  "ยาคุมฉุกเฉินคืออะไร กินได้กี่ชั่วโมง": { id: "urgent.pills.000", conf: false },
+  "อยากรู้เรื่องยาคุมฉุกเฉิน กินภายในกี่ชั่วโมง": { id: "urgent.pills.000", conf: false },
 };
 
 describe("synthetic extra routing (post-EC, how-often, hour-window, PEP)", () => {
+  it("outcome() exposes conf (not confident) so extra-row timing guards can fail", () => {
+    const got = outcome("pep");
+    expect(got).toEqual({ id: "protection.pep.000", conf: true });
+    expect(Object.keys(got).sort()).toEqual(["conf", "id"]);
+    expect((got as { confident?: boolean }).confident).toBeUndefined();
+  });
+
   it("covers the extra groups and every extra row is in the e948 snapshot", () => {
     expect(extraByGroup("post_ec").length).toBeGreaterThanOrEqual(10);
     expect(extraByGroup("how_often")).toEqual(expect.arrayContaining([
@@ -325,6 +391,13 @@ describe("synthetic extra routing (post-EC, how-often, hour-window, PEP)", () =>
       "กินยาคุมฉุกเฉินบ่อยอันตรายไหม",
       "กินยาคุมฉุกเฉินแล้วมีผลข้างเคียงไหม",
       "กินยาคุมฉุกเฉิน",
+      "ยังกินยาคุมฉุกเฉินได้กี่ครั้ง",
+    ]));
+    expect(extraByGroup("post_ec")).toEqual(expect.arrayContaining([
+      "กินยาคุมฉุกเฉินกี่วันประจำเดือนมา",
+      "กินยาคุมฉุกเฉินกี่วันตรวจครรภ์ได้",
+      "กินยาคุมฉุกเฉินกี่ชั่วโมงหายคลื่นไส้",
+      "หลังกินยาคุมฉุกเฉินกี่วันตรวจครรภ์ได้",
     ]));
     expect(extraByGroup("hour_window")).toEqual(expect.arrayContaining([
       "ยาคุมฉุกเฉินกินภายในกี่ชั่วโมง",
@@ -365,7 +438,7 @@ describe("synthetic extra routing (post-EC, how-often, hour-window, PEP)", () =>
     }
   });
 
-  it("extra rows vs c450 only move on the twin-dedupe / #21 split", () => {
+  it("extra rows vs c450 only move on the twin-dedupe / overlap-merge / #21 split", () => {
     const unexpected: string[] = [];
     for (const row of extraFile.queries) {
       const got = outcome(row.q);
@@ -376,7 +449,7 @@ describe("synthetic extra routing (post-EC, how-often, hour-window, PEP)", () =>
         if (got.id !== want.id || got.conf !== want.conf) {
           unexpected.push(`${row.q}\tc450=${row.c450.id}/${row.c450.conf}\tgot=${got.id}/${got.conf}\twant=${want.id}/${want.conf}`);
         }
-      } else if (got.confident && got.id === "ec.timing.b001") {
+      } else if (got.conf && got.id === "ec.timing.b001") {
         unexpected.push(`${row.q}\tc450=${row.c450.id}/${row.c450.conf}\tgot=${got.id}/${got.conf}\twant=not confident on ec.timing`);
       }
     }
@@ -387,13 +460,13 @@ describe("synthetic extra routing (post-EC, how-often, hour-window, PEP)", () =>
 describe("retrieve baseline diff gate (e948e1c)", () => {
   it("has the frozen e948e1c table covering the 123-query corpus plus extra rows", () => {
     expect(e948File.commit).toBe("e948e1ca7c79048818d522c8ca536f9704e07758");
-    expect(e948File.queries).toHaveLength(143);
+    expect(e948File.queries).toHaveLength(148);
     const byQ = new Set(e948File.queries.map((r) => r.q));
     for (const row of baselineFile.queries) expect(byQ.has(row.q), row.q).toBe(true);
     for (const row of extraFile.queries) expect(byQ.has(row.q), row.q).toBe(true);
   });
 
-  it("matches e948e1c except the intended twin-dedupe confidence drops", () => {
+  it("matches e948e1c except the intended twin-dedupe / overlap-merge confidence drops", () => {
     const unexpected: string[] = [];
     for (const row of e948File.queries) {
       const got = outcome(row.q);

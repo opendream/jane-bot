@@ -1,5 +1,5 @@
 {
-  "$comment": "SYNTHETIC extra retrieve corpus for matcher dedupe. Queries are written for this gate, not user logs. c450 is retrieve() at c450e1fbfa8f2618e86107f5e6cd2f41cc3de8f3. Groups: post_ec (period/pregnancy-test/nausea/bleeding after EC), how_often (frequency/side-effect/bare กินยาคุมฉุกเฉิน), hour_window (when to take / hours / 3 days — known gap, record landing), pep (must stay unchanged).",
+  "$comment": "SYNTHETIC extra retrieve corpus for matcher dedupe. Queries are written for this gate, not user logs. c450 is retrieve() at c450e1fbfa8f2618e86107f5e6cd2f41cc3de8f3. Groups: post_ec (period/pregnancy-test/nausea/bleeding after EC, including overlapping กิน+กี่วัน/กี่ชั่วโมง lines), how_often (frequency/side-effect/bare กินยาคุมฉุกเฉิน), hour_window (when to take / hours / 3 days / mixed what-is+hours — known gap #28, record landing, not desired), pep (must stay unchanged).",
   "c450_commit": "c450e1fbfa8f2618e86107f5e6cd2f41cc3de8f3",
   "queries": [
     { "q": "ยาคุมฉุกเฉินกี่วันประจำเดือนมา", "group": "post_ec", "c450": { "id": "ec.timing.b001", "conf": true } },
@@ -14,10 +14,15 @@
     { "q": "ใช้ยาคุมฉุกเฉินแล้วตรวจครรภ์เมื่อไร", "group": "post_ec", "c450": { "id": "ec.timing.b001", "conf": true } },
     { "q": "ยาคุมฉุกเฉินคลื่นไส้นานแค่ไหน", "group": "post_ec", "c450": { "id": "ec.timing.b001", "conf": true } },
     { "q": "ใช้ยาคุมฉุกเฉินแล้วเลือดออกนานแค่ไหน", "group": "post_ec", "c450": { "id": "ec.timing.b001", "conf": true } },
+    { "q": "กินยาคุมฉุกเฉินกี่วันประจำเดือนมา", "group": "post_ec", "c450": { "id": "ec.timing.b001", "conf": true } },
+    { "q": "กินยาคุมฉุกเฉินกี่วันตรวจครรภ์ได้", "group": "post_ec", "c450": { "id": "ec.timing.b001", "conf": true } },
+    { "q": "กินยาคุมฉุกเฉินกี่ชั่วโมงหายคลื่นไส้", "group": "post_ec", "c450": { "id": "ec.timing.b001", "conf": true } },
+    { "q": "หลังกินยาคุมฉุกเฉินกี่วันตรวจครรภ์ได้", "group": "post_ec", "c450": { "id": "ec.timing.b001", "conf": true } },
     { "q": "กินยาคุมฉุกเฉินได้กี่ครั้ง", "group": "how_often", "c450": { "id": "ec.timing.b001", "conf": true } },
     { "q": "กินยาคุมฉุกเฉินบ่อยอันตรายไหม", "group": "how_often", "c450": { "id": "ec.timing.b001", "conf": true } },
     { "q": "กินยาคุมฉุกเฉินแล้วมีผลข้างเคียงไหม", "group": "how_often", "c450": { "id": "ec.timing.b001", "conf": true } },
     { "q": "กินยาคุมฉุกเฉิน", "group": "how_often", "c450": { "id": "ec.timing.b001", "conf": true } },
+    { "q": "ยังกินยาคุมฉุกเฉินได้กี่ครั้ง", "group": "how_often", "c450": { "id": "ec.timing.b001", "conf": true } },
     { "q": "ยาคุมฉุกเฉินกินภายในกี่ชั่วโมง", "group": "hour_window", "c450": { "id": "ec.timing.b001", "conf": true } },
     { "q": "ยาคุมฉุกเฉินควรกินเมื่อไร", "group": "hour_window", "c450": { "id": "ec.timing.b001", "conf": true } },
     { "q": "ยาคุมฉุกเฉิน 3 วันยังทันไหม", "group": "hour_window", "c450": { "id": "ec.timing.b001", "conf": true } },

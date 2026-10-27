@@ -18,9 +18,36 @@ function stronger(a: PhraseHit, b: PhraseHit): PhraseHit {
   return (a.end - a.start) >= (b.end - b.start) ? a : b;
 }
 
+/** Overlapping spans in one haystack (compact Thai / norm Latin) become one cluster. */
+function clusterOverlapping(hits: Iterable<PhraseHit>): PhraseHit[] {
+  const byHaystack = new Map<PhraseHit["haystack"], PhraseHit[]>();
+  for (const h of hits) {
+    const list = byHaystack.get(h.haystack) ?? [];
+    list.push(h);
+    byHaystack.set(h.haystack, list);
+  }
+  const out: PhraseHit[] = [];
+  for (const group of byHaystack.values()) {
+    group.sort((a, b) => a.start - b.start || a.end - b.end);
+    const clusters: { hit: PhraseHit; start: number; end: number }[] = [];
+    for (const h of group) {
+      const last = clusters[clusters.length - 1];
+      if (last && h.start < last.end) {
+        last.hit = stronger(last.hit, h);
+        last.end = Math.max(last.end, h.end);
+      } else {
+        clusters.push({ hit: h, start: h.start, end: h.end });
+      }
+    }
+    for (const c of clusters) out.push(c.hit);
+  }
+  return out;
+}
+
 /**
- * Unique trigger matches for one card. Whitespace-normalised twins and hits that occupy
- * the same span count once (keep the strongest). Distinct non-overlapping phrases still add.
+ * Unique trigger matches for one card. Whitespace-normalised twins count once.
+ * Hits whose spans overlap in the space-stripped (or Latin-norm) text findPhrases
+ * uses form one cluster, scored with the strongest match. Disjoint spans still add.
  */
 export function countTriggerHits(text: string, triggers: readonly string[]): number {
   return uniqueTriggerHits(text, triggers).unique;
@@ -33,13 +60,7 @@ function uniqueTriggerHits(text: string, triggers: readonly string[]): { unique:
     const prev = byKey.get(h.key);
     byKey.set(h.key, prev ? stronger(h, prev) : h);
   }
-  const bySpan = new Map<string, PhraseHit>();
-  for (const h of byKey.values()) {
-    const sk = `${h.haystack}:${h.start}:${h.end}`;
-    const prev = bySpan.get(sk);
-    bySpan.set(sk, prev ? stronger(h, prev) : h);
-  }
-  return { unique: bySpan.size, listed: hits.length };
+  return { unique: clusterOverlapping(byKey.values()).length, listed: hits.length };
 }
 
 export function retrieve(text: string, cards: BankCard[], contextTopic: BankTopic | null = null): Retrieval {
