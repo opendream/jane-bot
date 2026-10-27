@@ -159,7 +159,7 @@ test("D7 production ignores ?copy=reviewed: both quiz entry points still follow 
   await expect(lastJane(page).getByTestId("placeholder-tag")).toHaveCount(0);
   await expect(page.getByTestId("quiz-menu")).toBeVisible();
   await say(page, "ใช้ถุงยาง");
-  await expect(lastJane(page)).toHaveAttribute("data-card", "birth.control.000");
+  await expect(lastJane(page)).toHaveAttribute("data-card", "condom.000");
   await expect(page.getByTestId("quiz-start")).toBeVisible();
   await expect(page.getByTestId("quiz-menu")).toBeVisible();
   await page.getByTestId("quiz-start").click();

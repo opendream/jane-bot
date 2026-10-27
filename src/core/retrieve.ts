@@ -22,7 +22,11 @@ export function retrieve(text: string, cards: BankCard[], contextTopic: BankTopi
     let score = triggerHits * WEIGHTS.trigger;
     const p = priorIdx(card.topic);
     if (p === 0) score += WEIGHTS.priorTop; else if (p > 0) score += WEIGHTS.priorOther;
-    if (contextTopic && card.topic === contextTopic && !NO_PRIOR.includes(card.topic)) score += WEIGHTS.context;
+    // Context is a tie-breaker for cards that already scored (trigger or topic prior).
+    // A context-only bump would keep the last topic forever and hide the honest fallback.
+    if (contextTopic && card.topic === contextTopic && !NO_PRIOR.includes(card.topic) && (triggerHits > 0 || p >= 0)) {
+      score += WEIGHTS.context;
+    }
     return { card, score, triggerHits, i };
   });
   const ranked = scored.filter((s) => s.score > 0).sort((a, b) => b.score - a.score || a.i - b.i).slice(0, SHORTLIST)

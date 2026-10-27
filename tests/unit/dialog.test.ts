@@ -262,6 +262,12 @@ describe("multi-turn flow (rules only)", () => {
     expect(r.reply.kind === "card" && r.reply.offer).toBe("none");
     expect(r.reply.kind === "card" && r.reply.chips.map((c) => c.label_th)).toEqual(["เริ่มใหม่"]);
   });
+  it("a mental-health-only line after a topical card still falls back (no reviewed MH card; no context-only stick)", async () => {
+    const a = await runTurn(newDialog(), "อยากรู้เรื่องคุมกำเนิด", deps());
+    expect(a.reply.kind === "card" && a.reply.card.id).toBe("birth.control.000");
+    const b = await runTurn(a.state, "ช่วงนี้เครียดมาก นอนไม่หลับ", deps());
+    expect(b.reply.kind === "card" && b.reply.card.id).toBe(FALLBACK_ID);
+  });
   it("'talk to a real person' → referral offer for the current topic", async () => {
     const a = await runTurn(newDialog(), "อยากรู้เรื่องคุมกำเนิด", deps());
     const b = await runTurn(a.state, "อยากคุยกับเจ้าหน้าที่", deps());
