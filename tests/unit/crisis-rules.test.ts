@@ -200,44 +200,107 @@ describe("everyday lookalikes stay off the crisis path", () => {
   });
 });
 
-/** Synthetic review cases (Codex round 1). Everyday Thai that must not open the crisis screen. */
-const REVIEW_NEGATIVES: string[] = [
-  "แฟนไปซ้อมบอล",
-  "แฟนพาไปปาร์ตี้",
-  "แฟนชื่อตี๋",
-  "โดนแมวข่วน",
-  "แม่ค้าเตะมอไซค์ตอนเช้า",
-  "เดินขึ้นภูเขาเตะหินเล่น",
-  "จะปล่อยคลิปสอนแต่งหน้า",
-  "โดนเพื่อนถ่ายคลิปตอนเต้น",
-  "คลิปอนาจาร",
+/**
+ * Table-driven extra-pattern corpus. Synthetic Thai only.
+ * Original 10 true cases + review round 1 + Codex round 2.
+ * Each row is either a crisis (with category) or no-crisis.
+ */
+type CorpusRow =
+  | { id: string; text: string; crisis: true; cat: CrisisCategory }
+  | { id: string; text: string; crisis: false };
+
+const CORPUS: CorpusRow[] = [
+  // Original 10 extra-pattern true cases
+  { id: "orig/agent_hits", text: "ผัวซ้อมหนูเมื่อคืน", crisis: true, cat: "violence_danger" },
+  { id: "orig/victim_hit", text: "โดนซ้อมจนตัวเขียว", crisis: true, cat: "violence_danger" },
+  { id: "orig/force_words", text: "บ้านนี้มีความรุนแรงในครอบครัว", crisis: true, cat: "violence_danger" },
+  { id: "orig/threat", text: "เขาข่มขู่หนูทุกวัน", crisis: true, cat: "violence_danger" },
+  { id: "orig/harass_generic", text: "มีคนสะกดรอยตามจากโรงเรียน", crisis: true, cat: "violence_danger" },
+  { id: "orig/harass_sexual", text: "เพื่อนร่วมงานแทะโลมหนู", crisis: true, cat: "sexual_violence" },
+  { id: "orig/victim_touch", text: "โดนจับหน้าอกบนรถเมล์", crisis: true, cat: "sexual_violence" },
+  { id: "orig/image_threat", text: "เขาขู่จะปล่อยคลิปหนู", crisis: true, cat: "sexual_violence" },
+  { id: "orig/covert_photo", text: "มีคนแอบถ่ายในห้องน้ำ", crisis: true, cat: "sexual_violence" },
+  { id: "orig/nonpartner_touch", text: "ลุงจับก้นหนู", crisis: true, cat: "sexual_violence" },
+
+  // Round 1 — still crisis
+  { id: "r1/zom_not_negation", text: "ผัวไม่พอใจก็ซ้อมหนู", crisis: true, cat: "violence_danger" },
+  { id: "r1/nude_clip_threat", text: "ขู่จะปล่อยคลิปเปลือยหนู", crisis: true, cat: "sexual_violence" },
+
+  // Round 1 — everyday Thai, not a crisis
+  { id: "r1/practice_ball", text: "แฟนไปซ้อมบอล", crisis: false },
+  { id: "r1/party", text: "แฟนพาไปปาร์ตี้", crisis: false },
+  { id: "r1/nickname_tee", text: "แฟนชื่อตี๋", crisis: false },
+  { id: "r1/cat_scratch", text: "โดนแมวข่วน", crisis: false },
+  { id: "r1/vendor_kick", text: "แม่ค้าเตะมอไซค์ตอนเช้า", crisis: false },
+  { id: "r1/mountain_kick", text: "เดินขึ้นภูเขาเตะหินเล่น", crisis: false },
+  { id: "r1/makeup_clip", text: "จะปล่อยคลิปสอนแต่งหน้า", crisis: false },
+  { id: "r1/dance_clip", text: "โดนเพื่อนถ่ายคลิปตอนเต้น", crisis: false },
+  { id: "r1/bare_obscene_clip", text: "คลิปอนาจาร", crisis: false },
+
+  // Round 2 — image/clip only with threat, coercion, or sexual content
+  { id: "r2/fortune_photo", text: "จะส่งรูปให้หมอดูถ้าไม่หาย", crisis: false },
+  { id: "r2/travel_photo", text: "ถ้าว่างจะลงรูปเที่ยว", crisis: false },
+  { id: "r2/facebook_photo", text: "แฟนเอารูปไปลงเฟส", crisis: false },
+  { id: "r2/sex_clip", text: "แฟนถ่ายคลิปตอนมีอะไรกัน", crisis: true, cat: "sexual_violence" },
+
+  // Round 2 — ตี word boundaries
+  { id: "r2/distance_idiom", text: "แฟนตีตัวออกห่าง", crisis: false },
+  { id: "r2/foot", text: "ตีน", crisis: false },
+  { id: "r2/retort", text: "ตีกลับ", crisis: false },
+  { id: "r2/partner_retort", text: "แฟนตีกลับ", crisis: false },
+  { id: "r2/sore_foot", text: "แฟนเจ็บตีน", crisis: false },
+  { id: "r2/partner_hits_me", text: "แฟนตีหนู", crisis: true, cat: "violence_danger" },
+  { id: "r2/hit_by_dad", text: "โดนพ่อตี", crisis: true, cat: "violence_danger" },
+
+  // Round 2 — ซ้อม: person agent is enough; sport/music and verb-negation are not
+  { id: "r2/husband_beats", text: "ผัวซ้อม", crisis: true, cat: "violence_danger" },
+  { id: "r2/drunk_beats", text: "ผัวเมาแล้วซ้อม", crisis: true, cat: "violence_danger" },
+  { id: "r2/dad_beats_mom", text: "พ่อซ้อมแม่", crisis: true, cat: "violence_danger" },
+  { id: "r2/pre_match_drill", text: "ถูกซ้อมหนักก่อนแข่ง", crisis: false },
+  { id: "r2/never_beats", text: "แฟนไม่เคยซ้อมหนู", crisis: false },
+  { id: "r2/music_practice", text: "ซ้อมดนตรี", crisis: false },
+
+  // Round 2 — persistence is not violence; partner scratch is
+  { id: "r2/persistent", text: "ผู้ชายตามตื๊อ", crisis: false },
+  { id: "r2/partner_scratch_bleed", text: "แฟนข่วนจนเลือดออก", crisis: true, cat: "violence_danger" },
+  { id: "r2/husband_scratch", text: "โดนผัวข่วน", crisis: true, cat: "violence_danger" },
 ];
 
-describe("review round: everyday Thai is not a crisis", () => {
-  it.each(REVIEW_NEGATIVES)("%s is not a crisis", (text) => {
-    expect(detectCrisisWithExtra(text).crisis, text).toBe(false);
-    expect(detectCrisisWithExtra(text).level, text).toBe("none");
-    expect(matchCrisisExtra(text).level, text).toBe("none");
+const CORPUS_POS = CORPUS.filter((r): r is Extract<CorpusRow, { crisis: true }> => r.crisis);
+const CORPUS_NEG = CORPUS.filter((r): r is Extract<CorpusRow, { crisis: false }> => !r.crisis);
+
+describe("crisis extra corpus (original + review rounds)", () => {
+  it(`splits ${CORPUS.length} cases into ${CORPUS_POS.length} crisis and ${CORPUS_NEG.length} no-crisis`, () => {
+    expect(CORPUS).toHaveLength(CORPUS_POS.length + CORPUS_NEG.length);
+    expect(CORPUS_POS.length).toBeGreaterThan(0);
+    expect(CORPUS_NEG.length).toBeGreaterThan(0);
   });
 
-  it("ผัวไม่พอใจก็ซ้อมหนู still overrides as violence (ไม่ in ไม่พอใจ is not verb negation)", () => {
+  it.each(CORPUS)("$id ($text)", (row) => {
+    const extra = matchCrisisExtra(row.text);
+    const comb = detectCrisisWithExtra(row.text);
+    if (row.crisis) {
+      expect(extra.crisis, row.text).toBe(true);
+      expect(extra.categories, row.text).toContain(row.cat);
+      expect(comb.crisis, row.text).toBe(true);
+      expect(comb.categories, row.text).toContain(row.cat);
+      expect(crisisCallNowLine(comb.categories), row.text).toBe(crisisCallNowLine([row.cat]));
+    } else {
+      expect(comb.crisis, row.text).toBe(false);
+      expect(comb.level, row.text).toBe("none");
+      expect(extra.level, row.text).toBe("none");
+    }
+  });
+});
+
+describe("review round: keep-passing extras around the corpus", () => {
+  it("ผัวไม่พอใจก็ซ้อมหนู still matches agent_hits (ไม่ in ไม่พอใจ is not verb negation)", () => {
     const text = "ผัวไม่พอใจก็ซ้อมหนู";
     expect(squashHit(text, "violence_danger", "agent_hits")).toBe(true);
-    expect(matchCrisisExtra(text).crisis).toBe(true);
-    expect(matchCrisisExtra(text).categories).toContain("violence_danger");
-    const r = detectCrisisWithExtra(text);
-    expect(r.crisis).toBe(true);
-    expect(r.categories).toContain("violence_danger");
-    expect(crisisCallNowLine(r.categories)).toBe(crisisCallNowLine(["violence_danger"]));
   });
 
-  it("a threat to leak a nude clip still overrides as sexual_violence", () => {
-    const text = "ขู่จะปล่อยคลิปเปลือยหนู";
-    expect(squashHit(text, "sexual_violence", "image_threat")).toBe(true);
-    const r = detectCrisisWithExtra(text);
-    expect(r.crisis).toBe(true);
-    expect(r.categories).toContain("sexual_violence");
-    expect(crisisCallNowLine(r.categories)).toBe(crisisCallNowLine(["sexual_violence"]));
+  it("a threat to leak a nude clip still matches image_threat", () => {
+    expect(squashHit("ขู่จะปล่อยคลิปเปลือยหนู", "sexual_violence", "image_threat")).toBe(true);
   });
 
   it("merges base medical with extra sexual so 1669 is kept (base categories first)", () => {
@@ -257,7 +320,7 @@ describe("review round: everyday Thai is not a crisis", () => {
   });
 
   it("a negative case does not stick the crisis strip on a later card", async () => {
-    for (const text of REVIEW_NEGATIVES) {
+    for (const { text } of CORPUS_NEG) {
       const { st, replies } = await talkReview(text);
       expect(replies[0].kind, text).not.toBe("crisis");
       expect(st.crisisFired, text).toBe(false);
