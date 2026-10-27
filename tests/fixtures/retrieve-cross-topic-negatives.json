@@ -1,0 +1,36 @@
+{
+  "$comment": "SYNTHETIC cross-topic negatives for v2/18. Queries are written for this gate, not user logs. e011cd0 is retrieve() at e011cd0a2c06cd44f2cf1fb6205790a17f2a3e59 (PR #29 base). Rows other than teen_consent_hiv must match that base (topic-bearing fragments must not steal). teen_consent_hiv is the intended #34 move.",
+  "base_commit": "e011cd0a2c06cd44f2cf1fb6205790a17f2a3e59",
+  "queries": [
+    { "q": "ตรวจ HIV กี่บาท", "group": "price", "e011cd0": { "id": "disease.hiv.000", "conf": false }, "not_id": "price.trc.prep.000" },
+    { "q": "ตรวจเอชไอวีกี่บาท", "group": "price", "e011cd0": { "id": "disease.hiv.002", "conf": true }, "not_id": "price.trc.prep.000" },
+    { "q": "เป็ปกี่บาท", "group": "price", "e011cd0": { "id": "protection.pep.000", "conf": true }, "not_id": "price.trc.prep.000" },
+    { "q": "ซิฟิลิสกี่บาท", "group": "price", "e011cd0": { "id": "disease.syphilis.000", "conf": true }, "not_id": "price.trc.prep.000" },
+    { "q": "หนองในกี่บาท", "group": "price", "e011cd0": { "id": "disease.gonorrhea.000", "conf": true }, "not_id": "price.trc.prep.000" },
+    { "q": "ถุงยางกี่บาท", "group": "price", "e011cd0": { "id": "condom.000", "conf": false }, "not_id": "price.trc.prep.000" },
+    { "q": "ที่ตรวจครรภ์กี่บาท", "group": "price", "e011cd0": { "id": "pregnancy.ornot.000", "conf": false }, "not_id": "price.trc.prep.000" },
+    { "q": "ห่วงอนามัยกี่บาท", "group": "price", "e011cd0": { "id": "condom.000", "conf": false }, "not_id": "price.trc.prep.000" },
+    { "q": "IUD กี่บาท", "group": "price", "e011cd0": { "id": "general.fallback.000", "conf": false }, "not_id": "price.trc.prep.000" },
+
+    { "q": "เด็กตรวจหนองในโดยไม่บอกผู้ปกครองได้ไหม", "group": "teen_consent", "e011cd0": { "id": "disease.gonorrhea.000", "conf": true }, "not_confident_on": "hiv.test.under18.000" },
+    { "q": "ตรวจครรภ์โดยไม่บอกผู้ปกครองได้ไหม", "group": "teen_consent", "e011cd0": { "id": "pregnancy.ornot.000", "conf": false }, "not_confident_on": "hiv.test.under18.000" },
+    { "q": "ทำแท้งโดยไม่บอกผู้ปกครองได้ไหม", "group": "teen_consent", "e011cd0": { "id": "pregnancy.ornot.000", "conf": false }, "not_confident_on": "hiv.test.under18.000" },
+    { "q": "ซื้อถุงยางโดยไม่บอกผู้ปกครองได้ไหม", "group": "teen_consent", "e011cd0": { "id": "condom.000", "conf": false }, "not_confident_on": "hiv.test.under18.000" },
+    { "q": "กินเพร็พโดยไม่บอกผู้ปกครองได้ไหม", "group": "teen_consent", "e011cd0": { "id": "protection.prep.000", "conf": true }, "not_confident_on": "hiv.test.under18.000" },
+    { "q": "เด็กตรวจครรภ์ได้ไหม", "group": "teen_consent", "e011cd0": { "id": "pregnancy.ornot.000", "conf": false }, "not_confident_on": "hiv.test.under18.000" },
+
+    { "q": "ตรวจเอชไอวีโดยไม่บอกผู้ปกครอง", "group": "teen_consent_hiv", "e011cd0": { "id": "disease.hiv.002", "conf": false }, "id": "hiv.test.under18.000" },
+    { "q": "เด็กตรวจเอชไอวีได้ไหม", "group": "teen_consent_hiv", "e011cd0": { "id": "disease.hiv.002", "conf": false }, "id": "hiv.test.under18.000" },
+    { "q": "อยากตรวจเอชไอวีโดยไม่บอกผู้ปกครอง", "group": "teen_consent_hiv", "e011cd0": { "id": "disease.hiv.002", "conf": false }, "id": "hiv.test.under18.000" },
+    { "q": "วัยรุ่นตรวจเอชไอวีโดยไม่บอกผู้ปกครอง", "group": "teen_consent_hiv", "e011cd0": { "id": "disease.hiv.002", "conf": false }, "id": "hiv.test.under18.000" },
+    { "q": "เด็กตรวจเอชไอวีโดยไม่บอกผู้ปกครอง", "group": "teen_consent_hiv", "e011cd0": { "id": "disease.hiv.002", "conf": false }, "id": "hiv.test.under18.000" },
+
+    { "q": "เป็นเริมมีตุ่มเป็นหนอง", "group": "pus", "e011cd0": { "id": "disease.herpes.000", "conf": true }, "not_confident_on": "disease.gonorrhea.001" },
+    { "q": "ซิฟิลิสแผลเป็นหนองไหม", "group": "pus", "e011cd0": { "id": "disease.syphilis.000", "conf": true }, "not_confident_on": "disease.gonorrhea.001" },
+    { "q": "แผลเป็นหนอง", "group": "pus", "e011cd0": { "id": "general.fallback.000", "conf": false }, "not_confident_on": "disease.gonorrhea.001" },
+
+    { "q": "คุมฉุกเฉินคุมยังไง", "group": "how_to", "e011cd0": { "id": "urgent.pills.000", "conf": true }, "not_id": "birth.control.pills.000", "keep_e011cd0": true },
+    { "q": "ฉีดยาคุมยังไง", "group": "how_to", "e011cd0": { "id": "birth.control.000", "conf": true }, "not_id": "birth.control.pills.000" },
+    { "q": "ห่วงอนามัยคุมยังไง", "group": "how_to", "e011cd0": { "id": "condom.000", "conf": false }, "not_id": "birth.control.pills.000" }
+  ]
+}

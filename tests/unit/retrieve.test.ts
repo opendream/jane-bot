@@ -6,6 +6,7 @@ import { FALLBACK_ID, WELCOME_ID, runTurn, newDialog, type TurnDeps } from "../.
 import baselineFile from "../fixtures/retrieve-c450-baseline.json";
 import extraFile from "../fixtures/retrieve-routing-extra.json";
 import e948File from "../fixtures/retrieve-e948-baseline.json";
+import crossTopicNegatives from "../fixtures/retrieve-cross-topic-negatives.json";
 
 // All queries here are SYNTHETIC, written for these tests.
 
@@ -28,28 +29,42 @@ function triggerMisroutes(): string[] {
 }
 
 /**
- * Distinctive fragments (and one whitespace twin) so a card's own trigger
- * outranks a sibling stem via the listed-match tie-break. Frozen 123/e948
- * tables stay the old query set; these strings are new.
+ * Distinctive overlapping fragments so a card's own trigger outranks a
+ * sibling stem via the listed-match tie-break. Frozen 123/e948 tables stay
+ * the old query set; these strings are new. Each one must carry that card's
+ * topic word — the list is not a silent exemption.
  */
 const NEW_OWN_TRIGGER_FRAGMENTS = [
-  "โดยไม่บอกผู้ปกครอง",
-  "ไม่บอกผู้ปกครอง",
-  "เด็กตรวจ",
-  "วิธีใช้ถุง",
+  "ตรวจเอชไอวีโดยไม่บอก",
+  "ตรวจเอชไอวี โดยไม่บอก",
+  "เด็กตรวจเอชไอวี",
+  "เด็กตรวจ เอชไอวี",
+  "วิธีใช้ ถุงยาง",
   "คุมรายเดือน",
-  "คุมยังไง",
+  "กิน ยาคุมยังไง",
   "21 เม็ด",
   "ฝังยา",
-  "สงสัยว่าติดหนอง",
-  "เป็นหนอง",
+  "สงสัยว่าติด หนองใน",
+  "เป็น หนองใน",
   "เริม รักษาหาย",
   "เริม หายขาด",
-  "อาการซิฟิ",
-  "แผลซิฟิ",
+  "อาการ ซิฟิลิส",
+  "แผล ซิฟิลิส",
   "ราคา เพร็พ",
-  "กี่บาท",
+  "เพร็พ กี่บาท",
 ];
+
+/** Topic term a new fragment on that owner must carry. */
+const OWNER_TOPIC_TERM: Record<string, RegExp> = {
+  "hiv.test.under18.000": /เอชไอวี|hiv/i,
+  "price.trc.prep.000": /เพร็พ|prep/i,
+  "disease.gonorrhea.001": /หนองใน/,
+  "birth.control.pills.000": /ยาคุม|รายเดือน|21\s*เม็ด/,
+  "condom.how_to.000": /ถุงยาง/,
+  "birth.control.implant.000": /ฝังยา/,
+  "disease.herpes.002": /เริม/,
+  "disease.syphilis.001": /ซิฟิลิส/,
+};
 
 function stubCard(id: string, triggers: string[], topic: BankTopic = "emergency_contraception"): BankCard {
   return {
@@ -157,9 +172,14 @@ describe("approved-card trigger regression", () => {
     expect(found, found.join("\n")).toEqual([]);
   });
 
-  it("pregnancy.ec_ask.000 is a chip prompt, not a retrieval target", () => {
+  it("pregnancy.ec_ask.000 is an unreachable known exception, not a retrieval target", () => {
     const card = BANK.find((c) => c.id === "pregnancy.ec_ask.000")!;
     expect(card.triggers).toEqual([]);
+    const inbound = BANK.flatMap((c) => c.next.filter((n) => n.card_id === "pregnancy.ec_ask.000")
+      .map((n) => `${c.id} → ${n.label_th}`));
+    expect(inbound, inbound.join("\n")).toEqual([]);
+    expect(card.review.notes).toMatch(/unreachable via retrieval/i);
+    expect(card.review.notes).toMatch(/Opendream/);
     // วิธีการกินยาคุมฉุกเฉิน belongs to the timing card; stealing it would move EC.
     expect(topId("วิธีการกินยาคุมฉุกเฉิน")).toBe("ec.timing.b001");
   });
@@ -405,6 +425,14 @@ describe("retrieve baseline diff gate (c450e1f)", () => {
     }
     const missing = [...triggerQs].filter((t) => !byQ.has(t));
     expect(missing.sort(), missing.join("\n")).toEqual([...NEW_OWN_TRIGGER_FRAGMENTS].sort());
+    for (const t of NEW_OWN_TRIGGER_FRAGMENTS) {
+      const owners = BANK.filter((c) => c.review.status === "approved" && c.triggers.includes(t)).map((c) => c.id);
+      expect(owners, t).toEqual([expect.any(String)]);
+      expect(owners).toHaveLength(1);
+      const term = OWNER_TOPIC_TERM[owners[0]!];
+      expect(term, `${owners[0]} needs a topic term for new fragment ${t}`).toBeTruthy();
+      expect(term.test(t), `${owners[0]} fragment "${t}" must carry the topic word`).toBe(true);
+    }
     for (const q of CROSS_TOPIC) expect(byQ.has(q), q).toBe(true);
   });
 
@@ -524,6 +552,38 @@ describe("synthetic extra routing (post-EC, how-often, hour-window, PEP)", () =>
         }
       } else if (got.conf && got.id === "ec.timing.b001") {
         unexpected.push(`${row.q}\tc450=${row.c450.id}/${row.c450.conf}\tgot=${got.id}/${got.conf}\twant=not confident on ec.timing`);
+      }
+    }
+    expect(unexpected, unexpected.join("\n")).toEqual([]);
+  });
+});
+
+describe("cross-topic negatives (synthetic)", () => {
+  it("has the e011cd0 pin and the price / teen-consent / pus / how-to groups", () => {
+    expect(crossTopicNegatives.base_commit).toBe("e011cd0a2c06cd44f2cf1fb6205790a17f2a3e59");
+    const groups = new Set(crossTopicNegatives.queries.map((r) => r.group));
+    expect([...groups].sort()).toEqual(["how_to", "price", "pus", "teen_consent", "teen_consent_hiv"].sort());
+  });
+
+  it("price / teen-consent / pus / how-to rows stay off the wrong card and match e011cd0 except HIV teen-consent", () => {
+    const unexpected: string[] = [];
+    for (const row of crossTopicNegatives.queries) {
+      const got = outcome(row.q);
+      if (row.group === "teen_consent_hiv") {
+        if (got.id !== row.id) {
+          unexpected.push(`${row.q}\tgot=${got.id}/${got.conf}\twant=${row.id} (HIV teen-consent)`);
+        }
+      } else if (got.id !== row.e011cd0.id || got.conf !== row.e011cd0.conf) {
+        unexpected.push(`${row.q}\te011cd0=${row.e011cd0.id}/${row.e011cd0.conf}\tgot=${got.id}/${got.conf}`);
+      }
+      if (row.not_id && got.id === row.not_id) {
+        unexpected.push(`${row.q}\tlanded on forbidden ${row.not_id}`);
+      }
+      if (row.not_confident_on && got.conf && got.id === row.not_confident_on) {
+        unexpected.push(`${row.q}\tconfident on forbidden ${row.not_confident_on}`);
+      }
+      if (row.keep_e011cd0 && (got.id !== row.e011cd0.id || got.conf !== row.e011cd0.conf)) {
+        unexpected.push(`${row.q}\tmust keep e011cd0 ${row.e011cd0.id}/${row.e011cd0.conf} got=${got.id}/${got.conf}`);
       }
     }
     expect(unexpected, unexpected.join("\n")).toEqual([]);
