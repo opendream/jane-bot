@@ -132,7 +132,7 @@ function imageUrls(spec: JaneImageSpec): string[] {
   return urls;
 }
 
-/** Fetch every Jane file after the first paint so later screens (not crisis) make no new requests. */
+/** Fetch every Jane file in the same task as render() so later screens (not crisis) make no new requests. */
 export function preloadJaneArt() {
   if (typeof Image === "undefined") return;
   const urls = new Set<string>();
