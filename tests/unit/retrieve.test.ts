@@ -1,9 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { BANK } from "../../src/core/bankData";
-import { shippable } from "../../src/core/bank";
-import { retrieve } from "../../src/core/retrieve";
+import { shippable, type BankCard, type BankTopic } from "../../src/core/bank";
+import { countTriggerHits, retrieve } from "../../src/core/retrieve";
 import { FALLBACK_ID, WELCOME_ID, runTurn, newDialog, type TurnDeps } from "../../src/core/dialog";
 import baselineFile from "../fixtures/retrieve-c450-baseline.json";
+import extraFile from "../fixtures/retrieve-routing-extra.json";
+import e948File from "../fixtures/retrieve-e948-baseline.json";
 
 // All queries here are SYNTHETIC, written for these tests.
 
@@ -45,6 +47,38 @@ const EXISTING_TRIGGER_COLLISIONS = [
   row("price.trc.prep.000", "เพร็พกี่บาท", "protection.prep.000"),
   row("price.trc.prep.000", "ซื้อยาเพร็พ", "protection.prep.000"),
 ];
+
+function stubCard(id: string, triggers: string[], topic: BankTopic = "emergency_contraception"): BankCard {
+  return {
+    id, topic, title_th: id, answer_th: "x", key_facts: [], triggers,
+    next: [], source_intents: [], source: [],
+    review: { status: "approved", reviewer: "t", reviewed_on: "2026-10-27" },
+    last_reviewed: "2026-10-27", flags: [], referral: { offer: "none", intents: [] },
+    links: [], age_min: 15, reword: false, licence: "CC-BY-SA-4.0",
+  };
+}
+
+describe("trigger matches count once per card", () => {
+  it("a whitespace-twin trigger pair scores the same as a single trigger", () => {
+    const q = "กินยาคุมฉุกเฉิน";
+    const pair = ["กินยาคุมฉุกเฉิน", "กิน ยาคุมฉุกเฉิน"];
+    const one = ["กินยาคุมฉุกเฉิน"];
+    expect(countTriggerHits(q, pair)).toBe(countTriggerHits(q, one));
+    expect(countTriggerHits(q, pair)).toBe(1);
+    const twins = stubCard("t.twin.000", pair);
+    const single = stubCard("t.twin.000", one);
+    expect(retrieve(q, [twins]).ranked[0]!.triggerHits).toBe(1);
+    expect(retrieve(q, [twins]).ranked[0]!.score).toBe(retrieve(q, [single]).ranked[0]!.score);
+  });
+
+  it("overlapping matched spans of one card keep the strongest once", () => {
+    const q = "ยาคุมฉุกเฉินกี่วันประจำเดือนมา";
+    expect(countTriggerHits(q, ["ยาคุมฉุกเฉินกี่วัน", "ยาคุมฉุกเฉิน กี่วัน"])).toBe(1);
+    expect(countTriggerHits(q, ["ยาคุมฉุกเฉินกี่วัน", "ยาคุมฉุกเฉินกี่วัน"])).toBe(1);
+    // Distinct non-overlapping phrases still add.
+    expect(countTriggerHits("pep ยาคุม", ["pep", "ยาคุม"])).toBe(2);
+  });
+});
 
 describe("card #21 what-is EC vs timing", () => {
   const whatIs = [
@@ -169,6 +203,50 @@ const INTENDED_VS_C450: Record<string, { id: string; conf: boolean }> = {
   "เล่าเรื่องยาคุมฉุกเฉินให้หน่อย": { id: "urgent.pills.000", conf: true },
   "ยาคุมฉุกเฉินทำอะไร": { id: "urgent.pills.000", conf: true },
   "ถุงยางรั่ว ต้องทำยังไง คุมฉุกเฉินทันไหม": { id: "ec.timing.b001", conf: true },
+  // Space-twin triggers counted once: still top timing, no longer rules-confident.
+  "กินยาคุมฉุกเฉิน": { id: "ec.timing.b001", conf: false },
+  "กิน ยาคุมฉุกเฉิน": { id: "ec.timing.b001", conf: false },
+  "คุมฉุกเฉินกินเมื่อไร": { id: "ec.timing.b001", conf: false },
+  "คุมฉุกเฉิน กินเมื่อไร": { id: "ec.timing.b001", conf: false },
+  "ยาคุมฉุกเฉินช้า": { id: "ec.timing.b001", conf: false },
+  "ยาคุมฉุกเฉิน ช้า": { id: "ec.timing.b001", conf: false },
+  "คุมฉุกเฉินทัน": { id: "ec.timing.b001", conf: false },
+  "คุมฉุกเฉิน ทัน": { id: "ec.timing.b001", conf: false },
+  "ยาคุมฉุกเฉินกี่ชั่วโมง": { id: "ec.timing.b001", conf: false },
+  "ยาคุมฉุกเฉิน กี่ชั่วโมง": { id: "ec.timing.b001", conf: false },
+  "ยาคุมฉุกเฉินกี่วัน": { id: "ec.timing.b001", conf: false },
+  "ยาคุมฉุกเฉิน กี่วัน": { id: "ec.timing.b001", conf: false },
+  "คุมฉุกเฉินยังทัน": { id: "ec.timing.b001", conf: false },
+  "คุมฉุกเฉิน ยังทัน": { id: "ec.timing.b001", conf: false },
+};
+
+/** Twin-dedupe vs e948e1c: same top card, confidence drops where space-twins had added +4. */
+const INTENDED_VS_E948: Record<string, { id: string; conf: boolean }> = {
+  "กินยาคุมฉุกเฉิน": { id: "ec.timing.b001", conf: false },
+  "กิน ยาคุมฉุกเฉิน": { id: "ec.timing.b001", conf: false },
+  "คุมฉุกเฉินกินเมื่อไร": { id: "ec.timing.b001", conf: false },
+  "คุมฉุกเฉิน กินเมื่อไร": { id: "ec.timing.b001", conf: false },
+  "ยาคุมฉุกเฉินช้า": { id: "ec.timing.b001", conf: false },
+  "ยาคุมฉุกเฉิน ช้า": { id: "ec.timing.b001", conf: false },
+  "คุมฉุกเฉินทัน": { id: "ec.timing.b001", conf: false },
+  "คุมฉุกเฉิน ทัน": { id: "ec.timing.b001", conf: false },
+  "ยาคุมฉุกเฉินกี่ชั่วโมง": { id: "ec.timing.b001", conf: false },
+  "ยาคุมฉุกเฉิน กี่ชั่วโมง": { id: "ec.timing.b001", conf: false },
+  "ยาคุมฉุกเฉินกี่วัน": { id: "ec.timing.b001", conf: false },
+  "ยาคุมฉุกเฉิน กี่วัน": { id: "ec.timing.b001", conf: false },
+  "คุมฉุกเฉินยังทัน": { id: "ec.timing.b001", conf: false },
+  "คุมฉุกเฉิน ยังทัน": { id: "ec.timing.b001", conf: false },
+  "ยาคุมฉุกเฉินกี่วันประจำเดือนมา": { id: "ec.timing.b001", conf: false },
+  "ยาคุมฉุกเฉินกี่วันถึงตรวจครรภ์ได้": { id: "ec.timing.b001", conf: false },
+  "กินยาคุมฉุกเฉินแล้วประจำเดือนจะมาเมื่อไร": { id: "ec.timing.b001", conf: false },
+  "กินยาคุมฉุกเฉินไปแล้วกี่วันตรวจท้องได้": { id: "ec.timing.b001", conf: false },
+  "กินยาคุมฉุกเฉินแล้วคลื่นไส้นานแค่ไหน": { id: "ec.timing.b001", conf: false },
+  "กินยาคุมฉุกเฉินแล้วเลือดออกนานไหม": { id: "ec.timing.b001", conf: false },
+  "หลังกินยาคุมฉุกเฉินตรวจท้องเมื่อไร": { id: "ec.timing.b001", conf: false },
+  "กินยาคุมฉุกเฉินแล้วประจำเดือนไม่มา": { id: "ec.timing.b001", conf: false },
+  "กินยาคุมฉุกเฉินได้กี่ครั้ง": { id: "ec.timing.b001", conf: false },
+  "กินยาคุมฉุกเฉินบ่อยอันตรายไหม": { id: "ec.timing.b001", conf: false },
+  "กินยาคุมฉุกเฉินแล้วมีผลข้างเคียงไหม": { id: "ec.timing.b001", conf: false },
 };
 
 const PEP_QUERIES = [
@@ -225,5 +303,106 @@ describe("retrieve baseline diff gate (c450e1f)", () => {
       expect(outcome(q), q).toEqual({ id: base.id, conf: base.conf });
       expect(outcome(q).id, q).toBe("protection.pep.000");
     }
+  });
+});
+
+const extraByGroup = (g: string) => extraFile.queries.filter((r) => r.group === g).map((r) => r.q);
+
+/** Recorded landings after the matcher dedupe (known gap, issue #28). */
+const HOUR_WINDOW_NOW: Record<string, { id: string; conf: boolean }> = {
+  "ยาคุมฉุกเฉินกินภายในกี่ชั่วโมง": { id: "urgent.pills.000", conf: false },
+  "ยาคุมฉุกเฉินควรกินเมื่อไร": { id: "urgent.pills.000", conf: false },
+  "ยาคุมฉุกเฉิน 3 วันยังทันไหม": { id: "urgent.pills.000", conf: false },
+  "ยาคุมฉุกเฉินคืออะไร กินได้กี่ชั่วโมง": { id: "urgent.pills.000", conf: true },
+  "อยากรู้เรื่องยาคุมฉุกเฉิน กินภายในกี่ชั่วโมง": { id: "urgent.pills.000", conf: true },
+};
+
+describe("synthetic extra routing (post-EC, how-often, hour-window, PEP)", () => {
+  it("covers the extra groups and every extra row is in the e948 snapshot", () => {
+    expect(extraByGroup("post_ec").length).toBeGreaterThanOrEqual(10);
+    expect(extraByGroup("how_often")).toEqual(expect.arrayContaining([
+      "กินยาคุมฉุกเฉินได้กี่ครั้ง",
+      "กินยาคุมฉุกเฉินบ่อยอันตรายไหม",
+      "กินยาคุมฉุกเฉินแล้วมีผลข้างเคียงไหม",
+      "กินยาคุมฉุกเฉิน",
+    ]));
+    expect(extraByGroup("hour_window")).toEqual(expect.arrayContaining([
+      "ยาคุมฉุกเฉินกินภายในกี่ชั่วโมง",
+      "ยาคุมฉุกเฉินควรกินเมื่อไร",
+      "ยาคุมฉุกเฉิน 3 วันยังทันไหม",
+    ]));
+    const e948 = new Set(e948File.queries.map((r) => r.q));
+    for (const r of extraFile.queries) expect(e948.has(r.q), r.q).toBe(true);
+  });
+
+  it("post-EC follow-ups are not rules-confident on ec.timing.b001", () => {
+    for (const q of extraByGroup("post_ec")) {
+      const r = retrieve(q, pool);
+      const top = r.ranked[0]?.card.id;
+      expect(r.confident && top === "ec.timing.b001", `${q} → ${top}/${r.confident}`).toBe(false);
+    }
+  });
+
+  it("how-often / side-effect / bare กินยาคุมฉุกเฉิน are not rules-confident on ec.timing", () => {
+    for (const q of extraByGroup("how_often")) {
+      const r = retrieve(q, pool);
+      const top = r.ranked[0]?.card.id;
+      expect(r.confident && top === "ec.timing.b001", `${q} → ${top}/${r.confident}`).toBe(false);
+    }
+  });
+
+  it("records hour-window landings (known gap) and keeps PEP unchanged vs e948 and c450", () => {
+    for (const [q, want] of Object.entries(HOUR_WINDOW_NOW)) {
+      expect(outcome(q), q).toEqual(want);
+    }
+    const e948 = new Map(e948File.queries.map((r) => [r.q, r]));
+    for (const q of extraByGroup("pep")) {
+      const got = outcome(q);
+      expect(got.id, q).toBe("protection.pep.000");
+      expect(got, q).toEqual({ id: e948.get(q)!.id, conf: e948.get(q)!.conf });
+      const c450 = extraFile.queries.find((r) => r.q === q)!.c450;
+      expect(got, q).toEqual(c450);
+    }
+  });
+
+  it("extra rows vs c450 only move on the twin-dedupe / #21 split", () => {
+    const unexpected: string[] = [];
+    for (const row of extraFile.queries) {
+      const got = outcome(row.q);
+      const want = row.group === "pep"
+        ? row.c450
+        : (INTENDED_VS_E948[row.q] ?? HOUR_WINDOW_NOW[row.q] ?? INTENDED_VS_C450[row.q]);
+      if (want) {
+        if (got.id !== want.id || got.conf !== want.conf) {
+          unexpected.push(`${row.q}\tc450=${row.c450.id}/${row.c450.conf}\tgot=${got.id}/${got.conf}\twant=${want.id}/${want.conf}`);
+        }
+      } else if (got.confident && got.id === "ec.timing.b001") {
+        unexpected.push(`${row.q}\tc450=${row.c450.id}/${row.c450.conf}\tgot=${got.id}/${got.conf}\twant=not confident on ec.timing`);
+      }
+    }
+    expect(unexpected, unexpected.join("\n")).toEqual([]);
+  });
+});
+
+describe("retrieve baseline diff gate (e948e1c)", () => {
+  it("has the frozen e948e1c table covering the 123-query corpus plus extra rows", () => {
+    expect(e948File.commit).toBe("e948e1ca7c79048818d522c8ca536f9704e07758");
+    expect(e948File.queries).toHaveLength(143);
+    const byQ = new Set(e948File.queries.map((r) => r.q));
+    for (const row of baselineFile.queries) expect(byQ.has(row.q), row.q).toBe(true);
+    for (const row of extraFile.queries) expect(byQ.has(row.q), row.q).toBe(true);
+  });
+
+  it("matches e948e1c except the intended twin-dedupe confidence drops", () => {
+    const unexpected: string[] = [];
+    for (const row of e948File.queries) {
+      const got = outcome(row.q);
+      const intended = INTENDED_VS_E948[row.q];
+      const want = intended ?? { id: row.id, conf: row.conf };
+      if (got.id !== want.id || got.conf !== want.conf) {
+        unexpected.push(`${row.q}\te948=${row.id}/${row.conf}\tgot=${got.id}/${got.conf}\twant=${want.id}/${want.conf}`);
+      }
+    }
+    expect(unexpected, unexpected.join("\n")).toEqual([]);
   });
 });
