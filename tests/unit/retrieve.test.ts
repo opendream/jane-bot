@@ -685,6 +685,16 @@ describe("PrEP price routing vs 476b992 (synthetic)", () => {
     }
   });
 
+  it("phone-retest lines retrieve and runTurn to the price card, not #34", async () => {
+    for (const q of ["PrEP ราคาเท่าไหร่", "ยาเพร็พ ราคาเท่าไหร่คะ"]) {
+      const r = retrieve(q, pool);
+      expect(r.ranked[0]?.card.id, q).toBe(PREP_PRICE_ID);
+      expect(r.ranked[0]?.card.id, q).not.toBe(UNDER18_HIV);
+      const turn = await runTurn(newDialog(), q, deps());
+      expect(turn.reply.kind === "card" && turn.reply.card.id, q).toBe(PREP_PRICE_ID);
+    }
+  });
+
   it("keeps general PrEP questions on protection.prep.000", () => {
     for (const row of prepPriceByGroup("prep_general")) {
       const got = outcome(row.q);
