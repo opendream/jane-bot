@@ -64,10 +64,6 @@ const NEW_OWN_TRIGGER_FRAGMENTS = [
   "เพร็พ แพง",
   "ยาเพร็พแพง",
   "ยาเพร็พ แพง",
-  "เพร็พเท่าไหร่",
-  "เพร็พ เท่าไหร่",
-  "ยาเพร็พเท่าไหร่",
-  "ยาเพร็พ เท่าไหร่",
   "ค่ายาเพร็พ",
   "ค่ายา เพร็พ",
   "ค่า ยาเพร็พ",
@@ -80,8 +76,6 @@ const NEW_OWN_TRIGGER_FRAGMENTS = [
   "prep กี่บาท",
   "prepแพง",
   "prep แพง",
-  "prepเท่าไหร่",
-  "prep เท่าไหร่",
   "ค่ายาprep",
   "ค่ายา prep",
 ];
@@ -464,6 +458,9 @@ describe("retrieve baseline diff gate (c450e1f)", () => {
       const term = OWNER_TOPIC_TERM[owners[0]!];
       expect(term, `${owners[0]} needs a topic term for new fragment ${t}`).toBeTruthy();
       expect(term.test(t), `${owners[0]} fragment "${t}" must carry the topic word`).toBe(true);
+      if (owners[0] === "price.trc.prep.000") {
+        expect(/ราคา|บาท|แพง|ค่า/.test(t), `${t} must carry an unambiguous price word`).toBe(true);
+      }
     }
     for (const q of CROSS_TOPIC) expect(byQ.has(q), q).toBe(true);
   });
@@ -662,7 +659,7 @@ describe("PrEP price routing vs 476b992 (synthetic)", () => {
   it("has the frozen 476b992 table covering existing routing fixtures plus PrEP-price rows", () => {
     expect(frozen476File.baseline_commit).toBe("476b992c7e172a3b86d12799a515f5c1a4b081a2");
     expect(prepPriceFile.base_commit).toBe("476b992c7e172a3b86d12799a515f5c1a4b081a2");
-    expect(frozen476File.queries).toHaveLength(289);
+    expect(frozen476File.queries).toHaveLength(304);
     const byQ = new Set(frozen476File.queries.map((r) => r.q));
     for (const row of baselineFile.queries) expect(byQ.has(row.q), row.q).toBe(true);
     for (const row of extraFile.queries) expect(byQ.has(row.q), row.q).toBe(true);
@@ -700,6 +697,37 @@ describe("PrEP price routing vs 476b992 (synthetic)", () => {
       const got = outcome(row.q);
       expect(got.id, row.q).toBe(PREP_GENERAL_ID);
       expect(got.id, row.q).toBe(row.id);
+    }
+  });
+
+  it("dose/efficacy/timing เท่าไหร่ and กี่ questions stay confident on protection.prep.000", () => {
+    const qs = prepPriceByGroup("prep_dose_efficacy").map((r) => r.q);
+    expect(qs).toEqual(expect.arrayContaining([
+      "กินเพร็พเท่าไหร่ถึงจะป้องกันได้",
+      "ต้องกินยาเพร็พเท่าไหร่ถึงจะได้ผล",
+      "ประสิทธิภาพของเพร็พเท่าไหร่",
+      "prep เท่าไหร่ถึงได้ผล",
+      "กินเพร็พกี่เม็ด",
+      "เพร็พกินกี่วันถึงจะป้องกัน",
+      "prep ป้องกันได้กี่เปอร์เซ็นต์",
+    ]));
+    for (const row of prepPriceByGroup("prep_dose_efficacy")) {
+      expect(outcome(row.q), row.q).toEqual({ id: PREP_GENERAL_ID, conf: true });
+      expect(outcome(row.q).id, row.q).not.toBe(PREP_PRICE_ID);
+    }
+  });
+
+  it("price.trc.prep.000 fragments pair a PrEP topic word with an unambiguous price word", () => {
+    const card = BANK.find((c) => c.id === PREP_PRICE_ID)!;
+    const topic = /เพร็พ|prep/i;
+    const price = /ราคา|บาท|แพง|ค่า/;
+    const bad = card.triggers.filter((t) => !topic.test(t) || !price.test(t));
+    expect(bad, bad.join("\n")).toEqual([]);
+  });
+
+  it("main price phrasings win on listed-match ties, not rules-confident unique hits", () => {
+    for (const q of ["PrEP ราคาเท่าไหร่", "ยาเพร็พ ราคาเท่าไหร่คะ", "ราคาเพร็พ", "เพร็พกี่บาท"]) {
+      expect(outcome(q), q).toEqual({ id: PREP_PRICE_ID, conf: false });
     }
   });
 
@@ -744,6 +772,7 @@ describe("PrEP price routing vs 476b992 (synthetic)", () => {
       }
     }
     expect(unintended, unintended.join("\n")).toEqual([]);
-    expect(intended.length, intended.join("\n")).toBe(51);
+    expect(intended.every((line) => line.endsWith("/false")), intended.join("\n")).toBe(true);
+    expect(intended.length, intended.join("\n")).toBe(45);
   });
 });

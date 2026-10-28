@@ -68,12 +68,22 @@
       "conf": true
     },
     {
+      "q": "prep กินกี่วัน",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
       "q": "prep กินเมื่อไร",
       "id": "protection.prep.000",
       "conf": true
     },
     {
       "q": "prep กี่บาท",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "prep ป้องกันได้กี่เปอร์เซ็นต์",
       "id": "protection.prep.000",
       "conf": true
     },
@@ -89,6 +99,11 @@
     },
     {
       "q": "prep เท่าไหร่",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "prep เท่าไหร่ถึงได้ผล",
       "id": "protection.prep.000",
       "conf": true
     },
@@ -258,6 +273,11 @@
       "conf": false
     },
     {
+      "q": "กินยาเพร็พเท่าไหร่ถึงจะป้องกันได้",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
       "q": "กินยาเอชไอวีโดยไม่บอกผู้ปกครองได้ไหม",
       "id": "disease.hiv.000",
       "conf": false
@@ -273,6 +293,11 @@
       "conf": true
     },
     {
+      "q": "กินเพร็พกี่เม็ด",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
       "q": "กินเพร็พป้องกันเอชไอวีโดยไม่บอกผู้ปกครองได้ไหม",
       "id": "protection.prep.000",
       "conf": true
@@ -284,6 +309,16 @@
     },
     {
       "q": "กินเพร็พยังไง",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "กินเพร็พเท่าไหร่ต่อวัน",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "กินเพร็พเท่าไหร่ถึงจะป้องกันได้",
       "id": "protection.prep.000",
       "conf": true
     },
@@ -568,6 +603,16 @@
       "conf": false
     },
     {
+      "q": "ต้องกินยาเพร็พเท่าไหร่ถึงจะได้ผล",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "ต้องกินเพร็พกี่วันถึงจะได้ผล",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
       "q": "ถุงยางกี่บาท",
       "id": "condom.000",
       "conf": false
@@ -660,6 +705,16 @@
     {
       "q": "บายพี่เจน",
       "id": "ending.byejane.000",
+      "conf": true
+    },
+    {
+      "q": "ประสิทธิภาพของยาเพร็พเท่าไหร่",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "ประสิทธิภาพของเพร็พเท่าไหร่",
+      "id": "protection.prep.000",
       "conf": true
     },
     {
@@ -926,6 +981,11 @@
       "q": "ยาเพร็พกี่บาท",
       "id": "protection.prep.000",
       "conf": false
+    },
+    {
+      "q": "ยาเพร็พกี่เม็ดต่อวัน",
+      "id": "protection.prep.000",
+      "conf": true
     },
     {
       "q": "ยาเพร็พราคา",
@@ -1263,6 +1323,16 @@
       "conf": true
     },
     {
+      "q": "เพร็พกินกี่ชั่วโมงถึงจะป้องกันได้",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "เพร็พกินกี่วันถึงจะป้องกัน",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
       "q": "เพร็พกินเมื่อไร",
       "id": "protection.prep.000",
       "conf": true
@@ -1274,6 +1344,11 @@
     },
     {
       "q": "เพร็พทันไหม",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "เพร็พป้องกันได้เท่าไหร่",
       "id": "protection.prep.000",
       "conf": true
     },

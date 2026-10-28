@@ -1,5 +1,5 @@
 {
-  "$comment": "SYNTHETIC PrEP-price routing rows for v2/31. Queries are written for this gate, not user logs. 476b992 is retrieve() at 476b992c7e172a3b86d12799a515f5c1a4b081a2. prep_price must land on price.trc.prep.000. prep_general stays on protection.prep.000. pep_price / other_price / fragment_sweep must not steal the PrEP price card. hiv_privacy pins #34 vs adult partner privacy vs teen PEP/PrEP.",
+  "$comment": "SYNTHETIC PrEP-price routing rows for v2/31. Queries are written for this gate, not user logs. 476b992 is retrieve() at 476b992c7e172a3b86d12799a515f5c1a4b081a2. prep_price must land on price.trc.prep.000. prep_general and prep_dose_efficacy stay on protection.prep.000 (dose/efficacy/timing/duration with เท่าไหร่ or กี่, no price word). pep_price / other_price / fragment_sweep must not steal the PrEP price card. hiv_privacy pins #34 vs adult partner privacy vs teen PEP/PrEP.",
   "base_commit": "476b992c7e172a3b86d12799a515f5c1a4b081a2",
   "queries": [
     { "q": "PrEP ราคาเท่าไหร่", "group": "prep_price", "id": "price.trc.prep.000" },
@@ -35,6 +35,22 @@
     { "q": "เพร็พกินเมื่อไร", "group": "prep_general", "id": "protection.prep.000" },
     { "q": "prep กินเมื่อไร", "group": "prep_general", "id": "protection.prep.000" },
     { "q": "เพร็พทันไหม", "group": "prep_general", "id": "protection.prep.000" },
+
+    { "q": "กินเพร็พเท่าไหร่ถึงจะป้องกันได้", "group": "prep_dose_efficacy", "id": "protection.prep.000" },
+    { "q": "ต้องกินยาเพร็พเท่าไหร่ถึงจะได้ผล", "group": "prep_dose_efficacy", "id": "protection.prep.000" },
+    { "q": "ประสิทธิภาพของเพร็พเท่าไหร่", "group": "prep_dose_efficacy", "id": "protection.prep.000" },
+    { "q": "prep เท่าไหร่ถึงได้ผล", "group": "prep_dose_efficacy", "id": "protection.prep.000" },
+    { "q": "กินเพร็พกี่เม็ด", "group": "prep_dose_efficacy", "id": "protection.prep.000" },
+    { "q": "เพร็พกินกี่วันถึงจะป้องกัน", "group": "prep_dose_efficacy", "id": "protection.prep.000" },
+    { "q": "prep ป้องกันได้กี่เปอร์เซ็นต์", "group": "prep_dose_efficacy", "id": "protection.prep.000" },
+    { "q": "กินเพร็พเท่าไหร่ต่อวัน", "group": "prep_dose_efficacy", "id": "protection.prep.000" },
+    { "q": "กินยาเพร็พเท่าไหร่ถึงจะป้องกันได้", "group": "prep_dose_efficacy", "id": "protection.prep.000" },
+    { "q": "ประสิทธิภาพของยาเพร็พเท่าไหร่", "group": "prep_dose_efficacy", "id": "protection.prep.000" },
+    { "q": "เพร็พป้องกันได้เท่าไหร่", "group": "prep_dose_efficacy", "id": "protection.prep.000" },
+    { "q": "ยาเพร็พกี่เม็ดต่อวัน", "group": "prep_dose_efficacy", "id": "protection.prep.000" },
+    { "q": "ต้องกินเพร็พกี่วันถึงจะได้ผล", "group": "prep_dose_efficacy", "id": "protection.prep.000" },
+    { "q": "prep กินกี่วัน", "group": "prep_dose_efficacy", "id": "protection.prep.000" },
+    { "q": "เพร็พกินกี่ชั่วโมงถึงจะป้องกันได้", "group": "prep_dose_efficacy", "id": "protection.prep.000" },
 
     { "q": "เป็ปกี่บาท", "group": "pep_price", "id": "protection.pep.000", "not_id": "price.trc.prep.000" },
     { "q": "PEP ราคาเท่าไหร่", "group": "pep_price", "id": "protection.pep.000", "not_id": "price.trc.prep.000" },
