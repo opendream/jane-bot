@@ -1,5 +1,5 @@
 import type { Intent, Service, CrisisLine } from "./types";
-import { openStatus, narrowestHours, type OpenStatus } from "./openNow";
+import { openStatus, narrowestHours, hoursLabel, type OpenStatus } from "./openNow";
 import { MAX_SUGGESTIONS } from "../config";
 import data from "../data/services.json";
 
@@ -9,6 +9,17 @@ export const SERVICES: Service[] = (data.services as unknown as Omit<Service, "h
 }));
 export const CRISIS_LINES = data.crisis_lines as unknown as CrisisLine[];
 export const DATA_VERSION = data.data_version;
+
+export function serviceById(id: string): Service {
+  const s = SERVICES.find((x) => x.id === id);
+  if (!s) throw new Error(`unknown service: ${id}`);
+  return s;
+}
+
+/** Effective hours label from services.json (one source of truth for cards, open-now, under-15, crisis). */
+export function serviceHoursLabel(id: string): string {
+  return hoursLabel(serviceById(id).hours);
+}
 
 /** Preferred services per need, best first. */
 export const PREFERENCE: Record<Intent, string[]> = {

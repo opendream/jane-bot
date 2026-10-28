@@ -12,7 +12,7 @@ describe("committed bank cards (placeholders until review)", () => {
       expect(c.licence, c.id).toMatch(/not ThaiHealth content/);
     }
   });
-  it("no card states opening hours for 1663 (decision D3 pending)", () => {
+  it("no card states opening hours for 1663 (hours live in services.json)", () => {
     for (const c of BANK) if (visibleStrings(c).some((t) => t.includes("1663"))) expect(visibleStrings(c).flatMap(hoursIn), c.id).toEqual([]);
   });
   it("a welcome, a fallback and an ending card exist", () => {

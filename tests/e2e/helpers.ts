@@ -5,6 +5,21 @@ export const ORIGIN = "http://127.0.0.1:4173";
 export const SHOTS = "e2e-shots";
 fs.mkdirSync(SHOTS, { recursive: true });
 
+const SERVICES_DATA = JSON.parse(fs.readFileSync("src/data/services.json", "utf8"));
+export function serviceFromJson(id: string) {
+  return SERVICES_DATA.services.find((x: { id: string }) => x.id === id);
+}
+/** Daily hours lines as shown on the card, taken from services.json (not from the page). */
+export function citedHoursLines(id: string): string[] {
+  return serviceFromJson(id).hours_sources
+    .filter((h: { hours: { type: string } }) => h.hours.type === "daily")
+    .map((h: { by: string; hours: { open: string; close: string } }) => `${h.by}: ทุกวัน ${h.hours.open}–${h.hours.close} น.`);
+}
+export function effectiveHoursLabel(id: string): string {
+  const h = serviceFromJson(id).hours_sources[0].hours;
+  return `ทุกวัน ${h.open}–${h.close} น.`;
+}
+
 /** Records every request the page makes. Flow requests = anything after the initial load. */
 export async function open(page: Page, bkkTime: string) {
   const all: string[] = [];

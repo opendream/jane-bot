@@ -90,13 +90,13 @@ describe("bank rules: content", () => {
   });
   it("hours must match a cited source for a contact on the card", () => {
     const h = (t: string) => withCard((c) => { c.answer_th = t; c.key_facts = []; c.flags = [...c.flags, "hours"]; }, 1);
-    expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09:00–21:00 น."))).toEqual([]);            // RSATHAI
-    expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09:00 - 21:00 น."))).toEqual([]);           // spaced hyphen (same RSATHAI window)
+    expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09:00–21:00 น."))).toEqual([]);            // operator / RSATHAI / NHSO
+    expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09:00 - 21:00 น."))).toEqual([]);           // spaced hyphen (same cited window)
     expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09.00 - 21.00 น."))).toEqual([]);           // hotline then spaced dotted hours (stripPII must not mangle)
-    expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09.00–21.00 น."))).toEqual([]);             // dotted en-dash RSATHAI window
+    expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09.00–21.00 น."))).toEqual([]);             // dotted en-dash cited window
     expect(rules(h("ข้อความทดสอบ โทร 1663 09.00 - 21.00 น."))).toEqual([]);                // hotline immediately before hours
-    expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 10.00-20.00 น."))).toEqual([]);             // GCC
-    expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09.00-21.00 10.00-20.00"))).toEqual([]);    // back-to-back dotted ranges
+    expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 10.00-20.00 น."))).toContain("hours_match_source"); // GCC window is not cited
+    expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 09.00-21.00 09:00–21:00"))).toEqual([]);    // back-to-back dotted + colon ranges are not phones
     expect(rules(h("ข้อความทดสอบ โทร ๑๖๖๓ เวลา ๐๙.๐๐–๒๑.๐๐ น."))).toEqual([]);           // Thai digits
     expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 08:00–22:00 น."))).toContain("hours_match_source");
     expect(rules(h("ข้อความทดสอบ โทร 1663 เวลา 08:00 - 22:00 น."))).toContain("hours_match_source"); // spaced, not a cited window
@@ -160,7 +160,7 @@ describe("bank text helpers", () => {
     expect(phonesIn("โทร 02-123-4567")).toEqual(["021234567"]);
     expect(phonesIn("โทร 08-1234-5678 หรือ 0812-345-678 หรือ 0-2123-4567")).toEqual(["0812345678", "021234567"]);
     expect(phonesIn("โทร ๐๘๑-๒๓๔-๕๖๗๘")).toEqual(["0812345678"]);
-    expect(phonesIn("โทร 1663 เวลา 09.00-21.00 10.00-20.00")).toEqual(["1663"]);
+    expect(phonesIn("โทร 1663 เวลา 09.00-21.00 09:00–21:00")).toEqual(["1663"]);
     expect(phonesIn("เวลา ๐๙.๐๐–๒๑.๐๐ ๑๐.๐๐-๒๐.๐๐")).toEqual([]);
     expect(phonesIn("โทร 1336 วันเสาร์-อาทิตย์")).toEqual(["1336"]);
   });

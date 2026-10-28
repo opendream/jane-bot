@@ -3,7 +3,7 @@ import { PRODUCT_NAME, PRODUCT_NAME_EN, MIN_AGE, THAI_COPY_STATUS } from "./conf
 import markSvg from "./assets/mark.svg?raw";
 import type { AgeBand, CrisisCategory, Intent, IntentResult } from "./core/types";
 import { detectCrisis, crisisOrder } from "./core/crisis";
-import { suggestServices, CRISIS_LINES, DATA_VERSION, INTENT_LABEL_TH, SUPPORT_LINE_TH, type Suggestion } from "./core/referral";
+import { suggestServices, CRISIS_LINES, DATA_VERSION, INTENT_LABEL_TH, SUPPORT_LINE_TH, serviceHoursLabel, type Suggestion } from "./core/referral";
 import { hoursLabel, hoursCitation } from "./core/openNow";
 import { draftSummary, finalizeSummary, stripPII } from "./core/summary";
 import { classifyWithFallback, polishWithFallback, type LLMAdapter } from "./llm/adapter";
@@ -163,7 +163,7 @@ function underageScreen() {
     h("h1", {}, "ขอบคุณที่บอกเรา"),
     h("p", {}, `เดโมนี้ทำสำหรับอายุ ${MIN_AGE} ปีขึ้นไป แต่คุณยังขอความช่วยเหลือได้เสมอ โทรฟรี:`),
     callList(["1323", "1300"]),
-    h("p", {}, "เรื่องท้องหรือเอชไอวี โทร 1663 (ทุกวัน 09:00–21:00 น.)"),
+    h("p", {}, `เรื่องท้องหรือเอชไอวี โทร 1663 (${serviceHoursLabel("hotline_1663")})`),
     h("a", { class: "btn-call", href: "tel:1663" }, "โทร 1663"),
     h("button", { class: "btn-ghost", onclick: () => eraseAll("start") }, "กลับหน้าแรก"),
   );
@@ -374,7 +374,7 @@ function crisisScreen() {
     h("h1", {}, "ตอนนี้ความปลอดภัยของคุณสำคัญที่สุด"),
     h("p", { class: "lead" }, "คุณไม่ได้อยู่คนเดียว มีคนพร้อมช่วยตอนนี้ โทรฟรี กดที่เบอร์เพื่อโทรได้ทันที"),
     callList(order),
-    h("p", {}, "ถ้ากำลังอยู่ในอันตรายตอนนี้ โทร 191 หรือ 1669 ทันที เรื่องท้องหรือเอชไอวีโทร 1663 (09:00–21:00 น.)"),
+    h("p", {}, `ถ้ากำลังอยู่ในอันตรายตอนนี้ โทร 191 หรือ 1669 ทันที เรื่องท้องหรือเอชไอวีโทร 1663 (${serviceHoursLabel("hotline_1663")})`),
     h("p", { class: "src" }, "ที่มา: กรมสุขภาพจิต, กระทรวง พม., GCC Call Center ภาครัฐ, ศูนย์รับแจ้งเหตุ 191 (ตรวจ 2026-10-22)"),
     h("button", { class: "btn-ghost", "data-testid": "crisis-continue", onclick: () => { bumpNeed(need); go({ screen: crisisContinueScreen() }); } },
       "ฉันปลอดภัยแล้ว กลับไปต่อ"),

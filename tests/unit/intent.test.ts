@@ -65,7 +65,7 @@ describe("suggestServices", () => {
     const s = suggestServices(["emergency_contraception", "pregnancy"], at("08:30"));
     expect(s[0].service.id).toBe("hotline_1663");
     expect(s[0].status.state).toBe("closed");
-    expect(s[0].status.label_th).toContain("10:00"); // narrower window (GCC 10–20 vs RSATHAI 09–21)
+    expect(s[0].status.label_th).toContain("09:00");
   });
   it("mental health → 1323 (24h) first", () => {
     expect(suggestServices(["mental_health"], at("03:00"))[0].service.id).toBe("hotline_1323");
