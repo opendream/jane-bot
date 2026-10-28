@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { classifyNeed } from "../../src/core/intent";
 import { suggestServices } from "../../src/core/referral";
-import { detectCrisis, crisisOrder } from "../../src/core/crisis";
+import { detectCrisis } from "../../src/core/crisis";
+import { crisisOrder } from "../../src/core/crisis-order";
 import { draftSummary } from "../../src/core/summary";
 
 const at = (hhmm: string) => new Date(`2026-10-22T${hhmm}:00+07:00`);
@@ -24,11 +25,11 @@ describe("scenario 4: consent (non-crisis)", () => {
     const [first] = suggestServices(classifyNeed(t).intents, at("20:00"));
     expect(draftSummary({ service: first.service, needText: t, intent: "relationship_consent", ageBand: "15-17" })).toContain("การปฏิเสธ");
   });
-  it("being forced is a crisis override with 1300 first (not the consent flow)", () => {
+  it("being forced is a crisis override with 191 then 1300 (not the consent flow)", () => {
     for (const f of ["แฟนบังคับให้มีเพศสัมพันธ์ทั้งที่หนูไม่ยอม", "หนูโดนบังคับมีเซ็กส์", "เมื่อวานถูกบังคับให้มีเซ็กส์ ตอนนี้กลัวมาก", "โดนรุ่นพี่บังคับให้นอนด้วย", "แฟนบังคับให้มีอะไรด้วย"]) {
       const r = detectCrisis(f);
       expect(r.crisis, f).toBe(true);
-      expect(crisisOrder(r.categories)[0]).toBe("1300");
+      expect(crisisOrder(r.categories)).toEqual(["191", "1300"]);
     }
   });
 });
@@ -50,7 +51,7 @@ describe("scenario 5: mental health (non-crisis) vs crisis override", () => {
   it("same distress plus suicidal thought → crisis override, 1323 first", () => {
     const r = detectCrisis(t + " บางทีก็ไม่อยากมีชีวิตอยู่แล้ว");
     expect(r.crisis).toBe(true);
-    expect(crisisOrder(r.categories)[0]).toBe("1323");
+    expect(crisisOrder(r.categories)).toEqual(["1323", "1669"]);
   });
   it("mental health mixed with pregnancy worry keeps pregnancy first but offers mental-health help", () => {
     const r = classifyNeed("เครียดมาก กลัวท้อง ประจำเดือนไม่มา");

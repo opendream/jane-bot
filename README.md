@@ -13,10 +13,10 @@ Art: new mark only (`src/assets/mark.svg`, drawn in code for this build; also th
    open-now check in Asia/Bangkok time (`src/core/openNow.ts`).
 3. Handoff summary from a fixed template, PII stripped (`src/core/summary.ts`); she can edit, approve or cancel.
 4. Approve → simulated handoff screen labelled **DEMO — nothing was sent**, plus the real public channel.
-5. Crisis phrases override everything: 1323 / 1300 / 1669 / 191 with tap-to-call (`tel:`).
+5. Crisis phrases override everything: the matching helplines with tap-to-call (`tel:`). Mixed or unclear shows all four (1323 / 1300 / 1669 / 191).
 
 6. Five acceptance scenarios: S1 pregnancy, S2 emergency contraception, S3 HIV test, S4 consent (Teen Club / 1323 / 1300;
-   being forced → crisis, 1300 first), S5 mental health (1323 first; suicidal wording → crisis override).
+   being forced → crisis, 191 then 1300), S5 mental health (1323 first; suicidal wording → crisis override).
 7. Crisis detection has two levels: **override** (full crisis screen) and **banner** (topic/fiction/news or resolved mild
    wording: normal flow plus a crisis strip with the numbers). False-positive probe: `evals/crisis-fp-set.json` → `evals/crisis-scorecard.md`.
 

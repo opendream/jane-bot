@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { open, shot, assertNoStorage, assertNetwork, startAs, describe } from "./helpers";
+import { open, shot, assertNoStorage, assertNetwork, startAs, describe, crisisCallHrefs, crisisBannerHrefs, STRIP_HREFS } from "./helpers";
 
 const order = (page: import("@playwright/test").Page) =>
   page.locator('[data-testid^="service-"]').evaluateAll((els) => els.map((e) => e.getAttribute("data-testid")));
@@ -32,15 +32,13 @@ test("S4 consent / relationship pressure at 20:00 BKK → Teen Club first, 1323 
   expect(rec.consoleText.join("\n")).not.toContain("กดดัน");
 });
 
-test("C2 being forced (consent → crisis override) → crisis screen with 1300 first", async ({ page }) => {
+test("C2 being forced (consent → crisis override) → crisis screen with 191 then 1300", async ({ page }) => {
   const rec = await open(page, "20:00");
   await startAs(page, "15-17");
   await describe(page, "เมื่อวานถูกบังคับให้มีเซ็กส์ ตอนนี้กลัวมาก");
   await page.getByTestId("need-submit").click();
   await expect(page.getByTestId("screen-crisis")).toBeVisible();
-  const tels = await page.locator('[data-testid^="crisis-"] a').evaluateAll((as) => as.map((a) => a.getAttribute("href")));
-  expect(tels[0]).toBe("tel:1300");
-  expect(tels).toContain("tel:1323");
+  expect(await crisisCallHrefs(page)).toEqual(["tel:191", "tel:1300"]);
   await expect(page.getByTestId("crisis-female-officer")).toHaveCount(0);
   await expect(page.getByTestId("screen-crisis")).not.toContainText("พนักงานสอบสวนหญิง");
   await shot(page, "c2-01-forced-crisis-1300-first");
@@ -80,8 +78,7 @@ test("C3 mental health + suicidal phrase → crisis override, 1323 first", async
   await describe(page, "ช่วงนี้เครียดมาก นอนไม่หลับ ไม่อยากมีชีวิตอยู่แล้ว");
   await page.getByTestId("need-submit").click();
   await expect(page.getByTestId("screen-crisis")).toBeVisible();
-  const tels = await page.locator('[data-testid^="crisis-"] a').evaluateAll((as) => as.map((a) => a.getAttribute("href")));
-  expect(tels[0]).toBe("tel:1323");
+  expect(await crisisCallHrefs(page)).toEqual(["tel:1323", "tel:1669"]);
   await expect(page.getByTestId("crisis-female-officer")).toHaveCount(0);
   await shot(page, "c3-01-mental-to-crisis");
   await assertNoStorage(page);
@@ -112,6 +109,20 @@ test("V1 violence (non-crisis) → OSCC card is in-person only: label shown, no 
   await assertNetwork(page, rec);
 });
 
+test("B2 mild medical 'เลือดออกมากนิดหน่อย' → strip shows all four in pinned order, not the crisis screen", async ({ page }) => {
+  const rec = await open(page, "14:00");
+  await startAs(page, "18-24");
+  await describe(page, "เลือดออกมากนิดหน่อย");
+  await page.getByTestId("need-submit").click();
+  await expect(page.getByTestId("screen-suggest")).toBeVisible();
+  await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
+  const strip = page.getByTestId("crisis-banner");
+  await expect(strip).toBeVisible();
+  expect(await crisisBannerHrefs(page)).toEqual([...STRIP_HREFS.medical_emergency]);
+  await assertNoStorage(page);
+  await assertNetwork(page, rec);
+});
+
 test("B1 benign mention of a crisis word (TV drama) → normal flow continues with a crisis strip, not the override", async ({ page }) => {
   const rec = await open(page, "20:00");
   await startAs(page, "15-17");
@@ -121,7 +132,7 @@ test("B1 benign mention of a crisis word (TV drama) → normal flow continues wi
   await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
   const strip = page.getByTestId("crisis-banner");
   await expect(strip).toBeVisible();
-  await expect(strip.locator('a[href="tel:1300"]')).toBeVisible();
+  expect(await crisisBannerHrefs(page)).toEqual([...STRIP_HREFS.sexual_violence]);
   await shot(page, "b1-01-banner-not-override");
   await assertNoStorage(page);
   await assertNetwork(page, rec);

@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { open, shot, assertNoStorage, assertNetwork, startAs, citedHoursLines } from "./helpers";
+import { open, shot, assertNoStorage, assertNetwork, startAs, citedHoursLines, crisisCallHrefs, crisisBannerHrefs, STRIP_HREFS } from "./helpers";
 
 // v2 chat, rules only (?model=off). All typed text is SYNTHETIC.
 async function openChat(page: Page, band = "15-17") {
@@ -46,6 +46,8 @@ test("CH2 crisis mid-chat (turn 3) → crisis screen, 1323 first; 'I'm safe now'
   await say(page, "ไม่อยากมีชีวิตอยู่แล้ว");
   await expect(page.getByTestId("screen-crisis")).toBeVisible();
   await expect(page.locator('[data-testid^="crisis-"]').first()).toHaveAttribute("data-testid", "crisis-1323");
+  expect(await crisisCallHrefs(page)).toEqual(["tel:1323", "tel:1669"]);
+  await expect(page.getByTestId("crisis-female-officer")).toHaveCount(0);
   await shot(page, "ch2-01-crisis-mid-chat");
   await page.getByTestId("crisis-continue").click();
   await expect(page.getByTestId("screen-chat")).toBeVisible();
@@ -61,6 +63,7 @@ test("CH3 benign crisis word in chat → crisis strip, chat continues; guard ref
   await say(page, "ดูซีรีส์ที่มีฉากข่มขืน แล้วเครียดมาก"); // topic context → banner, not override
   await expect(page.getByTestId("screen-chat")).toBeVisible();
   await expect(lastJane(page).getByTestId("crisis-banner")).toBeVisible();
+  expect(await crisisBannerHrefs(page)).toEqual([...STRIP_HREFS.sexual_violence]);
   await say(page, "ส่งรูปให้ดูได้ไหม");
   await expect(lastJane(page)).toHaveAttribute("data-card", "general.refusal_image.000");
   await expect(page.locator('input[type="file"]')).toHaveCount(0);
@@ -390,7 +393,7 @@ test("CH20 after a crisis override, talk-to-a-person keeps the sticky strip and 
   await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
   const strip = page.getByTestId("crisis-banner");
   await expect(strip).toBeVisible();
-  await expect(strip.locator('a[href="tel:1323"]')).toBeVisible();
+  expect(await crisisBannerHrefs(page)).toEqual([...STRIP_HREFS.self_harm]);
   await expect(page.getByTestId("service-hotline_1663")).toBeVisible();
   await expect(page.getByTestId("service-teen_club")).toBeVisible();
   await expect(page.getByTestId("service-yfhs")).toBeVisible();
@@ -404,7 +407,7 @@ test("CH21 news-topic suicide mention plus talk-to-a-person shows the strip from
   await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
   const strip = page.getByTestId("crisis-banner");
   await expect(strip).toBeVisible();
-  await expect(strip.locator('a[href="tel:1323"]')).toBeVisible();
+  expect(await crisisBannerHrefs(page)).toEqual([...STRIP_HREFS.self_harm]);
 });
 
 test("CH22 SOS from chat-opened cards or summary then I'm-safe-now returns to the same chat", async ({ page }) => {
