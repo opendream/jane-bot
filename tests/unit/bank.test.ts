@@ -128,11 +128,11 @@ describe("bank rules: content", () => {
     expect(rules(withCard((c) => { c.answer_th = "ข้อความทดสอบ อีเมล test@example.com"; c.key_facts = []; }))).toContain("pii");
     expect(rules(withCard((c) => { c.answer_th = "ข้อความทดสอบ ทักไลน์ @teen_club ได้"; c.key_facts = []; }))).not.toContain("pii");
   });
-  it("approved pii_checked copy still fails on a phone, not on name-detector false positives", () => {
+  it("approved pii_checked copy still fails on a phone; a name-free line is clean", () => {
     const ok = withCard((c) => {
       c.review = { status: "approved", reviewer: "Keng", reviewed_on: "2026-10-27" };
       c.flags = ["pii_checked"];
-      c.answer_th = "สวัสดี เราชื่อพี่เจน :D ตรวจแบบไม่แจ้งชื่อ มีคลินิกนิรนาม HIV Self-Test";
+      c.answer_th = "ข้อความทดสอบ ตรวจเอชไอวีได้ที่คลินิก";
       c.key_facts = [];
     });
     expect(rules(ok)).not.toContain("pii");

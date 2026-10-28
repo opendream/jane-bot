@@ -230,7 +230,7 @@ describe("PII detector self-test (synthetic strings only)", () => {
       $comment: "Reviewed 27 Oct 2026 (Keng).",
       cards: [{
         id: "disease.hiv.002",
-        answer_th: "สวัสดี เราชื่อพี่เจน ตรวจแบบไม่แจ้งชื่อ HIV Self-Test",
+        answer_th: "ตรวจแบบไม่แจ้งชื่อ มีคลินิกนิรนาม HIV Self-Test",
         source_intents: ["Default Welcome Intent"],
         source: [{ url: "https://www.nhso.go.th/th/communicate-th/thnewsforperson/2025-09-03-07-16-57", by: "NHSO", title: "free test" }],
         review: { status: "approved", reviewer: "Keng", notes: "#5 Edit" },

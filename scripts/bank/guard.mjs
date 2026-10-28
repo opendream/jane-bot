@@ -6,6 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { findPII } from "./pii-patterns.mjs";
+import { PII_NAME_ALLOWLIST, isAllowlistedNameSpan, leftoverStripPIINameSpans } from "./pii-name-allowlist.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "../..");
@@ -77,14 +78,22 @@ function cardFlagsAt(root, p) {
   return Array.isArray(flags) ? flags : [];
 }
 
+function cardIdAt(root, p) {
+  const m = String(p).match(/^\$\.cards\[(\d+)\]/);
+  if (!m || !root || !Array.isArray(root.cards)) return "";
+  const id = root.cards[Number(m[1])]?.id;
+  return typeof id === "string" ? id : "";
+}
+
 export function jsonField(p) {
   return String(p).replace(/\[\d+\]/g, "").split(".").filter((s) => s && s !== "$").pop() ?? "";
 }
 
 /** Scan one parsed JSON value. Source URLs in `url` fields are checked for FB links only (they cite public pages). */
-export function scanValue(value, file = "(value)", allowHandles = publicHandles()) {
+export function scanValue(value, file = "(value)", allowHandles = publicHandles(), opts = {}) {
   const out = [];
   const quizFile = String(file).endsWith("quiz.json");
+  const nameAllow = opts.nameAllowlist ?? PII_NAME_ALLOWLIST;
   for (const [p, s] of walk(value)) {
     const field = jsonField(p);
     if (DF_EXPORT_KEYS.includes(s) && p.endsWith(`.${s}`)) { out.push({ file, path: p, category: "dialogflow_export_key" }); continue; }
@@ -97,8 +106,12 @@ export function scanValue(value, file = "(value)", allowHandles = publicHandles(
       // English metadata is not user-facing Thai text: capitalised words there are not names.
       if (METADATA_EN_FIELDS.has(field) && cat === "english_name") continue;
       if (quizFile && QUIZ_REVIEWER_EN_FIELDS.has(field) && cat === "english_name") continue;
-      // Keng-approved pii_checked cards: name-detector false positives stay; contact PII still fails.
-      if (cardFlagsAt(value, p).includes("pii_checked") && (cat === "thai_name" || cat === "english_name")) continue;
+      // Approved pii_checked cards: skip a name hit only when the detector's matched
+      // span equals that card's allowlisted text. Contact PII still fails.
+      if (cardFlagsAt(value, p).includes("pii_checked") && (cat === "thai_name" || cat === "english_name")) {
+        const leftover = (hits[cat] ?? []).filter((span) => !isAllowlistedNameSpan(cardIdAt(value, p), span, nameAllow));
+        if (!leftover.length) continue;
+      }
       // "legal line about …" in a fact-check note is not a Line id.
       if (quizFile && field === "fact_check" && cat === "line_id") continue;
       if (quizFile && field === "options" && cat === "english_name") {
@@ -106,6 +119,13 @@ export function scanValue(value, file = "(value)", allowHandles = publicHandles(
         if (!leftover.length) continue;
       }
       out.push({ file, path: p, category: cat });
+    }
+    // stripPII name rules on the original string: glued/extended allowlist
+    // occurrences fail even when findPII's generic filter would skip them.
+    if (cardFlagsAt(value, p).includes("pii_checked")) {
+      for (const span of leftoverStripPIINameSpans(cardIdAt(value, p), s, nameAllow)) {
+        out.push({ file, path: p, category: /^(?:my name is|i am called|i'm called)/i.test(span) ? "english_name" : "thai_name" });
+      }
     }
   }
   return out;
