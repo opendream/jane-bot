@@ -1,5 +1,6 @@
 {
   "$comment": "PLACEHOLDER quiz shell only. D7 (quiz content and whether to ship a quiz) is pending; these questions are written for this build, are not ThaiHealth content, and must never ship.",
+  "licence": "CC-BY-SA-4.0",
   "questions": [
     {
       "id": "quiz.p001",

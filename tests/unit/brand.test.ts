@@ -16,4 +16,12 @@ describe("brand", () => {
   it("no leftover placeholder name in user-facing code", () => {
     for (const f of ["src/main.ts", "index.html", "src/config.ts"]) expect(fs.readFileSync(f, "utf8")).not.toMatch(/ผู้ช่วยเดโม|Demo Helper/);
   });
+  it("the only art credit is Illustration © Opendream, 2018 (no illustrator name, no CC BY-SA on art)", () => {
+    const main = fs.readFileSync("src/main.ts", "utf8");
+    expect(main).toContain('"Illustration © Opendream, 2018"');
+    expect(main).not.toContain("OpenDream");
+    const credits = [...main.matchAll(/Illustration[^"\n]*/g)].map((m) => m[0]);
+    expect(credits).toEqual(["Illustration © Opendream, 2018"]);
+    expect(credits.join("\n")).not.toMatch(/CC BY-SA|CC-BY-SA/);
+  });
 });

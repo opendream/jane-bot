@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 import fixture from "../fixtures/bank/valid-bank.json";
 import {
   validateBank, checkShape, phonesIn, hoursIn, urlsIn, shippable, ageAllowed, cardsFromFiles, BANK_TOPICS,
+  BANK_TEXT_LICENCE, checkBankTextLicence,
   type BankCard,
 } from "../../src/core/bank";
 import { bankContext, BANK, isProductionBankFile } from "../../src/core/bankData";
@@ -199,6 +202,46 @@ describe("bundled bank (src/data/bank)", () => {
   it("validates with no errors under the current THAI_COPY_STATUS", () => {
     const c = bankContext(undefined, THAI_COPY_STATUS, new Date().toISOString().slice(0, 10));
     expect(validateBank(BANK, c).filter((i) => i.level === "error")).toEqual([]);
+  });
+  it("every production card is licensed CC-BY-SA-4.0 (SPDX)", () => {
+    expect(BANK_TEXT_LICENCE).toBe("CC-BY-SA-4.0");
+    expect(BANK.length).toBeGreaterThan(0);
+    for (const c of BANK) expect(c.licence, c.id).toBe(BANK_TEXT_LICENCE);
+    expect(checkShape({ ...base()[0], licence: BANK_TEXT_LICENCE })).toEqual([]);
+    expect(checkBankTextLicence(BANK)).toEqual([]);
+    expect(checkBankTextLicence(withCard((c) => { c.licence = "Apache-2.0"; })).map((i) => i.rule)).toContain("licence");
+    expect(checkBankTextLicence(withCard((c) => { c.licence = "unreviewed"; })).map((i) => i.rule)).toContain("licence");
+    const c = bankContext(undefined, THAI_COPY_STATUS, new Date().toISOString().slice(0, 10));
+    expect(validateBank(BANK, c).filter((i) => i.rule === "licence")).toEqual([]);
+    const legal = fs.readFileSync(path.resolve(__dirname, "../../src/data/bank/LICENSE"), "utf8");
+    expect(legal.startsWith("Attribution-ShareAlike 4.0 International")).toBe(true);
+    const notice = fs.readFileSync(path.resolve(__dirname, "../../src/data/bank/NOTICE"), "utf8");
+    expect(notice).toContain("Opendream");
+    expect(notice).not.toContain("OpenDream");
+    expect(notice).toMatch(/CC BY-SA 4\.0|CC-BY-SA-4.0/);
+    expect(notice).toContain("Judies, Opendream 2017");
+    expect(notice).toContain("does not cover illustrations, art, images, sprites");
+    const readme = fs.readFileSync(path.resolve(__dirname, "../../README.md"), "utf8");
+    expect(readme).not.toContain("OpenDream");
+    expect(readme).toContain("does not cover illustrations, art, images, sprites");
+    const artLine = readme.split("\n").find((l) => l.includes("Illustration ©"));
+    expect(artLine).toBe("Illustration © Opendream, 2018");
+    expect(artLine).not.toMatch(/CC BY-SA|CC-BY-SA/);
+  });
+  it("licence errors redact a SYNTHETIC phone in the card id and never print it", () => {
+    const planted = "0891112222";
+    const format = (i: { level: string; card: string; rule: string; msg: string }) =>
+      `${i.level.padEnd(7)} ${i.card} ${i.rule}: ${i.msg}`;
+    const wrong = checkBankTextLicence([{ ...base()[0], id: planted, licence: "Apache-2.0" }]);
+    const noLicence = { ...base()[0], id: `x-${planted}` };
+    delete (noLicence as { licence?: string }).licence;
+    const missing = checkBankTextLicence([noLicence]);
+    expect(wrong.map((i) => i.rule)).toEqual(["licence"]);
+    expect(missing.map((i) => i.rule)).toEqual(["licence"]);
+    expect(wrong[0].card).toBe("[redacted]");
+    expect(missing[0].card).toBe("[redacted]");
+    const printed = `${[...wrong, ...missing].map(format).join("\n")}\n${JSON.stringify([...wrong, ...missing])}`;
+    expect(printed).not.toContain(planted);
   });
   it("excludes fixture and test files from BANK", () => {
     expect(isProductionBankFile("../data/bank/pii-gate-fixture.json")).toBe(false);

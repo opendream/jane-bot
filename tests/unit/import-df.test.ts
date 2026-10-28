@@ -48,6 +48,8 @@ describe("import + merge (synthetic exports)", () => {
       expect(q.proposed_card.review.status).toBe("draft");
       expect(q.proposed_card.triggers).toEqual([]);
       expect(q.proposed_card.flags).toContain("fb_payload_removed");
+      expect(q.proposed_card.licence).toBe("unreviewed");
+      expect(q.proposed_card.licence).not.toBe("CC-BY-SA-4.0");
     }
   });
 });

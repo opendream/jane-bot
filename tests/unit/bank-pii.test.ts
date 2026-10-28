@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 // @ts-ignore plain JS module shared with the Node scripts
 import { findPII, scrubPII, nationalIdChecksumOk, toArabic } from "../../scripts/bank/pii-patterns.mjs";
 // @ts-ignore
-import { scanDir, scanValue, scanFile, formatFinding, jsonParseError } from "../../scripts/bank/guard.mjs";
+import { scanDir, scanValue, scanFile, scanNoticeFiles, formatFinding, jsonParseError } from "../../scripts/bank/guard.mjs";
 import { validateBank, walkStrings, type BankCard } from "../../src/core/bank";
 import { bankContext, BANK, BANK_FILES, isProductionBankFile } from "../../src/core/bankData";
 import { stripPII } from "../../src/core/summary";
@@ -66,10 +66,28 @@ describe("committed bank files contain no PII and no Dialogflow export data", ()
   it("src/data/bank, when it has JSON files, scans clean", () => {
     if (!fs.existsSync(BANK_DIR)) return;
     const files = fs.readdirSync(BANK_DIR);
-    expect(files.filter((f) => !f.endsWith(".json"))).toEqual([]);
+    expect(files.filter((f) => !f.endsWith(".json") && !/^(LICENSE|NOTICE)$/.test(f))).toEqual([]);
     if (!files.some((f) => f.endsWith(".json"))) return;
     const found = scanDir(BANK_DIR, { requireFiles: true });
     expect(found.map((f: any) => formatFinding(f))).toEqual([]);
+  });
+
+  it("shipped LICENSE and NOTICE files (bank + evals) have no phone or email", () => {
+    const found = [...scanNoticeFiles(BANK_DIR), ...scanNoticeFiles(path.join(ROOT, "evals"))];
+    expect(found.map((f: any) => formatFinding(f))).toEqual([]);
+  });
+
+  it("a SYNTHETIC phone placed in NOTICE is caught and never echoed", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "jane-notice-plant-"));
+    fs.writeFileSync(path.join(dir, "NOTICE"), `Attribution: Opendream. Contact ${SYN.mobile} is not a real number.`);
+    const found = scanNoticeFiles(dir, []);
+    expect(found.map((f: any) => f.category)).toContain("phone");
+    expectNoSynthetic(found.map((f: any) => formatFinding(f)).join("\n"));
+    fs.writeFileSync(path.join(dir, "ok.json"), JSON.stringify({ topic_file: "x", cards: [] }));
+    const r = spawnSync(process.execPath, ["scripts/bank/guard.mjs", dir], { encoding: "utf8", cwd: ROOT });
+    expect(r.status).toBe(1);
+    expectNoSynthetic(`${r.stdout}\n${r.stderr}`);
+    expect(r.stdout).toMatch(/phone/i);
   });
 
   it("BANK never contains fixture or test cards", () => {

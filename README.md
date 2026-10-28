@@ -1,8 +1,13 @@
 # พี่เจน · Jane: SRH referral demo, milestones 1–2
 
-Private prototype. Not published, no remote, no deploy. Apache-2.0 (see `LICENSE`).
+Private prototype. Not published, no remote, no deploy.
+
+## Licence
+
+The **code** is under the Apache License 2.0 (see the root `LICENSE`). The **answer-bank text** (cards under `src/data/bank/`: `answer_th`, titles, variants, key facts, triggers, chip labels) is licensed CC BY-SA 4.0 (see `src/data/bank/LICENSE`; attribution Opendream). That CC BY-SA grant covers the answer-bank text only: it does not cover illustrations, art, images, sprites, or the brand mark. The **eval question set** (`evals/` item files) is separately licensed CC BY-SA 4.0 as text (see `evals/LICENSE`; attribution Opendream). Quiz content is adapted from 'Judies, Opendream 2017' (Opendream owns Judies and relicenses its quiz content under CC BY-SA 4.0).
 Name: **พี่เจน** (Thai) / **Jane** (English), `PRODUCT_NAME` / `PRODUCT_NAME_EN` in `src/config.ts` (Keng, 22 Oct 19:49 BKK).
-Art: new mark only (`src/assets/mark.svg`, drawn in code for this build; also the favicon). Never use the 2019 Jane art. Minimum age: `MIN_AGE` (default 15).
+Illustration © Opendream, 2018
+New mark only (`src/assets/mark.svg`, drawn in code for this build; also the favicon). Never use the 2019 Jane art. Minimum age: `MIN_AGE` (default 15).
 **All Thai copy and the crisis phrase list are DRAFT** until a Thai SRH/safety reviewer signs off.
 
 ## What it does (works without any model)

@@ -48,7 +48,32 @@ export interface BankCard {
   placeholder?: boolean;
 }
 
-export interface BankFile { $comment?: string; topic_file: string; cards: BankCard[] }
+/** SPDX id for answer-bank text (cards). Product copy such as refusal cards may use another licence. */
+export const BANK_TEXT_LICENCE = "CC-BY-SA-4.0";
+
+/** Production bank cards must carry the answer-text SPDX id. Callers that mix in product copy skip this. */
+export function checkBankTextLicence(cards: BankCard[]): Issue[] {
+  return cards
+    .filter((c) => !isStr(c?.licence) || c.licence !== BANK_TEXT_LICENCE)
+    .map((c) => ({ level: "error" as const, card: safeCardId(c?.id), rule: "licence", msg: `licence must be ${BANK_TEXT_LICENCE}` }));
+}
+
+/** Eval question-set JSON files (46-item seed+paraphrase, plus the crisis FP probe). */
+export const EVAL_ITEM_FILES = [
+  "evals/seed-set.json",
+  "evals/paraphrase-set.json",
+  "evals/crisis-fp-set.json",
+] as const;
+
+/** File-level licence on an eval item JSON (mirrors BankFile.licence). Missing / wrong value fails. */
+export function checkEvalTextLicence(file: { licence?: unknown } | null | undefined, name = "eval"): Issue[] {
+  if (typeof file?.licence !== "string" || file.licence !== BANK_TEXT_LICENCE) {
+    return [{ level: "error", card: name, rule: "licence", msg: `licence must be ${BANK_TEXT_LICENCE}` }];
+  }
+  return [];
+}
+
+export interface BankFile { $comment?: string; topic_file: string; licence?: string; cards: BankCard[] }
 
 export const LIMITS = { title_th: 40, answer_th: 400 } as const;
 /** Cards older than this (months) produce a warning, not an error. */
