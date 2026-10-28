@@ -129,9 +129,7 @@
       "key_facts": [
         "วิธีการกินยาคุมฉุกเฉิน"
       ],
-      "triggers": [
-        "วิธีการกินยาคุมฉุกเฉิน"
-      ],
+      "triggers": [],
       "next": [
         {
           "label_th": "อยากรู้",
@@ -157,7 +155,7 @@
         "status": "approved",
         "reviewer": "Keng",
         "reviewed_on": "2026-10-27",
-        "notes": "#24 Approve. Follow-up 2-pill card excluded; chip points at #22."
+        "notes": "#24 Approve. Follow-up 2-pill card excluded. Known exception: unreachable via retrieval (empty triggers; no inbound chip or button). Phrase วิธีการกินยาคุมฉุกเฉิน belongs to ec.timing.b001. Owner: Opendream."
       },
       "last_reviewed": "2026-10-27",
       "flags": [

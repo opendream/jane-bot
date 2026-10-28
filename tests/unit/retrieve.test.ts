@@ -6,6 +6,7 @@ import { FALLBACK_ID, WELCOME_ID, runTurn, newDialog, type TurnDeps } from "../.
 import baselineFile from "../fixtures/retrieve-c450-baseline.json";
 import extraFile from "../fixtures/retrieve-routing-extra.json";
 import e948File from "../fixtures/retrieve-e948-baseline.json";
+import crossTopicNegatives from "../fixtures/retrieve-cross-topic-negatives.json";
 
 // All queries here are SYNTHETIC, written for these tests.
 
@@ -27,26 +28,43 @@ function triggerMisroutes(): string[] {
   return out;
 }
 
-/** Pre-existing short-trigger collisions (same score, earlier sibling wins). The check fails if this set changes. */
-const EXISTING_TRIGGER_COLLISIONS = [
-  row("condom.how_to.000", "วิธีใช้ถุงยาง", "condom.000"),
-  row("birth.control.pills.000", "ยาคุมรายเดือน", "birth.control.000"),
-  row("birth.control.pills.000", "กินยาคุมยังไง", "birth.control.000"),
-  row("birth.control.pills.000", "ยาคุม 21 เม็ด", "birth.control.000"),
-  row("birth.control.implant.000", "ฝังยาคุม", "birth.control.000"),
-  row("pregnancy.ec_ask.000", "วิธีการกินยาคุมฉุกเฉิน", "ec.timing.b001"),
-  row("disease.gonorrhea.001", "สงสัยว่าติดหนองใน", "disease.gonorrhea.000"),
-  row("disease.gonorrhea.001", "เป็นหนองใน", "disease.gonorrhea.000"),
-  row("disease.herpes.002", "เริมรักษาหาย", "disease.herpes.000"),
-  row("disease.herpes.002", "เริมหายขาด", "disease.herpes.000"),
-  row("disease.syphilis.001", "อาการซิฟิลิส", "disease.syphilis.000"),
-  row("disease.syphilis.001", "แผลซิฟิลิส", "disease.syphilis.000"),
-  row("hiv.test.under18.000", "ตรวจเอชไอวีโดยไม่บอกผู้ปกครอง", "disease.hiv.002"),
-  row("hiv.test.under18.000", "เด็กตรวจเอชไอวีได้ไหม", "disease.hiv.002"),
-  row("price.trc.prep.000", "ราคาเพร็พ", "protection.prep.000"),
-  row("price.trc.prep.000", "เพร็พกี่บาท", "protection.prep.000"),
-  row("price.trc.prep.000", "ซื้อยาเพร็พ", "protection.prep.000"),
+/**
+ * Distinctive overlapping fragments so a card's own trigger outranks a
+ * sibling stem via the listed-match tie-break. Frozen 123/e948 tables stay
+ * the old query set; these strings are new. Each one must carry that card's
+ * topic word — the list is not a silent exemption.
+ */
+const NEW_OWN_TRIGGER_FRAGMENTS = [
+  "ตรวจเอชไอวี โดยไม่บอกผู้ปกครอง",
+  "ตรวจ เอชไอวีโดยไม่บอกผู้ปกครอง",
+  "เด็กตรวจเอชไอวี",
+  "เด็กตรวจ เอชไอวี",
+  "วิธีใช้ ถุงยาง",
+  "ยาคุม รายเดือน",
+  "กิน ยาคุมยังไง",
+  "คุม 21 เม็ด",
+  "ฝังยา คุม",
+  "สงสัยว่าติด หนองใน",
+  "เป็น หนองใน",
+  "เริม รักษาหาย",
+  "เริม หายขาด",
+  "อาการ ซิฟิลิส",
+  "แผล ซิฟิลิส",
+  "ราคา เพร็พ",
+  "เพร็พ กี่บาท",
 ];
+
+/** Topic term a new fragment on that owner must carry. */
+const OWNER_TOPIC_TERM: Record<string, RegExp> = {
+  "hiv.test.under18.000": /เอชไอวี|hiv/i,
+  "price.trc.prep.000": /เพร็พ|prep/i,
+  "disease.gonorrhea.001": /หนองใน/,
+  "birth.control.pills.000": /ยาคุม|รายเดือน|21\s*เม็ด/,
+  "condom.how_to.000": /ถุงยาง/,
+  "birth.control.implant.000": /ฝังยา/,
+  "disease.herpes.002": /เริม/,
+  "disease.syphilis.001": /ซิฟิลิส/,
+};
 
 function stubCard(id: string, triggers: string[], topic: BankTopic = "emergency_contraception"): BankCard {
   return {
@@ -147,10 +165,57 @@ describe("card #21 what-is EC vs timing", () => {
 });
 
 describe("approved-card trigger regression", () => {
-  it("fails on any card whose own triggers resolve elsewhere, and lists existing collisions", () => {
+  it("every approved card's own triggers retrieve that card", () => {
     const found = triggerMisroutes();
     expect(found.some((line) => line.startsWith("urgent.pills.000\t"))).toBe(false);
-    expect(found, found.join("\n")).toEqual(EXISTING_TRIGGER_COLLISIONS);
+    expect(found.some((line) => line.startsWith("hiv.test.under18.000\t"))).toBe(false);
+    expect(found, found.join("\n")).toEqual([]);
+  });
+
+  it("pregnancy.ec_ask.000 is an unreachable known exception, not a retrieval target", () => {
+    const card = BANK.find((c) => c.id === "pregnancy.ec_ask.000")!;
+    expect(card.triggers).toEqual([]);
+    const inbound = BANK.flatMap((c) => c.next.filter((n) => n.card_id === "pregnancy.ec_ask.000")
+      .map((n) => `${c.id} → ${n.label_th}`));
+    expect(inbound, inbound.join("\n")).toEqual([]);
+    expect(card.review.notes).toMatch(/unreachable via retrieval/i);
+    expect(card.review.notes).toMatch(/Opendream/);
+    // วิธีการกินยาคุมฉุกเฉิน belongs to the timing card; stealing it would move EC.
+    expect(topId("วิธีการกินยาคุมฉุกเฉิน")).toBe("ec.timing.b001");
+  });
+});
+
+const UNDER18_HIV = "hiv.test.under18.000";
+const ADULT_HIV_TEST = "disease.hiv.002";
+
+/** Synthetic under-18 HIV-test questions. Must not be answered by the adult test card. */
+const UNDER18_HIV_QUESTIONS = [
+  "ตรวจเอชไอวีโดยไม่บอกผู้ปกครอง",
+  "เด็กตรวจเอชไอวีได้ไหม",
+  "อยากตรวจเอชไอวีโดยไม่บอกผู้ปกครอง",
+  "วัยรุ่นตรวจเอชไอวีโดยไม่บอกผู้ปกครอง",
+  "เด็กตรวจเอชไอวีโดยไม่บอกผู้ปกครอง",
+];
+
+describe("card #34 under-18 HIV test (safety)", () => {
+  it("each of hiv.test.under18.000's own triggers retrieves that card", () => {
+    const card = BANK.find((c) => c.id === UNDER18_HIV)!;
+    expect(card.triggers.length).toBeGreaterThan(0);
+    for (const trigger of card.triggers) {
+      expect(topId(trigger), trigger).toBe(UNDER18_HIV);
+    }
+  });
+
+  it.each(UNDER18_HIV_QUESTIONS)("under-18 HIV test question %s is not answered by the adult card", (q) => {
+    const r = retrieve(q, pool);
+    expect(r.ranked[0]?.card.id, q).toBe(UNDER18_HIV);
+    expect(r.ranked[0]?.card.id, q).not.toBe(ADULT_HIV_TEST);
+  });
+
+  it("adult HIV-test questions still land on disease.hiv.002", () => {
+    expect(outcome("ตรวจเอชไอวี")).toEqual({ id: ADULT_HIV_TEST, conf: true });
+    expect(outcome("อยากตรวจเอช")).toEqual({ id: ADULT_HIV_TEST, conf: true });
+    expect(outcome("อาการเอชไอวี")).toEqual({ id: ADULT_HIV_TEST, conf: true });
   });
 });
 
@@ -223,8 +288,22 @@ const INTENDED_VS_C450: Record<string, { id: string; conf: boolean }> = {
   "วิธีการกินยาคุมฉุกเฉิน": { id: "ec.timing.b001", conf: false },
   "กินยาคุมฉุกเฉินช้าไปแล้ว": { id: "ec.timing.b001", conf: false },
   "หลังมีเพศสัมพันธ์กี่ชั่วโมงยังกินยาคุมฉุกเฉินได้": { id: "ec.timing.b001", conf: false },
-  // เพร็พ ⊂ ยาเพร็พ: same PrEP card, overlap cluster drops confidence.
-  "ซื้อยาเพร็พ": { id: "protection.prep.000", conf: false },
+  // Own-trigger fragments outrank the sibling stem; unique-score tie keeps conf false.
+  "ตรวจเอชไอวีโดยไม่บอกผู้ปกครอง": { id: "hiv.test.under18.000", conf: false },
+  "เด็กตรวจเอชไอวีได้ไหม": { id: "hiv.test.under18.000", conf: false },
+  "วิธีใช้ถุงยาง": { id: "condom.how_to.000", conf: false },
+  "ยาคุมรายเดือน": { id: "birth.control.pills.000", conf: false },
+  "กินยาคุมยังไง": { id: "birth.control.pills.000", conf: false },
+  "ยาคุม 21 เม็ด": { id: "birth.control.pills.000", conf: false },
+  "ฝังยาคุม": { id: "birth.control.implant.000", conf: false },
+  "สงสัยว่าติดหนองใน": { id: "disease.gonorrhea.001", conf: false },
+  "เป็นหนองใน": { id: "disease.gonorrhea.001", conf: false },
+  "เริมรักษาหาย": { id: "disease.herpes.002", conf: false },
+  "เริมหายขาด": { id: "disease.herpes.002", conf: false },
+  "อาการซิฟิลิส": { id: "disease.syphilis.001", conf: false },
+  "แผลซิฟิลิส": { id: "disease.syphilis.001", conf: false },
+  "ราคาเพร็พ": { id: "price.trc.prep.000", conf: false },
+  "เพร็พกี่บาท": { id: "price.trc.prep.000", conf: false },
   // Space-twin / overlap: still top timing, no longer rules-confident.
   "กินยาคุมฉุกเฉิน": { id: "ec.timing.b001", conf: false },
   "กิน ยาคุมฉุกเฉิน": { id: "ec.timing.b001", conf: false },
@@ -297,7 +376,21 @@ const INTENDED_VS_E948: Record<string, { id: string; conf: boolean }> = {
   "ถุงยางรั่ว ต้องทำยังไง คุมฉุกเฉินทันไหม": { id: "ec.timing.b001", conf: false },
   "กินยาคุมฉุกเฉินช้าไปแล้ว": { id: "ec.timing.b001", conf: false },
   "หลังมีเพศสัมพันธ์กี่ชั่วโมงยังกินยาคุมฉุกเฉินได้": { id: "ec.timing.b001", conf: false },
-  "ซื้อยาเพร็พ": { id: "protection.prep.000", conf: false },
+  "ตรวจเอชไอวีโดยไม่บอกผู้ปกครอง": { id: "hiv.test.under18.000", conf: false },
+  "เด็กตรวจเอชไอวีได้ไหม": { id: "hiv.test.under18.000", conf: false },
+  "วิธีใช้ถุงยาง": { id: "condom.how_to.000", conf: false },
+  "ยาคุมรายเดือน": { id: "birth.control.pills.000", conf: false },
+  "กินยาคุมยังไง": { id: "birth.control.pills.000", conf: false },
+  "ยาคุม 21 เม็ด": { id: "birth.control.pills.000", conf: false },
+  "ฝังยาคุม": { id: "birth.control.implant.000", conf: false },
+  "สงสัยว่าติดหนองใน": { id: "disease.gonorrhea.001", conf: false },
+  "เป็นหนองใน": { id: "disease.gonorrhea.001", conf: false },
+  "เริมรักษาหาย": { id: "disease.herpes.002", conf: false },
+  "เริมหายขาด": { id: "disease.herpes.002", conf: false },
+  "อาการซิฟิลิส": { id: "disease.syphilis.001", conf: false },
+  "แผลซิฟิลิส": { id: "disease.syphilis.001", conf: false },
+  "ราคาเพร็พ": { id: "price.trc.prep.000", conf: false },
+  "เพร็พกี่บาท": { id: "price.trc.prep.000", conf: false },
   // Known gap #28: mixed what-is + hours still land on urgent.pills.000.
   "ยาคุมฉุกเฉินคืออะไร กินได้กี่ชั่วโมง": { id: "urgent.pills.000", conf: false },
   "อยากรู้เรื่องยาคุมฉุกเฉิน กินภายในกี่ชั่วโมง": { id: "urgent.pills.000", conf: false },
@@ -331,7 +424,15 @@ describe("retrieve baseline diff gate (c450e1f)", () => {
       for (const t of card.triggers) triggerQs.add(t);
     }
     const missing = [...triggerQs].filter((t) => !byQ.has(t));
-    expect(missing, missing.join("\n")).toEqual([]);
+    expect(missing.sort(), missing.join("\n")).toEqual([...NEW_OWN_TRIGGER_FRAGMENTS].sort());
+    for (const t of NEW_OWN_TRIGGER_FRAGMENTS) {
+      const owners = BANK.filter((c) => c.review.status === "approved" && c.triggers.includes(t)).map((c) => c.id);
+      expect(owners, t).toEqual([expect.any(String)]);
+      expect(owners).toHaveLength(1);
+      const term = OWNER_TOPIC_TERM[owners[0]!];
+      expect(term, `${owners[0]} needs a topic term for new fragment ${t}`).toBeTruthy();
+      expect(term.test(t), `${owners[0]} fragment "${t}" must carry the topic word`).toBe(true);
+    }
     for (const q of CROSS_TOPIC) expect(byQ.has(q), q).toBe(true);
   });
 
@@ -451,6 +552,47 @@ describe("synthetic extra routing (post-EC, how-often, hour-window, PEP)", () =>
         }
       } else if (got.conf && got.id === "ec.timing.b001") {
         unexpected.push(`${row.q}\tc450=${row.c450.id}/${row.c450.conf}\tgot=${got.id}/${got.conf}\twant=not confident on ec.timing`);
+      }
+    }
+    expect(unexpected, unexpected.join("\n")).toEqual([]);
+  });
+});
+
+describe("cross-topic negatives (synthetic)", () => {
+  it("has the e011cd0 pin and the price / teen-consent / pus / how-to / adult-HIV-privacy / fragment-sweep groups", () => {
+    expect(crossTopicNegatives.base_commit).toBe("e011cd0a2c06cd44f2cf1fb6205790a17f2a3e59");
+    const groups = new Set(crossTopicNegatives.queries.map((r) => r.group));
+    expect([...groups].sort()).toEqual(["adult_hiv_privacy", "fragment_sweep", "how_to", "price", "pus", "teen_consent", "teen_consent_hiv"].sort());
+    const teenQs = new Set(crossTopicNegatives.queries.filter((r) => r.group === "teen_consent").map((r) => r.q));
+    for (const q of [
+      "อายุ 17 กินเพร็พป้องกันเอชไอวีโดยไม่บอกผู้ปกครองได้ไหม",
+      "ขอยา PEP ป้องกันเอชไอวีโดยไม่บอกผู้ปกครองได้ไหม",
+      "เพิ่งมีเซ็กส์ไม่ป้องกัน ขอยาป้องกันเอชไอวีโดยไม่บอกผู้ปกครองได้ไหม",
+      "ติดเชื้อเอชไอวีโดยไม่บอกผู้ปกครองรักษาได้ไหม",
+    ]) {
+      expect(teenQs.has(q), q).toBe(true);
+    }
+  });
+
+  it("price / teen-consent / pus / how-to / adult-HIV-privacy / fragment-sweep rows stay off the wrong card and match e011cd0 except HIV teen-consent", () => {
+    const unexpected: string[] = [];
+    for (const row of crossTopicNegatives.queries) {
+      const got = outcome(row.q);
+      if (row.group === "teen_consent_hiv") {
+        if (got.id !== row.id) {
+          unexpected.push(`${row.q}\tgot=${got.id}/${got.conf}\twant=${row.id} (HIV teen-consent)`);
+        }
+      } else if (got.id !== row.e011cd0.id || got.conf !== row.e011cd0.conf) {
+        unexpected.push(`${row.q}\te011cd0=${row.e011cd0.id}/${row.e011cd0.conf}\tgot=${got.id}/${got.conf}`);
+      }
+      if (row.not_id && got.id === row.not_id) {
+        unexpected.push(`${row.q}\tlanded on forbidden ${row.not_id}`);
+      }
+      if (row.not_confident_on && got.conf && got.id === row.not_confident_on) {
+        unexpected.push(`${row.q}\tconfident on forbidden ${row.not_confident_on}`);
+      }
+      if (row.keep_e011cd0 && (got.id !== row.e011cd0.id || got.conf !== row.e011cd0.conf)) {
+        unexpected.push(`${row.q}\tmust keep e011cd0 ${row.e011cd0.id}/${row.e011cd0.conf} got=${got.id}/${got.conf}`);
       }
     }
     expect(unexpected, unexpected.join("\n")).toEqual([]);
