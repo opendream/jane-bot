@@ -8,13 +8,16 @@ import { checkInput, REFUSAL_CARDS, type GuardReason } from "./guard";
 import { retrieve } from "./retrieve";
 import { VALID_INTENTS } from "../llm/adapter";
 import { acceptReword, type RewordContext } from "../llm/rewordGuard";
+import type { IntentMatcher } from "./matcher";
 
 /* ------------------------------------------------------------------------------------------
  * Per-turn chat pipeline (build plan v2 §3). Pure apart from the optional model, which is
  * injected. State is memory-only and never logged.
- *   1. crisis rules (every message, synchronous, BEFORE anything else; never the model)
- *   2. input guard   3. follow-up chips   4. rules retrieval   5. model pick (only if unsure)
- *   6. post-pick age gate (18+ card → redirect)   7. reword (validated, else verbatim)   8. reply with chips and referral offer
+ *   1. crisis rules (every message, synchronous, BEFORE anything else; never the model or matcher)
+ *   2. input guard   3. follow-up chips
+ *   4. optional matcher (injected only when the desktop-dev flag is on; abstain → fallback)
+ *   5. rules retrieval   6. model pick (only if unsure)
+ *   7. post-pick age gate (18+ card → redirect)   8. reword (validated, else verbatim)   9. reply with chips and referral offer
  * ---------------------------------------------------------------------------------------- */
 
 export const WELCOME_ID = "general.welcome.000";
@@ -111,9 +114,14 @@ export interface TurnDeps {
   rewordTimeoutMs?: number;
   /** Override: turn a chosen card into display text (default: modelReword when possible, else verbatim). */
   render?: (card: BankCard, signal: AbortSignal) => Promise<{ text: string; reworded: boolean }>;
+  /**
+   * Optional embedding matcher. Omitted/null keeps the current rules path byte-for-byte.
+   * Injected only by the desktop-dev flag (never on phones). Runs after crisis/guard/chips.
+   */
+  matcher?: IntentMatcher | null;
 }
 
-export type Via = "followup" | "rules" | "model" | "rules_top1" | "fallback" | "guard" | "welcome" | "age_redirect";
+export type Via = "followup" | "rules" | "model" | "rules_top1" | "fallback" | "guard" | "welcome" | "age_redirect" | "matcher";
 
 export type TurnReply =
   | { kind: "crisis"; categories: CrisisCategory[] }
@@ -216,6 +224,17 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
   const chip = state.pendingChips.find((c) => normalize(c.label_th).replace(/\s+/g, "") === said);
   if (chip && usable(byId.get(chip.card_id))) return reply(byId.get(chip.card_id)!, "followup");
 
+  // Optional matcher (desktop-dev flag only). Crisis already returned above, so a hit cannot override it.
+  if (deps.matcher) {
+    let decision: { kind: "card"; cardId: string } | { kind: "abstain" } = { kind: "abstain" };
+    try { decision = await deps.matcher.match(input); } catch { /* abstain; never throw into chat */ }
+    if (decision.kind === "card") {
+      const picked = byId.get(decision.cardId);
+      if (usable(picked)) return reply(picked, "matcher");
+    }
+    return reply(fallback, "fallback");
+  }
+
   // 4. Rules retrieval (18+ cards stay in the pool so a match can redirect).
   const pool = deps.cards.filter((c) => usable(c) && c.id !== FALLBACK_ID && c.id !== WELCOME_ID);
   const r = retrieve(input, pool, state.topic);
@@ -247,6 +266,7 @@ export class DialogSession {
   constructor(ageBand: AgeState, private deps: Omit<TurnDeps, "signal">) { this.state = newDialog(ageBand); }
   start(): TurnReply { const w = welcome(this.state, this.deps.cards); this.state = w.state; return w.reply; }
   setModel(model: DialogModel | null) { this.deps = { ...this.deps, model }; }
+  setMatcher(matcher: IntentMatcher | null) { this.deps = { ...this.deps, matcher }; }
   async send(text: string): Promise<TurnReply | null> {
     this.inflight?.abort();
     const ac = new AbortController();

@@ -44,6 +44,18 @@ SwiftShader is ignored) → **WASM** via wllama (CPU) → **rules**. If WebGPU l
 - Header pill shows the state: loading (flow usable meanwhile) / "โมเดลในเครื่อง: <name> · ออฟไลน์" / rules only.
 - Eval: `node scripts/eval-model.mjs` → `evals/model-scorecard.md` (rules vs model vs combined).
 
+## Embedding matcher (off; desktop-dev seam only)
+
+Rules are the sole shipped router: crisis first, then trigger retrieval, then the fallback card
+(ตอนนี้พี่เจนยังไม่สามารถตอบเรื่องนั้นได้ค่ะ, เริ่มใหม่). The e5-small int8 matcher is behind
+`MATCHER` in `src/config.ts` (default `false`) or `?matcher=1` in desktop DEV only
+(`import.meta.env.DEV`, same gate as `?copy=`). Production builds never enable it. Phones never
+enable it, even if the flag is set. Iteration 3 failed the acceptance gates (in-scope abstain
+32–45% vs ≤20%; 1–3 normal-card leaks on the development harassment/crisis sets), so the matcher
+is not used in production. The loader is a no-op stub: no fetch/XHR/HEAD. Weights, if you have
+a local copy, stay in a gitignored dir (`models/matcher/` or `?matcherWeights=models/...`) on
+this origin; they are not in this repo. Parked PR #17 crisis patterns are not included.
+
 ## Privacy guarantees (checked by the e2e tests)
 
 - No `fetch`/XHR in the app; strict CSP (`default-src 'self'`); no external fonts, scripts or links (source URLs are text).

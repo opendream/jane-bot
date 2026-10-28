@@ -15,6 +15,17 @@ async function say(page: Page, text: string) {
 }
 const lastJane = (page: Page) => page.locator('[data-testid="chat-msg"][data-from="jane"]').last();
 
+test("production ignores ?matcher=1: rules routing, no matcher fetch", async ({ page }) => {
+  const rec = await open(page, "14:00", "&matcher=1");
+  await openChat(page, "18-24");
+  await say(page, "อยากรู้เรื่องคุมกำเนิด");
+  await expect(lastJane(page)).toHaveAttribute("data-card", "birth.control.000");
+  await expect(lastJane(page)).toHaveAttribute("data-reworded", "false");
+  expect(rec.all.filter((u) => /\/models\/matcher|head\.json/i.test(u)), rec.all.join("\n")).toEqual([]);
+  await assertNoStorage(page);
+  await assertNetwork(page, rec);
+});
+
 test("CH1 chat: welcome → chip → follow-up chip → typed question, all verbatim, no network, no storage", async ({ page }) => {
   const rec = await open(page, "19:00");
   await openChat(page);
