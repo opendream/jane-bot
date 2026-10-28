@@ -1,0 +1,1451 @@
+{
+  "$comment": "SYNTHETIC retrieve corpus. Queries are written for this gate, not user logs. Each row is retrieve() at 476b992c7e172a3b86d12799a515f5c1a4b081a2 (v2/answer-bank-chat head, PR #31 base).",
+  "baseline_commit": "476b992c7e172a3b86d12799a515f5c1a4b081a2",
+  "queries": [
+    {
+      "q": "IUD กี่บาท",
+      "id": "general.fallback.000",
+      "conf": false
+    },
+    {
+      "q": "PEP กินเมื่อไร หลังมีเพศสัมพันธ์ ยังทันไหม",
+      "id": "protection.pep.000",
+      "conf": true
+    },
+    {
+      "q": "PEP ราคาเท่าไหร่",
+      "id": "protection.pep.000",
+      "conf": true
+    },
+    {
+      "q": "PrEP กี่บาท",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "PrEP คืออะไร",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "PrEP ราคาเท่าไหร่",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "PrEP ราคาเท่าไหร่คะ",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "PrEP แพงไหม",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "PrEPราคาเท่าไหร่",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "PrEPแพงไหม",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "hiv คือ",
+      "id": "disease.hiv.000",
+      "conf": true
+    },
+    {
+      "q": "pep",
+      "id": "protection.pep.000",
+      "conf": true
+    },
+    {
+      "q": "prep",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "prep กินเมื่อไร",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "prep กี่บาท",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "prep ราคา",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "prep ราคาเท่าไหร่",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "prep เท่าไหร่",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "prep แพง",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "prep แพงไหม",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "prepกี่บาท",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "prepราคา",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "prepราคาเท่าไหร่ค่ะ",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "prepเท่าไหร่",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "prepแพง",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "กฎหมายทำแท้ง",
+      "id": "pregnancy.abortion.001",
+      "conf": true
+    },
+    {
+      "q": "กลัวจะท้อง",
+      "id": "pregnancy.ornot.000",
+      "conf": true
+    },
+    {
+      "q": "กลัวจะท้อง เพราะถุงยางรั่ว",
+      "id": "condom.leak.000",
+      "conf": false
+    },
+    {
+      "q": "กลัวท้อง",
+      "id": "pregnancy.ornot.000",
+      "conf": true
+    },
+    {
+      "q": "กังวลเรื่องท้อง",
+      "id": "pregnancy.ornot.000",
+      "conf": true
+    },
+    {
+      "q": "กิน ยาคุมฉุกเฉิน",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "กิน ยาคุมยังไง",
+      "id": "birth.control.pills.000",
+      "conf": false
+    },
+    {
+      "q": "กินยา 21 เม็ดโดยไม่บอกแฟน",
+      "id": "sex.activity.consent.000",
+      "conf": false
+    },
+    {
+      "q": "กินยาคุมฉุกเฉิน",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "กินยาคุมฉุกเฉินกี่ชั่วโมงหายคลื่นไส้",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "กินยาคุมฉุกเฉินกี่วันตรวจครรภ์ได้",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "กินยาคุมฉุกเฉินกี่วันประจำเดือนมา",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "กินยาคุมฉุกเฉินช้า",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "กินยาคุมฉุกเฉินช้าไปแล้ว",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "กินยาคุมฉุกเฉินบ่อยอันตรายไหม",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "กินยาคุมฉุกเฉินแล้วคลื่นไส้นานแค่ไหน",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "กินยาคุมฉุกเฉินแล้วประจำเดือนจะมาเมื่อไร",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "กินยาคุมฉุกเฉินแล้วประจำเดือนไม่มา",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "กินยาคุมฉุกเฉินแล้วมีผลข้างเคียงไหม",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "กินยาคุมฉุกเฉินแล้วเลือดออกนานไหม",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "กินยาคุมฉุกเฉินได้กี่ครั้ง",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "กินยาคุมฉุกเฉินไปแล้วกี่วันตรวจท้องได้",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "กินยาคุมยังไง",
+      "id": "birth.control.pills.000",
+      "conf": false
+    },
+    {
+      "q": "กินยาต้านเอชไอวีโดยไม่บอกผู้ปกครองได้ไหม",
+      "id": "disease.hiv.000",
+      "conf": false
+    },
+    {
+      "q": "กินยาป้องกันเอชไอวีโดยไม่บอกผู้ปกครองได้ไหม",
+      "id": "disease.hiv.000",
+      "conf": false
+    },
+    {
+      "q": "กินยาป้องกันเอชไอวีโดยไม่บอกพ่อแม่ได้ไหม",
+      "id": "disease.hiv.000",
+      "conf": false
+    },
+    {
+      "q": "กินยาเอชไอวีโดยไม่บอกผู้ปกครองได้ไหม",
+      "id": "disease.hiv.000",
+      "conf": false
+    },
+    {
+      "q": "กินเป็ปทันไหม",
+      "id": "protection.pep.000",
+      "conf": true
+    },
+    {
+      "q": "กินเป็ปหลังฝังยาได้ไหม",
+      "id": "protection.pep.000",
+      "conf": true
+    },
+    {
+      "q": "กินเพร็พป้องกันเอชไอวีโดยไม่บอกผู้ปกครองได้ไหม",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "กินเพร็พป้องกันเอชไอวีโดยไม่บอกพ่อแม่ได้ไหม",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "กินเพร็พยังไง",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "กินเพร็พโดยไม่บอกผู้ปกครองได้ไหม",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "ขอยา PEP ป้องกันเอชไอวีโดยไม่บอกผู้ปกครองได้ไหม",
+      "id": "protection.pep.000",
+      "conf": true
+    },
+    {
+      "q": "ขอยา PEP ป้องกันเอชไอวีโดยไม่บอกพ่อแม่ได้ไหม",
+      "id": "protection.pep.000",
+      "conf": true
+    },
+    {
+      "q": "ขอยาเป็ปป้องกันเอชไอวีโดยไม่บอกผู้ปกครองได้ไหม",
+      "id": "protection.pep.000",
+      "conf": true
+    },
+    {
+      "q": "ความยินยอม",
+      "id": "sex.activity.consent.000",
+      "conf": true
+    },
+    {
+      "q": "ความรุนแรงในครอบครัว",
+      "id": "relationship.violence.001",
+      "conf": true
+    },
+    {
+      "q": "คุม 21 เม็ด",
+      "id": "birth.control.pills.000",
+      "conf": true
+    },
+    {
+      "q": "คุมกำเนิด",
+      "id": "birth.control.000",
+      "conf": true
+    },
+    {
+      "q": "คุมฉุกเฉิน",
+      "id": "urgent.pills.000",
+      "conf": true
+    },
+    {
+      "q": "คุมฉุกเฉิน กินเมื่อไร",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "คุมฉุกเฉิน ทัน",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "คุมฉุกเฉิน ยังทัน",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "คุมฉุกเฉินกินเมื่อไร",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "คุมฉุกเฉินคุมยังไง",
+      "id": "urgent.pills.000",
+      "conf": true
+    },
+    {
+      "q": "คุมฉุกเฉินทัน",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "คุมฉุกเฉินทันไหม",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "คุมฉุกเฉินยังทัน",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "คุมรายเดือนรักษาอะไร",
+      "id": "general.fallback.000",
+      "conf": false
+    },
+    {
+      "q": "คุมรายเดือนแล้วกินเป็ปได้ไหม",
+      "id": "protection.pep.000",
+      "conf": true
+    },
+    {
+      "q": "คุมรายเดือนโดยไม่บอกแฟน",
+      "id": "sex.activity.consent.000",
+      "conf": false
+    },
+    {
+      "q": "คุมรายเดือนใช้ถุงยางด้วยไหม",
+      "id": "condom.000",
+      "conf": true
+    },
+    {
+      "q": "ค่า ยา เพร็พ",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "ค่า ยาเพร็พ",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "ค่ายา PEP เท่าไหร่",
+      "id": "protection.pep.000",
+      "conf": true
+    },
+    {
+      "q": "ค่ายา PrEP เท่าไหร่",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "ค่ายา prep",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "ค่ายา prep เท่าไหร่",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "ค่ายา เพร็พ",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "ค่ายาprep",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "ค่ายาเป็ป",
+      "id": "protection.pep.000",
+      "conf": true
+    },
+    {
+      "q": "ค่ายาเพร็พ",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "ค่ายาเพร็พ เท่าไหร่",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "ค่ายาเพร็พเท่าไหร่",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "ฉีดยาคุมยังไง",
+      "id": "birth.control.000",
+      "conf": true
+    },
+    {
+      "q": "ซิฟิลิส",
+      "id": "disease.syphilis.000",
+      "conf": true
+    },
+    {
+      "q": "ซิฟิลิสกี่บาท",
+      "id": "disease.syphilis.000",
+      "conf": true
+    },
+    {
+      "q": "ซิฟิลิสคืออะไร",
+      "id": "disease.syphilis.000",
+      "conf": true
+    },
+    {
+      "q": "ซิฟิลิสแผลเป็นหนองไหม",
+      "id": "disease.syphilis.000",
+      "conf": true
+    },
+    {
+      "q": "ซื้อถุงยางโดยไม่บอกผู้ปกครองได้ไหม",
+      "id": "condom.000",
+      "conf": false
+    },
+    {
+      "q": "ซื้อยาเพร็พ",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "ตรวจ HIV กี่บาท",
+      "id": "disease.hiv.000",
+      "conf": false
+    },
+    {
+      "q": "ตรวจ เอชไอวีโดยไม่บอกผู้ปกครอง",
+      "id": "hiv.test.under18.000",
+      "conf": false
+    },
+    {
+      "q": "ตรวจครรภ์กี่วันหลังมีเพศสัมพันธ์",
+      "id": "pregnancy.ornot.000",
+      "conf": false
+    },
+    {
+      "q": "ตรวจครรภ์หลังกิน 21 เม็ด",
+      "id": "pregnancy.ornot.000",
+      "conf": false
+    },
+    {
+      "q": "ตรวจครรภ์เมื่อไร",
+      "id": "pregnancy.signs.when.000",
+      "conf": true
+    },
+    {
+      "q": "ตรวจครรภ์โดยไม่บอกผู้ปกครองได้ไหม",
+      "id": "pregnancy.ornot.000",
+      "conf": false
+    },
+    {
+      "q": "ตรวจเอชไอวี",
+      "id": "disease.hiv.002",
+      "conf": true
+    },
+    {
+      "q": "ตรวจเอชไอวี โดยไม่บอกผู้ปกครอง",
+      "id": "hiv.test.under18.000",
+      "conf": false
+    },
+    {
+      "q": "ตรวจเอชไอวีกี่บาท",
+      "id": "disease.hiv.002",
+      "conf": true
+    },
+    {
+      "q": "ตรวจเอชไอวีแพงไหม",
+      "id": "disease.hiv.002",
+      "conf": true
+    },
+    {
+      "q": "ตรวจเอชไอวีโดยไม่บอกชื่อ",
+      "id": "disease.hiv.002",
+      "conf": true
+    },
+    {
+      "q": "ตรวจเอชไอวีโดยไม่บอกผู้ปกครอง",
+      "id": "hiv.test.under18.000",
+      "conf": false
+    },
+    {
+      "q": "ตรวจเอชไอวีโดยไม่บอกสามี",
+      "id": "disease.hiv.002",
+      "conf": true
+    },
+    {
+      "q": "ตรวจเอชไอวีโดยไม่บอกแฟน",
+      "id": "disease.hiv.002",
+      "conf": true
+    },
+    {
+      "q": "ตรวจเอชไอวีโดยไม่บอกใคร",
+      "id": "disease.hiv.002",
+      "conf": true
+    },
+    {
+      "q": "ติดเชื้อเอชไอวีโดยไม่บอกผู้ปกครองรักษาได้ไหม",
+      "id": "disease.hiv.000",
+      "conf": false
+    },
+    {
+      "q": "ถุงยางกี่บาท",
+      "id": "condom.000",
+      "conf": false
+    },
+    {
+      "q": "ถุงยางขนาด",
+      "id": "condom.size.000",
+      "conf": true
+    },
+    {
+      "q": "ถุงยางรั่ว",
+      "id": "condom.leak.000",
+      "conf": true
+    },
+    {
+      "q": "ถุงยางรั่ว ต้องทำยังไง",
+      "id": "condom.leak.000",
+      "conf": true
+    },
+    {
+      "q": "ถุงยางรั่ว ต้องทำยังไง คุมฉุกเฉินทันไหม",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "ถุงยางเวิร์ก",
+      "id": "condom.000",
+      "conf": true
+    },
+    {
+      "q": "ถุงยางแตก",
+      "id": "condom.leak.000",
+      "conf": true
+    },
+    {
+      "q": "ถุงยางแพงไหม",
+      "id": "condom.000",
+      "conf": false
+    },
+    {
+      "q": "ถุงยางใช้ได้ไหม",
+      "id": "condom.000",
+      "conf": true
+    },
+    {
+      "q": "ถูกคุกคาม",
+      "id": "harassment.002",
+      "conf": true
+    },
+    {
+      "q": "ถูกลวนลาม",
+      "id": "harassment.002",
+      "conf": true
+    },
+    {
+      "q": "ทำแท้งถูกกฎหมายไหม",
+      "id": "pregnancy.abortion.001",
+      "conf": true
+    },
+    {
+      "q": "ทำแท้งปลอดภัย",
+      "id": "pregnancy.abortion.003",
+      "conf": true
+    },
+    {
+      "q": "ทำแท้งหลังกินยา 21 เม็ดได้ไหม",
+      "id": "pregnancy.ornot.000",
+      "conf": false
+    },
+    {
+      "q": "ทำแท้งโดยไม่บอกผู้ปกครองได้ไหม",
+      "id": "pregnancy.ornot.000",
+      "conf": false
+    },
+    {
+      "q": "ที่ตรวจครรภ์กี่บาท",
+      "id": "pregnancy.ornot.000",
+      "conf": false
+    },
+    {
+      "q": "ที่ตรวจครรภ์กี่วัน",
+      "id": "pregnancy.signs.when.000",
+      "conf": true
+    },
+    {
+      "q": "ท้องไม่พร้อม",
+      "id": "pregnancy.notthetime.000",
+      "conf": true
+    },
+    {
+      "q": "บายพี่เจน",
+      "id": "ending.byejane.000",
+      "conf": true
+    },
+    {
+      "q": "ฝังยา คุม",
+      "id": "birth.control.implant.000",
+      "conf": false
+    },
+    {
+      "q": "ฝังยาคุม",
+      "id": "birth.control.implant.000",
+      "conf": false
+    },
+    {
+      "q": "ฝังยารักษาอะไร",
+      "id": "general.fallback.000",
+      "conf": false
+    },
+    {
+      "q": "ฝังยาแล้วทำแท้งได้ไหม",
+      "id": "pregnancy.ornot.000",
+      "conf": false
+    },
+    {
+      "q": "ฝังยาแล้วใช้ถุงยางด้วยได้ไหม",
+      "id": "condom.000",
+      "conf": true
+    },
+    {
+      "q": "ฝังยาโดยไม่บอกแฟนได้ไหม",
+      "id": "sex.activity.consent.000",
+      "conf": false
+    },
+    {
+      "q": "พอแค่นี้ก่อน",
+      "id": "ending.byejane.000",
+      "conf": true
+    },
+    {
+      "q": "ยังกินยาคุมฉุกเฉิน",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "ยังกินยาคุมฉุกเฉินได้กี่ครั้ง",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "ยาคุม",
+      "id": "birth.control.000",
+      "conf": true
+    },
+    {
+      "q": "ยาคุม 21 เม็ด",
+      "id": "birth.control.pills.000",
+      "conf": false
+    },
+    {
+      "q": "ยาคุม รายเดือน",
+      "id": "birth.control.pills.000",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉิน",
+      "id": "urgent.pills.000",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉิน 3 วันยังทันไหม",
+      "id": "urgent.pills.000",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉิน กี่ชั่วโมง",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉิน กี่วัน",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉิน ช้า",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉินกินภายในกี่ชั่วโมง",
+      "id": "urgent.pills.000",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉินกินเมื่อไร",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉินกินได้กี่ครั้ง",
+      "id": "urgent.pills.000",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉินกี่ชั่วโมง",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉินกี่วัน",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉินกี่วันถึงตรวจครรภ์ได้",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉินกี่วันประจำเดือนมา",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉินคลื่นไส้นานแค่ไหน",
+      "id": "urgent.pills.000",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉินควรกินเมื่อไร",
+      "id": "urgent.pills.000",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉินคือ",
+      "id": "urgent.pills.000",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉินคืออะไร",
+      "id": "urgent.pills.000",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉินคืออะไร กินได้กี่ชั่วโมง",
+      "id": "urgent.pills.000",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉินคืออะไรคะ",
+      "id": "urgent.pills.000",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉินช้า",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉินทำ",
+      "id": "urgent.pills.000",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉินทำงานยังไง",
+      "id": "urgent.pills.000",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉินทำอะไร",
+      "id": "urgent.pills.000",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉินมีผลข้างเคียง",
+      "id": "urgent.pills.000",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉินมีผลข้างเคียงไหม",
+      "id": "urgent.pills.000",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉินยังทัน",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉินราคาเท่าไหร่",
+      "id": "urgent.pills.000",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉินอันตราย",
+      "id": "urgent.pills.000",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉินอันตรายไหม",
+      "id": "urgent.pills.000",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉินเท่าไหร่",
+      "id": "urgent.pills.000",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมฉุกเฉินแพงไหม",
+      "id": "urgent.pills.000",
+      "conf": false
+    },
+    {
+      "q": "ยาคุมรายเดือน",
+      "id": "birth.control.pills.000",
+      "conf": false
+    },
+    {
+      "q": "ยาต้านเอชไอวีโดยไม่บอกพ่อแม่",
+      "id": "disease.hiv.000",
+      "conf": false
+    },
+    {
+      "q": "ยาฝัง",
+      "id": "birth.control.implant.000",
+      "conf": true
+    },
+    {
+      "q": "ยาเป็ป",
+      "id": "protection.pep.000",
+      "conf": true
+    },
+    {
+      "q": "ยาเพร็พ",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "ยาเพร็พ กี่บาท",
+      "id": "protection.prep.000",
+      "conf": false
+    },
+    {
+      "q": "ยาเพร็พ ราคา",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "ยาเพร็พ ราคาเท่าไหร่คะ",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "ยาเพร็พ เท่าไหร่",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "ยาเพร็พ แพง",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "ยาเพร็พกี่บาท",
+      "id": "protection.prep.000",
+      "conf": false
+    },
+    {
+      "q": "ยาเพร็พราคา",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "ยาเพร็พราคาเท่าไหร่",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "ยาเพร็พราคาเท่าไหร่คะ",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "ยาเพร็พเท่าไหร่",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "ยาเพร็พแพง",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "ยาเพร็พแพงไหม",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "ยินยอม",
+      "id": "sex.activity.consent.000",
+      "conf": true
+    },
+    {
+      "q": "รักษาด้วยยา 21 เม็ด",
+      "id": "general.fallback.000",
+      "conf": false
+    },
+    {
+      "q": "รักษาเอชไอวีโดยไม่บอกผู้ปกครองได้ไหม",
+      "id": "disease.hiv.000",
+      "conf": false
+    },
+    {
+      "q": "รักษาเอชไอวีโดยไม่บอกพ่อแม่ได้ไหม",
+      "id": "disease.hiv.000",
+      "conf": false
+    },
+    {
+      "q": "ราคา PrEP",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "ราคา prep",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "ราคา เพร็พ",
+      "id": "price.trc.prep.000",
+      "conf": false
+    },
+    {
+      "q": "ราคาprep",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "ราคาเพร็พ",
+      "id": "price.trc.prep.000",
+      "conf": false
+    },
+    {
+      "q": "ลืมกินยาคุม",
+      "id": "birth.control.000",
+      "conf": true
+    },
+    {
+      "q": "วัยรุ่นตรวจเอชไอวีโดยไม่บอกผู้ปกครอง",
+      "id": "hiv.test.under18.000",
+      "conf": false
+    },
+    {
+      "q": "วิธีการกินยาคุมฉุกเฉิน",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "วิธีใช้ ถุงยาง",
+      "id": "condom.how_to.000",
+      "conf": false
+    },
+    {
+      "q": "วิธีใช้ถุงยาง",
+      "id": "condom.how_to.000",
+      "conf": false
+    },
+    {
+      "q": "สงสัยว่าติด หนองใน",
+      "id": "disease.gonorrhea.001",
+      "conf": false
+    },
+    {
+      "q": "สงสัยว่าติดหนองใน",
+      "id": "disease.gonorrhea.001",
+      "conf": false
+    },
+    {
+      "q": "หนองใน",
+      "id": "disease.gonorrhea.000",
+      "conf": true
+    },
+    {
+      "q": "หนองในกี่บาท",
+      "id": "disease.gonorrhea.000",
+      "conf": true
+    },
+    {
+      "q": "หนองในคืออะไร",
+      "id": "disease.gonorrhea.000",
+      "conf": true
+    },
+    {
+      "q": "หลังกินยาคุมฉุกเฉินกี่วันตรวจครรภ์ได้",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "หลังกินยาคุมฉุกเฉินตรวจท้องเมื่อไร",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "หลังมีเพศสัมพันธ์ คัน",
+      "id": "general.fallback.000",
+      "conf": false
+    },
+    {
+      "q": "หลังมีเพศสัมพันธ์ ปวด",
+      "id": "general.fallback.000",
+      "conf": false
+    },
+    {
+      "q": "หลังมีเพศสัมพันธ์ แสบ คัน",
+      "id": "general.fallback.000",
+      "conf": false
+    },
+    {
+      "q": "หลังมีเพศสัมพันธ์กี่ชั่วโมงยังกินยาคุมฉุกเฉินได้",
+      "id": "ec.timing.b001",
+      "conf": false
+    },
+    {
+      "q": "ห่วงอนามัยกี่บาท",
+      "id": "condom.000",
+      "conf": false
+    },
+    {
+      "q": "ห่วงอนามัยคุมยังไง",
+      "id": "condom.000",
+      "conf": false
+    },
+    {
+      "q": "อยากตรวจเอช",
+      "id": "disease.hiv.002",
+      "conf": true
+    },
+    {
+      "q": "อยากตรวจเอชไอวีโดยไม่บอกผู้ปกครอง",
+      "id": "hiv.test.under18.000",
+      "conf": false
+    },
+    {
+      "q": "อยากตรวจเอชไอวีโดยไม่บอกแฟน",
+      "id": "disease.hiv.002",
+      "conf": true
+    },
+    {
+      "q": "อยากรู้เรื่องคุมกำเนิด",
+      "id": "birth.control.000",
+      "conf": true
+    },
+    {
+      "q": "อยากรู้เรื่องยาคุมฉุกเฉิน",
+      "id": "urgent.pills.000",
+      "conf": false
+    },
+    {
+      "q": "อยากรู้เรื่องยาคุมฉุกเฉิน กินภายในกี่ชั่วโมง",
+      "id": "urgent.pills.000",
+      "conf": false
+    },
+    {
+      "q": "อาการ ซิฟิลิส",
+      "id": "disease.syphilis.001",
+      "conf": false
+    },
+    {
+      "q": "อาการซิฟิลิส",
+      "id": "disease.syphilis.001",
+      "conf": false
+    },
+    {
+      "q": "อาการเอชไอวี",
+      "id": "disease.hiv.002",
+      "conf": true
+    },
+    {
+      "q": "อายุ 16 อยากตรวจเอชไอวีโดยไม่บอกผู้ปกครอง",
+      "id": "hiv.test.under18.000",
+      "conf": false
+    },
+    {
+      "q": "อายุ 17 กินเพร็พป้องกันเอชไอวีโดยไม่บอกผู้ปกครองได้ไหม",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "อายุ 30 ตรวจเอชไอวีโดยไม่บอกแฟนได้ไหม",
+      "id": "disease.hiv.002",
+      "conf": true
+    },
+    {
+      "q": "เครือข่าย RSA",
+      "id": "pregnancy.abortion.003",
+      "conf": true
+    },
+    {
+      "q": "เด็กตรวจ เอชไอวี",
+      "id": "hiv.test.under18.000",
+      "conf": false
+    },
+    {
+      "q": "เด็กตรวจครรภ์ได้ไหม",
+      "id": "pregnancy.ornot.000",
+      "conf": false
+    },
+    {
+      "q": "เด็กตรวจหนองในโดยไม่บอกผู้ปกครองได้ไหม",
+      "id": "disease.gonorrhea.000",
+      "conf": true
+    },
+    {
+      "q": "เด็กตรวจเอชไอวี",
+      "id": "hiv.test.under18.000",
+      "conf": false
+    },
+    {
+      "q": "เด็กตรวจเอชไอวีโดยไม่บอกผู้ปกครอง",
+      "id": "hiv.test.under18.000",
+      "conf": false
+    },
+    {
+      "q": "เด็กตรวจเอชไอวีได้ไหม",
+      "id": "hiv.test.under18.000",
+      "conf": false
+    },
+    {
+      "q": "เป็น หนองใน",
+      "id": "disease.gonorrhea.001",
+      "conf": false
+    },
+    {
+      "q": "เป็นหนองใน",
+      "id": "disease.gonorrhea.001",
+      "conf": false
+    },
+    {
+      "q": "เป็นเริมมีตุ่มเป็นหนอง",
+      "id": "disease.herpes.000",
+      "conf": true
+    },
+    {
+      "q": "เป็ป",
+      "id": "protection.pep.000",
+      "conf": true
+    },
+    {
+      "q": "เป็ปกิน 21 เม็ดได้ไหม",
+      "id": "protection.pep.000",
+      "conf": true
+    },
+    {
+      "q": "เป็ปกินเมื่อไร",
+      "id": "protection.pep.000",
+      "conf": true
+    },
+    {
+      "q": "เป็ปกี่บาท",
+      "id": "protection.pep.000",
+      "conf": true
+    },
+    {
+      "q": "เป็ปเท่าไหร่",
+      "id": "protection.pep.000",
+      "conf": true
+    },
+    {
+      "q": "เป็ปแพงไหม",
+      "id": "protection.pep.000",
+      "conf": true
+    },
+    {
+      "q": "เพร็พ",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "เพร็พ กี่บาท",
+      "id": "price.trc.prep.000",
+      "conf": false
+    },
+    {
+      "q": "เพร็พ ราคา",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "เพร็พ ราคาเท่าไหร่",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "เพร็พ เท่าไหร่",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "เพร็พ แพง",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "เพร็พกินเมื่อไร",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "เพร็พกี่บาท",
+      "id": "price.trc.prep.000",
+      "conf": false
+    },
+    {
+      "q": "เพร็พทันไหม",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "เพร็พราคา",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "เพร็พราคาเท่าไหร่",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "เพร็พเท่าไหร่",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "เพร็พแพง",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "เพร็พแพงไหม",
+      "id": "protection.prep.000",
+      "conf": true
+    },
+    {
+      "q": "เพิ่งมีเซ็กส์ไม่ป้องกัน ขอยาป้องกันเอชไอวีโดยไม่บอกผู้ปกครองได้ไหม",
+      "id": "disease.hiv.000",
+      "conf": false
+    },
+    {
+      "q": "เริม",
+      "id": "disease.herpes.000",
+      "conf": true
+    },
+    {
+      "q": "เริม รักษาหาย",
+      "id": "disease.herpes.002",
+      "conf": false
+    },
+    {
+      "q": "เริม หายขาด",
+      "id": "disease.herpes.002",
+      "conf": false
+    },
+    {
+      "q": "เริมคืออะไร",
+      "id": "disease.herpes.000",
+      "conf": true
+    },
+    {
+      "q": "เริมรักษาหาย",
+      "id": "disease.herpes.002",
+      "conf": false
+    },
+    {
+      "q": "เริมหายขาด",
+      "id": "disease.herpes.002",
+      "conf": false
+    },
+    {
+      "q": "เรื่องยาคุมฉุกเฉิน",
+      "id": "urgent.pills.000",
+      "conf": false
+    },
+    {
+      "q": "เลือดออกหลังมีเพศสัมพันธ์",
+      "id": "general.fallback.000",
+      "conf": false
+    },
+    {
+      "q": "เล่าเรื่องยาคุมฉุกเฉินให้หน่อย",
+      "id": "urgent.pills.000",
+      "conf": false
+    },
+    {
+      "q": "เอชไอวีคืออะไร",
+      "id": "disease.hiv.000",
+      "conf": true
+    },
+    {
+      "q": "เอชไอวีรักษาหาย",
+      "id": "disease.hiv.001",
+      "conf": true
+    },
+    {
+      "q": "เอดส์คืออะไร",
+      "id": "disease.hiv.000",
+      "conf": true
+    },
+    {
+      "q": "เอดส์รักษาหาย",
+      "id": "disease.hiv.001",
+      "conf": true
+    },
+    {
+      "q": "เฮอร์พีส์",
+      "id": "disease.herpes.000",
+      "conf": true
+    },
+    {
+      "q": "แผล ซิฟิลิส",
+      "id": "disease.syphilis.001",
+      "conf": false
+    },
+    {
+      "q": "แผลซิฟิลิส",
+      "id": "disease.syphilis.001",
+      "conf": false
+    },
+    {
+      "q": "แผลเป็นหนอง",
+      "id": "general.fallback.000",
+      "conf": false
+    },
+    {
+      "q": "แฟนกดดัน",
+      "id": "sex.activity.consent.000",
+      "conf": true
+    },
+    {
+      "q": "แฟนทำร้าย",
+      "id": "relationship.violence.001",
+      "conf": true
+    },
+    {
+      "q": "โดนแฟนตี",
+      "id": "relationship.violence.001",
+      "conf": false
+    },
+    {
+      "q": "ใช้ถุงยาง",
+      "id": "condom.000",
+      "conf": true
+    },
+    {
+      "q": "ใช้ถุงยางกับยา 21 เม็ด",
+      "id": "condom.000",
+      "conf": true
+    },
+    {
+      "q": "ใช้ยาคุมฉุกเฉินแล้วตรวจครรภ์เมื่อไร",
+      "id": "urgent.pills.000",
+      "conf": false
+    },
+    {
+      "q": "ใช้ยาคุมฉุกเฉินแล้วประจำเดือนไม่มา",
+      "id": "birth.control.000",
+      "conf": false
+    },
+    {
+      "q": "ใช้ยาคุมฉุกเฉินแล้วเลือดออกนานแค่ไหน",
+      "id": "urgent.pills.000",
+      "conf": false
+    },
+    {
+      "q": "ใส่ถุงยางยังไง",
+      "id": "condom.how_to.000",
+      "conf": true
+    },
+    {
+      "q": "ไซส์ถุงยาง",
+      "id": "condom.size.000",
+      "conf": true
+    },
+    {
+      "q": "ไม่พร้อมท้อง",
+      "id": "pregnancy.notthetime.000",
+      "conf": true
+    }
+  ]
+}

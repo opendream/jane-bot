@@ -7,6 +7,8 @@ import baselineFile from "../fixtures/retrieve-c450-baseline.json";
 import extraFile from "../fixtures/retrieve-routing-extra.json";
 import e948File from "../fixtures/retrieve-e948-baseline.json";
 import crossTopicNegatives from "../fixtures/retrieve-cross-topic-negatives.json";
+import frozen476File from "../fixtures/retrieve-476b992-baseline.json";
+import prepPriceFile from "../fixtures/retrieve-prep-price.json";
 
 // All queries here are SYNTHETIC, written for these tests.
 
@@ -52,6 +54,36 @@ const NEW_OWN_TRIGGER_FRAGMENTS = [
   "แผล ซิฟิลิส",
   "ราคา เพร็พ",
   "เพร็พ กี่บาท",
+  "เพร็พราคา",
+  "เพร็พ ราคา",
+  "ยาเพร็พราคา",
+  "ยาเพร็พ ราคา",
+  "ยาเพร็พกี่บาท",
+  "ยาเพร็พ กี่บาท",
+  "เพร็พแพง",
+  "เพร็พ แพง",
+  "ยาเพร็พแพง",
+  "ยาเพร็พ แพง",
+  "เพร็พเท่าไหร่",
+  "เพร็พ เท่าไหร่",
+  "ยาเพร็พเท่าไหร่",
+  "ยาเพร็พ เท่าไหร่",
+  "ค่ายาเพร็พ",
+  "ค่ายา เพร็พ",
+  "ค่า ยาเพร็พ",
+  "ค่า ยา เพร็พ",
+  "prepราคา",
+  "prep ราคา",
+  "ราคาprep",
+  "ราคา prep",
+  "prepกี่บาท",
+  "prep กี่บาท",
+  "prepแพง",
+  "prep แพง",
+  "prepเท่าไหร่",
+  "prep เท่าไหร่",
+  "ค่ายาprep",
+  "ค่ายา prep",
 ];
 
 /** Topic term a new fragment on that owner must carry. */
@@ -619,5 +651,89 @@ describe("retrieve baseline diff gate (e948e1c)", () => {
       }
     }
     expect(unexpected, unexpected.join("\n")).toEqual([]);
+  });
+});
+
+const PREP_PRICE_ID = "price.trc.prep.000";
+const PREP_GENERAL_ID = "protection.prep.000";
+const prepPriceByGroup = (g: string) => prepPriceFile.queries.filter((r) => r.group === g);
+
+describe("PrEP price routing vs 476b992 (synthetic)", () => {
+  it("has the frozen 476b992 table covering existing routing fixtures plus PrEP-price rows", () => {
+    expect(frozen476File.baseline_commit).toBe("476b992c7e172a3b86d12799a515f5c1a4b081a2");
+    expect(prepPriceFile.base_commit).toBe("476b992c7e172a3b86d12799a515f5c1a4b081a2");
+    expect(frozen476File.queries).toHaveLength(289);
+    const byQ = new Set(frozen476File.queries.map((r) => r.q));
+    for (const row of baselineFile.queries) expect(byQ.has(row.q), row.q).toBe(true);
+    for (const row of extraFile.queries) expect(byQ.has(row.q), row.q).toBe(true);
+    for (const row of e948File.queries) expect(byQ.has(row.q), row.q).toBe(true);
+    for (const row of crossTopicNegatives.queries) expect(byQ.has(row.q), row.q).toBe(true);
+    for (const row of prepPriceFile.queries) expect(byQ.has(row.q), row.q).toBe(true);
+    expect([...new Set(prepPriceByGroup("prep_price").map((r) => r.q))]).toEqual(expect.arrayContaining([
+      "PrEP ราคาเท่าไหร่",
+      "ยาเพร็พ ราคาเท่าไหร่คะ",
+      "ราคาเพร็พ",
+      "เพร็พกี่บาท",
+      "PrEP แพงไหม",
+      "ค่ายา PrEP เท่าไหร่",
+    ]));
+  });
+
+  it("routes PrEP price questions and close variants to price.trc.prep.000", () => {
+    for (const row of prepPriceByGroup("prep_price")) {
+      expect(outcome(row.q).id, row.q).toBe(PREP_PRICE_ID);
+    }
+  });
+
+  it("keeps general PrEP questions on protection.prep.000", () => {
+    for (const row of prepPriceByGroup("prep_general")) {
+      const got = outcome(row.q);
+      expect(got.id, row.q).toBe(PREP_GENERAL_ID);
+      expect(got.id, row.q).toBe(row.id);
+    }
+  });
+
+  it("does not move PEP price or other price cards onto the PrEP price card", () => {
+    for (const row of [...prepPriceByGroup("pep_price"), ...prepPriceByGroup("other_price")]) {
+      const got = outcome(row.q);
+      expect(got.id, row.q).not.toBe(PREP_PRICE_ID);
+      if (row.not_id) expect(got.id, row.q).not.toBe(row.not_id);
+      if (row.id) expect(got.id, row.q).toBe(row.id);
+    }
+  });
+
+  it("keeps #34 HIV privacy: under-18 test vs adult partner vs teen PEP/PrEP", () => {
+    expect(outcome("อายุ 16 อยากตรวจเอชไอวีโดยไม่บอกผู้ปกครอง").id).toBe(UNDER18_HIV);
+    expect(outcome("อยากตรวจเอชไอวีโดยไม่บอกแฟน")).toEqual({ id: ADULT_HIV_TEST, conf: true });
+    for (const row of prepPriceByGroup("hiv_privacy")) {
+      const got = outcome(row.q);
+      expect(got.id, row.q).toBe(row.id);
+      expect(got.id, row.q).not.toBe(row.not_id);
+    }
+  });
+
+  it("new PrEP-price fragments inside other-topic sentences do not steal", () => {
+    for (const row of prepPriceByGroup("fragment_sweep")) {
+      const got = outcome(row.q);
+      expect(got.id, row.q).toBe(row.id);
+      expect(got.id, row.q).not.toBe(PREP_PRICE_ID);
+    }
+  });
+
+  it("corpus diff vs 476b992: only intended PrEP-price moves, 0 unintended", () => {
+    const intended: string[] = [];
+    const unintended: string[] = [];
+    for (const row of frozen476File.queries) {
+      const got = outcome(row.q);
+      if (got.id === row.id && got.conf === row.conf) continue;
+      // Intended: general PrEP card → PrEP price card. Anything else is a steal.
+      if (got.id === PREP_PRICE_ID && row.id === PREP_GENERAL_ID) {
+        intended.push(`${row.q}\t${row.id}/${row.conf} → ${got.id}/${got.conf}`);
+      } else {
+        unintended.push(`${row.q}\t476b992=${row.id}/${row.conf}\tgot=${got.id}/${got.conf}`);
+      }
+    }
+    expect(unintended, unintended.join("\n")).toEqual([]);
+    expect(intended.length, intended.join("\n")).toBe(51);
   });
 });
