@@ -18,7 +18,7 @@ test("S1 pregnancy worry at 19:00 BKK → 1663 (open) → edit → approve → D
   await expect(page.getByTestId("status-hotline_1663")).toHaveAttribute("data-state", "open");
   await expect(page.getByTestId("status-teen_club")).toHaveAttribute("data-state", "open");
   await expect(page.locator('a[href="tel:1663"]').first()).toBeVisible();
-  // Hours with sources: 1663 09:00–21:00 from services.json (operator first); Teen Club labelled "source 2022".
+  // Hours with sources: 1663 09:00–21:00 from services.json (สปสช. first); Teen Club labelled "source 2022".
   const h1663 = page.getByTestId("hours-hotline_1663");
   await expect(h1663).toHaveAttribute("data-conflict", "false");
   await expect(h1663).toContainText(`เวลา: ${effectiveHoursLabel("hotline_1663")}`);
@@ -122,7 +122,10 @@ test("C1 crisis phrase overrides the flow → 1323 first, 1300/1669/191 tap-to-c
   const t0 = Date.now();
   await expect(page.getByTestId("screen-crisis")).toBeVisible();
   expect(Date.now() - t0).toBeLessThan(1000);
-  await expect(page.getByTestId("screen-crisis")).toContainText(`โทร 1663 (${effectiveHoursLabel("hotline_1663")})`);
+  await expect(page.getByTestId("screen-crisis")).toContainText(`โทร 1663 ปรึกษาฟรี`);
+  await expect(page.getByTestId("screen-crisis")).toContainText(effectiveHoursLabel("hotline_1663"));
+  await expect(page.getByTestId("screen-crisis")).not.toContainText("รวมวันหยุด");
+  await expect(page.getByTestId("crisis-female-officer")).toHaveCount(0);
   await expect(page.getByTestId("screen-suggest")).toHaveCount(0);
   const order = await page.locator('[data-testid^="crisis-"] a').evaluateAll((as) => as.map((a) => a.getAttribute("href")));
   expect(order[0]).toBe("tel:1323");
@@ -154,7 +157,11 @@ test("Under-age path and static guarantees (no image upload, no external links)"
   const rec = await open(page, "12:00");
   await page.getByTestId("age-under").click();
   await expect(page.getByTestId("screen-underage")).toContainText("15 ปีขึ้นไป");
-  await expect(page.getByTestId("screen-underage")).toContainText(`โทร 1663 (${effectiveHoursLabel("hotline_1663")})`);
+  await expect(page.getByTestId("screen-underage")).toContainText("โทร 1663 ปรึกษาฟรี");
+  await expect(page.getByTestId("screen-underage")).toContainText(effectiveHoursLabel("hotline_1663"));
+  await expect(page.getByTestId("screen-underage")).not.toContainText("รวมวันหยุด");
+  await expect(page.getByTestId("screen-underage")).toContainText("กรมประชาสัมพันธ์");
+  await expect(page.getByTestId("screen-underage")).toContainText("สปสช.");
   await shot(page, "u1-underage");
   expect(await page.locator('input[type="file"]').count()).toBe(0);
   const hrefs = await page.locator("a[href]").evaluateAll((as) => as.map((a) => a.getAttribute("href")!));

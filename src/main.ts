@@ -3,7 +3,7 @@ import { PRODUCT_NAME, PRODUCT_NAME_EN, MIN_AGE, THAI_COPY_STATUS } from "./conf
 import markSvg from "./assets/mark.svg?raw";
 import type { AgeBand, CrisisCategory, Intent, IntentResult } from "./core/types";
 import { detectCrisis, crisisOrder } from "./core/crisis";
-import { suggestServices, CRISIS_LINES, DATA_VERSION, INTENT_LABEL_TH, SUPPORT_LINE_TH, serviceHoursLabel, type Suggestion } from "./core/referral";
+import { suggestServices, CRISIS_LINES, DATA_VERSION, INTENT_LABEL_TH, SUPPORT_LINE_TH, serviceHoursLabel, canPrepareMessage, type Suggestion } from "./core/referral";
 import { hoursLabel, hoursCitation } from "./core/openNow";
 import { draftSummary, finalizeSummary, stripPII } from "./core/summary";
 import { classifyWithFallback, polishWithFallback, type LLMAdapter } from "./llm/adapter";
@@ -161,9 +161,9 @@ function startScreen() {
 function underageScreen() {
   return h("main", { class: "screen", "data-testid": "screen-underage" },
     h("h1", {}, "ขอบคุณที่บอกเรา"),
-    h("p", {}, `เดโมนี้ทำสำหรับอายุ ${MIN_AGE} ปีขึ้นไป แต่คุณยังขอความช่วยเหลือได้เสมอ โทรฟรี:`),
+    h("p", {}, `เดโมนี้ทำสำหรับอายุ ${MIN_AGE} ปีขึ้นไป แต่คุณยังขอความช่วยเหลือได้เสมอ:`),
     callList(["1323", "1300"]),
-    h("p", {}, `เรื่องท้องหรือเอชไอวี โทร 1663 (${serviceHoursLabel("hotline_1663")})`),
+    h("p", {}, `เรื่องท้องหรือเอชไอวี โทร 1663 ปรึกษาฟรี (ข้อมูล กรมประชาสัมพันธ์) ${serviceHoursLabel("hotline_1663")} (ข้อมูล สปสช.)`),
     h("a", { class: "btn-call", href: "tel:1663" }, "โทร 1663"),
     h("button", { class: "btn-ghost", onclick: () => eraseAll("start") }, "กลับหน้าแรก"),
   );
@@ -300,7 +300,7 @@ function suggestScreen() {
         h("div", { class: "chans" }, ...s.service.channels.map(channelEl)),
         s.service.verification !== "verified" && h("p", { class: "warn" }, "⚠ เวลาให้บริการยังยืนยันไม่ได้ทั้งหมด"),
         sourceLine(s.service.sources),
-        h("button", { class: "btn-primary", "data-testid": `pick-${s.service.id}`, onclick: () => pick(s) }, "ให้ช่วยเตรียมข้อความถึงที่นี่"),
+        canPrepareMessage(s.service) && h("button", { class: "btn-primary", "data-testid": `pick-${s.service.id}`, onclick: () => pick(s) }, "ให้ช่วยเตรียมข้อความถึงที่นี่"),
       )),
     backToChat()
       ? h("button", { class: "btn-ghost", "data-testid": "retell", "data-to": "chat", onclick: () => go({ screen: "chat" }) }, "กลับไปคุยกับพี่เจนต่อ")
@@ -309,6 +309,7 @@ function suggestScreen() {
 }
 
 async function pick(s: Suggestion) {
+  if (!canPrepareMessage(s.service)) return;
   const draft = draftSummary({ service: s.service, needText: state.needText, intent: state.result!.intents[0], ageBand: state.ageBand });
   polishNote = false;
   go({ selected: s, summary: draft, screen: "summary" });
@@ -372,10 +373,11 @@ function crisisScreen() {
   const order = crisisOrder(state.crisisCategories);
   return h("main", { class: "screen crisis", "data-testid": "screen-crisis" },
     h("h1", {}, "ตอนนี้ความปลอดภัยของคุณสำคัญที่สุด"),
-    h("p", { class: "lead" }, "คุณไม่ได้อยู่คนเดียว มีคนพร้อมช่วยตอนนี้ โทรฟรี กดที่เบอร์เพื่อโทรได้ทันที"),
+    h("p", { class: "lead" }, "คุณไม่ได้อยู่คนเดียว มีคนพร้อมช่วยตอนนี้ กดที่เบอร์เพื่อโทรได้ทันที"),
     callList(order),
-    h("p", {}, `ถ้ากำลังอยู่ในอันตรายตอนนี้ โทร 191 หรือ 1669 ทันที เรื่องท้องหรือเอชไอวีโทร 1663 (${serviceHoursLabel("hotline_1663")})`),
-    h("p", { class: "src" }, "ที่มา: กรมสุขภาพจิต, กระทรวง พม., GCC Call Center ภาครัฐ, ศูนย์รับแจ้งเหตุ 191 (ตรวจ 2026-10-22)"),
+    state.crisisCategories.includes("sexual_violence") && h("p", {}, "ถ้าถูกล่วงละเมิดทางเพศ ไปที่ศูนย์พึ่งได้ (OSCC) ในโรงพยาบาลรัฐได้ ดูแลด้านการแพทย์ ให้คำปรึกษา และช่วยด้านสังคมและกฎหมาย"),
+    h("p", {}, `ถ้ากำลังอยู่ในอันตรายตอนนี้ โทร 191 หรือ 1669 ทันที เรื่องท้องหรือเอชไอวี โทร 1663 ปรึกษาฟรี (ข้อมูล กรมประชาสัมพันธ์) ${serviceHoursLabel("hotline_1663")} (ข้อมูล สปสช.)`),
+    h("p", { class: "src" }, "ที่มา: กรมสุขภาพจิต, กระทรวง พม., GCC Call Center ภาครัฐ, ศูนย์รับแจ้งเหตุ 191, สปสช. (1663), กรมประชาสัมพันธ์ (1663), กระทรวงสาธารณสุข (ศูนย์พึ่งได้) (ตรวจ 2026-10-23)"),
     h("button", { class: "btn-ghost", "data-testid": "crisis-continue", onclick: () => { bumpNeed(need); go({ screen: crisisContinueScreen() }); } },
       "ฉันปลอดภัยแล้ว กลับไปต่อ"),
   );

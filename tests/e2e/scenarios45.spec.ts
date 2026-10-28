@@ -41,6 +41,8 @@ test("C2 being forced (consent → crisis override) → crisis screen with 1300 
   const tels = await page.locator('[data-testid^="crisis-"] a').evaluateAll((as) => as.map((a) => a.getAttribute("href")));
   expect(tels[0]).toBe("tel:1300");
   expect(tels).toContain("tel:1323");
+  await expect(page.getByTestId("crisis-female-officer")).toHaveCount(0);
+  await expect(page.getByTestId("screen-crisis")).not.toContainText("พนักงานสอบสวนหญิง");
   await shot(page, "c2-01-forced-crisis-1300-first");
   await assertNoStorage(page);
   await assertNetwork(page, rec);
@@ -80,7 +82,32 @@ test("C3 mental health + suicidal phrase → crisis override, 1323 first", async
   await expect(page.getByTestId("screen-crisis")).toBeVisible();
   const tels = await page.locator('[data-testid^="crisis-"] a').evaluateAll((as) => as.map((a) => a.getAttribute("href")));
   expect(tels[0]).toBe("tel:1323");
+  await expect(page.getByTestId("crisis-female-officer")).toHaveCount(0);
   await shot(page, "c3-01-mental-to-crisis");
+  await assertNoStorage(page);
+  await assertNetwork(page, rec);
+});
+
+test("V1 violence (non-crisis) → OSCC card is in-person only: label shown, no prepare-message, no ออนไลน์ draft", async ({ page }) => {
+  const rec = await open(page, "10:00");
+  await startAs(page, "18-24");
+  await describe(page, "แฟนเก่าขู่ปล่อยคลิป ไม่รู้จะทำยังไง");
+  await page.getByTestId("need-submit").click();
+  await expect(page.getByTestId("screen-suggest")).toBeVisible();
+  await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
+  const oscc = page.getByTestId("service-oscc_hospital");
+  await expect(oscc).toBeVisible();
+  await expect(oscc).toContainText("ติดต่อศูนย์พึ่งได้ที่โรงพยาบาลรัฐใกล้บ้าน");
+  await expect(page.getByTestId("pick-oscc_hospital")).toHaveCount(0);
+  await expect(page.getByTestId("pick-hotline_1300")).toBeVisible();
+  await page.getByTestId("pick-hotline_1300").click();
+  await expect(page.getByTestId("summary-input")).toBeVisible();
+  const draft = await page.getByTestId("summary-input").inputValue();
+  expect(draft).not.toContain("ออนไลน์");
+  await page.getByTestId("cancel").click();
+  await expect(page.getByTestId("screen-suggest")).toBeVisible();
+  await expect(page.getByTestId("summary-input")).toHaveCount(0);
+  await shot(page, "v1-oscc-in-person-no-draft");
   await assertNoStorage(page);
   await assertNetwork(page, rec);
 });

@@ -7,7 +7,7 @@
       "id": "hotline_1663",
       "name_th": "สายด่วน 1663 (ปรึกษาท้องไม่พร้อมและเอชไอวี)",
       "name_en": "1663 hotline (unplanned pregnancy and HIV counselling)",
-      "description_th": "ปรึกษาเรื่องท้องไม่พร้อม เอชไอวีและโรคติดต่อทางเพศ ส่งต่อบริการในเครือข่ายที่ปลอดภัยได้",
+      "description_th": "ปรึกษาเรื่องเอชไอวี (กด 1) ทุกวัน 09:00–21:00 น. (ข้อมูล สปสช.) ท้องไม่พร้อม (กด 2) ปรึกษาฟรี (ข้อมูล กรมประชาสัมพันธ์) ส่งต่อบริการที่ปลอดภัยได้",
       "channels": [
         {
           "type": "phone",
@@ -28,9 +28,20 @@
             "open": "09:00",
             "close": "21:00"
           },
-          "by": "ศูนย์วิจัยโรคเอดส์ สภากาชาดไทย",
-          "url": "https://th.aidsid.or.th/consulting-service/",
+          "by": "สปสช.",
+          "url": "https://www.nhso.go.th/th/communicate-th/thnewsforperson/2025-09-03-07-16-57",
           "checked": "2026-10-22"
+        },
+        {
+          "hours": {
+            "type": "daily",
+            "open": "09:00",
+            "close": "21:00"
+          },
+          "by": "กรมประชาสัมพันธ์",
+          "url": "https://radionongkhai.prd.go.th/th/content/category/detail/id/9/iid/472786",
+          "as_of": "2025",
+          "checked": "2026-10-23"
         },
         {
           "hours": {
@@ -40,16 +51,6 @@
           },
           "by": "RSATHAI",
           "url": "https://rsathai.org/qrcode",
-          "checked": "2026-10-22"
-        },
-        {
-          "hours": {
-            "type": "daily",
-            "open": "09:00",
-            "close": "21:00"
-          },
-          "by": "NHSO",
-          "url": "https://www.nhso.go.th/th/communicate-th/thnewsforperson/2025-09-03-07-16-57",
           "checked": "2026-10-22"
         }
       ],
@@ -61,20 +62,21 @@
       ],
       "youth_friendly": true,
       "verification": "verified",
+      "verification_note": "Operator not named (FC C3). Free = counselling.",
       "sources": [
         {
-          "url": "https://th.aidsid.or.th/consulting-service/",
-          "title": "ศูนย์วิจัยโรคเอดส์ สภากาชาดไทย (AIDSID): สายด่วนปรึกษาเอดส์ โทร 1663 ทุกวันไม่เว้นวันหยุดราชการ 9.00–21.00 น.",
+          "url": "https://www.nhso.go.th/th/communicate-th/thnewsforperson/2025-09-03-07-16-57",
+          "title": "สปสช. (NHSO): สายด่วน 1663 กด 1 เปิดให้บริการทุกวัน เวลา 09.00–21.00 น.",
           "checked": "2026-10-22"
+        },
+        {
+          "url": "https://radionongkhai.prd.go.th/th/content/category/detail/id/9/iid/472786",
+          "title": "กรมประชาสัมพันธ์ (สวท.หนองคาย) 7 ต.ค. 2568: ให้คำปรึกษาฟรีทุกวัน เวลา 09.00-21.00 น.",
+          "checked": "2026-10-23"
         },
         {
           "url": "https://rsathai.org/qrcode",
           "title": "RSATHAI: ปรึกษาท้องไม่พร้อมที่ไหนได้บ้าง (โทร 1663 ทุกวัน 9.00–21.00 น.; แชทเฟซบุ๊ก 1663 9.00–21.00 น.)",
-          "checked": "2026-10-22"
-        },
-        {
-          "url": "https://www.nhso.go.th/th/communicate-th/thnewsforperson/2025-09-03-07-16-57",
-          "title": "สปสช. (NHSO): สายด่วนปรึกษาเอดส์ 1663 กด 1 เปิดให้บริการทุกวัน เวลา 09.00–21.00 น.",
           "checked": "2026-10-22"
         }
       ]
@@ -286,7 +288,7 @@
       "id": "hotline_1300",
       "name_th": "สายด่วน พม. 1300 (ศูนย์ช่วยเหลือสังคม)",
       "name_en": "1300 MSDHS social assistance hotline",
-      "description_th": "แจ้งและขอความช่วยเหลือเมื่อถูกกระทำความรุนแรงหรือมีปัญหาสังคม ฟรี 24 ชั่วโมง",
+      "description_th": "ศูนย์ช่วยเหลือสังคม กระทรวง พม. โทรฟรี 24 ชั่วโมง ทุกวัน ปรึกษาเรื่องความรุนแรงในครอบครัว ท้องในวัยรุ่น และปัญหาสังคมอื่น ๆ และช่วยส่งต่อหน่วยงานที่เกี่ยวข้อง",
       "channels": [
         {
           "type": "phone",
@@ -331,6 +333,58 @@
           "url": "https://gcontact.gcc.go.th/index.php?Itemid=30&id=40609&option=com_content&view=article",
           "title": "GCC Call Center ภาครัฐ: 1300 ฟรี 24 ชม.",
           "checked": "2026-10-22"
+        },
+        {
+          "url": "https://secretary.prd.go.th/th/content/category/detail/id/9/iid/524212",
+          "title": "กรมประชาสัมพันธ์ (PRD), 21 ก.ค. 2569: พม. ยกระดับสายด่วน 1300 ตลอด 24 ชั่วโมง",
+          "checked": "2026-10-23"
+        },
+        {
+          "url": "https://1300thailand.m-society.go.th/",
+          "title": "ศูนย์ช่วยเหลือสังคม สายด่วน 1300 (พม.): เปิดให้บริการตลอด 24 ชั่วโมง 7 วัน",
+          "checked": "2026-10-23"
+        }
+      ]
+    },
+    {
+      "id": "oscc_hospital",
+      "name_th": "ศูนย์พึ่งได้ (OSCC) ในโรงพยาบาลรัฐ",
+      "name_en": "OSCC (One Stop Crisis Centre) in public hospitals",
+      "description_th": "หน่วยในโรงพยาบาลรัฐของกระทรวงสาธารณสุข ดูแลด้านการแพทย์ ให้คำปรึกษา และช่วยด้านสังคมและกฎหมาย สำหรับเด็กและผู้หญิงที่ถูกกระทำรุนแรง รวมถึงความรุนแรงทางเพศ",
+      "channels": [
+        {
+          "type": "in_person",
+          "label_th": "ติดต่อศูนย์พึ่งได้ที่โรงพยาบาลรัฐใกล้บ้าน",
+          "value": "hospital"
+        }
+      ],
+      "hours_sources": [
+        {
+          "hours": {
+            "type": "unpublished"
+          },
+          "by": "โรงพยาบาลระนอง (สธ.)",
+          "url": "https://www.rnh.go.th/main/index.php/oscc",
+          "as_of": "2016",
+          "checked": "2026-10-23"
+        }
+      ],
+      "intents": [
+        "violence"
+      ],
+      "youth_friendly": false,
+      "verification": "partial",
+      "verification_note": "Hours not found (FC): never print hours.",
+      "sources": [
+        {
+          "url": "https://www.rnh.go.th/main/index.php/oscc",
+          "title": "โรงพยาบาลระนอง (สธ.): ศูนย์พึ่งได้ (OSCC) ในโรงพยาบาล",
+          "checked": "2026-10-23"
+        },
+        {
+          "url": "https://rsathai.org/wp-content/uploads/2019/04/pregnant-final-1.pdf",
+          "title": "คู่มือการช่วยเหลือผู้หญิงตั้งครรภ์ไม่พร้อมของศูนย์พึ่งได้ (สธ., พิมพ์ครั้งที่ 1 ธ.ค. 2557)",
+          "checked": "2026-10-23"
         }
       ]
     }
