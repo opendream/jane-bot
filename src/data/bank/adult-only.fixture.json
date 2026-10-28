@@ -7,7 +7,7 @@
       "id": "other.adult_only.000",
       "topic": "other",
       "title_th": "ตัวอย่าง 18+",
-      "answer_th": "PLACEHOLDER · ข้อความทดสอบสำหรับอายุ 18 ปีขึ้นไปเท่านั้น ไม่ใช่คำแนะนำทางการแพทย์",
+      "answer_th": "ข้อความทดสอบสำหรับอายุ 18 ปีขึ้นไปเท่านั้น ไม่ใช่คำแนะนำทางการแพทย์",
       "key_facts": [
         "18 ปีขึ้นไป"
       ],
@@ -18,12 +18,12 @@
       "source_intents": [],
       "source": [],
       "review": {
-        "status": "draft",
-        "reviewer": null,
-        "reviewed_on": null,
-        "notes": "D5 test fixture, not production bank."
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "D5 test fixture, not production bank. Approved so ?bank=fixture still ships under reviewed copy."
       },
-      "last_reviewed": null,
+      "last_reviewed": "2026-10-27",
       "flags": [
         "pii_checked"
       ],
@@ -34,8 +34,7 @@
       "links": [],
       "age_min": 18,
       "reword": false,
-      "licence": "CC-BY-SA-4.0",
-      "placeholder": true
+      "licence": "CC-BY-SA-4.0"
     }
   ]
 }

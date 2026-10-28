@@ -1,0 +1,301 @@
+{
+  "$comment": "Reviewed 27 Oct 2026 (Keng). Condoms and contraception. #19 doses kept. Answer-bank text CC BY-SA 4.0, attribution Opendream.",
+  "topic_file": "contraception",
+  "licence": "CC-BY-SA-4.0",
+  "cards": [
+    {
+      "id": "condom.000",
+      "topic": "contraception",
+      "title_th": "ถุงยางใช้ได้จริงไหม",
+      "answer_th": "ถุงยางเป็นเครื่องป้องกันที่เวิร์กสุดแล้ว ณ เวลานี้ เพราะกันได้ทั้งเรื่องท้องและเรื่องโรค\nถ้าใช้อย่างถูกวิธี จะป้องกันการท้องได้ 98% เลย",
+      "key_facts": [
+        "ป้องกันการท้องได้ 98%"
+      ],
+      "triggers": [
+        "ถุงยางใช้ได้ไหม",
+        "ถุงยางเวิร์ก",
+        "ใช้ถุงยาง"
+      ],
+      "next": [],
+      "source_intents": [
+        "condom.000"
+      ],
+      "source": [],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#14 Approve"
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked"
+      ],
+      "referral": {
+        "offer": "soft",
+        "intents": [
+          "contraception"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "condom.how_to.000",
+      "topic": "contraception",
+      "title_th": "วิธีใช้ถุงยาง",
+      "answer_th": "เรื่องวิธีใช้ถุงยางเนี่ย พี่เจนขอลิสต์ให้เป็นข้อๆ เลยน้าาา\n1. ดูวันหมดอายุซะหน่อย เขาพิมพ์ ไว้ที่หน้าซอง 2. เช็คอีกนิด ซองเขามีรอยฉีกขาดรึเปล่า 3. ฉีกซองดีๆ ระวังเล็บไปเกี่ยวถุงยางขาด 4. สวมถุงตอนน้องแข็งแล้ว ก่อนสอดใส่ 5. รูดถุงให้สุดถึงโคน อย่าให้มีอากาศข้างใน เดี๋ยวถุงจะแตก 6. อย่าแช่ค้างไว้นาน ดึงน้องออกมาก่อนจะอ่อนตัว 7. รูดถุงออกตอนยังแข็งอยู่ เอาออกตอนเหี่ยวแล้ว มันจะหก!",
+      "key_facts": [
+        "รูดถุงให้สุดถึงโคน"
+      ],
+      "triggers": [
+        "วิธีใช้ถุงยาง",
+        "ใส่ถุงยางยังไง"
+      ],
+      "next": [],
+      "source_intents": [
+        "condom.how.to"
+      ],
+      "source": [],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#15 Approve"
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked"
+      ],
+      "referral": {
+        "offer": "soft",
+        "intents": [
+          "contraception"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "condom.size.000",
+      "topic": "contraception",
+      "title_th": "ไซส์ถุงยาง",
+      "answer_th": "เผื่อใครยังไม่รู้ ไซส์ถุงยางนี่เค้าวัดกันที่ความอวบอ้วนของน้อง ไม่ใช่ความยาวของน้องนะ\nซึ่งก็ต้องวัดตอนแข็งตัวแล้วเนอะ",
+      "key_facts": [
+        "ความอวบอ้วนของน้อง"
+      ],
+      "triggers": [
+        "ไซส์ถุงยาง",
+        "ถุงยางขนาด"
+      ],
+      "next": [],
+      "source_intents": [
+        "condom.size"
+      ],
+      "source": [],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#16 Approve"
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked"
+      ],
+      "referral": {
+        "offer": "soft",
+        "intents": [
+          "contraception"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "condom.leak.000",
+      "topic": "contraception",
+      "title_th": "ถุงยางแตก",
+      "answer_th": "ถุงยางแตกนี่มีหลายสาเหตุเลย เช่น\n1. ไซส์ถุงยางไม่พอดี บางทีถุงยางเล็กไป มันจะไม่เหลือพื้นที่ว่างสำหรับน้ำอสุจิ พอน้ำแตกปุ๊บถุงยางก็แตกตาม หรือถ้าใหญ่ไปก็มีสิทธิ์หลุดอกมาได้\n2. เก็บไว้ใกล้แสงหรือความร้อน ทำให้ถุงยางเสื่อมสภาพ\n3. ถุงยางหมดอายุ\n4. เผลอทำขาดตอนแกะซอง\n5. ใช้สารหล่อลื่นผิดชนิด เช่นพวกน้ำมันทาผิว โลชั่น วาสลีน อะไรพวกนี้ทำให้ยางมันเสื่อมสภาพและแตกในที่สุด\n6. มีสารหล่อลื่นไม่พอ ความฝืดเคืองก็เป็นสาเหตุได้\nแน่นอนว่าพอถุงยางแตกหรือรั่ว ควรหยุดกิจกรรมทันที ไปล้างจู๋ก่อนแล้วเปลี่ยนถุงอันใหม่",
+      "key_facts": [
+        "ถุงยางแตกนี่มีหลายสาเหตุ"
+      ],
+      "triggers": [
+        "ถุงยางแตก",
+        "ถุงยางรั่ว"
+      ],
+      "next": [],
+      "source_intents": [
+        "condom.leak"
+      ],
+      "source": [],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#17 Approve"
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked"
+      ],
+      "referral": {
+        "offer": "soft",
+        "intents": [
+          "contraception"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "birth.control.000",
+      "topic": "contraception",
+      "title_th": "ยาคุมกำเนิด",
+      "answer_th": "ก่อนอื่นพี่เจนต้องบอกว่ายาคุมกันท้องได้ แต่ยังกันโรคไม่ได้น้าาา\nแต่ถ้าไม่กังวลเรื่องโรค ยาคุมกำเนิดก็มีให้เลือกหลายประเภทเลย",
+      "key_facts": [
+        "ยาคุมกันท้องได้ แต่ยังกันโรคไม่ได้"
+      ],
+      "triggers": [
+        "คุมกำเนิด",
+        "ยาคุม",
+        "อยากรู้เรื่องคุมกำเนิด"
+      ],
+      "next": [],
+      "source_intents": [
+        "birth.control.000"
+      ],
+      "source": [
+        {
+          "by": "Opendream",
+          "url": "https://rsathai.org/qrcode",
+          "title": "Jane answer bank, Keng review 27 Oct 2026",
+          "checked": "2026-10-27"
+        }
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#18 Approve"
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked",
+        "medical"
+      ],
+      "referral": {
+        "offer": "soft",
+        "intents": [
+          "contraception"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "birth.control.pills.000",
+      "topic": "contraception",
+      "title_th": "กินยาคุมรายเดือน",
+      "answer_th": "ยาคุมแบบรายเดือนนี่เอาไว้กินป้องกันไว้ก่อนมีเซ็กซ์เนอะ ซึ่งมันจะช่วยยับยั้งการไข่ตก (ส่วนถ้ามีไปแล้วมากินทีหลังต้องเป็นยาคุมฉุกเฉินแทนนะจ๊ะ)\nทีนี้แบบรายเดือนก็จะมีทั้งแบบ 21 เม็ด และแบบ 28 เม็ด (ที่เป็นฮอร์โมนจริง 21 เม็ด ส่วนอีก 7 เม็ดเป็นแป้ง)\nทั้งสองแบบต้องกินภายใน 5 วันหลังจากมีเมนส์วันแรก เพราะถ้าเลทกว่านั้น ไข่มันตกไปแล้ว ไม่ทันแล้วจ้า ต้องรอเมนส์มาอีกรอบค่อยเริ่มกินใหม่\nถ้าเป็นแบบ 21 เม็ด กินหมดแผงแล้วให้หยุดไป 7 วัน แล้วค่อยเริ่มแผงใหม่\nส่วนแบบ 28 เม็ด กินจนหมดแผงแล้วก็เริ่มแผงใหม่ต่อได้เลย",
+      "key_facts": [
+        "แบบ 21 เม็ด",
+        "แบบ 28 เม็ด"
+      ],
+      "triggers": [
+        "ยาคุมรายเดือน",
+        "กินยาคุมยังไง",
+        "ยาคุม 21 เม็ด"
+      ],
+      "next": [],
+      "source_intents": [
+        "birth.control.pills.how.to"
+      ],
+      "source": [
+        {
+          "by": "Opendream",
+          "url": "https://rsathai.org/qrcode",
+          "title": "Jane answer bank, Keng review 27 Oct 2026",
+          "checked": "2026-10-27"
+        }
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#19 Approve; doses kept (rule 6 Option A)."
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked",
+        "medical"
+      ],
+      "referral": {
+        "offer": "soft",
+        "intents": [
+          "contraception"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "birth.control.implant.000",
+      "topic": "contraception",
+      "title_th": "ฝังยาคุม",
+      "answer_th": "การฝังยาคุมนี่เป็นวิธีที่ได้ผลสูงมากกกก\nมันสามารถป้องกันการตั้งท้องได้ 3-5 ปีเลยทีเดียว\nลักษณะมันจะเป็นหลอดเล็กๆ ฝังเข้าไปใต้ท้องแขน แล้วจะค่อยๆ ปล่อยฮอร์โมนอกมา\nถ้าฝังภายใน 5 วันแรกที่เป็นเมนส์ ฝังแล้วจะออกผลทันที\nแต่ถ้าฝังเลยเมนส์วันแรกเกิน 5 วันแล้ว กว่ายาจะออกฤทธิ์ก็ต้องรอไป 1 อาทิตย์จ้า\nผู้ใช้สิทธิบัตรทอง ฝังยาคุมฟรีได้ 1 ครั้งทุก 3 ปี ที่หน่วยบริการที่ร่วมโครงการ ลองสอบถามโรงพยาบาลหรือคลินิกใกล้บ้านนะ",
+      "key_facts": [
+        "ฝังยาคุมฟรีได้ 1 ครั้งทุก 3 ปี"
+      ],
+      "triggers": [
+        "ฝังยาคุม",
+        "ยาฝัง"
+      ],
+      "next": [],
+      "source_intents": [
+        "birth.control.implant"
+      ],
+      "source": [
+        {
+          "by": "สปสช.",
+          "url": "https://www.nhso.go.th/th/communicate-th/thnewsforperson/2025-09-03-07-16-57",
+          "title": "สปสช. ตรวจเอชไอวีฟรี / เพร็พฟรี",
+          "checked": "2026-10-22"
+        }
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#20 Approve"
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked",
+        "medical"
+      ],
+      "referral": {
+        "offer": "soft",
+        "intents": [
+          "contraception"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "CC-BY-SA-4.0"
+    }
+  ]
+}

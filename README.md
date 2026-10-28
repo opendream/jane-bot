@@ -8,11 +8,11 @@ The **code** is under the Apache License 2.0 (see the root `LICENSE`). The **ans
 Name: **พี่เจน** (Thai) / **Jane** (English), `PRODUCT_NAME` / `PRODUCT_NAME_EN` in `src/config.ts` (Keng, 22 Oct 19:49 BKK).
 Illustration © Opendream, 2018. Some figures redrawn with AI assistance, 2026.
 Art: 2018 *Sex Safe Safe* vector stars and approved figures in `src/assets/jane/` (all rights reserved; not covered by Apache-2.0 or CC BY-SA). Provenance: native 2018 PDF crops plus an AI-assisted high-res redraw of Opendream's 2018 illustrations, Grok Imagine, 2026 (see `src/assets/jane/MANIFEST.md`). The small mark (`src/assets/mark.svg`) was drawn in code for this build and is also the favicon. Never use the 2020 Jane art. UI font is self-hosted Mitr (SIL OFL 1.1, Cadson Demak). Minimum age: `MIN_AGE` (default 15).
-**All Thai copy and the crisis phrase list are DRAFT** until a Thai SRH/safety reviewer signs off.
+**Thai copy is reviewed** (Keng, 27 Oct 2026). The crisis phrase list was approved unchanged.
 
 ## What it does (works without any model)
 
-1. Start screen: not medical advice · privacy (on device, no logs) · age band (15+). Quick-exit button on every screen.
+1. Start screen: not medical advice · privacy (on device, no logs) · age band (15–17 / 18–24 / 25+ / ไม่อยากบอก). Quick-exit button on every screen.
 2. She describes her need in Thai → **crisis check first** (`src/core/crisis.ts`) → rule-based need mapping
    (`src/core/intent.ts`) → 1–3 services from the cited data file (`src/data/services.json`) with an
    open-now check in Asia/Bangkok time (`src/core/openNow.ts`).
@@ -80,7 +80,7 @@ WebGPU adapter (`--enable-unsafe-webgpu`) can run the q4f32_1 build on CPU (very
 ## Data sources
 
 Every service and crisis line cites a public source with a check date (BKK) in `src/data/services.json`.
-Items marked `"verification": "partial"` need re-checking before filming (Teen Club hours, YFHS list). 1663 hours are 09:00–21:00 daily (D3; operator / RSATHAI / NHSO).
+For teen_club, yfhs and oscc_hospital, hours and open-now show without a caveat, by owner decision (27 Oct 2026). 1663 hours are 09:00–21:00 daily (D3; operator / RSATHAI / NHSO).
 
 ## Run bundle for the filming laptop
 

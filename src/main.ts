@@ -107,11 +107,11 @@ function header() {
     h("div", { class: "brand", "data-testid": "brand" }, mark("small"), PRODUCT_NAME, h("span", { class: "en-name" }, PRODUCT_NAME_EN), h("span", { class: "tag" }, "เดโม")),
     h("div", { class: "bar-actions" },
       state.screen !== "start" && state.screen !== "crisis" &&
-        h("button", { class: "btn-sos", "data-testid": "sos", onclick: () => { dropInflightChat(); go({ screen: "crisis", crisisCategories: [], crisisFrom: state.screen }); } }, "ช่วยด่วน"),
+        h("button", { class: "btn-sos", "data-testid": "sos", onclick: () => { dropInflightChat(); go({ screen: "crisis", crisisCategories: [], crisisFrom: state.screen }); } }, "ขอความช่วยเหลือด่วน"),
       state.screen === "chat" && state.chat && !state.chat.readOnly && !state.chat.busy && !state.chat.quiz && pickQuizItems(state.ageBand, null, undefined, undefined, quizCopyStatus()).length > 0 &&
         h("button", { class: "btn-ghost", "data-testid": "quiz-menu", onclick: () => beginQuiz(state.chat!, null, chatHooks) }, QUIZ_MENU),
       state.screen !== "start" && h("button", { class: "btn-ghost", "data-testid": "erase", onclick: () => eraseAll("start") }, "ลบแชท"),
-      h("button", { class: "btn-exit", "data-testid": "quick-exit", "aria-label": "ออกด่วน (quick exit)", onclick: quickExit }, "ออกด่วน ✕"),
+      h("button", { class: "btn-exit", "data-testid": "quick-exit", "aria-label": "ออกทันที ✕", onclick: quickExit }, "ออกทันที ✕"),
     ),
     modelPill());
 }
@@ -128,7 +128,7 @@ function footer() {
     h("p", { class: "nmad", "data-testid": "not-medical-advice" }, "ข้อมูลทั่วไป ไม่ใช่คำแนะนำทางการแพทย์ · General information, not medical advice"),
     THAI_COPY_STATUS === "draft" && h("p", { class: "draft", "data-testid": "draft-flag" }, "ข้อความภาษาไทยเป็นฉบับร่าง รอผู้เชี่ยวชาญตรวจ · Thai copy is DRAFT, pending review"),
     h("p", { class: "art-credit", "data-testid": "art-credit" }, ART_CREDIT),
-    h("p", { class: "meta" }, `ข้อมูลบริการตรวจสอบเมื่อ ${DATA_VERSION} · ทุกอย่างทำงานในเครื่องนี้ ไม่มีการบันทึก`),
+    h("p", { class: "meta" }, `ข้อมูลบริการตรวจสอบเมื่อ ${DATA_VERSION} ข้อมูลทุกอย่างประมวลผลในเครื่องนี้ ไม่มีการบันทึก`),
   );
 }
 
@@ -151,7 +151,7 @@ function startScreen() {
     h("p", { class: "q", "data-testid": "age-question" }, "คุณอายุเท่าไร (เลือกช่วง ไม่อยากบอกก็ได้)"),
     h("p", { class: "note", "data-testid": "age-adult-note" }, "บางคำตอบมีไว้สำหรับอายุ 18 ปีขึ้นไปเท่านั้น"),
     h("div", { class: "choices" },
-      band("15-17", `${MIN_AGE}–17 ปี`), band("18+", "18 ปีขึ้นไป"), band("unspecified", "ไม่อยากบอก"),
+      band("15-17", `${MIN_AGE}–17 ปี`), band("18-24", "18–24 ปี"), band("25+", "25 ปีขึ้นไป"), band("unspecified", "ไม่อยากบอก"),
     ),
     h("button", { class: "link", "data-testid": "age-under", onclick: () => go({ screen: "underage" }) }, `อายุต่ำกว่า ${MIN_AGE} ปี`),
     h("p", { class: "en" }, `${PRODUCT_NAME_EN}: an AI, not a doctor. Runs on this device only; nothing is sent or logged. Demo for ages ${MIN_AGE}+.`),
@@ -160,7 +160,7 @@ function startScreen() {
 
 function underageScreen() {
   return h("main", { class: "screen", "data-testid": "screen-underage" },
-    h("h1", {}, "ขอบคุณที่บอกเรา"),
+    h("h1", {}, "ขอบคุณที่บอกพี่เจน"),
     h("p", {}, `เดโมนี้ทำสำหรับอายุ ${MIN_AGE} ปีขึ้นไป แต่คุณยังขอความช่วยเหลือได้เสมอ:`),
     callList(["1323", "1300"]),
     h("p", {}, `เรื่องท้องหรือเอชไอวี โทร 1663 ปรึกษาฟรี (ข้อมูล กรมประชาสัมพันธ์) ${serviceHoursLabel("hotline_1663")} (ข้อมูล สปสช.)`),
@@ -182,10 +182,10 @@ function describeScreen() {
   };
   return h("main", { class: "screen", "data-testid": "screen-describe" },
     h("h1", {}, "อยากคุยเรื่องอะไร"),
-    h("p", { class: "lead" }, "พิมพ์ภาษาไทยได้เลย ไม่ต้องบอกชื่อ เบอร์โทร หรือโรงเรียน"),
+    h("p", { class: "lead" }, "พิมพ์ภาษาไทยได้เลย ไม่ต้องบอกชื่อ เบอร์โทร หรือข้อมูลส่วนตัว"),
     h("label", { for: "need", class: "sr" }, "เรื่องที่อยากปรึกษา"), ta,
     h("button", { class: "btn-primary", "data-testid": "need-submit", onclick: submit, disabled: needBusy(need) }, needBusy(need) ? "กำลังคิด…" : "หาที่ปรึกษา"),
-    h("button", { class: "btn-ghost", "data-testid": "open-chat", onclick: openChat, disabled: needBusy(need) }, "หรือคุยกับพี่เจนแบบแชท (ทดลอง)"),
+    h("button", { class: "btn-ghost", "data-testid": "open-chat", onclick: openChat, disabled: needBusy(need) }, "หรือคุยกับพี่เจนแบบแชท (Beta)"),
   );
 }
 
@@ -298,7 +298,6 @@ function suggestScreen() {
         h("p", {}, s.service.description_th),
         hoursBlock(s.service),
         h("div", { class: "chans" }, ...s.service.channels.map(channelEl)),
-        s.service.verification !== "verified" && h("p", { class: "warn" }, "⚠ เวลาให้บริการยังยืนยันไม่ได้ทั้งหมด"),
         sourceLine(s.service.sources),
         canPrepareMessage(s.service) && h("button", { class: "btn-primary", "data-testid": `pick-${s.service.id}`, onclick: () => pick(s) }, "ให้ช่วยเตรียมข้อความถึงที่นี่"),
       )),

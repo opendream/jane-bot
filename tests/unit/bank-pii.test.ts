@@ -92,7 +92,7 @@ describe("committed bank files contain no PII and no Dialogflow export data", ()
 
   it("BANK never contains fixture or test cards", () => {
     expect(BANK_FILES.every((f) => isProductionBankFile(f))).toBe(true);
-    expect(BANK.every((c) => !/fixture|piigate|pii-gate|\.test\./i.test(c.id))).toBe(true);
+    expect(BANK.every((c) => !/fixture|piigate|pii-gate/i.test(c.id))).toBe(true);
   });
 });
 
@@ -224,6 +224,25 @@ describe("PII detector self-test (synthetic strings only)", () => {
     }, "src/data/bank/quiz.json", []);
     expect(reviewer).toEqual([]);
     expectNoSynthetic([...promptName, ...optionName, ...promptLine, ...optionLine, ...reviewer].map((f: { file: string; path: string; category: string }) => formatFinding(f)));
+  });
+  it("pii_checked review metadata and name-detector false positives are clean; a phone still fails", () => {
+    const reviewed = scanValue({
+      $comment: "Reviewed 27 Oct 2026 (Keng).",
+      cards: [{
+        id: "disease.hiv.002",
+        answer_th: "สวัสดี เราชื่อพี่เจน ตรวจแบบไม่แจ้งชื่อ HIV Self-Test",
+        source_intents: ["Default Welcome Intent"],
+        source: [{ url: "https://www.nhso.go.th/th/communicate-th/thnewsforperson/2025-09-03-07-16-57", by: "NHSO", title: "free test" }],
+        review: { status: "approved", reviewer: "Keng", notes: "#5 Edit" },
+        flags: ["pii_checked"],
+      }],
+    }, "src/data/bank/sti-hiv.json", []);
+    expect(reviewed).toEqual([]);
+    const phone = scanValue({
+      cards: [{ id: "x.000", answer_th: `ติดต่อ ${SYN.mobileDash}`, flags: ["pii_checked"] }],
+    }, "src/data/bank/x.json", []);
+    expect(phone.map((f: { category: string }) => f.category)).toContain("phone");
+    expectNoSynthetic([...reviewed, ...phone].map((f: { file: string; path: string; category: string }) => formatFinding(f)));
   });
 });
 

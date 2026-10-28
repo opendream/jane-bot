@@ -65,6 +65,17 @@ const QUIZ_REVIEWER_EN_FIELDS = new Set([
 ]);
 /** Review-pack parentheticals that sit on otherwise-Thai option buttons (Fact/Myth/Send/Don't). */
 const QUIZ_OPTION_EN_TOKENS = new Set(["fact", "myth", "send", "don"]);
+/** English metadata that is not user-facing Thai copy (reviewer names, DF intent ids, pack decisions). */
+const METADATA_EN_FIELDS = new Set([
+  "$comment", "notes", "licence", "reviewer", "decision", "audience_set_by_keng", "source_intents", "status", "topic_file",
+]);
+
+function cardFlagsAt(root, p) {
+  const m = String(p).match(/^\$\.cards\[(\d+)\]/);
+  if (!m || !root || !Array.isArray(root.cards)) return [];
+  const flags = root.cards[Number(m[1])]?.flags;
+  return Array.isArray(flags) ? flags : [];
+}
 
 export function jsonField(p) {
   return String(p).replace(/\[\d+\]/g, "").split(".").filter((s) => s && s !== "$").pop() ?? "";
@@ -79,11 +90,15 @@ export function scanValue(value, file = "(value)", allowHandles = publicHandles(
     if (DF_EXPORT_KEYS.includes(s) && p.endsWith(`.${s}`)) { out.push({ file, path: p, category: "dialogflow_export_key" }); continue; }
     const hits = findPII(s, { allowHandles });
     for (const cat of Object.keys(hits)) {
-      // Citation fields hold public URLs and publisher names: only FB links/CDN images and contact PII count there.
-      if (/\.(url|by|title)$/.test(p) && !["facebook", "fb_cdn_image", "email", "phone", "national_id"].includes(cat)) continue;
-      // English metadata (comments, review notes, licence) is not user-facing Thai text: capitalised words there are not names.
-      if (["$comment", "notes", "licence"].includes(field) && cat === "english_name") continue;
+      // Citation URLs: path digits (an NHSO article slug) are not phones. A raw phone planted as the
+      // url value still fails. Publisher names on by/title are not english_name hits.
+      if (field === "url" && /^https?:\/\//i.test(s) && cat === "phone") continue;
+      if ((field === "by" || field === "title") && !["facebook", "fb_cdn_image", "email", "national_id", "phone"].includes(cat)) continue;
+      // English metadata is not user-facing Thai text: capitalised words there are not names.
+      if (METADATA_EN_FIELDS.has(field) && cat === "english_name") continue;
       if (quizFile && QUIZ_REVIEWER_EN_FIELDS.has(field) && cat === "english_name") continue;
+      // Keng-approved pii_checked cards: name-detector false positives stay; contact PII still fails.
+      if (cardFlagsAt(value, p).includes("pii_checked") && (cat === "thai_name" || cat === "english_name")) continue;
       // "legal line about …" in a fact-check note is not a Line id.
       if (quizFile && field === "fact_check" && cat === "line_id") continue;
       if (quizFile && field === "options" && cat === "english_name") {

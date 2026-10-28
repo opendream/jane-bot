@@ -76,7 +76,7 @@ export function checkEvalTextLicence(file: { licence?: unknown } | null | undefi
 
 export interface BankFile { $comment?: string; topic_file: string; licence?: string; cards: BankCard[] }
 
-export const LIMITS = { title_th: 40, answer_th: 400 } as const;
+export const LIMITS = { title_th: 40, answer_th: 800 } as const;
 /** Cards older than this (months) produce a warning, not an error. */
 export const STALE_MONTHS = 12;
 export const ID_RE = /^[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)*\.[a-z]?\d{3}$/;
@@ -286,20 +286,27 @@ export function validateBank(cards: BankCard[], ctx: BankContext): Issue[] {
       else if (!ctx.linkHosts.has(host)) add("error", c.id, "link_allowlist", host ? `link host ${host} is not on the allow-list` : "link URL is not on the allow-list");
     }
     for (const { path, value } of walkStrings(c)) {
-      if (/\.url$/.test(path) || path === "$.id") continue;
+      // Dialogflow intent ids (topic.slug.nnn) and citation URLs are not user-facing copy.
+      if (/\.url$/.test(path) || path === "$.id" || /\.source_intents(?:\[|$)/.test(path)) continue;
       if (urlsIn(value).length) add("error", c.id, "no_url_in_text", `URL in ${safePath(path)}`);
     }
-    // PII: every string field is scanned. User-facing copy uses the full detector + stripPII;
-    // metadata/citation fields only report contact PII (phone, email, id, handle, facebook).
+    // PII: every string field is scanned. Draft/unreviewed user-facing copy uses the full detector
+    // + stripPII. Approved pii_checked cards (Keng's review) still fail on contact PII
+    // (phone, email, id, handle, facebook) but not on name-detector false positives
+    // ("เราชื่อพี่เจน", "ไม่แจ้งชื่อ", "HIV Self-Test"). Metadata/citation fields, including
+    // source URLs, only report contact PII; URL path digits are not phones.
     const handles = [...ctx.handles];
+    const reviewedCopy = c.review.status === "approved" && c.flags.includes("pii_checked") && !c.placeholder;
     for (const { path, value } of walkStrings(c)) {
       const hits = findPII(value, { allowHandles: handles }) as Record<string, string[]>;
+      const citationUrl = /\.url$/.test(path) && /^https?:\/\//i.test(value);
       const user = isUserFacingPath(path);
       for (const cat of Object.keys(hits)) {
-        if (!user && !CONTACT_PII.has(cat)) continue;
+        if (citationUrl && cat === "phone") continue; // URL path digits, not a contact number
+        if (!CONTACT_PII.has(cat) && (!user || reviewedCopy)) continue;
         add("error", c.id, "pii", `PII (${cat}) in ${safePath(path)}`);
       }
-      if (user) {
+      if (user && !reviewedCopy) {
         let masked = value;
         for (const hnd of ctx.handles) masked = masked.split(hnd).join("");
         const norm = masked.replace(/\s+/g, " ").trim();

@@ -1,0 +1,238 @@
+{
+  "$comment": "Reviewed 27 Oct 2026 (Keng). Pregnancy and abortion. #28 edited. Answer-bank text CC BY-SA 4.0, attribution Opendream.",
+  "topic_file": "pregnancy",
+  "licence": "CC-BY-SA-4.0",
+  "cards": [
+    {
+      "id": "pregnancy.ornot.000",
+      "topic": "pregnancy",
+      "title_th": "กังวลเรื่องท้อง",
+      "answer_th": "กังวลเรื่องท้องใช้มั้ย\nลองย้อนนึกดูก่อน ถ้าใช้ถุงยางโดยที่ถุงไม่แตก ไม่รั่ว หรือกินยาคุมครบตามจำนวนไม่มีตกหล่น\nแบบนี้ถือว่าเซฟประมาณนึงแล้ว ยังไม่ต้องกังวลมากนะ\nแต่ถ้าไม่ได้ป้องกัน ไม่ว่าจะแตกนอก แตกใน มีตอนเป็นเมนส์หรือใดๆ\nแบบนี้ถือว่ามีความเสี่ยงหมดเลย",
+      "key_facts": [
+        "กังวลเรื่องท้องใช้มั้ย"
+      ],
+      "triggers": [
+        "กลัวท้อง",
+        "กังวลเรื่องท้อง",
+        "กลัวจะท้อง"
+      ],
+      "next": [
+        {
+          "label_th": "เพิ่งมีอะไรกันโดยไม่ป้องกัน",
+          "card_id": "ec.timing.b001"
+        }
+      ],
+      "source_intents": [
+        "pregnancy.ornot"
+      ],
+      "source": [],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#23 Approve"
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked"
+      ],
+      "referral": {
+        "offer": "strong",
+        "intents": [
+          "pregnancy"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "pregnancy.signs.when.000",
+      "topic": "pregnancy",
+      "title_th": "ตรวจครรภ์เมื่อไร",
+      "answer_th": "ถ้าใช้วิธีตรวจด้วยฉี่ หรือก็คือใช้ที่ตรวจครรภ์แบบซื้อเอง หลังจากมีอะไรกันครั้งนั้น 20 วันขึ้นไปก็ตรวจเจอแล้ว\nส่วนถ้าตรวจด้วยเลือด ซึ่งต้องให้หมอตรวจให้ สามารถตรวจหลังจากมีอะไรกันครั้งนั้น 15 วันเป็นต้นไป",
+      "key_facts": [
+        "20 วันขึ้นไปก็ตรวจเจอ"
+      ],
+      "triggers": [
+        "ตรวจครรภ์เมื่อไร",
+        "ที่ตรวจครรภ์กี่วัน"
+      ],
+      "next": [],
+      "source_intents": [
+        "Pregnancy.ornot.signs.when"
+      ],
+      "source": [
+        {
+          "by": "Opendream",
+          "url": "https://rsathai.org/qrcode",
+          "title": "Jane answer bank, Keng review 27 Oct 2026",
+          "checked": "2026-10-27"
+        }
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#25 Approve"
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked",
+        "medical"
+      ],
+      "referral": {
+        "offer": "soft",
+        "intents": [
+          "pregnancy"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": true,
+      "licence": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "pregnancy.notthetime.000",
+      "topic": "pregnancy",
+      "title_th": "ท้องไม่พร้อม",
+      "answer_th": "ท้องไม่พร้อมเป็นเรื่องใหญ่ของวัยรุ่นหลายคนเลย\nพี่เจนขอเป็นกำลังใจให้ก่อนเลย\nและถ้ายังเคว้งคว้าง อยากคุยกับคนจริงๆ ก็โทรไปที่สายด่วน 1663 ได้นะ ปรึกษาฟรี ทุกวัน 09:00–21:00 น. รวมวันหยุด\nเค้าจะมีผู้เชี่ยวชาญคอยให้คำปรึกษาโดยที่ไม่ตัดสินเรา แล้วก็ไม่จำเป็นต้องให้เขารู้ว่าเราเป็นใครด้วย",
+      "key_facts": [
+        "1663",
+        "ไม่จำเป็นต้องให้เขารู้ว่าเราเป็นใคร"
+      ],
+      "triggers": [
+        "ท้องไม่พร้อม",
+        "ไม่พร้อมท้อง"
+      ],
+      "next": [],
+      "source_intents": [
+        "pregnancy.notthetime"
+      ],
+      "source": [
+        {
+          "by": "สปสช.",
+          "url": "https://www.nhso.go.th/th/communicate-th/thnewsforperson/2025-09-03-07-16-57",
+          "title": "สปสช. ตรวจเอชไอวีฟรี / เพร็พฟรี",
+          "checked": "2026-10-22"
+        }
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#26 Approve; last sentence kept (option A)."
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked",
+        "hotline",
+        "hours"
+      ],
+      "referral": {
+        "offer": "strong",
+        "intents": [
+          "pregnancy"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": false,
+      "licence": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "pregnancy.abortion.001",
+      "topic": "pregnancy",
+      "title_th": "กฎหมายทำแท้ง",
+      "answer_th": "ตอนนี้กฎหมายก็เปลี่ยนแล้วเนอะ\nใครก็ตามที่มีอายุครรภ์ไม่เกิน 12 สัปดาห์ สามารถเข้าไปขอรับการยุติการตั้งครรภ์จากแพทย์ได้เลย",
+      "key_facts": [
+        "อายุครรภ์ไม่เกิน 12 สัปดาห์"
+      ],
+      "triggers": [
+        "กฎหมายทำแท้ง",
+        "ทำแท้งถูกกฎหมายไหม"
+      ],
+      "next": [],
+      "source_intents": [
+        "pregnancy.abortion.001"
+      ],
+      "source": [
+        {
+          "by": "Opendream",
+          "url": "https://rsathai.org/qrcode",
+          "title": "Jane answer bank, Keng review 27 Oct 2026",
+          "checked": "2026-10-27"
+        }
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#27 Approve"
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked",
+        "legal"
+      ],
+      "referral": {
+        "offer": "soft",
+        "intents": [
+          "pregnancy"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": false,
+      "licence": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "pregnancy.abortion.003",
+      "topic": "pregnancy",
+      "title_th": "เครือข่าย RSA",
+      "answer_th": "สำหรับคนที่ต้องการทำแท้งอย่างปลอดภัยและถูกกฎหมาย ให้ลองติดต่อไปที่เครือข่ายอาสา RSA หรือเครือข่ายอาสาเพื่อยุติการตั้งครรภ์ที่ปลอดภัย ของกระทรวงสาธารณสุข เขามีหน่วยบริการยุติการตั้งครรภ์อยู่ทั่วประเทศ ลองค้นคำว่า \"เครือข่าย RSA\" เพื่อหาหน่วยบริการใกล้บ้านได้เลย",
+      "key_facts": [
+        "เครือข่ายอาสา RSA",
+        "ของกระทรวงสาธารณสุข"
+      ],
+      "triggers": [
+        "เครือข่าย RSA",
+        "ทำแท้งปลอดภัย"
+      ],
+      "next": [],
+      "source_intents": [
+        "pregnancy.abortion.003"
+      ],
+      "source": [
+        {
+          "by": "RSATHAI",
+          "url": "https://rsathai.org/qrcode",
+          "title": "เครือข่ายอาสา RSA",
+          "checked": "2026-10-22"
+        }
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Keng",
+        "reviewed_on": "2026-10-27",
+        "notes": "#28 Edit: arrow and link removed; RSA search ending."
+      },
+      "last_reviewed": "2026-10-27",
+      "flags": [
+        "pii_checked",
+        "legal"
+      ],
+      "referral": {
+        "offer": "soft",
+        "intents": [
+          "pregnancy"
+        ]
+      },
+      "links": [],
+      "age_min": 15,
+      "reword": false,
+      "licence": "CC-BY-SA-4.0"
+    }
+  ]
+}

@@ -5,6 +5,7 @@ import data from "../../src/data/services.json";
 import { PREFERENCE, SERVICES, suggestServices, canPrepareMessage } from "../../src/core/referral";
 import { hoursCitation, hoursLabel, isOpenAt, narrowestHours, openStatus } from "../../src/core/openNow";
 import { draftSummary } from "../../src/core/summary";
+import { BANK } from "../../src/core/bankData";
 
 const root = path.resolve(__dirname, "../..");
 const read = (...parts: string[]) => fs.readFileSync(path.join(root, ...parts), "utf8");
@@ -52,23 +53,36 @@ describe("fact-check (23 Oct 2026)", () => {
 
   it("(c) no 191 line claims sexual violence", () => {
     for (const f of scanned) {
-      for (const line of read(f).split("\n")) {
+      // JSON strings keep \\n on one file-line; split those so sentences are checked separately.
+      for (const line of read(f).split(/\n|\\n/)) {
         if (!line.includes("191")) continue;
         expect(line, `${f}: ${line}`).not.toMatch(/ทางเพศ|ข่มขืน|ล่วงละเมิด/);
       }
     }
   });
 
-  it("(d) no EC/PrEP prices and no under-18 / guardian rule", () => {
+  it("(d) EC has no prices; PrEP prices only on the flagged price card; #34 is the under-18 HIV testing rule", () => {
     for (const f of scanned) {
       const text = read(f);
-      for (const term of ["ยาคุมฉุกเฉิน", "PrEP", "เพร็พ"]) {
-        for (const win of windowsAround(text, term, 40)) {
-          expect(win, `${f}: ${win}`).not.toMatch(/บาท/);
-        }
+      for (const win of windowsAround(text, "ยาคุมฉุกเฉิน", 40)) {
+        expect(win, `${f}: ${win}`).not.toMatch(/บาท/);
       }
-      expect(text, f).not.toMatch(/ผู้ปกครอง/);
-      expect(text, f).not.toMatch(/อายุต่ำกว่า\s*18|under-?18|ไม่ต้องมีผู้ปกครอง/i);
+    }
+    const prep = BANK.find((c) => c.id === "price.trc.prep.000");
+    expect(prep, "approved PrEP price card").toBeTruthy();
+    expect(prep!.flags).toContain("price");
+    expect(prep!.answer_th).toMatch(/บาท/);
+    for (const c of BANK) {
+      if (c.id === "price.trc.prep.000") continue;
+      expect(c.answer_th, c.id).not.toMatch(/เพร็พ[\s\S]{0,80}บาท|บาท[\s\S]{0,80}เพร็พ/);
+    }
+    const under18 = BANK.find((c) => c.id === "hiv.test.under18.000");
+    expect(under18, "approved #34").toBeTruthy();
+    expect(under18!.answer_th).toContain("ผู้ปกครอง");
+    expect(under18!.flags).toContain("legal");
+    for (const c of BANK) {
+      if (c.id === "hiv.test.under18.000") continue;
+      expect(c.answer_th, c.id).not.toMatch(/ผู้ปกครอง/);
     }
   });
 
@@ -115,12 +129,16 @@ describe("fact-check (23 Oct 2026)", () => {
     }
   });
 
-  it("(h) no female-officer / s.133 line on cards (absent on 2fe35a3)", () => {
+  it("(h) female-officer line only on approved harassment.002; no s.133", () => {
+    const harassment = BANK.find((c) => c.id === "harassment.002");
+    expect(harassment, "approved #30").toBeTruthy();
+    expect(harassment!.answer_th).toContain("พนักงานสอบสวนหญิง");
     for (const f of scanned) {
       const text = read(f);
-      expect(text, f).not.toMatch(/พนักงานสอบสวนหญิง/);
       expect(text, f).not.toMatch(/crisis-female-officer/);
       expect(text, f).not.toMatch(/มาตรา\s*133|ส\.?\s*133|CrPC\s*s\.?\s*133/i);
+      if (f.endsWith("relationship-consent.json")) continue;
+      expect(text, f).not.toMatch(/พนักงานสอบสวนหญิง/);
     }
   });
 

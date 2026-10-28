@@ -1,11 +1,20 @@
 import type { AgeBand } from "./types";
 import type { BankCard } from "./bank";
 
-/** Start-screen picks: 15–17 / 18+ / ไม่อยากบอก. */
-export type AgePick = "15-17" | "18+" | "unspecified";
+/**
+ * D5 age gate (updated 27 Oct 2026, Keng / rule 13).
+ *
+ * Start-screen picks are FOUR bands: 15–17, 18–24, 25+, ไม่อยากบอก.
+ * This replaces the 23 Oct three-band merge (15–17 / 18+ / ไม่อยากบอก).
+ *
+ * Rule 21 still splits at 18: only 18–24 and 25+ count as adult. 15–17,
+ * ไม่อยากบอก, and no answer never see an 18+ card; they get AGE_REDIRECT_CARD.
+ * Crisis, referral, welcome, fallback, refusal, ending and this redirect stay 15+.
+ */
+export type AgePick = "15-17" | "18-24" | "25+" | "unspecified";
 
-/** ไม่อยากบอก and no answer both count as under 18. Only an explicit 18+ pick is adult. */
-export type AgeState = AgePick | AgeBand | null | undefined;
+/** ไม่อยากบอก and no answer both count as under 18. 18–24 and 25+ (and a legacy "18+" pick) are adult. */
+export type AgeState = AgePick | AgeBand | "18+" | null | undefined;
 
 export const AGE_REDIRECT_ID = "general.age_redirect.000";
 
@@ -43,8 +52,8 @@ export const AGE_REDIRECT_CARD: BankCard = {
   next: [],
   source_intents: [],
   source: [],
-  review: { status: "draft", reviewer: null, reviewed_on: null, notes: "D5 fixed redirect, product copy" },
-  last_reviewed: null,
+  review: { status: "approved", reviewer: "Keng", reviewed_on: "2026-10-27", notes: "Answer #36 Approve. Rule 21 redirect; four start-screen bands, split still at 18." },
+  last_reviewed: "2026-10-27",
   flags: ["hotline", "pii_checked"],
   referral: { offer: "soft", intents: ["other"] },
   links: [],

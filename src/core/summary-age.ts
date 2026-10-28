@@ -9,7 +9,7 @@ export function pinnedAgeBand(age: AgeState): AgeBand {
   return "unspecified";
 }
 
-/** Handoff summary: 15–17 → ต่ำกว่า 18 ปี, 18+ → 18 ปีขึ้นไป, decline/skip → ไม่ระบุ. */
+/** Handoff summary: 15–17 → ต่ำกว่า 18 ปี, 18–24 and 25+ → 18 ปีขึ้นไป, decline/skip → ไม่ระบุ. */
 export function draftSummaryForAge(input: Omit<SummaryInput, "ageBand"> & { ageBand: AgeState }): string {
   const raw = draftSummary({ ...input, ageBand: pinnedAgeBand(input.ageBand) });
   return raw.replace(/^- ช่วงอายุ: .*$/m, `- ช่วงอายุ: ${summaryAgeLabel(input.ageBand)}`);

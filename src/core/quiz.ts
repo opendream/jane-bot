@@ -4,7 +4,7 @@ import { BANK_TEXT_LICENCE, hoursIn } from "./bank";
 import { isAdult, type AgeState } from "./age";
 import { THAI_COPY_STATUS } from "../config";
 
-/* D7 in-chat quiz. Items are PLACEHOLDER until Keng approves. Memory only; answers are never stored. */
+/* D7 in-chat quiz. Approved 27 Oct 2026 (Keng); all items All (15+). Memory only; answers are never stored. */
 
 export type QuizFormat = "true_false" | "multiple_choice" | "multiple_choice_chat" | "ordering";
 export type QuizStatus = "PLACEHOLDER" | "draft" | "approved" | "rejected";
@@ -53,7 +53,7 @@ export const QUIZ_TOPICS: Record<string, BankTopic[]> = {
 };
 
 const FORMATS: readonly QuizFormat[] = ["true_false", "multiple_choice", "multiple_choice_chat", "ordering"];
-const MUST_BE_18 = new Set(["QZ-02", "QZ-03"]);
+/** No quiz row is 18+-only: Keng set Audience All (15+) on every QZ row, including QZ-02 and QZ-03. */
 
 export const QUIZ_ITEMS: QuizItem[] = (quizData as { items: QuizItem[] }).items;
 export const QUIZ_FILE_LICENCE = (quizData as { licence?: string }).licence;
@@ -217,7 +217,6 @@ export function validateQuizItems(items: QuizItem[], fileLicence = QUIZ_FILE_LIC
     if (!q.source?.trim() || !/[A-Z]\.(\w+)/.test(q.source)) out.push(issue(id, "source", "Judies source id is required"));
     if (q.licence !== BANK_TEXT_LICENCE) out.push(issue(id, "licence", `licence must be ${BANK_TEXT_LICENCE}`));
     if (q.age_min !== 15 && q.age_min !== 18) out.push(issue(id, "age_min", "age_min must be 15 or 18"));
-    if (MUST_BE_18.has(q.id) && q.age_min !== 18) out.push(issue(id, "age_min", `${q.id} must be 18+`));
     const text = blob(q);
     if (/100\s*%/.test(text)) out.push(issue(id, "banned", "no '100%'"));
     if (/บาท|฿/.test(text)) out.push(issue(id, "banned", "no prices"));

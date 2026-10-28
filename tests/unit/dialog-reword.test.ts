@@ -5,8 +5,8 @@ import { bankContext, BANK } from "../../src/core/bankData";
 
 // SYNTHETIC test text only.
 const ctx = bankContext(undefined, "draft", "2026-10-22");
-const EC = BANK.find((c) => c.id === "ec.p000")!;
-const STI = BANK.find((c) => c.id === "sti_hiv.p000")!;
+const EC = BANK.find((c) => c.id === "ec.timing.b001")!;
+const STI = BANK.find((c) => c.id === "disease.hiv.002")!;
 // Natural paraphrase is rejected by design; only exact card text plus one final นะ/ค่ะ/จ้ะ is accepted.
 const GOOD = `${EC.answer_th}นะ`;
 
@@ -19,12 +19,12 @@ function model(out: (card: any) => string | null | Promise<string | null>, ready
   return { m, seen };
 }
 const deps = (m: DialogModel | null, extra: Partial<TurnDeps> = {}): TurnDeps => ({ cards: BANK, model: m, copyStatus: "draft", rewordCtx: ctx, ...extra });
-const EC_TEXT = "ถุงยางรั่ว ต้องทำยังไง คุมฉุกเฉินทันไหม"; // synthetic, rules-confident for ec.p000
+const EC_TEXT = "ถุงยางรั่ว ต้องทำยังไง คุมฉุกเฉินทันไหม"; // synthetic, rules-confident for ec.timing.b001
 
 describe("dialog reword step", () => {
-  it("the rules pick ec.p000 for the synthetic text", async () => {
+  it("the rules pick ec.timing.b001 for the synthetic text", async () => {
     const r = await runTurn(newDialog("18+"), EC_TEXT, deps(null));
-    expect(r.reply.kind === "card" && r.reply.card.id).toBe("ec.p000");
+    expect(r.reply.kind === "card" && r.reply.card.id).toBe("ec.timing.b001");
   });
   it("a valid reword is shown and marked reworded", async () => {
     const { m } = model(() => GOOD);

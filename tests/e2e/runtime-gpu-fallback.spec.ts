@@ -9,7 +9,7 @@ import { SHOTS, startAs } from "./helpers";
 const READY_PILL = "🔒 โมเดลในเครื่อง: Qwen3-1.7B · ออฟไลน์";
 const RULES_PILL = "🔒 ใช้กฎพื้นฐาน (ไม่มีโมเดล) · ออฟไลน์";
 const PREGNANCY_CARD =
-  "PLACEHOLDER · หัวข้อกังวลเรื่องท้อง ข้อความจริงรอผู้เชี่ยวชาญตรวจ ความกังวลแบบนี้เกิดขึ้นได้ คุยกับเจ้าหน้าที่ได้โดยไม่ถูกตัดสิน";
+  "กังวลเรื่องท้องใช้มั้ย";
 
 const pill = (page: Page) => page.getByTestId("model-status");
 
@@ -25,7 +25,7 @@ async function expectExactPregnancyCard(page: Page) {
   await expect(page.getByTestId("screen-chat")).toBeVisible();
   await page.getByTestId("chat-chip-1").click();
   const jane = page.locator('[data-testid="chat-msg"][data-from="jane"]').last();
-  await expect(jane).toHaveAttribute("data-card", "pregnancy.p000");
+  await expect(jane).toHaveAttribute("data-card", "pregnancy.ornot.000");
   await expect(jane).toHaveAttribute("data-reworded", "false");
   await expect(jane).toContainText(PREGNANCY_CARD);
 }

@@ -14,36 +14,37 @@ import { THAI_COPY_STATUS } from "../../src/config";
 const byId = (id: string) => QUIZ_ITEMS.find((q) => q.id === id)!;
 const clone = (id: string, over: Partial<QuizItem> = {}): QuizItem => ({ ...byId(id), ...over });
 
-describe("D7 quiz items (PLACEHOLDER)", () => {
-  it("seven items validate; licence and Judies source required; QZ-02/QZ-03 are 18+", () => {
+describe("D7 quiz items (approved, All 15+)", () => {
+  it("seven items validate; licence and Judies source required; every row is All (15+) including QZ-07", () => {
     expect(validateQuizItems(QUIZ_ITEMS)).toEqual([]);
     expect(QUIZ_FILE_LICENCE).toBe(BANK_TEXT_LICENCE);
     expect(QUIZ_ITEMS).toHaveLength(7);
-    expect(QUIZ_ITEMS.every((q) => q.status === "PLACEHOLDER" && q.licence === BANK_TEXT_LICENCE && q.source)).toBe(true);
-    expect(byId("QZ-02").age_min).toBe(18);
-    expect(byId("QZ-03").age_min).toBe(18);
+    expect(QUIZ_ITEMS.every((q) => q.status === "approved" && q.licence === BANK_TEXT_LICENCE && q.source && q.age_min === 15)).toBe(true);
+    expect(byId("QZ-02").age_min).toBe(15);
+    expect(byId("QZ-03").age_min).toBe(15);
+    expect(byId("QZ-07").status).toBe("approved");
     expect(byId("QZ-04").explanation_th).toContain(QUIZ_HOURS_1663);
     expect(QUIZ_WRAP).not.toMatch(/\d+\s*\/\s*\d+|คะแนน|ถูก \d/);
   });
   it("is not part of the card bank", () => {
     expect(BANK.some((c) => String(c.id).startsWith("QZ-") || String(c.id).startsWith("quiz."))).toBe(false);
   });
-  it("nothing ships in reviewed mode until approved", () => {
-    expect(shippableQuiz(QUIZ_ITEMS, "reviewed")).toEqual([]);
+  it("approved items ship in reviewed mode", () => {
+    expect(shippableQuiz(QUIZ_ITEMS, "reviewed")).toHaveLength(7);
     expect(shippableQuiz(QUIZ_ITEMS, "draft").length).toBe(7);
-    expect(pickQuizItems("18+", null, QUIZ_ITEMS, 3, "reviewed")).toEqual([]);
-    expect(pickQuizItems("18+", "contraception", QUIZ_ITEMS, 3, "reviewed")).toEqual([]);
-    expect(startQuiz("18+", null, QUIZ_ITEMS, undefined, "reviewed")).toBeNull();
-    expect(startQuiz("18+", "contraception", QUIZ_ITEMS, undefined, "reviewed")).toBeNull();
-    expect(hasRelatedQuiz("contraception", "18+", QUIZ_ITEMS, "reviewed")).toBe(false);
+    expect(pickQuizItems("18+", null, QUIZ_ITEMS, 3, "reviewed").map((q) => q.id)).toEqual(["QZ-01", "QZ-02", "QZ-03"]);
+    expect(pickQuizItems("18+", "contraception", QUIZ_ITEMS, 3, "reviewed").map((q) => q.id)).toEqual(["QZ-01", "QZ-03", "QZ-07"]);
+    expect(startQuiz("18+", null, QUIZ_ITEMS, undefined, "reviewed")).not.toBeNull();
+    expect(startQuiz("18+", "contraception", QUIZ_ITEMS, undefined, "reviewed")).not.toBeNull();
+    expect(hasRelatedQuiz("contraception", "18+", QUIZ_ITEMS, "reviewed")).toBe(true);
     expect(hasRelatedQuiz("contraception", "18+", QUIZ_ITEMS, "draft")).toBe(true);
     expect(quizCopyStatus()).toBe(THAI_COPY_STATUS);
     expect(pickQuizItems("18+", null).map((q) => q.id)).toEqual(
       pickQuizItems("18+", null, QUIZ_ITEMS, QUIZ_SESSION_LEN, THAI_COPY_STATUS).map((q) => q.id),
     );
-    const approved = [clone("QZ-01", { status: "approved" })];
-    expect(pickQuizItems("15-17", "contraception", approved, 3, "reviewed").map((q) => q.id)).toEqual(["QZ-01"]);
-    expect(startQuiz("15-17", "contraception", approved, undefined, "reviewed")?.items.map((q) => q.id)).toEqual(["QZ-01"]);
+    const placeholder = [clone("QZ-01", { status: "PLACEHOLDER" })];
+    expect(pickQuizItems("15-17", "contraception", placeholder, 3, "reviewed")).toEqual([]);
+    expect(startQuiz("15-17", "contraception", placeholder, undefined, "reviewed")).toBeNull();
   });
   it("production ignores ?copy= and always uses THAI_COPY_STATUS", () => {
     expect(quizCopyStatus(false, "?copy=reviewed")).toBe(THAI_COPY_STATUS);
@@ -56,7 +57,7 @@ describe("D7 quiz items (PLACEHOLDER)", () => {
     expect(hasRelatedQuiz("contraception", "18+", QUIZ_ITEMS, quizCopyStatus(false, "?copy=reviewed"))).toBe(
       hasRelatedQuiz("contraception", "18+", QUIZ_ITEMS, THAI_COPY_STATUS),
     );
-    expect(hasRelatedQuiz("contraception", "18+", QUIZ_ITEMS, quizCopyStatus(true, "?copy=reviewed"))).toBe(false);
+    expect(hasRelatedQuiz("contraception", "18+", QUIZ_ITEMS, quizCopyStatus(true, "?copy=reviewed"))).toBe(true);
   });
 });
 
@@ -98,32 +99,33 @@ describe("validator rules", () => {
     const holiday = clone("QZ-04", { explanation_th: "โทร 1663 ปรึกษาฟรี ทุกวัน 09:00–21:00 น. รวมวันหยุด" });
     expect(validateQuizItems([holiday]).map((i) => i.rule)).toContain("hours_1663");
   });
-  it("QZ-02 and QZ-03 cannot drop to age_min 15", () => {
-    expect(validateQuizItems([clone("QZ-02", { age_min: 15 })]).map((i) => i.rule)).toContain("age_min");
-    expect(validateQuizItems([clone("QZ-03", { age_min: 15 })]).map((i) => i.rule)).toContain("age_min");
+  it("QZ-02 and QZ-03 are All (15+); an invalid age_min still fails", () => {
+    expect(byId("QZ-02").age_min).toBe(15);
+    expect(byId("QZ-03").age_min).toBe(15);
+    expect(validateQuizItems([clone("QZ-02", { age_min: 16 as 15 })]).map((i) => i.rule)).toContain("age_min");
+    expect(validateQuizItems([clone("QZ-03", { age_min: 16 as 15 })]).map((i) => i.rule)).toContain("age_min");
   });
-  it("ship gate: reviewed copy rejects PLACEHOLDER/unapproved quiz items", () => {
-    expect(validateQuizItems(QUIZ_ITEMS, QUIZ_FILE_LICENCE, "reviewed").every((i) => i.rule === "ship_gate")).toBe(true);
-    expect(validateQuizItems(QUIZ_ITEMS, QUIZ_FILE_LICENCE, "reviewed")).toHaveLength(7);
+  it("ship gate: reviewed copy rejects PLACEHOLDER/unapproved quiz items and accepts the shipped set", () => {
+    expect(validateQuizItems(QUIZ_ITEMS, QUIZ_FILE_LICENCE, "reviewed")).toEqual([]);
+    expect(validateQuizItems([clone("QZ-01", { status: "PLACEHOLDER" })], QUIZ_FILE_LICENCE, "reviewed").map((i) => i.rule)).toContain("ship_gate");
     expect(validateQuizItems([clone("QZ-01", { status: "approved" })], QUIZ_FILE_LICENCE, "reviewed")).toEqual([]);
     expect(validateQuizItems(QUIZ_ITEMS)).toEqual([]);
   });
 });
 
 describe("age filter and session pick", () => {
-  it("15–17 / ไม่อยากบอก / none never get 18+ items", () => {
+  it("every age band including 15–17 / ไม่อยากบอก sees the All (15+) items", () => {
     for (const age of ["15-17", "unspecified", null, undefined] as const) {
       const ids = pickQuizItems(age, null).map((q) => q.id);
-      expect(ids).not.toContain("QZ-02");
-      expect(ids).not.toContain("QZ-03");
+      expect(ids).toEqual(["QZ-01", "QZ-02", "QZ-03"]);
       expect(ids.length).toBeLessThanOrEqual(QUIZ_SESSION_LEN);
-      expect(quizAgeAllowed(byId("QZ-02"), age)).toBe(false);
+      expect(quizAgeAllowed(byId("QZ-02"), age)).toBe(true);
       expect(quizAgeAllowed(byId("QZ-01"), age)).toBe(true);
     }
     expect(pickQuizItems("18+", null).map((q) => q.id)).toEqual(["QZ-01", "QZ-02", "QZ-03"]);
   });
   it("prefers the current topic and fills to 3", () => {
-    expect(pickQuizItems("15-17", "emergency_contraception").map((q) => q.id)).toEqual(["QZ-04", "QZ-01", "QZ-05"]);
+    expect(pickQuizItems("15-17", "emergency_contraception").map((q) => q.id)).toEqual(["QZ-02", "QZ-04", "QZ-01"]);
     expect(pickQuizItems("18+", "contraception").map((q) => q.id)).toEqual(["QZ-01", "QZ-03", "QZ-07"]);
     expect(hasRelatedQuiz("emergency_contraception", "15-17")).toBe(true);
     expect(hasRelatedQuiz("mental_health", "15-17")).toBe(false);

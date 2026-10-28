@@ -11,7 +11,7 @@ import { emptyChatArt, janeImg } from "./jane";
 import { quizPanel } from "./quiz";
 
 /* Multi-turn chat screen (plan §3, §5). Memory only: the transcript lives in this object and is
- * wiped by erase / quick exit. Nothing is logged. All Thai copy is DRAFT. */
+ * wiped by erase / quick exit. Nothing is logged. Thai copy is reviewed. */
 
 /** The UI keeps the last 20 messages (plan §3, device limits). */
 export const TRANSCRIPT_MAX = 20;
@@ -141,7 +141,6 @@ function bubble(m: ChatMsg, i: number, last: boolean, chat: ChatState, hooks: Ch
     janeImg("avatar96"),
     h("div", { class: "msg-body" },
       m.banner?.length ? strip(m.banner) : null,
-      m.placeholder && h("span", { class: "tag placeholder", "data-testid": "placeholder-tag" }, "PLACEHOLDER · เนื้อหาตัวอย่าง ยังไม่ใช่ข้อมูลจริง"),
       h("p", { "data-testid": "chat-text" }, shown),
       m.reworded && h("p", { class: "note", "data-testid": "reword-note" }, "เรียบเรียงโดยโมเดลในเครื่อง ",
         h("button", { class: "link", "data-testid": "show-original", onclick: () => { m.showOriginal = !m.showOriginal; hooks.rerender(); } }, m.showOriginal ? "ดูฉบับเรียบเรียง" : "ดูข้อความต้นฉบับ")),

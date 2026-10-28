@@ -25,8 +25,8 @@ const lastJane = (page: Page) => page.locator('[data-testid="chat-msg"][data-fro
 test("D7 true/false after a related contraception answer", async ({ page }) => {
   const rec = await open(page, "14:00");
   await openChat(page, "15-17");
-  await say(page, "ใช้ถุงยาง");
-  await expect(page.locator('[data-testid="chat-msg"][data-from="jane"]').last()).toHaveAttribute("data-card", "contraception.p000");
+  await say(page, "อยากรู้เรื่องคุมกำเนิด");
+  await expect(page.locator('[data-testid="chat-msg"][data-from="jane"]').last()).toHaveAttribute("data-card", "birth.control.000");
   await expect(page.getByTestId("quiz-start")).toHaveText("ลองทำควิซ");
   await page.getByTestId("quiz-start").click();
   await expect(page.getByTestId("quiz-panel")).toHaveAttribute("data-format", "true_false");
@@ -46,8 +46,13 @@ test("D7 multiple choice after a related EC answer", async ({ page }) => {
   const rec = await open(page, "14:00");
   await openChat(page, "15-17");
   await page.getByTestId("chat-chip-0").click(); // ยาคุมฉุกเฉิน
-  await expect(page.locator('[data-testid="chat-msg"][data-from="jane"]').last()).toHaveAttribute("data-card", "ec.p000");
+  await expect(page.locator('[data-testid="chat-msg"][data-from="jane"]').last()).toHaveAttribute("data-card", "ec.timing.b001");
   await page.getByTestId("quiz-start").click();
+  // Related first by id: QZ-02 (true/false, now All 15+), then QZ-04.
+  await expect(page.getByTestId("quiz-panel")).toHaveAttribute("data-id", "QZ-02");
+  await expect(page.getByTestId("quiz-panel")).toHaveAttribute("data-format", "true_false");
+  await page.getByTestId("quiz-opt-1").click();
+  await page.getByTestId("quiz-next").click();
   await expect(page.getByTestId("quiz-panel")).toHaveAttribute("data-format", "multiple_choice");
   await expect(page.getByTestId("quiz-prompt")).toHaveText(q("QZ-04").prompt_th);
   await shot(page, "d7-02-multiple-choice");
@@ -63,7 +68,7 @@ test("D7 chat-style multiple choice (QZ-05) after a consent answer", async ({ pa
   const rec = await open(page, "14:00");
   await openChat(page, "15-17");
   await say(page, "แฟนกดดัน");
-  await expect(page.locator('[data-testid="chat-msg"][data-from="jane"]').last()).toHaveAttribute("data-card", "consent.p000");
+  await expect(page.locator('[data-testid="chat-msg"][data-from="jane"]').last()).toHaveAttribute("data-card", "sex.activity.consent.000");
   await page.getByTestId("quiz-start").click();
   await expect(page.getByTestId("quiz-panel")).toHaveAttribute("data-format", "multiple_choice_chat");
   await expect(page.getByTestId("quiz-prompt")).toHaveText(q("QZ-05").prompt_th);
@@ -77,7 +82,7 @@ test("D7 chat-style multiple choice (QZ-05) after a consent answer", async ({ pa
 
 test("D7 ordering uses up/down buttons (18+ contraception session)", async ({ page }) => {
   const rec = await open(page, "14:00");
-  await openChat(page, "18+");
+  await openChat(page, "18-24");
   await say(page, "ใช้ถุงยาง");
   await page.getByTestId("quiz-start").click();
   // Session: QZ-01, QZ-03, QZ-07 — skip the first true/false.
@@ -105,7 +110,7 @@ test("D7 ordering uses up/down buttons (18+ contraception session)", async ({ pa
   await assertNetwork(page, rec);
 });
 
-test("D7 15–17 never sees 18+ items (QZ-02 / QZ-03)", async ({ page }) => {
+test("D7 15–17 can see QZ-02 / QZ-03 (Audience All 15+)", async ({ page }) => {
   const rec = await open(page, "14:00");
   await openChat(page, "15-17");
   await page.getByTestId("quiz-menu").click();
@@ -113,17 +118,12 @@ test("D7 15–17 never sees 18+ items (QZ-02 / QZ-03)", async ({ page }) => {
   for (let i = 0; i < 3; i++) {
     const id = await page.getByTestId("quiz-panel").getAttribute("data-id");
     seen.push(id ?? "");
-    expect(id).not.toBe("QZ-02");
-    expect(id).not.toBe("QZ-03");
-    const prompt = await page.getByTestId("quiz-prompt").innerText();
-    expect(prompt).not.toBe(q("QZ-02").prompt_th);
-    expect(prompt).not.toBe(q("QZ-03").prompt_th);
     if (await page.getByTestId("quiz-confirm").count()) await page.getByTestId("quiz-confirm").click();
     else await page.getByTestId("quiz-opt-0").click();
     await page.getByTestId("quiz-next").click();
   }
   await expect(page.getByTestId("quiz-wrap")).toBeVisible();
-  expect(seen).toHaveLength(3);
+  expect(seen).toEqual(["QZ-01", "QZ-02", "QZ-03"]);
   await assertNoStorage(page);
   await assertNetwork(page, rec);
 });
@@ -140,7 +140,7 @@ test("D7 crisis phrase mid-quiz is recorded: sticky all-four strip, soft referra
   await page.getByTestId("crisis-continue").click();
   await expect(page.getByTestId("screen-chat")).toBeVisible();
   await say(page, "อยากรู้เรื่องคุมกำเนิด");
-  await expect(lastJane(page)).toHaveAttribute("data-card", "contraception.p000");
+  await expect(lastJane(page)).toHaveAttribute("data-card", "birth.control.000");
   await expect(lastJane(page).getByTestId("crisis-banner")).toBeVisible();
   expect(await crisisBannerHrefs(page)).toEqual([...STRIP_HREFS.self_harm]);
   await expect(lastJane(page).getByTestId("chat-offer")).toBeVisible();
@@ -154,12 +154,12 @@ test("D7 crisis phrase mid-quiz is recorded: sticky all-four strip, soft referra
 
 test("D7 production ignores ?copy=reviewed: both quiz entry points still follow THAI_COPY_STATUS", async ({ page }) => {
   const rec = await open(page, "14:00", "&copy=reviewed");
-  await openChat(page, "18+");
+  await openChat(page, "18-24");
   await expect(lastJane(page)).toHaveAttribute("data-card", "general.welcome.000");
-  await expect(lastJane(page).getByTestId("placeholder-tag")).toBeVisible();
+  await expect(lastJane(page).getByTestId("placeholder-tag")).toHaveCount(0);
   await expect(page.getByTestId("quiz-menu")).toBeVisible();
   await say(page, "ใช้ถุงยาง");
-  await expect(lastJane(page)).toHaveAttribute("data-card", "contraception.p000");
+  await expect(lastJane(page)).toHaveAttribute("data-card", "condom.000");
   await expect(page.getByTestId("quiz-start")).toBeVisible();
   await expect(page.getByTestId("quiz-menu")).toBeVisible();
   await page.getByTestId("quiz-start").click();
@@ -200,7 +200,7 @@ test("D7 non-crisis text mid-quiz shows the bubble, drops the panel, and does no
   await expect(page.getByTestId("quiz-panel")).toHaveCount(0);
   const userHits = page.locator('[data-testid="chat-msg"][data-from="user"]').filter({ hasText: text });
   await expect(userHits).toHaveCount(1);
-  await expect(lastJane(page)).toHaveAttribute("data-card", "contraception.p000");
+  await expect(lastJane(page)).toHaveAttribute("data-card", "birth.control.000");
   await expect(page.getByTestId("quiz-panel")).toHaveCount(0);
   await expect(page.getByTestId("chat-busy")).toHaveCount(0);
   await assertNoStorage(page);
@@ -209,7 +209,7 @@ test("D7 non-crisis text mid-quiz shows the bubble, drops the panel, and does no
 
 test("D7 QZ-03 shuffled-order immediate confirm is wrong and has no praise", async ({ page }) => {
   const rec = await open(page, "14:00");
-  await openChat(page, "18+");
+  await openChat(page, "18-24");
   await say(page, "ใช้ถุงยาง");
   await page.getByTestId("quiz-start").click();
   await expect(page.getByTestId("quiz-panel")).toHaveAttribute("data-id", "QZ-01");

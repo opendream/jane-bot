@@ -1,5 +1,5 @@
 {
-  "$comment": "D7 in-chat quiz items. All PLACEHOLDER until Keng sets Decision and Audience in the review pack. Adapted from Judies (Opendream 2017), relicensed CC BY-SA 4.0. No Judies repo files.",
+  "$comment": "D7 in-chat quiz items. Approved 27 Oct 2026 (Keng); Audience All (15+) on every row including QZ-02, QZ-03 and spare QZ-07. Adapted from Judies (Opendream 2017), relicensed CC BY-SA 4.0. No Judies repo files.",
   "licence": "CC-BY-SA-4.0",
   "items": [
     {
@@ -7,7 +7,10 @@
       "format": "true_false",
       "prompt_th": "จริงหรือมั่ว? ถุงยางอนามัยที่ล้างแล้วผึ่งให้แห้ง เอากลับมาใช้ซ้ำได้",
       "prompt_en": "Myth or fact? A condom that has been washed and dried can be used again.",
-      "options": ["จริง (Fact)", "มั่ว (Myth)"],
+      "options": [
+        "จริง (Fact)",
+        "มั่ว (Myth)"
+      ],
       "options_shown_shuffled": false,
       "answer": 1,
       "correct_answer_text": "มั่ว (Myth)",
@@ -16,10 +19,10 @@
       "source": "A.Choice_11; Tip.2; Tip.5",
       "suggested_audience": "All (15+)",
       "age_min": 15,
-      "decision": null,
-      "audience_set_by_keng": null,
+      "decision": "Approve",
+      "audience_set_by_keng": "All (15+)",
       "licence": "CC-BY-SA-4.0",
-      "status": "PLACEHOLDER",
+      "status": "approved",
       "fact_check": "No. This is standard single-use guidance."
     },
     {
@@ -27,19 +30,22 @@
       "format": "true_false",
       "prompt_th": "จริงหรือมั่ว? ถ้าถอนออกมาหลั่งข้างนอกทัน ก็ไม่ท้องแน่นอน",
       "prompt_en": "Myth or fact? If he pulls out in time, there's no way you can get pregnant.",
-      "options": ["จริง (Fact)", "มั่ว (Myth)"],
+      "options": [
+        "จริง (Fact)",
+        "มั่ว (Myth)"
+      ],
       "options_shown_shuffled": false,
       "answer": 1,
       "correct_answer_text": "มั่ว (Myth)",
       "explanation_th": "มั่วจ้า การหลั่งนอกพลาดได้ง่าย และน้ำใสๆ ที่ออกมาก่อนการหลั่งก็อาจมีอสุจิปนอยู่ได้ ถ้ายังไม่พร้อมมีลูก ใช้ถุงยางอนามัยหรือวิธีคุมกำเนิดอื่นจะปลอดภัยกว่านะ",
       "explanation_en": "Myth. Pulling out often goes wrong, and the clear fluid that comes out before ejaculation can contain sperm. If you're not ready for a baby, condoms or another contraceptive method are safer.",
       "source": "D.Choice_5; Tips.1; A.Game_3",
-      "suggested_audience": "18+ only (default per resolved Q1; row note suggests All, Keng to confirm)",
-      "age_min": 18,
-      "decision": null,
-      "audience_set_by_keng": null,
+      "suggested_audience": "All (15+)",
+      "age_min": 15,
+      "decision": "Approve",
+      "audience_set_by_keng": "All (15+)",
       "licence": "CC-BY-SA-4.0",
-      "status": "PLACEHOLDER",
+      "status": "approved",
       "fact_check": "checked 23 Oct, Researcher record"
     },
     {
@@ -55,17 +61,23 @@
         "จ) หลังหลั่ง จับขอบถุงไว้แล้วถอนออกก่อนอ่อนตัว มัดปากทิ้งถังขยะ"
       ],
       "options_shown_shuffled": true,
-      "answer": [0, 1, 2, 3, 4],
+      "answer": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
       "correct_answer_text": "ก → ข → ค → ง → จ",
       "explanation_th": "ทำทีละขั้น และใช้ชิ้นใหม่ทุกครั้ง ถ้าใส่ผิดด้านให้ทิ้งแล้วใช้ชิ้นใหม่ ถ้ารู้สึกฝืดใช้สารหล่อลื่นสูตรน้ำหรือซิลิโคนเท่านั้น ห้ามใช้น้ำมันหรือโลชั่น เพราะทำให้ถุงยางอนามัยฉีกขาดได้",
       "explanation_en": "Take it one step at a time, and use a new condom every time. If you put it on the wrong way, throw it away and use a new one. If it feels dry, use only water- or silicone-based lubricant, never oil or lotion, because they can make the condom break.",
       "source": "A.Game_18; A.Game_21; A.Game_23; A.Game_25; Tip.7; Tip.12; Tip.17; Tip.20; Tip.22; Tip.23; Tip.24",
-      "suggested_audience": "18+ only (default per resolved Q1; row note suggests All, Keng to confirm)",
-      "age_min": 18,
-      "decision": null,
-      "audience_set_by_keng": null,
+      "suggested_audience": "All (15+)",
+      "age_min": 15,
+      "decision": "Approve",
+      "audience_set_by_keng": "All (15+)",
       "licence": "CC-BY-SA-4.0",
-      "status": "PLACEHOLDER",
+      "status": "approved",
       "fact_check": "checked 23 Oct, Researcher record"
     },
     {
@@ -87,10 +99,10 @@
       "source": "A.Choice_5; A.Choice_13 (1663)",
       "suggested_audience": "All (15+)",
       "age_min": 15,
-      "decision": null,
-      "audience_set_by_keng": null,
+      "decision": "Approve",
+      "audience_set_by_keng": "All (15+)",
       "licence": "CC-BY-SA-4.0",
-      "status": "PLACEHOLDER",
+      "status": "approved",
       "fact_check": "checked 23 Oct, Researcher record"
     },
     {
@@ -98,7 +110,10 @@
       "format": "multiple_choice_chat",
       "prompt_th": "แฟนทักมาว่า 'ส่งรูปโป๊ให้ดูหน่อยสิ ไม่รักกันเหรอ' จะตอบยังไงดี?",
       "prompt_en": "Your partner messages: 'Send me a nude, don't you love me?' What do you reply?",
-      "options": ["ส่งรูปไป (Send it)", "ไม่ส่ง (Don't send)"],
+      "options": [
+        "ส่งรูปไป (Send it)",
+        "ไม่ส่ง (Don't send)"
+      ],
       "options_shown_shuffled": false,
       "answer": 1,
       "correct_answer_text": "ไม่ส่ง (Don't send)",
@@ -107,10 +122,10 @@
       "source": "E.Game_9; E.Choice_11",
       "suggested_audience": "All (15+)",
       "age_min": 15,
-      "decision": null,
-      "audience_set_by_keng": null,
+      "decision": "Approve",
+      "audience_set_by_keng": "All (15+)",
       "licence": "CC-BY-SA-4.0",
-      "status": "PLACEHOLDER",
+      "status": "approved",
       "fact_check": "No. Becomes Yes if a legal line about images of minors is added."
     },
     {
@@ -118,7 +133,10 @@
       "format": "true_false",
       "prompt_th": "จริงหรือมั่ว? ถ้าแฟนยังไม่อยากมีเพศสัมพันธ์ด้วย แปลว่าแฟนไม่รักเรา",
       "prompt_en": "Myth or fact? If your partner doesn't want to have sex yet, it means they don't love you.",
-      "options": ["จริง (Fact)", "มั่ว (Myth)"],
+      "options": [
+        "จริง (Fact)",
+        "มั่ว (Myth)"
+      ],
       "options_shown_shuffled": false,
       "answer": 1,
       "correct_answer_text": "มั่ว (Myth)",
@@ -127,10 +145,10 @@
       "source": "E.Choice_11",
       "suggested_audience": "All (15+)",
       "age_min": 15,
-      "decision": null,
-      "audience_set_by_keng": null,
+      "decision": "Approve",
+      "audience_set_by_keng": "All (15+)",
       "licence": "CC-BY-SA-4.0",
-      "status": "PLACEHOLDER",
+      "status": "approved",
       "fact_check": "No. This is a consent message with no factual claim. Check the correct answer against the original Judies item."
     },
     {
@@ -152,10 +170,10 @@
       "source": "A.Choice_14",
       "suggested_audience": "All (15+)",
       "age_min": 15,
-      "decision": null,
-      "audience_set_by_keng": null,
+      "decision": "Approve",
+      "audience_set_by_keng": "All (15+)",
       "licence": "CC-BY-SA-4.0",
-      "status": "PLACEHOLDER",
+      "status": "approved",
       "fact_check": "checked 23 Oct, Researcher record"
     }
   ]
