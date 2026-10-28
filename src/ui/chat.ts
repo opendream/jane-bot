@@ -34,8 +34,8 @@ export interface ChatHooks {
   rerender(): void;
   /** Crisis override: the app shows the crisis screen (rules only, no model). */
   crisis(categories: CrisisCategory[]): void;
-  /** Referral offer accepted (PR5 wires this to the service cards). */
-  referral?(intents: Intent[]): void;
+  /** Referral offer accepted (PR5 wires this to the service cards). Banner is the chat's active crisis strip. */
+  referral?(intents: Intent[], banner?: CrisisCategory[]): void;
   /** App-level generation (NeedGate seq). Bumped on erase, quick exit, SOS, openChat. */
   seq?(): number;
 }
@@ -94,7 +94,7 @@ export async function sendToChat(chat: ChatState, text: string, hooks: ChatHooks
   if (reply.kind === "readonly" || (reply.kind === "card" && reply.capNotice === "hard")) chat.readOnly = true;
   push(chat, fromReply(reply));
   hooks.rerender();
-  if (reply.kind === "referral") hooks.referral?.(reply.intents);
+  if (reply.kind === "referral") hooks.referral?.(reply.intents, reply.banner);
 }
 
 function strip(categories: CrisisCategory[]) {
@@ -116,7 +116,7 @@ function bubble(m: ChatMsg, i: number, last: boolean, chat: ChatState, hooks: Ch
     last && !chat.readOnly && m.chips?.length ? h("div", { class: "chips" }, ...m.chips.map((c, k) =>
       h("button", { class: "chip", "data-testid": `chat-chip-${k}`, onclick: () => sendToChat(chat, c.label_th, hooks) }, c.label_th))) : null,
     last && m.offer && m.offer !== "none" && hooks.referral ? h("button", { class: m.offer === "strong" ? "btn-primary" : "btn-ghost", "data-testid": "chat-offer",
-      onclick: () => hooks.referral!(m.offerIntents ?? ["other"]) }, "ให้พี่ช่วยหาที่ปรึกษาที่เปิดอยู่ตอนนี้ไหม") : null,
+      onclick: () => hooks.referral!(m.offerIntents ?? ["other"], m.banner) }, "ให้พี่ช่วยหาที่ปรึกษาที่เปิดอยู่ตอนนี้ไหม") : null,
   );
 }
 

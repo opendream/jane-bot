@@ -1,4 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
+import fs from "node:fs";
+import path from "node:path";
 import { open, shot, assertNoStorage, assertNetwork, startAs } from "./helpers";
 
 // v2 chat, rules only (?model=off). All typed text is SYNTHETIC.
@@ -93,7 +95,83 @@ test("CH5 10-turn chat: zero requests, nothing stored, transcript capped at 20 m
   await assertNetwork(page, rec);
 });
 
-test("CH6 talk to a person from chat shows the existing services list", async ({ page }) => {
+/* ---------------- in-chat referral (PR5). Expected hours come from services.json, not from the page. ---------------- */
+const SERVICES = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "src/data/services.json"), "utf8"));
+function citedLines(id: string): string[] {
+  const s = SERVICES.services.find((x: any) => x.id === id);
+  return s.hours_sources.filter((h: any) => h.hours.type === "daily").map((h: any) => `${h.by}: ทุกวัน ${h.hours.open}–${h.hours.close} น.`);
+}
+const EC_TEXT = "ถุงยางรั่ว คุมฉุกเฉินทันไหม"; // SYNTHETIC
+
+test("CH6 chat referral: offer → service cards (hours match services.json) → summary from her last message → approve → DEMO handoff", async ({ page }) => {
+  const rec = await open(page, "19:00");
+  await openChat(page);
+  await say(page, EC_TEXT);
+  await expect(lastJane(page)).toHaveAttribute("data-card", "ec.p000");
+  await shot(page, "ch6-01-offer");
+  await lastJane(page).getByTestId("chat-offer").click();
+  await expect(page.getByTestId("screen-suggest")).toBeVisible();
+  await expect(page.getByTestId("intent-label")).toHaveAttribute("data-intent", "emergency_contraception");
+  const cards = page.locator('[data-testid^="service-"]');
+  expect(await cards.count()).toBeGreaterThanOrEqual(1);
+  expect(await cards.count()).toBeLessThanOrEqual(3);
+  for (const id of ["hotline_1663", "teen_club"]) {
+    await expect(page.getByTestId(`service-${id}`)).toBeVisible();
+    for (const line of citedLines(id)) await expect(page.getByTestId(`hours-${id}`)).toContainText(line);
+  }
+  await expect(page.getByTestId("retell")).toHaveAttribute("data-to", "chat");
+  await shot(page, "ch6-02-cards");
+  await page.getByTestId("pick-hotline_1663").click();
+  await expect(page.getByTestId("screen-summary")).toBeVisible();
+  await expect(page.getByTestId("summary-input")).toHaveValue(/ถึงเจ้าหน้าที่ สายด่วน 1663/);
+  await expect(page.getByTestId("summary-input")).toHaveValue(/ถุงยางรั่ว/);
+  await expect(page.getByTestId("summary-input")).toHaveValue(/ช่วงอายุ: 15–17 ปี/);
+  await page.getByTestId("approve").click();
+  await expect(page.getByTestId("screen-handoff")).toBeVisible();
+  await expect(page.getByTestId("demo-banner")).toContainText("nothing was sent");
+  await shot(page, "ch6-03-handoff");
+  await assertNoStorage(page);
+  await assertNetwork(page, rec);
+  expect(rec.consoleText.join("\n")).not.toContain("ถุงยางรั่ว");
+});
+
+test("CH7 chat referral: back from cards and cancel from the summary both return to the same chat; 'talk to a person' opens referral", async ({ page }) => {
+  const rec = await open(page, "20:00");
+  await openChat(page, "18-24");
+  await say(page, EC_TEXT);
+  await expect(lastJane(page)).toHaveAttribute("data-card", "ec.p000");
+  const before = await page.locator('[data-testid="chat-msg"]').count();
+  await lastJane(page).getByTestId("chat-offer").click();
+  await page.getByTestId("retell").click();
+  await expect(page.getByTestId("screen-chat")).toBeVisible();
+  expect(await page.locator('[data-testid="chat-msg"]').count()).toBe(before);
+  await lastJane(page).getByTestId("chat-offer").click();
+  await page.getByTestId("pick-teen_club").click();
+  await expect(page.getByTestId("screen-summary")).toBeVisible();
+  await page.getByTestId("cancel").click();
+  await expect(page.getByTestId("screen-chat")).toBeVisible();
+  await expect(lastJane(page)).toHaveAttribute("data-card", "ec.p000");
+  await say(page, "อยากคุยกับเจ้าหน้าที่");
+  await expect(page.getByTestId("screen-suggest")).toBeVisible();
+  await expect(page.getByTestId("intent-label")).toHaveAttribute("data-intent", "emergency_contraception");
+  await assertNetwork(page, rec);
+});
+
+test("CH8 crisis typed into a chat-origin summary → crisis screen → 'I'm safe now' returns to the chat", async ({ page }) => {
+  await open(page, "19:00");
+  await openChat(page);
+  await say(page, EC_TEXT);
+  await lastJane(page).getByTestId("chat-offer").click();
+  await page.getByTestId("pick-hotline_1663").click();
+  const box = page.getByTestId("summary-input");
+  await box.fill(`${await box.inputValue()}\nอยากตาย`);
+  await page.getByTestId("approve").click();
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  await page.getByTestId("crisis-continue").click();
+  await expect(page.getByTestId("screen-chat")).toBeVisible();
+});
+
+test("CH9 talk to a person from chat shows the existing services list", async ({ page }) => {
   await open(page, "19:00");
   await openChat(page);
   await say(page, "ช่วงนี้เครียดมาก นอนไม่หลับ");
@@ -104,7 +182,7 @@ test("CH6 talk to a person from chat shows the existing services list", async ({
   await expect(page.getByTestId("service-hotline_1323")).toBeVisible();
 });
 
-test("CH7 hard-cap lock shows a notice; crisis text still opens the crisis screen", async ({ page }) => {
+test("CH10 hard-cap lock shows a notice; crisis text still opens the crisis screen", async ({ page }) => {
   await open(page, "11:00");
   await openChat(page);
   for (let i = 0; i < 30; i++) await say(page, "อยากรู้เรื่องทั่วไปค่ะ");
@@ -114,7 +192,7 @@ test("CH7 hard-cap lock shows a notice; crisis text still opens the crisis scree
   await expect(page.getByTestId("screen-crisis")).toBeVisible();
 });
 
-test("CH8 stale classify does not overwrite the crisis screen", async ({ page }) => {
+test("CH11 stale classify does not overwrite the crisis screen", async ({ page }) => {
   await page.goto("/?model=off&classifyDelayMs=400");
   await startAs(page, "18-24");
   await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
@@ -126,7 +204,7 @@ test("CH8 stale classify does not overwrite the crisis screen", async ({ page })
   await expect(page.getByTestId("screen-suggest")).toHaveCount(0);
 });
 
-test("CH9 erase during classify does not put the need text back on screen", async ({ page }) => {
+test("CH12 erase during classify does not put the need text back on screen", async ({ page }) => {
   await page.goto("/?model=off&classifyDelayMs=400");
   await startAs(page, "18-24");
   await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
@@ -139,7 +217,7 @@ test("CH9 erase during classify does not put the need text back on screen", asyn
   expect(await page.locator("body").innerText()).not.toContain("กลัวท้อง");
 });
 
-test("CH10 quick exit during classify stays on the neutral page", async ({ page }) => {
+test("CH13 quick exit during classify stays on the neutral page", async ({ page }) => {
   await page.goto("/?model=off&classifyDelayMs=400");
   await startAs(page, "18-24");
   await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
@@ -152,7 +230,7 @@ test("CH10 quick exit during classify stays on the neutral page", async ({ page 
   expect(await page.locator("body").innerText()).not.toContain("กลัวท้อง");
 });
 
-test("CH11 SOS then continue back to describe re-enables buttons; crisis text still opens the crisis screen", async ({ page }) => {
+test("CH14 SOS then continue back to describe re-enables buttons; crisis text still opens the crisis screen", async ({ page }) => {
   await page.goto("/?model=off&classifyDelayMs=400");
   await startAs(page, "18-24");
   await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
@@ -174,7 +252,7 @@ test("CH11 SOS then continue back to describe re-enables buttons; crisis text st
   await expect(page.getByTestId("screen-crisis")).toBeVisible();
 });
 
-test("CH12 erase then age re-pick re-enables buttons; crisis text still opens the crisis screen", async ({ page }) => {
+test("CH15 erase then age re-pick re-enables buttons; crisis text still opens the crisis screen", async ({ page }) => {
   await page.goto("/?model=off&classifyDelayMs=400");
   await startAs(page, "18-24");
   await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
@@ -195,7 +273,7 @@ test("CH12 erase then age re-pick re-enables buttons; crisis text still opens th
   await expect(page.getByTestId("screen-crisis")).toBeVisible();
 });
 
-test("CH13 after continue, opening chat is a real click and a late classify cannot steal the screen", async ({ page }) => {
+test("CH16 after continue, opening chat is a real click and a late classify cannot steal the screen", async ({ page }) => {
   await page.goto("/?model=off&classifyDelayMs=400");
   await startAs(page, "18-24");
   await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
@@ -233,7 +311,7 @@ async function focusedStill(page: Page) {
   });
 }
 
-test("CH14 late classify after SOS then continue does not steal describe focus or draft", async ({ page }) => {
+test("CH17 late classify after SOS then continue does not steal describe focus or draft", async ({ page }) => {
   await page.goto("/?model=off&classifyDelayMs=800");
   await startAs(page, "18-24");
   await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
@@ -257,7 +335,7 @@ test("CH14 late classify after SOS then continue does not steal describe focus o
   await expect(page.getByTestId("screen-suggest")).toHaveCount(0);
 });
 
-test("CH15 late classify after SOS then continue does not steal chat focus or draft", async ({ page }) => {
+test("CH18 late classify after SOS then continue does not steal chat focus or draft", async ({ page }) => {
   await page.goto("/?model=off&classifyDelayMs=800");
   await startAs(page, "18-24");
   await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
@@ -282,7 +360,7 @@ test("CH15 late classify after SOS then continue does not steal chat focus or dr
   await expect(page.getByTestId("screen-suggest")).toHaveCount(0);
 });
 
-test("CH16 slow chat turn after erase then quick exit never renders and focus stays", async ({ page }) => {
+test("CH19 slow chat turn after erase then quick exit never renders and focus stays", async ({ page }) => {
   await page.goto("/?model=off&chatDelayMs=800");
   await startAs(page, "18-24");
   await page.getByTestId("open-chat").click();
@@ -303,4 +381,59 @@ test("CH16 slow chat turn after erase then quick exit never renders and focus st
   await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
   await expect(page.getByTestId("screen-chat")).toHaveCount(0);
   expect(await page.locator("body").innerText()).not.toContain("อยากตาย");
+});
+
+test("CH20 after a crisis override, talk-to-a-person keeps the sticky strip and 1323 on the EC cards", async ({ page }) => {
+  await open(page, "19:00");
+  await openChat(page);
+  await say(page, EC_TEXT);
+  await expect(lastJane(page)).toHaveAttribute("data-card", "ec.p000");
+  await say(page, "อยากตาย");
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  await page.getByTestId("crisis-continue").click();
+  await expect(page.getByTestId("screen-chat")).toBeVisible();
+  await say(page, "อยากคุยกับเจ้าหน้าที่");
+  await expect(page.getByTestId("screen-suggest")).toBeVisible();
+  await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
+  const strip = page.getByTestId("crisis-banner");
+  await expect(strip).toBeVisible();
+  await expect(strip.locator('a[href="tel:1323"]')).toBeVisible();
+  await expect(page.getByTestId("service-hotline_1663")).toBeVisible();
+  await expect(page.getByTestId("service-teen_club")).toBeVisible();
+  await expect(page.getByTestId("service-yfhs")).toBeVisible();
+});
+
+test("CH21 news-topic suicide mention plus talk-to-a-person shows the strip from chat, not the crisis screen", async ({ page }) => {
+  await open(page, "19:00");
+  await openChat(page);
+  await say(page, "ข่าววันนี้ เรื่องฆ่าตัวตาย อยากคุยกับเจ้าหน้าที่");
+  await expect(page.getByTestId("screen-suggest")).toBeVisible();
+  await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
+  const strip = page.getByTestId("crisis-banner");
+  await expect(strip).toBeVisible();
+  await expect(strip.locator('a[href="tel:1323"]')).toBeVisible();
+});
+
+test("CH22 SOS from chat-opened cards or summary then I'm-safe-now returns to the same chat", async ({ page }) => {
+  await open(page, "19:00");
+  await openChat(page);
+  await say(page, EC_TEXT);
+  await expect(lastJane(page)).toHaveAttribute("data-card", "ec.p000");
+  await lastJane(page).getByTestId("chat-offer").click();
+  await expect(page.getByTestId("screen-suggest")).toBeVisible();
+  await page.getByTestId("sos").click();
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  await page.getByTestId("crisis-continue").click();
+  await expect(page.getByTestId("screen-chat")).toBeVisible();
+  await expect(page.getByTestId("screen-describe")).toHaveCount(0);
+  await expect(lastJane(page)).toHaveAttribute("data-card", "ec.p000");
+  await lastJane(page).getByTestId("chat-offer").click();
+  await page.getByTestId("pick-hotline_1663").click();
+  await expect(page.getByTestId("screen-summary")).toBeVisible();
+  await page.getByTestId("sos").click();
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  await page.getByTestId("crisis-continue").click();
+  await expect(page.getByTestId("screen-chat")).toBeVisible();
+  await expect(page.getByTestId("screen-describe")).toHaveCount(0);
+  await expect(lastJane(page)).toHaveAttribute("data-card", "ec.p000");
 });
