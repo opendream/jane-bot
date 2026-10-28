@@ -28,3 +28,10 @@ export const MAX_SUGGESTIONS = 3;
  * Testing/filming override via URL: ?model=off | ?runtime=webgpu | ?runtime=wasm
  */
 export const MODEL: "qwen3-1.7b" | "qwen3-4b" | "off" = "qwen3-1.7b";
+
+/**
+ * Chat reword (plan v2 §4): which runtimes may reword curated cards. The validator shows the exact text on any
+ * failure. WASM is off: Qwen3-1.7B on WASM measured median 2.3 s, p90 3.3 s per short rewrite on the studio Mac
+ * (22 Oct 2026, n=16), over the 3 s rule, so WASM shows cards verbatim. Card picking stays on for both.
+ */
+export const REWORD_RUNTIMES: readonly ("webgpu" | "wasm")[] = ["webgpu"];

@@ -2,7 +2,7 @@ import type { AgeBand, CrisisCategory, Intent } from "../core/types";
 import type { CardNext } from "../core/bank";
 import { DialogSession, SOFT_CAP, type DialogModel, type TurnReply, type CapNotice } from "../core/dialog";
 import { crisisOrder } from "../core/crisis";
-import { BANK } from "../core/bankData";
+import { BANK, bankContext } from "../core/bankData";
 import { THAI_COPY_STATUS } from "../config";
 import { h } from "./dom";
 
@@ -36,10 +36,12 @@ export interface ChatHooks {
   crisis(categories: CrisisCategory[]): void;
   /** Referral offer accepted (PR5 wires this to the service cards). */
   referral?(intents: Intent[]): void;
+  /** App-level generation (NeedGate seq). Bumped on erase, quick exit, SOS, openChat. */
+  seq?(): number;
 }
 
 export function newChat(ageBand: AgeBand, model: DialogModel | null): ChatState {
-  const session = new DialogSession(ageBand, { cards: BANK, model, copyStatus: THAI_COPY_STATUS });
+  const session = new DialogSession(ageBand, { cards: BANK, model, copyStatus: THAI_COPY_STATUS, rewordCtx: bankContext() });
   const chat: ChatState = { session, messages: [], busy: false, draft: "", readOnly: false };
   push(chat, fromReply(session.start()));
   return chat;
@@ -61,19 +63,31 @@ function fromReply(r: TurnReply): ChatMsg | null {
   return null;
 }
 
+function chatDelayMs(): number {
+  try { return Number(new URLSearchParams(location.search).get("chatDelayMs") || 0); } catch { return 0; }
+}
+
 /** Send one message. Crisis is decided inside runTurn() before anything else, including after the hard cap. */
 export async function sendToChat(chat: ChatState, text: string, hooks: ChatHooks): Promise<void> {
   const t = text.trim();
   if (!t) return;
+  const mine = hooks.seq?.() ?? -1;
+  const owns = () => hooks.seq == null || hooks.seq() === mine;
   if (chat.readOnly) {
+    if (chatDelayMs() > 0) await new Promise((r) => setTimeout(r, chatDelayMs()));
+    if (!owns()) return;
     const reply = await chat.session.send(t);
+    if (!owns()) return;
     if (reply?.kind === "crisis") hooks.crisis(reply.categories);
     return;
   }
   chat.draft = "";
   push(chat, { from: "user", text: t });
   chat.busy = true; hooks.rerender();
+  if (chatDelayMs() > 0) await new Promise((r) => setTimeout(r, chatDelayMs()));
+  if (!owns()) { chat.busy = false; return; }
   const reply = await chat.session.send(t);
+  if (!owns()) { chat.busy = false; return; } // erase / quick exit / SOS / openChat bumped the seq: drop, no rerender
   chat.busy = false;
   if (!reply) return; // superseded by a newer message
   if (reply.kind === "crisis") { hooks.crisis(reply.categories); return; }

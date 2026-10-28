@@ -6,13 +6,14 @@ import { stripPII } from "./summary";
 import { checkInput, REFUSAL_CARDS, type GuardReason } from "./guard";
 import { retrieve } from "./retrieve";
 import { VALID_INTENTS } from "../llm/adapter";
+import { acceptReword, type RewordContext } from "../llm/rewordGuard";
 
 /* ------------------------------------------------------------------------------------------
  * Per-turn chat pipeline (build plan v2 §3). Pure apart from the optional model, which is
  * injected. State is memory-only and never logged.
  *   1. crisis rules (every message, synchronous, BEFORE anything else; never the model)
  *   2. input guard   3. follow-up chips   4. rules retrieval   5. model pick (only if unsure)
- *   6. ship + age gate   7. (reword: PR4)   8. reply with chips and referral offer
+ *   6. ship + age gate   7. reword (validated, else verbatim)   8. reply with chips and referral offer
  * ---------------------------------------------------------------------------------------- */
 
 export const WELCOME_ID = "general.welcome.000";
@@ -20,6 +21,8 @@ export const FALLBACK_ID = "general.fallback.000";
 export const SOFT_CAP = 20;
 export const HARD_CAP = 30;
 export const PICK_TIMEOUT_MS = 8000;
+/** Reword budget (plan §4); on timeout the exact card text is shown. */
+export const REWORD_TIMEOUT_MS = 8000;
 /** The model never sees more than this many characters of her message (PII-stripped first). */
 export const MODEL_INPUT_CHARS = 200;
 
@@ -92,7 +95,7 @@ export interface DialogModel {
   ready(): boolean;
   /** Choose one id from the shortlist, or null/"none". Input is PII-stripped and clipped. */
   pickCard?(text: string, shortlist: ShortlistItem[], previousTitle: string | null, signal: AbortSignal): Promise<string | null>;
-  /** Reword a card (PR4). The result is validated; any failure shows answer_th verbatim. */
+  /** Reword a card. The model sees only the card (never her text). The result is validated; any failure shows answer_th verbatim. */
   reword?(card: BankCard, signal: AbortSignal): Promise<string | null>;
 }
 
@@ -102,7 +105,10 @@ export interface TurnDeps {
   copyStatus: "draft" | "reviewed";
   signal?: AbortSignal;
   pickTimeoutMs?: number;
-  /** Hook for PR4: turn a chosen card into display text (verbatim by default). */
+  /** Phones, link hosts and public handles the reword validator allows (from bankContext()). No context = no reword. */
+  rewordCtx?: RewordContext | null;
+  rewordTimeoutMs?: number;
+  /** Override: turn a chosen card into display text (default: modelReword when possible, else verbatim). */
   render?: (card: BankCard, signal: AbortSignal) => Promise<{ text: string; reworded: boolean }>;
 }
 
@@ -129,6 +135,16 @@ async function withTimeout<T>(fn: (s: AbortSignal) => Promise<T>, ms: number, ou
 }
 
 const verbatim = async (c: BankCard) => ({ text: c.answer_th, reworded: false });
+
+/** Default render: ask the model to reword, validate, and fall back to the exact text on any failure or timeout. */
+export async function modelReword(card: BankCard, deps: Pick<TurnDeps, "model" | "rewordCtx" | "rewordTimeoutMs">, signal: AbortSignal): Promise<{ text: string; reworded: boolean }> {
+  const m = deps.model;
+  if (!card.reword || !deps.rewordCtx || !m?.ready() || !m.reword) return verbatim(card);
+  const out = await withTimeout((s) => m.reword!(card, s), deps.rewordTimeoutMs ?? REWORD_TIMEOUT_MS, signal);
+  if (signal.aborted) return verbatim(card);
+  const r = acceptReword(card, out, deps.rewordCtx);
+  return { text: r.text, reworded: r.reworded };
+}
 
 function asIntents(topic: BankTopic | null, fallback: Intent[]): Intent[] {
   return topic && (VALID_INTENTS as readonly string[]).includes(topic) ? [topic as Intent] : fallback;
@@ -167,7 +183,7 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
   const usable = (c: BankCard | undefined): c is BankCard => !!c && shippable(c, deps.copyStatus) && ageAllowed(c, state.ageBand);
   const fallback = byId.get(FALLBACK_ID);
   if (!fallback) throw new Error(`bank has no ${FALLBACK_ID}`);
-  const render = deps.render ?? verbatim;
+  const render = deps.render ?? ((c: BankCard, sig: AbortSignal) => modelReword(c, deps, sig));
 
   const reply = async (card: BankCard, via: Via, guard?: GuardReason) => {
     const r = card.reword ? await render(card, deps.signal ?? new AbortController().signal) : { text: card.answer_th, reworded: false };

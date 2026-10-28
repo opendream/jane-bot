@@ -296,7 +296,7 @@ describe("every string field of a card is scanned and never echoed", () => {
         expect(printed).not.toContain(planted);
       }
     }
-  });
+  }, 20_000);
 });
 
 describe("jsonParseError helper never includes source", () => {

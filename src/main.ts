@@ -8,6 +8,7 @@ import { hoursLabel, hoursCitation } from "./core/openNow";
 import { draftSummary, finalizeSummary } from "./core/summary";
 import { classifyWithFallback, polishWithFallback, type LLMAdapter } from "./llm/adapter";
 import { startModel, type ModelStatus } from "./llm/runtime";
+import { toDialogModel } from "./llm/dialogModel";
 import { shouldApplyAsyncResult, newNeedGate, beginNeed, bumpNeed, needBusy, endNeed } from "./core/dialog";
 import { h } from "./ui/dom";
 import { newChat, chatView, type ChatState } from "./ui/chat";
@@ -65,15 +66,23 @@ function go(next: Partial<State>) {
   window.scrollTo(0, 0);
 }
 
-function eraseAll(to: Screen = "start") {
+function dropInflightChat() {
   bumpNeed(need);
+  if (state.chat) {
+    state.chat.session.abort();
+    state.chat.busy = false;
+  }
+}
+
+function eraseAll(to: Screen = "start") {
+  dropInflightChat();
   state = { ...fresh(), screen: to };
   render();
 }
 
 function quickExit() {
   // Wipe memory, drop history entry text, show a neutral page. No navigation, no request.
-  bumpNeed(need);
+  dropInflightChat();
   state = { ...fresh(), screen: "neutral" };
   try { history.replaceState(null, "", location.pathname); } catch { /* ignore */ }
   document.title = "บันทึก";
@@ -89,7 +98,7 @@ function header() {
     h("div", { class: "brand", "data-testid": "brand" }, mark("small"), PRODUCT_NAME, h("span", { class: "en-name" }, PRODUCT_NAME_EN), h("span", { class: "tag" }, "เดโม")),
     h("div", { class: "bar-actions" },
       state.screen !== "start" && state.screen !== "crisis" &&
-        h("button", { class: "btn-sos", "data-testid": "sos", onclick: () => { bumpNeed(need); go({ screen: "crisis", crisisCategories: [], crisisFrom: state.screen }); } }, "ช่วยด่วน"),
+        h("button", { class: "btn-sos", "data-testid": "sos", onclick: () => { dropInflightChat(); go({ screen: "crisis", crisisCategories: [], crisisFrom: state.screen }); } }, "ช่วยด่วน"),
       state.screen !== "start" && h("button", { class: "btn-ghost", "data-testid": "erase", onclick: () => eraseAll("start") }, "ลบแชท"),
       h("button", { class: "btn-exit", "data-testid": "quick-exit", "aria-label": "ออกด่วน (quick exit)", onclick: quickExit }, "ออกด่วน ✕"),
     ),
@@ -180,8 +189,8 @@ function describeScreen() {
 
 /* --------------------------------------- chat (v2) --------------------------------------- */
 function openChat() {
-  bumpNeed(need);
-  if (!state.chat) state.chat = newChat(state.ageBand, null);
+  dropInflightChat();
+  if (!state.chat) state.chat = newChat(state.ageBand, toDialogModel(model));
   go({ screen: "chat" });
 }
 
@@ -195,6 +204,7 @@ const chatHooks = {
   // Crisis rules decided this before any model step; show the existing crisis screen.
   crisis: (categories: CrisisCategory[]) => { bumpNeed(need); go({ screen: "crisis", crisisCategories: categories, crisisFrom: "chat" }); },
   referral: (intents: Intent[]) => openReferral(intents),
+  seq: () => need.seq,
 };
 
 function chatScreen() {
@@ -374,4 +384,4 @@ startModel((st) => {
   modelStatus = st;
   const old = app.querySelector('[data-testid="model-status"]');
   if (old) old.replaceWith(modelPill());
-}).then((a) => { model = a; });
+}).then((a) => { model = a; state.chat?.session.setModel(toDialogModel(a)); });

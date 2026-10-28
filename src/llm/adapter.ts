@@ -14,6 +14,12 @@ export interface LLMAdapter {
   classify(text: string, signal: AbortSignal): Promise<Intent[] | null>;
   /** Rephrase the template summary. Must keep the 6-line template; may only reword her own words. */
   polishSummary(draft: string, signal: AbortSignal): Promise<string | null>;
+  /** Where it runs (decides whether chat reword is on; see REWORD_RUNTIMES in config). */
+  readonly runtime?: "webgpu" | "wasm";
+  /** Chat: pick one id from the shortlist (raw model text; parsed and checked by the caller). */
+  pickCard?(text: string, shortlist: { id: string; title_th: string }[], previousTitle: string | null, signal: AbortSignal): Promise<string | null>;
+  /** Chat: reword one curated card. Output is validated by rewordGuard; failures show the exact text. */
+  rewordCard?(card: { answer_th: string; key_facts: string[] }, signal: AbortSignal): Promise<string | null>;
 }
 
 export const VALID_INTENTS: readonly Intent[] = ["pregnancy", "emergency_contraception", "contraception",

@@ -281,3 +281,26 @@ test("CH15 late classify after SOS then continue does not steal chat focus or dr
   await expect(page.getByTestId("screen-chat")).toBeVisible();
   await expect(page.getByTestId("screen-suggest")).toHaveCount(0);
 });
+
+test("CH16 slow chat turn after erase then quick exit never renders and focus stays", async ({ page }) => {
+  await page.goto("/?model=off&chatDelayMs=800");
+  await startAs(page, "18-24");
+  await page.getByTestId("open-chat").click();
+  await expect(page.getByTestId("screen-chat")).toBeVisible();
+  await page.getByTestId("chat-input").fill("อยากตาย");
+  await page.getByTestId("chat-send").click();
+  await page.getByTestId("erase").click();
+  await expect(page.getByTestId("screen-start")).toBeVisible();
+  await page.getByTestId("quick-exit").click();
+  await expect(page.getByTestId("screen-neutral")).toBeVisible();
+  await page.getByTestId("screen-neutral").click();
+  const before = await markFocused(page);
+  await page.waitForTimeout(1000);
+  const after = await focusedStill(page);
+  expect(after.sameNode).toBe(true);
+  expect(after.testid).toBe(before.testid);
+  await expect(page.getByTestId("screen-neutral")).toBeVisible();
+  await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
+  await expect(page.getByTestId("screen-chat")).toHaveCount(0);
+  expect(await page.locator("body").innerText()).not.toContain("อยากตาย");
+});
