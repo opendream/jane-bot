@@ -59,7 +59,7 @@ test("CH2 crisis mid-chat (turn 3) → crisis screen, 1323 first; 'I'm safe now'
 
 test("CH3 benign crisis word in chat → crisis strip, chat continues; guard refuses image requests", async ({ page }) => {
   await open(page, "14:00");
-  await openChat(page, "18-24");
+  await openChat(page, "18+");
   await say(page, "ดูซีรีส์ที่มีฉากข่มขืน แล้วเครียดมาก"); // topic context → banner, not override
   await expect(page.getByTestId("screen-chat")).toBeVisible();
   await expect(lastJane(page).getByTestId("crisis-banner")).toBeVisible();
@@ -121,7 +121,7 @@ test("CH6 chat referral: offer → service cards (hours match services.json) →
   await expect(page.getByTestId("screen-summary")).toBeVisible();
   await expect(page.getByTestId("summary-input")).toHaveValue(/ถึงเจ้าหน้าที่ สายด่วน 1663/);
   await expect(page.getByTestId("summary-input")).toHaveValue(/ถุงยางรั่ว/);
-  await expect(page.getByTestId("summary-input")).toHaveValue(/ช่วงอายุ: 15–17 ปี/);
+  await expect(page.getByTestId("summary-input")).toHaveValue(/ช่วงอายุ: ต่ำกว่า 18 ปี/);
   await page.getByTestId("approve").click();
   await expect(page.getByTestId("screen-handoff")).toBeVisible();
   await expect(page.getByTestId("demo-banner")).toContainText("nothing was sent");
@@ -133,7 +133,7 @@ test("CH6 chat referral: offer → service cards (hours match services.json) →
 
 test("CH7 chat referral: back from cards and cancel from the summary both return to the same chat; 'talk to a person' opens referral", async ({ page }) => {
   const rec = await open(page, "20:00");
-  await openChat(page, "18-24");
+  await openChat(page, "18+");
   await say(page, EC_TEXT);
   await expect(lastJane(page)).toHaveAttribute("data-card", "ec.p000");
   const before = await page.locator('[data-testid="chat-msg"]').count();
@@ -190,7 +190,7 @@ test("CH10 hard-cap lock shows a notice; crisis text still opens the crisis scre
 
 test("CH11 stale classify does not overwrite the crisis screen", async ({ page }) => {
   await page.goto("/?model=off&classifyDelayMs=400");
-  await startAs(page, "18-24");
+  await startAs(page, "18+");
   await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
   await page.getByTestId("need-submit").click();
   await page.getByTestId("sos").click();
@@ -202,7 +202,7 @@ test("CH11 stale classify does not overwrite the crisis screen", async ({ page }
 
 test("CH12 erase during classify does not put the need text back on screen", async ({ page }) => {
   await page.goto("/?model=off&classifyDelayMs=400");
-  await startAs(page, "18-24");
+  await startAs(page, "18+");
   await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
   await page.getByTestId("need-submit").click();
   await page.getByTestId("erase").click();
@@ -215,7 +215,7 @@ test("CH12 erase during classify does not put the need text back on screen", asy
 
 test("CH13 quick exit during classify stays on the neutral page", async ({ page }) => {
   await page.goto("/?model=off&classifyDelayMs=400");
-  await startAs(page, "18-24");
+  await startAs(page, "18+");
   await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
   await page.getByTestId("need-submit").click();
   await page.getByTestId("quick-exit").click();
@@ -228,7 +228,7 @@ test("CH13 quick exit during classify stays on the neutral page", async ({ page 
 
 test("CH14 SOS then continue back to describe re-enables buttons; crisis text still opens the crisis screen", async ({ page }) => {
   await page.goto("/?model=off&classifyDelayMs=400");
-  await startAs(page, "18-24");
+  await startAs(page, "18+");
   await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
   await page.getByTestId("need-submit").click();
   await expect(page.getByTestId("need-submit")).toHaveText("กำลังคิด…");
@@ -250,13 +250,13 @@ test("CH14 SOS then continue back to describe re-enables buttons; crisis text st
 
 test("CH15 erase then age re-pick re-enables buttons; crisis text still opens the crisis screen", async ({ page }) => {
   await page.goto("/?model=off&classifyDelayMs=400");
-  await startAs(page, "18-24");
+  await startAs(page, "18+");
   await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
   await page.getByTestId("need-submit").click();
   await expect(page.getByTestId("need-submit")).toHaveText("กำลังคิด…");
   await page.getByTestId("erase").click();
   await expect(page.getByTestId("screen-start")).toBeVisible();
-  await page.getByTestId("age-18-24").click();
+  await page.getByTestId("age-18+").click();
   await expect(page.getByTestId("screen-describe")).toBeVisible();
   await expect(page.getByTestId("need-submit")).toBeEnabled();
   await expect(page.getByTestId("need-submit")).toHaveText("หาที่ปรึกษา");
@@ -271,7 +271,7 @@ test("CH15 erase then age re-pick re-enables buttons; crisis text still opens th
 
 test("CH16 after continue, opening chat is a real click and a late classify cannot steal the screen", async ({ page }) => {
   await page.goto("/?model=off&classifyDelayMs=400");
-  await startAs(page, "18-24");
+  await startAs(page, "18+");
   await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
   await page.getByTestId("need-submit").click();
   await expect(page.getByTestId("need-submit")).toHaveText("กำลังคิด…");
@@ -309,7 +309,7 @@ async function focusedStill(page: Page) {
 
 test("CH17 late classify after SOS then continue does not steal describe focus or draft", async ({ page }) => {
   await page.goto("/?model=off&classifyDelayMs=800");
-  await startAs(page, "18-24");
+  await startAs(page, "18+");
   await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
   await page.getByTestId("need-submit").click();
   await expect(page.getByTestId("need-submit")).toHaveText("กำลังคิด…");
@@ -333,7 +333,7 @@ test("CH17 late classify after SOS then continue does not steal describe focus o
 
 test("CH18 late classify after SOS then continue does not steal chat focus or draft", async ({ page }) => {
   await page.goto("/?model=off&classifyDelayMs=800");
-  await startAs(page, "18-24");
+  await startAs(page, "18+");
   await page.getByTestId("need-input").fill("กลัวท้อง ประจำเดือนมาช้า");
   await page.getByTestId("need-submit").click();
   await expect(page.getByTestId("need-submit")).toHaveText("กำลังคิด…");
@@ -358,7 +358,7 @@ test("CH18 late classify after SOS then continue does not steal chat focus or dr
 
 test("CH19 slow chat turn after erase then quick exit never renders and focus stays", async ({ page }) => {
   await page.goto("/?model=off&chatDelayMs=800");
-  await startAs(page, "18-24");
+  await startAs(page, "18+");
   await page.getByTestId("open-chat").click();
   await expect(page.getByTestId("screen-chat")).toBeVisible();
   await page.getByTestId("chat-input").fill("อยากตาย");

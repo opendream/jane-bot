@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { draftSummary, stripPII, finalizeSummary, clip, MAX_NEED_CHARS } from "../../src/core/summary";
+import { draftSummaryForAge } from "../../src/core/summary-age";
 import { SERVICES } from "../../src/core/referral";
 import { acceptPolished, classifyWithFallback, polishWithFallback, type LLMAdapter } from "../../src/llm/adapter";
 
@@ -59,6 +60,19 @@ describe("draftSummary", () => {
     expect(d).not.toContain("พลอย");
     expect(d).not.toContain("0812345678");
     expect(d).toContain("กลัวท้อง");
+  });
+  it("handoff band: 15–17 is under-18, decline/skip is ไม่ระบุ, 18+ is 18+ (pinned summary.ts stays on AgeBand keys)", () => {
+    const preferNot = draftSummaryForAge({ service: s1663, needText: "กลัวท้อง", intent: "pregnancy", ageBand: "unspecified" });
+    const none = draftSummaryForAge({ service: s1663, needText: "กลัวท้อง", intent: "pregnancy", ageBand: null });
+    expect(preferNot).toContain("ช่วงอายุ: ไม่ระบุ");
+    expect(none).toContain("ช่วงอายุ: ไม่ระบุ");
+    expect(preferNot.split("\n")[2]).toBe(none.split("\n")[2]);
+    expect(preferNot).not.toContain("ต่ำกว่า 18 ปี");
+    expect(preferNot).not.toContain("15–17");
+    expect(draftSummaryForAge({ service: s1663, needText: "กลัวท้อง", intent: "pregnancy", ageBand: "15-17" })).toContain("ช่วงอายุ: ต่ำกว่า 18 ปี");
+    expect(draftSummaryForAge({ service: s1663, needText: "กลัวท้อง", intent: "pregnancy", ageBand: "18+" })).toContain("ช่วงอายุ: 18 ปีขึ้นไป");
+    expect(draftSummary({ service: s1663, needText: "กลัวท้อง", intent: "pregnancy", ageBand: "15-17" })).toContain("ช่วงอายุ: 15–17 ปี");
+    expect(draftSummary({ service: s1663, needText: "กลัวท้อง", intent: "pregnancy", ageBand: "unspecified" })).toContain("ช่วงอายุ: ไม่ระบุ");
   });
   it("redacts dotted, spaced, +66 and Thai-digit phones from the handoff summary", () => {
     const phones = [

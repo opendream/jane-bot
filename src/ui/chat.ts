@@ -1,8 +1,9 @@
-import type { AgeBand, CrisisCategory, Intent } from "../core/types";
+import type { CrisisCategory, Intent } from "../core/types";
+import type { AgeState } from "../core/age";
 import type { CardNext } from "../core/bank";
 import { DialogSession, SOFT_CAP, type DialogModel, type TurnReply, type CapNotice } from "../core/dialog";
 import { crisisOrder } from "../core/crisis";
-import { BANK, bankContext } from "../core/bankData";
+import { cardsForSession, bankContext } from "../core/bankData";
 import { THAI_COPY_STATUS } from "../config";
 import { h } from "./dom";
 
@@ -40,8 +41,8 @@ export interface ChatHooks {
   seq?(): number;
 }
 
-export function newChat(ageBand: AgeBand, model: DialogModel | null): ChatState {
-  const session = new DialogSession(ageBand, { cards: BANK, model, copyStatus: THAI_COPY_STATUS, rewordCtx: bankContext() });
+export function newChat(ageBand: AgeState, model: DialogModel | null): ChatState {
+  const session = new DialogSession(ageBand, { cards: cardsForSession(), model, copyStatus: THAI_COPY_STATUS, rewordCtx: bankContext() });
   const chat: ChatState = { session, messages: [], busy: false, draft: "", readOnly: false };
   push(chat, fromReply(session.start()));
   return chat;

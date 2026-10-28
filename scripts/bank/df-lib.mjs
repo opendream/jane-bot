@@ -310,6 +310,8 @@ export function toQueueItem(rec, flagOpts = {}) {
     ...(janeMsgs ? medicalFlags(rec.name, allResponseStrings(janeMsgs)) : []),
   ])];
   const flags = cardFlagsFor(medical);
+  // Audience is set on review, not at import. No age_min default — a blank Approved/Edit Audience must fail.
+  const age_min = ageMinFromAudience(rec.audience, rec.status);
   return {
     queue_id: `df:${rec.name}`,
     intent: rec.name,
@@ -326,11 +328,35 @@ export function toQueueItem(rec, flagOpts = {}) {
     proposed_card: {
       id: null, topic: topicFor(rec.name), title_th: "", answer_th: texts[0] ?? "", key_facts: [], triggers: [],
       next: [], source_intents: [rec.name], source: [], review: { status: "draft", reviewer: null, reviewed_on: null },
-      last_reviewed: null, flags, referral: { offer: "soft", intents: [] }, links: [], age_min: 15,
+      last_reviewed: null, flags, referral: { offer: "soft", intents: [] }, links: [],
+      ...(age_min != null ? { age_min } : {}),
       // Ownership is not checked at import; a human must set CC-BY-SA-4.0 on review. "unreviewed" cannot pass bank:validate.
       reword: !(flags.includes("hotline") || flags.includes("legal")), licence: "unreviewed",
     },
   };
+}
+
+/** Review-pack audience → age_min. Approved/Edit rows cannot default. */
+export function ageMinFromAudience(audience, status) {
+  const a = typeof audience === "string" ? audience.trim() : "";
+  const decided = status === "Approved" || status === "Edit";
+  if (decided && !a) throw new Error("audience is required for Approved/Edit rows (no default)");
+  if (a === "All (15+)") return 15;
+  if (a === "18+ only") return 18;
+  if (!a) return null;
+  throw new Error(`unknown audience: ${a}`);
+}
+
+/** Build a card from a review-pack row. Fails when Approved/Edit audience is blank. */
+export function applyReviewRow(row) {
+  const id = row?.card?.id ?? row?.proposed_card?.id ?? row?.id;
+  // D5 redirect is hardcoded age_min 15 (All 15+); a blank Audience must not fail the build.
+  if (id === "general.age_redirect.000") {
+    return { ...(row.card ?? row.proposed_card ?? {}), id, age_min: 15 };
+  }
+  const age_min = ageMinFromAudience(row?.audience, row?.status);
+  if (age_min == null) throw new Error("audience is required to build a reviewed card (no default)");
+  return { ...(row.card ?? row.proposed_card ?? {}), age_min };
 }
 
 /** PII hits with text, for the human check (staging only, mode 0600). Flags only; does not redact. */

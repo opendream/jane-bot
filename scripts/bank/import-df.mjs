@@ -10,8 +10,15 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { readExport, mergeExports, toQueueItem, piiHits } from "./df-lib.mjs";
+import { readExport, mergeExports, toQueueItem, piiHits, applyReviewRow, ageMinFromAudience } from "./df-lib.mjs";
 import { publicHandles } from "./guard.mjs";
+
+export { applyReviewRow, ageMinFromAudience };
+
+/** Turn review-pack rows (imported queue item + status + Audience) into cards. Blank Approved/Edit Audience fails. */
+export function buildReviewedCards(rows) {
+  return rows.map((row) => applyReviewRow(row));
+}
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, "../..");

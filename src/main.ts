@@ -1,12 +1,14 @@
 import "./styles.css";
 import { PRODUCT_NAME, PRODUCT_NAME_EN, MIN_AGE, THAI_COPY_STATUS } from "./config";
 import markSvg from "./assets/mark.svg?raw";
-import type { AgeBand, CrisisCategory, Intent, IntentResult } from "./core/types";
+import type { CrisisCategory, Intent, IntentResult } from "./core/types";
+import { type AgePick } from "./core/age";
+import { draftSummaryForAge } from "./core/summary-age";
 import { detectCrisis, crisisOrder as pinnedCrisisOrder } from "./core/crisis";
 import { crisisOrder, crisisCallNowLine } from "./core/crisis-order";
 import { suggestServices, CRISIS_LINES, DATA_VERSION, INTENT_LABEL_TH, SUPPORT_LINE_TH, serviceHoursLabel, canPrepareMessage, type Suggestion } from "./core/referral";
 import { hoursLabel, hoursCitation } from "./core/openNow";
-import { draftSummary, finalizeSummary, stripPII } from "./core/summary";
+import { finalizeSummary, stripPII } from "./core/summary";
 import { classifyWithFallback, polishWithFallback, type LLMAdapter } from "./llm/adapter";
 import { startModel, type ModelStatus } from "./llm/runtime";
 import { toDialogModel } from "./llm/dialogModel";
@@ -25,7 +27,7 @@ type Screen = "start" | "underage" | "describe" | "suggest" | "summary" | "hando
 
 interface State {
   screen: Screen;
-  ageBand: AgeBand;
+  ageBand: AgePick;
   needText: string;
   result: IntentResult | null;
   suggestions: Suggestion[];
@@ -137,7 +139,7 @@ function footer() {
 
 /* ------------------------------------------ screens ------------------------------------------ */
 function startScreen() {
-  const band = (b: AgeBand, label: string) =>
+  const band = (b: AgePick, label: string) =>
     h("button", { class: "btn-choice", "data-testid": `age-${b}`, onclick: () => { bumpNeed(need); go({ ageBand: b, screen: "describe" }); } }, label);
   return h("main", { class: "screen start", "data-testid": "screen-start" },
     h("div", { class: "hero" }, mark("hero"),
@@ -151,9 +153,10 @@ function startScreen() {
       h("li", { "data-testid": "promise-age" }, h("strong", {}, `สำหรับอายุ ${MIN_AGE} ปีขึ้นไป `),
         "เราถามแค่ช่วงอายุ ไม่ถามวันเกิด ชื่อ หรือที่อยู่"),
     ),
-    h("p", { class: "q" }, "คุณอายุเท่าไร (เลือกช่วง)"),
+    h("p", { class: "q", "data-testid": "age-question" }, "คุณอายุเท่าไร (เลือกช่วง ไม่อยากบอกก็ได้)"),
+    h("p", { class: "note", "data-testid": "age-adult-note" }, "บางคำตอบมีไว้สำหรับอายุ 18 ปีขึ้นไปเท่านั้น"),
     h("div", { class: "choices" },
-      band("15-17", `${MIN_AGE}–17 ปี`), band("18-24", "18–24 ปี"), band("25+", "25 ปีขึ้นไป"), band("unspecified", "ไม่อยากบอก"),
+      band("15-17", `${MIN_AGE}–17 ปี`), band("18+", "18 ปีขึ้นไป"), band("unspecified", "ไม่อยากบอก"),
     ),
     h("button", { class: "link", "data-testid": "age-under", onclick: () => go({ screen: "underage" }) }, `อายุต่ำกว่า ${MIN_AGE} ปี`),
     h("p", { class: "en" }, `${PRODUCT_NAME_EN}: an AI, not a doctor. Runs on this device only; nothing is sent or logged. Demo for ages ${MIN_AGE}+.`),
@@ -312,7 +315,7 @@ function suggestScreen() {
 
 async function pick(s: Suggestion) {
   if (!canPrepareMessage(s.service)) return;
-  const draft = draftSummary({ service: s.service, needText: state.needText, intent: state.result!.intents[0], ageBand: state.ageBand });
+  const draft = draftSummaryForAge({ service: s.service, needText: state.needText, intent: state.result!.intents[0], ageBand: state.ageBand });
   polishNote = false;
   go({ selected: s, summary: draft, screen: "summary" });
   // Non-blocking: if a model is ready, reword her line in the background; only applied if she hasn't edited yet.
@@ -332,7 +335,7 @@ function summaryScreen() {
     h("p", { class: "lead" }, "แก้ไขได้ทุกบรรทัด ลบส่วนที่ไม่อยากบอกได้ ชื่อ เบอร์โทร โรงเรียน และที่อยู่จะถูกลบออกอัตโนมัติ"),
     ta,
     polishNote && h("p", { class: "note", "data-testid": "polish-note" }, "เรียบเรียงโดยโมเดลในเครื่อง ตรวจและแก้ได้ ",
-      h("button", { class: "link", "data-testid": "polish-undo", onclick: () => { polishNote = false; go({ summary: draftSummary({ service: state.selected!.service, needText: state.needText, intent: state.result!.intents[0], ageBand: state.ageBand }) }); } }, "ใช้ข้อความเดิม")),
+      h("button", { class: "link", "data-testid": "polish-undo", onclick: () => { polishNote = false; go({ summary: draftSummaryForAge({ service: state.selected!.service, needText: state.needText, intent: state.result!.intents[0], ageBand: state.ageBand }) }); } }, "ใช้ข้อความเดิม")),
     h("div", { class: "row" },
       h("button", { class: "btn-primary", "data-testid": "approve", onclick: () => approve(ta.value) }, "ฉันยืนยัน"),
       h("button", { class: "btn-ghost", "data-testid": "cancel", onclick: () => go({ summary: "", selected: null, screen: backToChat() ? "chat" : "suggest" }) }, "ยกเลิก"),

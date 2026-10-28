@@ -48,7 +48,24 @@ export function isProductionBankFile(name: string): boolean {
 }
 
 const production = Object.fromEntries(Object.entries(files).filter(([n]) => isProductionBankFile(n)));
+const fixtureFiles = Object.fromEntries(Object.entries(files).filter(([n]) => {
+  const base = n.split("/").pop() ?? n;
+  if (!/(?:^|[-_.])fixture(?:[-_.]|$)/i.test(base)) return false;
+  const file = (files[n] as any)?.default ?? files[n];
+  return file && Array.isArray(file.cards);
+}));
 
 /** Every card in the bundled bank (quiz.json and test fixtures excluded). */
 export const BANK: BankCard[] = cardsFromFiles(production);
 export const BANK_FILES: string[] = Object.keys(production);
+/** Non-production cards (D5 18+ fixture). Not in BANK; loaded only when ?bank=fixture. */
+export const BANK_FIXTURES: BankCard[] = Object.keys(fixtureFiles).length ? cardsFromFiles(fixtureFiles) : [];
+
+export function cardsForSession(): BankCard[] {
+  try {
+    if (typeof location !== "undefined" && new URLSearchParams(location.search).get("bank") === "fixture") {
+      return [...BANK, ...BANK_FIXTURES];
+    }
+  } catch { /* node */ }
+  return BANK;
+}

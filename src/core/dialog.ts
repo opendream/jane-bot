@@ -1,5 +1,6 @@
-import type { AgeBand, CrisisCategory, CrisisResult, Intent } from "./types";
-import { type BankCard, type BankTopic, type CardNext, shippable, ageAllowed } from "./bank";
+import type { CrisisCategory, CrisisResult, Intent } from "./types";
+import { type BankCard, type BankTopic, type CardNext, shippable } from "./bank";
+import { AGE_REDIRECT_CARD, AGE_REDIRECT_ID, afterPick, type AgeState } from "./age";
 import { detectCrisis } from "./crisis";
 import { normalize, findPhrases } from "./text";
 import { stripPII } from "./summary";
@@ -13,7 +14,7 @@ import { acceptReword, type RewordContext } from "../llm/rewordGuard";
  * injected. State is memory-only and never logged.
  *   1. crisis rules (every message, synchronous, BEFORE anything else; never the model)
  *   2. input guard   3. follow-up chips   4. rules retrieval   5. model pick (only if unsure)
- *   6. ship + age gate   7. reword (validated, else verbatim)   8. reply with chips and referral offer
+ *   6. post-pick age gate (18+ card → redirect)   7. reword (validated, else verbatim)   8. reply with chips and referral offer
  * ---------------------------------------------------------------------------------------- */
 
 export const WELCOME_ID = "general.welcome.000";
@@ -30,7 +31,7 @@ export const MODEL_INPUT_CHARS = 200;
 export const HUMAN_ASK = ["อยากคุยกับเจ้าหน้าที่", "คุยกับเจ้าหน้าที่", "ขอคุยกับเจ้าหน้าที่", "คุยกับคนจริง", "อยากคุยกับคนจริง", "ขอคุยกับคน", "talk to a person", "talk to someone real"];
 
 export interface DialogState {
-  ageBand: AgeBand;
+  ageBand: AgeState;
   cardId: string | null;
   topic: BankTopic | null;
   pendingChips: CardNext[];
@@ -42,7 +43,7 @@ export interface DialogState {
   crisisCategories: CrisisCategory[];
 }
 
-export const newDialog = (ageBand: AgeBand = "unspecified"): DialogState => ({
+export const newDialog = (ageBand: AgeState = null): DialogState => ({
   ageBand, cardId: null, topic: null, pendingChips: [], turns: 0, recentUser: [], crisisFired: false, crisisCategories: [],
 });
 
@@ -112,7 +113,7 @@ export interface TurnDeps {
   render?: (card: BankCard, signal: AbortSignal) => Promise<{ text: string; reworded: boolean }>;
 }
 
-export type Via = "followup" | "rules" | "model" | "rules_top1" | "fallback" | "guard" | "welcome";
+export type Via = "followup" | "rules" | "model" | "rules_top1" | "fallback" | "guard" | "welcome" | "age_redirect";
 
 export type TurnReply =
   | { kind: "crisis"; categories: CrisisCategory[] }
@@ -180,12 +181,17 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
   const turns = state.turns + 1;
   const capNotice: CapNotice = turns === HARD_CAP ? "hard" : turns === SOFT_CAP ? "soft" : null;
   const byId = new Map(deps.cards.map((c) => [c.id, c]));
-  const usable = (c: BankCard | undefined): c is BankCard => !!c && shippable(c, deps.copyStatus) && ageAllowed(c, state.ageBand);
+  if (!byId.has(AGE_REDIRECT_ID)) byId.set(AGE_REDIRECT_ID, AGE_REDIRECT_CARD);
+  // 18+ cards stay in the pool so a match can redirect after pick. Crisis and human-ask never reach this.
+  const usable = (c: BankCard | undefined): c is BankCard => !!c && shippable(c, deps.copyStatus);
   const fallback = byId.get(FALLBACK_ID);
   if (!fallback) throw new Error(`bank has no ${FALLBACK_ID}`);
+  const redirect = byId.get(AGE_REDIRECT_ID) ?? AGE_REDIRECT_CARD;
   const render = deps.render ?? ((c: BankCard, sig: AbortSignal) => modelReword(c, deps, sig));
 
-  const reply = async (card: BankCard, via: Via, guard?: GuardReason) => {
+  const reply = async (picked: BankCard, via: Via, guard?: GuardReason) => {
+    const card = afterPick(picked, state.ageBand, redirect);
+    const shownVia: Via = card.id === AGE_REDIRECT_ID && picked.id !== AGE_REDIRECT_ID ? "age_redirect" : via;
     const r = card.reword ? await render(card, deps.signal ?? new AbortController().signal) : { text: card.answer_th, reworded: false };
     const offer = state.crisisFired && card.referral.offer === "none" ? "soft" : card.referral.offer;
     const offerIntents = offer === "none" ? card.referral.intents : (card.referral.intents.length ? card.referral.intents : asIntents(state.topic, ["other"]));
@@ -193,7 +199,7 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
       ...state, turns, recentUser, cardId: card.id,
       topic: card.topic === "general" ? state.topic : card.topic, pendingChips: card.next,
     };
-    return { state: next, reply: { kind: "card" as const, card, text: r.text, reworded: r.reworded, via, banner, chips: card.next, offer, offerIntents, capNotice, ...(guard ? { guard } : {}) } };
+    return { state: next, reply: { kind: "card" as const, card, text: r.text, reworded: r.reworded, via: shownVia, banner, chips: card.next, offer, offerIntents, capNotice, ...(guard ? { guard } : {}) } };
   };
 
   // 2. Input guard (image / method refusals). Abuse and complication detection is deferred to #21.
@@ -210,7 +216,7 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
   const chip = state.pendingChips.find((c) => normalize(c.label_th).replace(/\s+/g, "") === said);
   if (chip && usable(byId.get(chip.card_id))) return reply(byId.get(chip.card_id)!, "followup");
 
-  // 4. Rules retrieval over cards she may see.
+  // 4. Rules retrieval (18+ cards stay in the pool so a match can redirect).
   const pool = deps.cards.filter((c) => usable(c) && c.id !== FALLBACK_ID && c.id !== WELCOME_ID);
   const r = retrieve(input, pool, state.topic);
   if (r.confident) return reply(r.ranked[0].card, "rules");
@@ -238,7 +244,7 @@ export class DialogSession {
   state: DialogState;
   private inflight: AbortController | null = null;
   private seq = 0;
-  constructor(ageBand: AgeBand, private deps: Omit<TurnDeps, "signal">) { this.state = newDialog(ageBand); }
+  constructor(ageBand: AgeState, private deps: Omit<TurnDeps, "signal">) { this.state = newDialog(ageBand); }
   start(): TurnReply { const w = welcome(this.state, this.deps.cards); this.state = w.state; return w.reply; }
   setModel(model: DialogModel | null) { this.deps = { ...this.deps, model }; }
   async send(text: string): Promise<TurnReply | null> {

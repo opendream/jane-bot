@@ -1,0 +1,41 @@
+{
+  "$comment": "TEST FIXTURE only. Not production bank. Synthetic D5 18+ card so unit/e2e can assert the post-pick redirect. Loaded only when ?bank=fixture.",
+  "topic_file": "adult-only-fixture",
+  "licence": "CC-BY-SA-4.0",
+  "cards": [
+    {
+      "id": "other.adult_only.000",
+      "topic": "other",
+      "title_th": "ตัวอย่าง 18+",
+      "answer_th": "PLACEHOLDER · ข้อความทดสอบสำหรับอายุ 18 ปีขึ้นไปเท่านั้น ไม่ใช่คำแนะนำทางการแพทย์",
+      "key_facts": [
+        "18 ปีขึ้นไป"
+      ],
+      "triggers": [
+        "เนื้อหาทดสอบสิบแปดบวก"
+      ],
+      "next": [],
+      "source_intents": [],
+      "source": [],
+      "review": {
+        "status": "draft",
+        "reviewer": null,
+        "reviewed_on": null,
+        "notes": "D5 test fixture, not production bank."
+      },
+      "last_reviewed": null,
+      "flags": [
+        "pii_checked"
+      ],
+      "referral": {
+        "offer": "none",
+        "intents": []
+      },
+      "links": [],
+      "age_min": 18,
+      "reword": false,
+      "licence": "CC-BY-SA-4.0",
+      "placeholder": true
+    }
+  ]
+}

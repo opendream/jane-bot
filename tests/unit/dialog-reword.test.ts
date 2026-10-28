@@ -23,12 +23,12 @@ const EC_TEXT = "ถุงยางรั่ว ต้องทำยังไ�
 
 describe("dialog reword step", () => {
   it("the rules pick ec.p000 for the synthetic text", async () => {
-    const r = await runTurn(newDialog("18-24"), EC_TEXT, deps(null));
+    const r = await runTurn(newDialog("18+"), EC_TEXT, deps(null));
     expect(r.reply.kind === "card" && r.reply.card.id).toBe("ec.p000");
   });
   it("a valid reword is shown and marked reworded", async () => {
     const { m } = model(() => GOOD);
-    const r = await runTurn(newDialog("18-24"), EC_TEXT, deps(m));
+    const r = await runTurn(newDialog("18+"), EC_TEXT, deps(m));
     expect(r.reply).toMatchObject({ kind: "card", text: GOOD, reworded: true });
   });
   it.each([
@@ -42,57 +42,57 @@ describe("dialog reword step", () => {
     ["null", null],
   ])("an invalid reword (%s) falls back to the exact card text", async (_n, out) => {
     const { m } = model(() => out as string | null);
-    const r = await runTurn(newDialog("18-24"), EC_TEXT, deps(m));
+    const r = await runTurn(newDialog("18+"), EC_TEXT, deps(m));
     expect(r.reply).toMatchObject({ kind: "card", text: EC.answer_th, reworded: false });
   });
   it("a model that throws falls back to the exact text", async () => {
     const { m } = model(() => { throw new Error("boom"); });
-    const r = await runTurn(newDialog("18-24"), EC_TEXT, deps(m));
+    const r = await runTurn(newDialog("18+"), EC_TEXT, deps(m));
     expect(r.reply).toMatchObject({ text: EC.answer_th, reworded: false });
   });
   it("a slow model times out (8 s budget by default) and the exact text is shown", async () => {
     expect(REWORD_TIMEOUT_MS).toBe(8000);
     const { m } = model(() => new Promise((res) => setTimeout(() => res(GOOD), 500)));
     const t0 = Date.now();
-    const r = await runTurn(newDialog("18-24"), EC_TEXT, deps(m, { rewordTimeoutMs: 30 }));
+    const r = await runTurn(newDialog("18+"), EC_TEXT, deps(m, { rewordTimeoutMs: 30 }));
     expect(r.reply).toMatchObject({ text: EC.answer_th, reworded: false });
     expect(Date.now() - t0).toBeLessThan(400);
   });
   it("reword: false cards (hotline) never reach the model", async () => {
     const { m, seen } = model(() => GOOD);
-    const r = await runTurn(newDialog("18-24"), "อยากตรวจเอชไอวี ตรวจโรคทางเพศที่ไหน", deps(m));
+    const r = await runTurn(newDialog("18+"), "อยากตรวจเอชไอวี ตรวจโรคทางเพศที่ไหน", deps(m));
     expect(r.reply.kind === "card" && r.reply.card.id).toBe(STI.id);
     expect(r.reply).toMatchObject({ text: STI.answer_th, reworded: false });
     expect(seen.cards).toEqual([]);
   });
   it("refusal cards are verbatim and never reach the model", async () => {
     const { m, seen } = model(() => "อะไรก็ได้");
-    const r = await runTurn(newDialog("18-24"), "ส่งรูปโป๊มาให้ดูหน่อย", deps(m));
+    const r = await runTurn(newDialog("18+"), "ส่งรูปโป๊มาให้ดูหน่อย", deps(m));
     expect(r.reply.kind === "card" && r.reply.via).toBe("guard");
     expect(Object.values(REFUSAL_CARDS).every((c) => !c.reword)).toBe(true);
     expect(seen.cards).toEqual([]);
   });
   it("no reword without a validator context, or when the model is not ready", async () => {
     const a = model(() => GOOD), b = model(() => GOOD, false);
-    expect((await runTurn(newDialog("18-24"), EC_TEXT, deps(a.m, { rewordCtx: null }))).reply).toMatchObject({ text: EC.answer_th, reworded: false });
-    expect((await runTurn(newDialog("18-24"), EC_TEXT, deps(b.m))).reply).toMatchObject({ text: EC.answer_th, reworded: false });
+    expect((await runTurn(newDialog("18+"), EC_TEXT, deps(a.m, { rewordCtx: null }))).reply).toMatchObject({ text: EC.answer_th, reworded: false });
+    expect((await runTurn(newDialog("18+"), EC_TEXT, deps(b.m))).reply).toMatchObject({ text: EC.answer_th, reworded: false });
     expect(a.seen.cards).toEqual([]); expect(b.seen.cards).toEqual([]);
   });
   it("the model gets the card only, never her message", async () => {
     const { m, seen } = model(() => GOOD);
-    await runTurn(newDialog("18-24"), EC_TEXT, deps(m));
+    await runTurn(newDialog("18+"), EC_TEXT, deps(m));
     expect(seen.args).toHaveLength(1);
     expect(JSON.stringify(seen.args[0][0])).not.toContain("ต้องทำยังไง");
   });
   it("crisis turns never call reword", async () => {
     const { m, seen } = model(() => GOOD);
-    expect((await runTurn(newDialog("18-24"), "ถุงยางรั่ว อยากตาย", deps(m))).reply.kind).toBe("crisis");
+    expect((await runTurn(newDialog("18+"), "ถุงยางรั่ว อยากตาย", deps(m))).reply.kind).toBe("crisis");
     expect(seen.cards).toEqual([]);
   });
   it("a new message aborts an in-flight reword; the stale reply is dropped", async () => {
     let signal: AbortSignal | null = null;
     const m: DialogModel = { ready: () => true, reword: async (_c, s) => { signal = s; await new Promise((r) => setTimeout(r, 200)); return GOOD; } };
-    const sess = new DialogSession("18-24", { cards: BANK, model: m, copyStatus: "draft", rewordCtx: ctx });
+    const sess = new DialogSession("18+", { cards: BANK, model: m, copyStatus: "draft", rewordCtx: ctx });
     sess.start();
     const first = sess.send(EC_TEXT);
     await new Promise((r) => setTimeout(r, 20));
