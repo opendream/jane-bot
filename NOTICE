@@ -1,0 +1,11 @@
+Jane application code is licensed under the Apache License 2.0 (see LICENSE).
+
+The answer-bank text (src/data/bank/) and the eval question set (evals/) are
+licensed under CC BY-SA 4.0. Those notices cover only that text.
+
+Illustrations in src/assets/jane/ are © Opendream 2018, all rights reserved,
+and are not covered by the repository's other licences.
+Illustration © Opendream, 2018. Some figures redrawn with AI assistance, 2026.
+
+The UI font Mitr is SIL Open Font License 1.1, by Cadson Demak
+(see src/assets/fonts/OFL.txt).

@@ -15,6 +15,7 @@ import { toDialogModel } from "./llm/dialogModel";
 import { shouldApplyAsyncResult, newNeedGate, beginNeed, bumpNeed, needBusy, endNeed } from "./core/dialog";
 import { h } from "./ui/dom";
 import { newChat, chatView, beginQuiz, type ChatState } from "./ui/chat";
+import { ART_CREDIT, janeImg, preloadJaneArt, welcomeStars } from "./ui/jane";
 import { QUIZ_MENU, pickQuizItems, quizCopyStatus } from "./core/quiz";
 
 /* ------------------------------------------------------------------------------------------
@@ -135,8 +136,8 @@ function footer() {
   return h("footer", { class: "foot" },
     h("p", { class: "nmad", "data-testid": "not-medical-advice" }, "ข้อมูลทั่วไป ไม่ใช่คำแนะนำทางการแพทย์ · General information, not medical advice"),
     THAI_COPY_STATUS === "draft" && h("p", { class: "draft", "data-testid": "draft-flag" }, "ข้อความภาษาไทยเป็นฉบับร่าง รอผู้เชี่ยวชาญตรวจ · Thai copy is DRAFT, pending review"),
+    h("p", { class: "art-credit", "data-testid": "art-credit" }, ART_CREDIT),
     h("p", { class: "meta" }, `ข้อมูลบริการตรวจสอบเมื่อ ${DATA_VERSION} · ทุกอย่างทำงานในเครื่องนี้ ไม่มีการบันทึก`),
-    h("p", { class: "meta", "data-testid": "art-credit" }, "Illustration © Opendream, 2018"),
   );
 }
 
@@ -145,7 +146,7 @@ function startScreen() {
   const band = (b: AgePick, label: string) =>
     h("button", { class: "btn-choice", "data-testid": `age-${b}`, onclick: () => { bumpNeed(need); go({ ageBand: b, screen: "describe" }); } }, label);
   return h("main", { class: "screen start", "data-testid": "screen-start" },
-    h("div", { class: "hero" }, mark("hero"),
+    h("div", { class: "hero" }, janeImg("header"), welcomeStars(),
       h("h1", {}, `สวัสดี เราคือ ${PRODUCT_NAME}`, h("span", { class: "en-name" }, PRODUCT_NAME_EN))),
     h("p", { class: "lead" }, "ผู้ช่วยหาที่ปรึกษาเรื่องเพศและอนามัยเจริญพันธุ์ ที่เป็นมิตรกับวัยรุ่น"),
     h("ul", { class: "promises" },
@@ -408,9 +409,24 @@ function render() {
   const main = SCREENS[state.screen]();
   app.replaceChildren(...[header(), main, footer()].filter(Boolean) as Node[]);
   app.dataset.screen = state.screen;
+  revealQuizArt();
+}
+
+/** Keep quiz art below the sticky header. Answering a question scrolls the option into view,
+ *  then the success/thinking image mounts at the top of the panel — under the ~125px bar.
+ *  Never run on the crisis screen: art must not cover or delay those helplines. */
+function revealQuizArt() {
+  if (state.screen === "crisis") return;
+  const el = app.querySelector("[data-testid=quiz-success], [data-testid=quiz-thinking]") as HTMLElement | null;
+  if (!el) return;
+  const bar = app.querySelector("header.bar") as HTMLElement | null;
+  const pad = (bar?.getBoundingClientRect().height ?? 0) + 8;
+  const top = el.getBoundingClientRect().top;
+  if (top < pad) window.scrollBy(0, top - pad);
 }
 
 render();
+preloadJaneArt();
 // Status updates only swap the small indicator, so typing is never interrupted.
 startModel((st) => {
   modelStatus = st;

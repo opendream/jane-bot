@@ -3,7 +3,7 @@ import { open, shot, assertNoStorage, assertNetwork, startAs, describe, citedHou
 
 test("S1 pregnancy worry at 19:00 BKK → 1663 (open) → edit → approve → DEMO handoff", async ({ page }) => {
   const rec = await open(page, "19:00");
-  await expect(page.getByTestId("art-credit")).toHaveText("Illustration © Opendream, 2018");
+  await expect(page.getByTestId("art-credit")).toHaveText("Illustration © Opendream, 2018. Some figures redrawn with AI assistance, 2026.");
   await shot(page, "s1-01-start");
   await startAs(page, "15-17");
   await describe(page, "ประจำเดือนมาช้าไปสองอาทิตย์ กลัวท้อง ไม่กล้าบอกใคร");

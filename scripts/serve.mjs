@@ -15,7 +15,8 @@ const port = Number(arg("--port", process.env.PORT || 4173));
 const DIST = path.resolve(arg("--dist", path.join(root, "dist")));
 const MODELS = path.resolve(arg("--models", path.join(root, "models")));
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
-  ".json": "application/json", ".wasm": "application/wasm", ".png": "image/png", ".svg": "image/svg+xml", ".txt": "text/plain; charset=utf-8" };
+  ".json": "application/json", ".wasm": "application/wasm", ".png": "image/png", ".svg": "image/svg+xml", ".webp": "image/webp",
+  ".woff2": "font/woff2", ".txt": "text/plain; charset=utf-8" };
 
 function resolveFile(urlPath) {
   const p = decodeURIComponent(urlPath.split("?")[0]);

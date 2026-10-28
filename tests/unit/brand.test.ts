@@ -16,12 +16,16 @@ describe("brand", () => {
   it("no leftover placeholder name in user-facing code", () => {
     for (const f of ["src/main.ts", "index.html", "src/config.ts"]) expect(fs.readFileSync(f, "utf8")).not.toMatch(/ผู้ช่วยเดโม|Demo Helper/);
   });
-  it("the only art credit is Illustration © Opendream, 2018 (no illustrator name, no CC BY-SA on art)", () => {
+  it("the only art credit is Illustration © Opendream, 2018. Some figures redrawn with AI assistance, 2026. (no illustrator name, no CC BY-SA on art)", () => {
+    const jane = fs.readFileSync("src/ui/jane.ts", "utf8");
     const main = fs.readFileSync("src/main.ts", "utf8");
-    expect(main).toContain('"Illustration © Opendream, 2018"');
+    expect(jane).toContain('export const ART_CREDIT = "Illustration © Opendream, 2018. Some figures redrawn with AI assistance, 2026."');
+    expect(main).toContain("ART_CREDIT");
     expect(main).not.toContain("OpenDream");
-    const credits = [...main.matchAll(/Illustration[^"\n]*/g)].map((m) => m[0]);
-    expect(credits).toEqual(["Illustration © Opendream, 2018"]);
+    expect(jane).not.toContain("OpenDream");
+    const credits = [...jane.matchAll(/Illustration[^"\n]*/g)].map((m) => m[0]);
+    expect(credits).toEqual(["Illustration © Opendream, 2018. Some figures redrawn with AI assistance, 2026."]);
     expect(credits.join("\n")).not.toMatch(/CC BY-SA|CC-BY-SA/);
+    expect(main).not.toMatch(/Illustration[^"\n]*(CC BY-SA|CC-BY-SA)/);
   });
 });
