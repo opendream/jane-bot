@@ -10,7 +10,7 @@ import { suggestServices, CRISIS_LINES, DATA_VERSION, INTENT_LABEL_TH, SUPPORT_L
 import { hoursLabel, hoursCitation } from "./core/openNow";
 import { finalizeSummary, stripPII } from "./core/summary";
 import { classifyWithFallback, polishWithFallback, type LLMAdapter } from "./llm/adapter";
-import { startModel, type ModelStatus } from "./llm/runtime";
+import { startModel, modelPillCopy, type ModelStatus } from "./llm/runtime";
 import { toDialogModel } from "./llm/dialogModel";
 import { shouldApplyAsyncResult, newNeedGate, beginNeed, bumpNeed, needBusy, endNeed } from "./core/dialog";
 import { h } from "./ui/dom";
@@ -20,8 +20,10 @@ import { QUIZ_MENU, pickQuizItems, quizCopyStatus } from "./core/quiz";
 
 /* ------------------------------------------------------------------------------------------
  * Privacy rules enforced here:
- *  - All state lives in this one in-memory object. Nothing is written to localStorage,
- *    sessionStorage, IndexedDB, cookies or Cache Storage. No console logging of user text.
+ *  - Chat/referral state lives in this one in-memory object. Nothing user-identifying is written
+ *    to localStorage, sessionStorage, IndexedDB, cookies or Cache Storage. The only sessionStorage
+ *    write is a single non-personal flag (`jane.webgpu.failed=1`) when WebGPU dies, so a reload
+ *    skips the broken GPU and tries WASM. No console logging of user text.
  *  - No fetch/XHR anywhere in the app. Source URLs are shown as text, not links.
  * ---------------------------------------------------------------------------------------- */
 
@@ -116,18 +118,7 @@ function header() {
 
 function modelPill() {
   const m = modelStatus;
-  let text: string, title: string;
-  if (m.state === "ready") {
-    text = `🔒 โมเดลในเครื่อง: ${m.label} · ออฟไลน์`;
-    title = `On-device model: ${m.label} (${m.runtime === "webgpu" ? "WebGPU" : "WASM, CPU"}) / offline`;
-  } else if (m.state === "loading" && m.runtime !== "rules") {
-    text = `⏳ กำลังโหลดโมเดล ${m.label} ${Math.round(m.progress * 100)}% · ใช้งานได้ตามปกติระหว่างนี้`;
-    title = `Loading on-device model ${m.label}; the referral flow works meanwhile (rules)`;
-  } else if (m.state === "loading") {
-    text = "⏳ กำลังตรวจหาโมเดลในเครื่อง · ใช้งานได้ตามปกติ"; title = "Checking for an on-device model";
-  } else {
-    text = "🔒 ใช้กฎพื้นฐาน (ไม่มีโมเดล) · ออฟไลน์"; title = "Rules only, no model / offline";
-  }
+  const { text, title } = modelPillCopy(m);
   return h("div", { class: `model-pill ${m.state}`, "data-testid": "model-status", "data-state": m.state, "data-runtime": m.runtime, title }, text);
 }
 
@@ -427,9 +418,13 @@ function revealQuizArt() {
 
 render();
 preloadJaneArt();
+const applyAdapter = (a: LLMAdapter | null) => {
+  model = a;
+  state.chat?.session.setModel(toDialogModel(a));
+};
 // Status updates only swap the small indicator, so typing is never interrupted.
 startModel((st) => {
   modelStatus = st;
   const old = app.querySelector('[data-testid="model-status"]');
   if (old) old.replaceWith(modelPill());
-}).then((a) => { model = a; state.chat?.session.setModel(toDialogModel(a)); });
+}, { onAdapter: applyAdapter }).then(applyAdapter);

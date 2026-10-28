@@ -33,7 +33,7 @@ The small pill under the header says what is running:
 | ⏳ กำลังโหลดโมเดล … % | loading; the app already works on rules meanwhile |
 | 🔒 ใช้กฎพื้นฐาน (ไม่มีโมเดล) · ออฟไลน์ | rules only (no weights, or model failed) |
 
-Order tried: WebGPU (real GPU) → WASM (CPU) → rules. Crisis detection is always rules-only, before any model.
+Order tried: WebGPU (real GPU) → WASM (CPU) → rules. If WebGPU dies (device lost), the pill switches to WASM or to the rules-only label — it never stays on a dead GPU. A single non-personal `sessionStorage` flag (`jane.webgpu.failed`) remembers that for the tab so a reload skips WebGPU. Crisis detection is always rules-only, before any model.
 URL switches for testing: `?runtime=wasm`, `?runtime=webgpu`, `?model=off`, `?model=qwen3-4b`.
 
 ## Sizes

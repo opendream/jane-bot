@@ -20,6 +20,8 @@ export interface LLMAdapter {
   pickCard?(text: string, shortlist: { id: string; title_th: string }[], previousTitle: string | null, signal: AbortSignal): Promise<string | null>;
   /** Chat: reword one curated card. Output is validated by rewordGuard; failures show the exact text. */
   rewordCard?(card: { answer_th: string; key_facts: string[] }, signal: AbortSignal): Promise<string | null>;
+  /** Tear down a worker / GPU engine. Used when WebGPU dies and we fall back. */
+  dispose?(): void | Promise<void>;
 }
 
 export const VALID_INTENTS: readonly Intent[] = ["pregnancy", "emergency_contraception", "contraception",
