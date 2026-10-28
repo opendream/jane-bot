@@ -6,11 +6,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 5173 --strictPort",
-    "build": "tsc --noEmit && vite build",
+    "build": "npm run bank:validate && tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
     "test": "vitest run",
-    "e2e": "vite build && playwright test",
-    "test:e2e": "vite build && playwright test",
+    "e2e": "npm run build && playwright test",
+    "test:e2e": "npm run build && playwright test",
     "check:all": "npm run test && npm run e2e",
     "bank:validate": "vite-node scripts/bank/validate.mjs && node scripts/bank/guard.mjs"
   },

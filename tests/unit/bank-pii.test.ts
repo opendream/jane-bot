@@ -202,6 +202,29 @@ describe("PII detector self-test (synthetic strings only)", () => {
     expect(found.map((f: any) => f.category)).toContain("phone");
     expectNoSynthetic(found.map((f: any) => formatFinding(f)));
   });
+  it("a name or Line id in a quiz prompt or option is caught; reviewer English and Judies source are not", () => {
+    const name = "ask Qwertina about it";
+    const line = "ไลน์ไอดี: test_user99";
+    const promptName = scanValue({ items: [{ id: "QZ-99", prompt_th: name, options: ["มั่ว"], explanation_th: "ok" }] }, "src/data/bank/quiz.json", []);
+    const optionName = scanValue({ items: [{ id: "QZ-99", prompt_th: "จริงหรือมั่ว", options: [name], explanation_th: "ok" }] }, "src/data/bank/quiz.json", []);
+    const promptLine = scanValue({ items: [{ id: "QZ-99", prompt_th: line, options: ["มั่ว"], explanation_th: "ok" }] }, "src/data/bank/quiz.json", []);
+    const optionLine = scanValue({ items: [{ id: "QZ-99", prompt_th: "จริงหรือมั่ว", options: [line], explanation_th: "ok" }] }, "src/data/bank/quiz.json", []);
+    expect(promptName.some((f: { path: string; category: string }) => f.path.includes("prompt_th") && f.category === "english_name")).toBe(true);
+    expect(optionName.some((f: { path: string; category: string }) => /\.options/.test(f.path) && f.category === "english_name")).toBe(true);
+    expect(promptLine.some((f: { path: string; category: string }) => f.path.includes("prompt_th") && f.category === "line_id")).toBe(true);
+    expect(optionLine.some((f: { path: string; category: string }) => /\.options/.test(f.path) && f.category === "line_id")).toBe(true);
+    const reviewer = scanValue({
+      $comment: "Adapted from Judies Choice items",
+      items: [{
+        prompt_en: "Myth or fact?", options: ["จริง (Fact)", "มั่ว (Myth)"],
+        correct_answer_text: "มั่ว (Myth)", explanation_en: "Myth. One condom.",
+        source: "A.Choice_11; Tip.2", suggested_audience: "All (15+)",
+        fact_check: "No. Becomes Yes if a legal line about images of minors is added.",
+      }],
+    }, "src/data/bank/quiz.json", []);
+    expect(reviewer).toEqual([]);
+    expectNoSynthetic([...promptName, ...optionName, ...promptLine, ...optionLine, ...reviewer].map((f: { file: string; path: string; category: string }) => formatFinding(f)));
+  });
 });
 
 describe("guard walk: numbers, keys, redacted paths, parse errors", () => {

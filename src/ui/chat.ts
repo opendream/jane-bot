@@ -1,11 +1,13 @@
 import type { CrisisCategory, Intent } from "../core/types";
 import type { AgeState } from "../core/age";
-import type { CardNext } from "../core/bank";
+import type { BankTopic, CardNext } from "../core/bank";
 import { DialogSession, SOFT_CAP, type DialogModel, type TurnReply, type CapNotice } from "../core/dialog";
 import { crisisOrder } from "../core/crisis";
-import { cardsForSession, bankContext } from "../core/bankData";
+import { BANK, cardsForSession, bankContext } from "../core/bankData";
 import { THAI_COPY_STATUS } from "../config";
+import { QUIZ_CHIP, hasRelatedQuiz, quizCopyStatus, startQuiz, type QuizSession } from "../core/quiz";
 import { h } from "./dom";
+import { quizPanel } from "./quiz";
 
 /* Multi-turn chat screen (plan §3, §5). Memory only: the transcript lives in this object and is
  * wiped by erase / quick exit. Nothing is logged. All Thai copy is DRAFT. */
@@ -29,7 +31,7 @@ export interface ChatMsg {
   note?: "referral" | "readonly";
 }
 
-export interface ChatState { session: DialogSession; messages: ChatMsg[]; busy: boolean; draft: string; readOnly: boolean }
+export interface ChatState { session: DialogSession; messages: ChatMsg[]; busy: boolean; draft: string; readOnly: boolean; quiz: QuizSession | null }
 
 export interface ChatHooks {
   rerender(): void;
@@ -43,7 +45,7 @@ export interface ChatHooks {
 
 export function newChat(ageBand: AgeState, model: DialogModel | null): ChatState {
   const session = new DialogSession(ageBand, { cards: cardsForSession(), model, copyStatus: THAI_COPY_STATUS, rewordCtx: bankContext() });
-  const chat: ChatState = { session, messages: [], busy: false, draft: "", readOnly: false };
+  const chat: ChatState = { session, messages: [], busy: false, draft: "", readOnly: false, quiz: null };
   push(chat, fromReply(session.start()));
   return chat;
 }
@@ -64,18 +66,42 @@ function fromReply(r: TurnReply): ChatMsg | null {
   return null;
 }
 
+export function lastCardTopic(chat: ChatState): BankTopic | null {
+  const id = [...chat.messages].reverse().find((m) => m.from === "jane" && m.cardId)?.cardId;
+  return BANK.find((c) => c.id === id)?.topic ?? null;
+}
+
+export function beginQuiz(chat: ChatState, topic: BankTopic | null, hooks: ChatHooks): void {
+  if (chat.readOnly || chat.busy) return;
+  const age = chat.session.state.ageBand;
+  chat.quiz = startQuiz(age, topic, undefined, undefined, quizCopyStatus());
+  hooks.rerender();
+}
+
+/** Ignore clicks from a panel that sendToChat already closed. */
+export function applyQuizUpdate(chat: ChatState, next: QuizSession | null, hooks: ChatHooks): void {
+  if (!chat.quiz) return;
+  chat.quiz = next;
+  hooks.rerender();
+}
+
 function chatDelayMs(): number {
   try { return Number(new URLSearchParams(location.search).get("chatDelayMs") || 0); } catch { return 0; }
 }
 
-/** Send one message. Crisis is decided inside runTurn() before anything else, including after the hard cap. */
+/** Send one message. Crisis is decided inside runTurn() before anything else, including after the hard cap.
+ *  A line typed during the quiz still goes through session.send (crisisFired / sticky strip). Ordinary
+ *  (non-crisis) text uses the same busy path as normal chat; only the artificial chatDelayMs is skipped. */
 export async function sendToChat(chat: ChatState, text: string, hooks: ChatHooks): Promise<void> {
   const t = text.trim();
   if (!t) return;
   const mine = hooks.seq?.() ?? -1;
   const owns = () => hooks.seq == null || hooks.seq() === mine;
+  const fromQuiz = !!chat.quiz;
+  if (chat.quiz) chat.quiz = null;
   if (chat.readOnly) {
-    if (chatDelayMs() > 0) await new Promise((r) => setTimeout(r, chatDelayMs()));
+    hooks.rerender();
+    if (!fromQuiz && chatDelayMs() > 0) await new Promise((r) => setTimeout(r, chatDelayMs()));
     if (!owns()) return;
     const reply = await chat.session.send(t);
     if (!owns()) return;
@@ -85,14 +111,17 @@ export async function sendToChat(chat: ChatState, text: string, hooks: ChatHooks
   chat.draft = "";
   push(chat, { from: "user", text: t });
   chat.busy = true; hooks.rerender();
-  if (chatDelayMs() > 0) await new Promise((r) => setTimeout(r, chatDelayMs()));
+  if (!fromQuiz && chatDelayMs() > 0) await new Promise((r) => setTimeout(r, chatDelayMs()));
   if (!owns()) { chat.busy = false; return; }
   const reply = await chat.session.send(t);
   if (!owns()) { chat.busy = false; return; } // erase / quick exit / SOS / openChat bumped the seq: drop, no rerender
   chat.busy = false;
   if (!reply) return; // superseded by a newer message
   if (reply.kind === "crisis") { hooks.crisis(reply.categories); return; }
-  if (reply.kind === "readonly" || (reply.kind === "card" && reply.capNotice === "hard")) chat.readOnly = true;
+  if (reply.kind === "readonly" || (reply.kind === "card" && reply.capNotice === "hard")) {
+    chat.readOnly = true;
+    chat.quiz = null;
+  }
   push(chat, fromReply(reply));
   hooks.rerender();
   if (reply.kind === "referral") hooks.referral?.(reply.intents, reply.banner);
@@ -114,9 +143,11 @@ function bubble(m: ChatMsg, i: number, last: boolean, chat: ChatState, hooks: Ch
     m.reworded && h("p", { class: "note", "data-testid": "reword-note" }, "เรียบเรียงโดยโมเดลในเครื่อง ",
       h("button", { class: "link", "data-testid": "show-original", onclick: () => { m.showOriginal = !m.showOriginal; hooks.rerender(); } }, m.showOriginal ? "ดูฉบับเรียบเรียง" : "ดูข้อความต้นฉบับ")),
     m.cap === "soft" && h("p", { class: "note", "data-testid": "cap-soft" }, `คุยกันมา ${SOFT_CAP} ข้อความแล้ว ลองคุยกับเจ้าหน้าที่ตัวจริง หรือกดลบแชทเพื่อเริ่มใหม่ก็ได้นะ`),
-    last && !chat.readOnly && m.chips?.length ? h("div", { class: "chips" }, ...m.chips.map((c, k) =>
+    last && !chat.readOnly && !chat.quiz && m.chips?.length ? h("div", { class: "chips" }, ...m.chips.map((c, k) =>
       h("button", { class: "chip", "data-testid": `chat-chip-${k}`, onclick: () => sendToChat(chat, c.label_th, hooks) }, c.label_th))) : null,
-    last && m.offer && m.offer !== "none" && hooks.referral ? h("button", { class: m.offer === "strong" ? "btn-primary" : "btn-ghost", "data-testid": "chat-offer",
+    last && !chat.readOnly && !chat.busy && !chat.quiz && m.cardId && hasRelatedQuiz(BANK.find((c) => c.id === m.cardId)?.topic, chat.session.state.ageBand, undefined, quizCopyStatus())
+      ? h("button", { class: "chip", "data-testid": "quiz-start", type: "button", onclick: () => beginQuiz(chat, BANK.find((c) => c.id === m.cardId)?.topic ?? null, hooks) }, QUIZ_CHIP) : null,
+    last && m.offer && m.offer !== "none" && hooks.referral && !chat.quiz ? h("button", { class: m.offer === "strong" ? "btn-primary" : "btn-ghost", "data-testid": "chat-offer",
       onclick: () => hooks.referral!(m.offerIntents ?? ["other"], m.banner) }, "ให้พี่ช่วยหาที่ปรึกษาที่เปิดอยู่ตอนนี้ไหม") : null,
   );
 }
@@ -129,7 +160,8 @@ export function chatView(chat: ChatState, hooks: ChatHooks): HTMLElement {
   ta.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey && !(e as KeyboardEvent).isComposing) submit(e); });
   const n = chat.messages.length;
   return h("main", { class: "screen chat", "data-testid": "screen-chat" },
-    h("div", { class: "chat-log", "data-testid": "chat-log", "aria-live": "polite" }, ...chat.messages.map((m, i) => bubble(m, i, i === n - 1, chat, hooks))),
+    h("div", { class: "chat-log", "data-testid": "chat-log", "aria-live": "polite" }, ...chat.messages.map((m, i) => bubble(m, i, i === n - 1 && !chat.quiz, chat, hooks))),
+    chat.quiz && quizPanel(chat.quiz, { update: (next) => applyQuizUpdate(chat, next, hooks) }),
     chat.busy && h("p", { class: "note", "data-testid": "chat-busy" }, "พี่เจนกำลังพิมพ์…"),
     chat.readOnly && h("p", { class: "note", "data-testid": "cap-hard" }, "แชทนี้ยาวมากแล้ว ตอนนี้ส่งข้อความเพิ่มไม่ได้ คุยกับเจ้าหน้าที่ตัวจริง หรือกดลบแชทเพื่อเริ่มใหม่ได้"),
     h("form", { class: "chat-form", onsubmit: submit },
