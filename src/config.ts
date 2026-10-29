@@ -42,6 +42,13 @@ export const MODEL: "qwen3-1.7b" | "qwen3-4b" | "off" = "qwen3-1.7b";
 export const MATCHER = false;
 
 /**
+ * Model-first card pick (PR 2 engine). Off by default: PR 3 adds thinking UI / labels
+ * and turns this on. When off, chat behaviour is unchanged (rules-first; model only
+ * if the rules are unsure). Crisis, guard, chip and locked routes never call the model.
+ */
+export const MODEL_CARD_PICK = false;
+
+/**
  * Chat reword (plan v2 §4): which runtimes may reword curated cards. The validator shows the exact text on any
  * failure. WASM is off: Qwen3-1.7B on WASM measured median 2.3 s, p90 3.3 s per short rewrite on the studio Mac
  * (22 Oct 2026, n=16), over the 3 s rule, so WASM shows cards verbatim. Card picking stays on for both.
