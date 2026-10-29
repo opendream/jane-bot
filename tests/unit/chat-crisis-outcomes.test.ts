@@ -635,6 +635,16 @@ describe("Codex round-7: AMBIGUOUS model reply safety (method / dismiss → card
     expect(r.reply.kind).toBe("chat");
     if (r.reply.kind === "chat") expect(r.reply.softCrisis?.line).toBe(DRAFT_SOFT_LINE);
     expect(calls.chat).toBe(1);
+    // groupId stays the 5th chatReply arg; AMBIGUOUS opts are the 6th.
+    expect(vi.mocked(model.chatReply!).mock.calls[0]?.[5]).toEqual({ ambiguous: true });
+  });
+
+  it("NONE chat does not pass the AMBIGUOUS system-prompt flag", async () => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog("18-24"), NONE_CONTROL, chatDeps(model));
+    expect(r.reply.kind).toBe("chat");
+    expect(calls.chat).toBe(1);
+    expect(vi.mocked(model.chatReply!).mock.calls[0]?.[5]).toBeUndefined();
   });
 });
 
