@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MODEL_CARD_PICK, modelCardPickEnabled, shouldPreloadModel } from "../../src/config";
+import { CHAT_FIRST, MODEL_CARD_PICK, chatFirstEnabled, modelCardPickEnabled, shouldPreloadModel } from "../../src/config";
+import { WLLAMA_N_CTX, WLLAMA_N_CTX_CHAT_FIRST, wllamaContextLength } from "../../src/llm/wllama-ctx";
 import { draftSummary } from "../../src/core/summary";
 import { SERVICES } from "../../src/core/referral";
 import { classifyWithFallback, polishWithFallback, type LLMAdapter } from "../../src/llm/adapter";
@@ -27,7 +28,9 @@ function fakeWasm(label = "Qwen3-1.7B"): LLMAdapter {
 describe("shouldPreloadModel (flag off by default)", () => {
   it("keeps the base trigger: default search still starts the model", () => {
     expect(MODEL_CARD_PICK).toBe(false);
+    expect(CHAT_FIRST).toBe(false);
     expect(modelCardPickEnabled("")).toBe(false);
+    expect(chatFirstEnabled("")).toBe(false);
     expect(shouldPreloadModel("")).toBe(true);
     expect(shouldPreloadModel("?modelPick=0")).toBe(true);
     expect(shouldPreloadModel("?model=off")).toBe(false);
@@ -139,5 +142,40 @@ describe("preloadModel", () => {
     loadStartedAt = Date.now() - t0;
     expect(a?.runtime).toBe("wasm");
     expect(loadStartedAt).toBeLessThan(500);
+  });
+});
+
+describe("wllama n_ctx (chat-first only)", () => {
+  it("stays 1024 by default and becomes 2048 only when chat-first is on", () => {
+    expect(WLLAMA_N_CTX).toBe(1024);
+    expect(WLLAMA_N_CTX_CHAT_FIRST).toBe(2048);
+    expect(wllamaContextLength(false)).toBe(1024);
+    expect(wllamaContextLength(true)).toBe(2048);
+  });
+
+  it("startModel passes nCtx 2048 iff ?chatFirst=1", async () => {
+    const loadOn = vi.fn(async (_f: string, _l: string, onP: (n: number) => void) => {
+      onP(1);
+      return fakeWasm();
+    });
+    await startModel(() => {}, {
+      search: "?chatFirst=1&runtime=wasm",
+      gpuInfo: async () => ({ ok: false, f16: false }),
+      installed: async () => [{ model: "qwen3-1.7b", variants: ["wasm"] }],
+      loadWllama: loadOn,
+    });
+    expect(loadOn.mock.calls[0][3]).toMatchObject({ nCtx: 2048, chatFirst: true });
+
+    const loadOff = vi.fn(async (_f: string, _l: string, onP: (n: number) => void) => {
+      onP(1);
+      return fakeWasm();
+    });
+    await startModel(() => {}, {
+      search: "?runtime=wasm",
+      gpuInfo: async () => ({ ok: false, f16: false }),
+      installed: async () => [{ model: "qwen3-1.7b", variants: ["wasm"] }],
+      loadWllama: loadOff,
+    });
+    expect(loadOff.mock.calls[0][3]).toMatchObject({ nCtx: 1024, chatFirst: false });
   });
 });

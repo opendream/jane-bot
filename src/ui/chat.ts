@@ -5,7 +5,7 @@ import { DialogSession, SOFT_CAP, type DialogModel, type TurnReply, type CapNoti
 import type { IntentMatcher } from "../core/matcher";
 import { crisisOrder } from "../core/crisis";
 import { BANK, cardsForSession, bankContext } from "../core/bankData";
-import { THAI_COPY_STATUS, modelCardPickEnabled, pickTimeoutMsFromSearch } from "../config";
+import { THAI_COPY_STATUS, chatFirstEnabled, modelCardPickEnabled, pickTimeoutMsFromSearch } from "../config";
 import { MODEL_PICK_TIMEOUT_MS, type EngineTag } from "../core/pick-engine";
 import { engineAnswerLabel, nextThinkingHintDelay, thinkingHintAt } from "./thinking";
 import { QUIZ_CHIP, hasRelatedQuiz, quizCopyStatus, startQuiz, type QuizSession } from "../core/quiz";
@@ -45,11 +45,13 @@ export interface ChatState {
   readOnly: boolean;
   quiz: QuizSession | null;
   modelPick: boolean;
+  chatFirst: boolean;
   thinkingHint: string | null;
 }
 
 export interface NewChatOpts {
   modelPick?: boolean;
+  chatFirst?: boolean;
   warmupRemainingMs?: () => number | null;
   pickTimeoutMs?: number;
   search?: string;
@@ -69,6 +71,7 @@ export interface ChatHooks {
 
 export function newChat(ageBand: AgeState, model: DialogModel | null, matcher: IntentMatcher | null = null, opts: NewChatOpts = {}): ChatState {
   const modelPick = opts.modelPick ?? modelCardPickEnabled(opts.search);
+  const chatFirst = opts.chatFirst ?? chatFirstEnabled(opts.search);
   const session = new DialogSession(ageBand, {
     cards: cardsForSession(),
     model,
@@ -76,11 +79,12 @@ export function newChat(ageBand: AgeState, model: DialogModel | null, matcher: I
     copyStatus: THAI_COPY_STATUS,
     rewordCtx: bankContext(),
     modelPick,
+    chatFirst,
     warmupRemainingMs: opts.warmupRemainingMs,
     pickTimeoutMs: opts.pickTimeoutMs ?? (modelPick ? pickTimeoutMsFromSearch(opts.search, MODEL_PICK_TIMEOUT_MS) : undefined),
   });
-  const chat: ChatState = { session, messages: [], busy: false, draft: "", readOnly: false, quiz: null, modelPick, thinkingHint: null };
-  push(chat, fromReply(session.start(), modelPick));
+  const chat: ChatState = { session, messages: [], busy: false, draft: "", readOnly: false, quiz: null, modelPick, chatFirst, thinkingHint: null };
+  push(chat, fromReply(session.start(), modelPick, chatFirst));
   return chat;
 }
 
@@ -90,15 +94,27 @@ function push(chat: ChatState, m: ChatMsg | null) {
   if (chat.messages.length > TRANSCRIPT_MAX) chat.messages.splice(0, chat.messages.length - TRANSCRIPT_MAX);
 }
 
-function fromReply(r: TurnReply, modelPick = false): ChatMsg | null {
+function fromReply(r: TurnReply, modelPick = false, chatFirst = false): ChatMsg | null {
   if (r.kind === "card") {
     return { from: "jane", text: r.text, cardId: r.card.id, placeholder: !!r.card.placeholder, reworded: r.reworded, original: r.card.answer_th,
       banner: r.banner, chips: r.chips, offer: r.offer, offerIntents: r.offerIntents, cap: r.capNotice,
-      engine: r.engine, engineLabel: engineAnswerLabel(r.engine, modelPick) };
+      engine: r.engine, engineLabel: engineAnswerLabel(r.engine, modelPick || chatFirst) };
+  }
+  if (r.kind === "chat") {
+    return { from: "jane", text: r.text, banner: r.banner, chips: r.card ? [] : r.chips, cap: r.capNotice };
   }
   if (r.kind === "referral") return { from: "jane", text: "ได้เลย พี่ช่วยหาที่ปรึกษาที่เปิดอยู่ตอนนี้ให้นะ", banner: r.banner, offer: "strong", offerIntents: r.intents, cap: r.capNotice, note: "referral" };
   if (r.kind === "readonly") return { from: "jane", text: "แชทนี้ยาวมากแล้ว ตอนนี้ส่งข้อความเพิ่มไม่ได้ คุยกับเจ้าหน้าที่ตัวจริง หรือกดลบแชทเพื่อเริ่มใหม่ได้", note: "readonly", offer: "strong", offerIntents: ["other"] };
   return null;
+}
+
+function fromChatCard(r: Extract<TurnReply, { kind: "chat" }>, modelPick = false, chatFirst = false): ChatMsg | null {
+  if (!r.card || r.cardText == null) return null;
+  return {
+    from: "jane", text: r.cardText, cardId: r.card.id, placeholder: !!r.card.placeholder, reworded: false, original: r.card.answer_th,
+    banner: r.banner, chips: r.chips, offer: r.offer, offerIntents: r.offerIntents, cap: r.capNotice,
+    engine: r.engine, engineLabel: engineAnswerLabel(r.engine, modelPick || chatFirst),
+  };
 }
 
 export function lastCardTopic(chat: ChatState): BankTopic | null {
@@ -178,11 +194,16 @@ export async function sendToChat(chat: ChatState, text: string, hooks: ChatHooks
   chat.busy = false;
   if (!reply) return; // superseded by a newer message
   if (reply.kind === "crisis") { hooks.crisis(reply.categories); return; }
-  if (reply.kind === "readonly" || (reply.kind === "card" && reply.capNotice === "hard")) {
+  if (reply.kind === "readonly" || ((reply.kind === "card" || reply.kind === "chat") && reply.capNotice === "hard")) {
     chat.readOnly = true;
     chat.quiz = null;
   }
-  push(chat, fromReply(reply, chat.modelPick));
+  if (reply.kind === "chat") {
+    push(chat, fromReply(reply, chat.modelPick, chat.chatFirst));
+    push(chat, fromChatCard(reply, chat.modelPick, chat.chatFirst));
+  } else {
+    push(chat, fromReply(reply, chat.modelPick, chat.chatFirst));
+  }
   hooks.rerender();
   if (reply.kind === "referral") hooks.referral?.(reply.intents, reply.banner);
 }

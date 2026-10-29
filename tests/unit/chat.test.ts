@@ -4,7 +4,7 @@ import { HARD_CAP, newNeedGate, bumpNeed } from "../../src/core/dialog";
 import { startQuiz } from "../../src/core/quiz";
 import { applyQuizUpdate, beginQuiz, newChat, sendToChat, type ChatHooks } from "../../src/ui/chat";
 import { MODEL_ANSWER_LABEL, RULES_ANSWER_LABEL, thinkingHintAt } from "../../src/ui/thinking";
-import { MODEL_CARD_PICK } from "../../src/config";
+import { CHAT_FIRST, MODEL_CARD_PICK } from "../../src/config";
 import type { DialogModel } from "../../src/core/dialog";
 
 // SYNTHETIC chat lines only.
@@ -308,6 +308,7 @@ describe("model-first chat labels (flag off by default)", () => {
 
   it("flag-off keeps the old busy copy and never shows an engine label", async () => {
     expect(MODEL_CARD_PICK).toBe(false);
+    expect(CHAT_FIRST).toBe(false);
     const chat = newChat("18-24", readyModel(), null, { modelPick: false });
     expect(chat.modelPick).toBe(false);
     expect(chat.thinkingHint).toBeNull();
@@ -316,6 +317,7 @@ describe("model-first chat labels (flag off by default)", () => {
     expect(jane?.engineLabel).toBeFalsy();
     expect(jane?.engine).toBeUndefined();
     expect(jane?.cardId).toBe("birth.control.000");
+    expect(chat.chatFirst).toBe(false);
   });
 
   it("flag-on shows the 0 s thinking hint, then an engine label on the card", async () => {

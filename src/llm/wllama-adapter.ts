@@ -4,6 +4,8 @@ import type { LLMAdapter } from "./adapter";
 import type { Intent } from "../core/types";
 import { cachedBlob } from "./weights-cache";
 import { CLASSIFY_SCHEMA, CLASSIFY_SYSTEM, POLISH_SYSTEM, PICK_SYSTEM, PICK_MAX_TOKENS, REWORD_SYSTEM, REWORD_MAX_TOKENS, cleanPolished, cleanReword, parseIntent, pickSchema, pickUser, rewordUser } from "./prompts";
+import { CHAT_MAX_TOKENS, CHAT_SYSTEM, CHAT_TEMPERATURE, CHAT_TOP_P, cleanChat } from "./chat-system";
+import { wllamaContextLength } from "./wllama-ctx";
 import { replaceNeedLine, needLine } from "./summary-lines";
 import { WARMUP_BUDGET_MS } from "./loader-eta";
 
@@ -12,12 +14,13 @@ export async function loadWllama(
   file: string,
   label: string,
   onProgress: (p: number) => void,
-  opts?: { onWarmup?: (budgetMs: number) => void },
+  opts?: { onWarmup?: (budgetMs: number) => void; nCtx?: number; chatFirst?: boolean },
 ): Promise<LLMAdapter & { classifyRaw(text: string, signal?: AbortSignal): Promise<string> }> {
   const blob = await cachedBlob(file, (l, t) => onProgress(t ? (0.9 * l) / t : 0));
   onProgress(0.92);
   const w = new Wllama({ default: wasmUrl }, { suppressNativeLog: true, logger: { debug() {}, log() {}, warn() {}, error() {} } as any });
-  await w.loadModel([blob], { n_ctx: 1024, n_gpu_layers: 0, n_threads: Math.max(1, Math.min(8, navigator.hardwareConcurrency || 4)) });
+  const n_ctx = opts?.nCtx ?? wllamaContextLength(!!opts?.chatFirst);
+  await w.loadModel([blob], { n_ctx, n_gpu_layers: 0, n_threads: Math.max(1, Math.min(8, navigator.hardwareConcurrency || 4)) });
   onProgress(0.96);
   opts?.onWarmup?.(WARMUP_BUDGET_MS);
   let busy: Promise<unknown> = Promise.resolve();
@@ -65,6 +68,17 @@ export async function loadWllama(
         max_tokens: REWORD_MAX_TOKENS, temperature: 0, abortSignal: signal,
       } as any);
       return cleanReword(String(r.choices?.[0]?.message?.content ?? "")) || null;
+    }),
+    chatReply: (text, history, signal) => serial(async () => {
+      const r: any = await w.createChatCompletion({
+        messages: [
+          { role: "system", content: CHAT_SYSTEM },
+          ...history.map((h) => ({ role: h.role, content: h.content })),
+          { role: "user", content: `${text} /no_think` },
+        ],
+        max_tokens: CHAT_MAX_TOKENS, temperature: CHAT_TEMPERATURE, top_p: CHAT_TOP_P, abortSignal: signal,
+      } as any);
+      return cleanChat(String(r.choices?.[0]?.message?.content ?? "")) || null;
     }),
   };
 }

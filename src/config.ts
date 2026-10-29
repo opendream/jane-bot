@@ -86,6 +86,27 @@ export function pickTimeoutMsFromSearch(search?: string, fallback = 20_000): num
 }
 
 /**
+ * Chat-first (PR A): Jane talks, then hands over a reviewed bank card at the end of the topic.
+ * Off by default so production stays card-first until Keng flips this.
+ * Dev/filming override: ?chatFirst=1 (same pattern as ?modelPick=).
+ */
+export const CHAT_FIRST = false;
+/** User turns in one topic before Jane must close with a card. */
+export const CHAT_MAX_TURNS = 3;
+/** Chat-reply budget (plan §2). Pick still uses PICK_TIMEOUT_MS (8 s). */
+export const CHAT_TIMEOUT_MS = 12_000;
+
+export function chatFirstEnabled(search?: string): boolean {
+  try {
+    const raw = search ?? (typeof location !== "undefined" ? location.search : "");
+    const v = new URLSearchParams(raw.startsWith("?") ? raw.slice(1) : raw).get("chatFirst")?.toLowerCase() ?? "";
+    if (v === "1" || v === "on" || v === "true") return true;
+    if (v === "0" || v === "off" || v === "false") return false;
+  } catch { /* node unit tests */ }
+  return CHAT_FIRST;
+}
+
+/**
  * Chat reword (plan v2 §4): which runtimes may reword curated cards. The validator shows the exact text on any
  * failure. WASM is off: Qwen3-1.7B on WASM measured median 2.3 s, p90 3.3 s per short rewrite on the studio Mac
  * (22 Oct 2026, n=16), over the 3 s rule, so WASM shows cards verbatim. Card picking stays on for both.

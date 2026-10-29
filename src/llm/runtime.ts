@@ -1,4 +1,5 @@
-import { MODEL, shouldPreloadModel } from "../config";
+import { MODEL, chatFirstEnabled, shouldPreloadModel } from "../config";
+import { wllamaContextLength } from "./wllama-ctx";
 import { MODELS, type ModelSpec, type WebGpuBuild } from "./models";
 import type { LLMAdapter } from "./adapter";
 import {
@@ -34,7 +35,7 @@ export interface StartModelDeps {
   gpuInfo?: () => Promise<{ ok: boolean; f16: boolean }>;
   installed?: () => Promise<Installed[]>;
   loadWebLLM?: (build: WebGpuBuild, label: string, onProgress: (p: number) => void, opts?: { onDead?: (err: Error) => void; onWarmup?: (ms: number) => void }) => Promise<LLMAdapter>;
-  loadWllama?: (file: string, label: string, onProgress: (p: number) => void, opts?: { onWarmup?: (ms: number) => void }) => Promise<LLMAdapter>;
+  loadWllama?: (file: string, label: string, onProgress: (p: number) => void, opts?: { onWarmup?: (ms: number) => void; nCtx?: number; chatFirst?: boolean }) => Promise<LLMAdapter>;
   storage?: StorageLike;
   onAdapter?: (a: LLMAdapter | null) => void;
   testRuntime?: string | null;
@@ -327,6 +328,8 @@ export async function startModel(onStatus: (s: ModelStatus) => void, deps: Start
         onStatus({ state: "loading", runtime: "wasm", label: wSpec.label, progress: 0 });
         return load(wSpec.wasm!.file, wSpec.label, (p) => onStatus({ state: "loading", runtime: "wasm", label: wSpec.label, progress: p }), {
           onWarmup: (ms) => beginWarmup(ms),
+          nCtx: wllamaContextLength(chatFirstEnabled(search)),
+          chatFirst: chatFirstEnabled(search),
         });
       },
     });

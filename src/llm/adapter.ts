@@ -22,6 +22,15 @@ export interface LLMAdapter {
   pickCard?(text: string, shortlist: { id: string; title_th: string; key_fact?: string }[], previousTitle: string | null, signal: AbortSignal): Promise<string | null>;
   /** Chat: reword one curated card. Output is validated by rewordGuard; failures show the exact text. */
   rewordCard?(card: { answer_th: string; key_facts: string[] }, signal: AbortSignal): Promise<string | null>;
+  /**
+   * Chat-first connective talk. Output is validated by chatGuard; failures become a holding line.
+   * History is PII-stripped, memory-only, and excludes crisis lines.
+   */
+  chatReply?(
+    text: string,
+    history: { role: "user" | "assistant"; content: string }[],
+    signal: AbortSignal,
+  ): Promise<string | null>;
   /** Tear down a worker / GPU engine. Used when WebGPU dies and we fall back. */
   dispose?(): void | Promise<void>;
 }

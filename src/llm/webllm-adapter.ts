@@ -4,6 +4,7 @@ import type { Intent } from "../core/types";
 import type { WebGpuBuild } from "./models";
 import { modelUrl } from "./weights-cache";
 import { CLASSIFY_SYSTEM, POLISH_SYSTEM, PICK_SYSTEM, PICK_MAX_TOKENS, REWORD_SYSTEM, REWORD_MAX_TOKENS, cleanPolished, cleanReword, parseIntent, pickSchema, pickUser, rewordUser } from "./prompts";
+import { CHAT_MAX_TOKENS, CHAT_SYSTEM, CHAT_TEMPERATURE, CHAT_TOP_P, cleanChat } from "./chat-system";
 import { needLine, replaceNeedLine } from "./summary-lines";
 import { isWebGpuRuntimeFailure } from "./gpu-failure";
 import { WARMUP_BUDGET_MS } from "./loader-eta";
@@ -108,6 +109,25 @@ export async function bindWebLLMEngine(
     },
     pickCard: async (text, shortlist, prev) => ask(PICK_SYSTEM, pickUser(text, shortlist, prev), PICK_MAX_TOKENS, pickSchema(shortlist.map((s) => s.id))),
     rewordCard: async (card) => cleanReword(await ask(REWORD_SYSTEM, rewordUser(card), REWORD_MAX_TOKENS)) || null,
+    chatReply: async (text, history) => {
+      if (dead) throw dead;
+      try {
+        const r: any = await engine.chat.completions.create({
+          messages: [
+            { role: "system", content: CHAT_SYSTEM },
+            ...history.map((h) => ({ role: h.role, content: h.content })),
+            { role: "user", content: text },
+          ],
+          max_tokens: CHAT_MAX_TOKENS, temperature: CHAT_TEMPERATURE, top_p: CHAT_TOP_P,
+          extra_body: { enable_thinking: false },
+        });
+        if (dead) throw dead;
+        return cleanChat(String(r.choices?.[0]?.message?.content ?? "")) || null;
+      } catch (e) {
+        if (isWebGpuRuntimeFailure(e) || dead) markDead(e);
+        throw e;
+      }
+    },
     dispose,
   };
 }

@@ -72,6 +72,8 @@ export interface PickDecision {
   via: "model" | "rules" | "rules_top1" | "fallback";
   engine: EngineTag;
   reason?: EngineReason;
+  /** Chat-first turn 2: model said none, keep chatting. Default path still falls back. */
+  deferred?: boolean;
 }
 
 export function isLockedRouteId(id: string): boolean {
@@ -171,6 +173,11 @@ export interface DecidePickArgs {
   warmupRemainingMs?: () => number | null;
   now?: () => number;
   sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
+  /**
+   * Chat-first end pick: `defer` keeps chatting when the model says none.
+   * Default `fallback` is today's labelled rules fallback (unchanged).
+   */
+  nonePolicy?: "fallback" | "defer";
 }
 
 function rulesDecision(
@@ -224,7 +231,12 @@ export async function decideCardPick(args: DecidePickArgs): Promise<PickDecision
   if ("error" in attempt) return fallback("rules-fallback", "runtime-error");
 
   const parsed = parsePickResult(attempt.value, ids);
-  if (parsed.kind === "none") return fallback("rules-fallback", "none");
+  if (parsed.kind === "none") {
+    if (args.nonePolicy === "defer") {
+      return { cardId: FALLBACK_ID, via: "fallback", engine: "model", reason: "none", deferred: true };
+    }
+    return fallback("rules-fallback", "none");
+  }
   if (parsed.kind === "malformed") return fallback("rules-fallback", "malformed");
   if (parsed.kind === "out-of-shortlist") return fallback("rules-fallback", "out-of-shortlist");
 

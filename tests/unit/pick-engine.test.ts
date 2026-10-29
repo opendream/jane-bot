@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import fpSet from "../../evals/crisis-fp-set.json";
 import prepPriceFile from "../fixtures/retrieve-prep-price.json";
-import { MODEL_CARD_PICK } from "../../src/config";
+import { CHAT_FIRST, MODEL_CARD_PICK } from "../../src/config";
 import {
   FALLBACK_ID,
   MODEL_INPUT_CHARS,
@@ -130,6 +130,7 @@ const guardTurns: [string, string][] = [
 describe("model-card-pick flag (PR 2: off by default)", () => {
   it("is off in config so this PR does not change visible chat behaviour", () => {
     expect(MODEL_CARD_PICK).toBe(false);
+    expect(CHAT_FIRST).toBe(false);
   });
   it("without modelPick, confident rules still skip the picker", async () => {
     const { picker, calls } = stubPicker('{"id":"none"}');
