@@ -25,6 +25,10 @@ describe("pick prompt and parser", () => {
     const u = pickUser("ทดสอบ", [{ id: "ec.p000", title_th: "ยาคุมฉุกเฉิน" }], "หัวข้อเดิม");
     expect(u).toContain("ec.p000 = ยาคุมฉุกเฉิน"); expect(u).toContain("หัวข้อก่อนหน้า: หัวข้อเดิม");
   });
+  it("V3 descriptions append the first key_fact after an em dash", () => {
+    const u = pickUser("ทดสอบ", [{ id: "ec.p000", title_th: "ยาคุมฉุกเฉิน", key_fact: "72 ชั่วโมง" }], null);
+    expect(u).toContain("ec.p000 = ยาคุมฉุกเฉิน — 72 ชั่วโมง");
+  });
 });
 
 describe("reword prompt helpers", () => {
@@ -57,6 +61,11 @@ describe("toDialogModel bridge", () => {
     expect(await m.pickCard!("ทดสอบ", ids.map((id) => ({ id, title_th: id })), null, sig)).toBeNull();
     const m2 = toDialogModel(fake("webgpu"))!;
     expect(await m2.pickCard!("ทดสอบ", ids.map((id) => ({ id, title_th: id })), null, sig)).toBe("ec.p000");
+  });
+  it("forwards warmupRemainingMs from the adapter", () => {
+    const m = toDialogModel(fake("wasm", { warmupRemainingMs: () => 1200 }))!;
+    expect(m.warmupRemainingMs?.()).toBe(1200);
+    expect(toDialogModel(fake("wasm"))!.warmupRemainingMs).toBeUndefined();
   });
   it("reword passes only the card text and key facts to the adapter", async () => {
     const rw = vi.fn(async () => "x");

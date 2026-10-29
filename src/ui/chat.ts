@@ -5,7 +5,9 @@ import { DialogSession, SOFT_CAP, type DialogModel, type TurnReply, type CapNoti
 import type { IntentMatcher } from "../core/matcher";
 import { crisisOrder } from "../core/crisis";
 import { BANK, cardsForSession, bankContext } from "../core/bankData";
-import { MODEL_CARD_PICK, THAI_COPY_STATUS } from "../config";
+import { THAI_COPY_STATUS, modelCardPickEnabled, pickTimeoutMsFromSearch } from "../config";
+import { MODEL_PICK_TIMEOUT_MS, type EngineTag } from "../core/pick-engine";
+import { engineAnswerLabel, thinkingHintAt } from "./thinking";
 import { QUIZ_CHIP, hasRelatedQuiz, quizCopyStatus, startQuiz, type QuizSession } from "../core/quiz";
 import { h } from "./dom";
 import { emptyChatArt, janeImg } from "./jane";
@@ -31,9 +33,27 @@ export interface ChatMsg {
   offerIntents?: Intent[];
   cap?: CapNotice;
   note?: "referral" | "readonly";
+  engine?: EngineTag;
+  engineLabel?: string | null;
 }
 
-export interface ChatState { session: DialogSession; messages: ChatMsg[]; busy: boolean; draft: string; readOnly: boolean; quiz: QuizSession | null }
+export interface ChatState {
+  session: DialogSession;
+  messages: ChatMsg[];
+  busy: boolean;
+  draft: string;
+  readOnly: boolean;
+  quiz: QuizSession | null;
+  modelPick: boolean;
+  thinkingHint: string | null;
+}
+
+export interface NewChatOpts {
+  modelPick?: boolean;
+  warmupRemainingMs?: () => number | null;
+  pickTimeoutMs?: number;
+  search?: string;
+}
 
 export interface ChatHooks {
   rerender(): void;
@@ -45,10 +65,20 @@ export interface ChatHooks {
   seq?(): number;
 }
 
-export function newChat(ageBand: AgeState, model: DialogModel | null, matcher: IntentMatcher | null = null): ChatState {
-  const session = new DialogSession(ageBand, { cards: cardsForSession(), model, matcher, copyStatus: THAI_COPY_STATUS, rewordCtx: bankContext(), modelPick: MODEL_CARD_PICK });
-  const chat: ChatState = { session, messages: [], busy: false, draft: "", readOnly: false, quiz: null };
-  push(chat, fromReply(session.start()));
+export function newChat(ageBand: AgeState, model: DialogModel | null, matcher: IntentMatcher | null = null, opts: NewChatOpts = {}): ChatState {
+  const modelPick = opts.modelPick ?? modelCardPickEnabled(opts.search);
+  const session = new DialogSession(ageBand, {
+    cards: cardsForSession(),
+    model,
+    matcher,
+    copyStatus: THAI_COPY_STATUS,
+    rewordCtx: bankContext(),
+    modelPick,
+    warmupRemainingMs: opts.warmupRemainingMs,
+    pickTimeoutMs: opts.pickTimeoutMs ?? (modelPick ? pickTimeoutMsFromSearch(opts.search, MODEL_PICK_TIMEOUT_MS) : undefined),
+  });
+  const chat: ChatState = { session, messages: [], busy: false, draft: "", readOnly: false, quiz: null, modelPick, thinkingHint: null };
+  push(chat, fromReply(session.start(), modelPick));
   return chat;
 }
 
@@ -58,10 +88,11 @@ function push(chat: ChatState, m: ChatMsg | null) {
   if (chat.messages.length > TRANSCRIPT_MAX) chat.messages.splice(0, chat.messages.length - TRANSCRIPT_MAX);
 }
 
-function fromReply(r: TurnReply): ChatMsg | null {
+function fromReply(r: TurnReply, modelPick = false): ChatMsg | null {
   if (r.kind === "card") {
     return { from: "jane", text: r.text, cardId: r.card.id, placeholder: !!r.card.placeholder, reworded: r.reworded, original: r.card.answer_th,
-      banner: r.banner, chips: r.chips, offer: r.offer, offerIntents: r.offerIntents, cap: r.capNotice };
+      banner: r.banner, chips: r.chips, offer: r.offer, offerIntents: r.offerIntents, cap: r.capNotice,
+      engine: r.engine, engineLabel: engineAnswerLabel(r.engine, modelPick) };
   }
   if (r.kind === "referral") return { from: "jane", text: "ได้เลย พี่ช่วยหาที่ปรึกษาที่เปิดอยู่ตอนนี้ให้นะ", banner: r.banner, offer: "strong", offerIntents: r.intents, cap: r.capNotice, note: "referral" };
   if (r.kind === "readonly") return { from: "jane", text: "แชทนี้ยาวมากแล้ว ตอนนี้ส่งข้อความเพิ่มไม่ได้ คุยกับเจ้าหน้าที่ตัวจริง หรือกดลบแชทเพื่อเริ่มใหม่ได้", note: "readonly", offer: "strong", offerIntents: ["other"] };
@@ -115,7 +146,24 @@ export async function sendToChat(chat: ChatState, text: string, hooks: ChatHooks
   chat.busy = true; hooks.rerender();
   if (!fromQuiz && chatDelayMs() > 0) await new Promise((r) => setTimeout(r, chatDelayMs()));
   if (!owns()) { chat.busy = false; return; }
-  const reply = await chat.session.send(t);
+  let hintTimer: ReturnType<typeof setInterval> | undefined;
+  if (chat.modelPick) {
+    const t0 = Date.now();
+    chat.thinkingHint = thinkingHintAt(0);
+    hooks.rerender();
+    hintTimer = setInterval(() => {
+      if (!owns()) return;
+      chat.thinkingHint = thinkingHintAt(Date.now() - t0);
+      hooks.rerender();
+    }, 250);
+  }
+  let reply: Awaited<ReturnType<DialogSession["send"]>>;
+  try {
+    reply = await chat.session.send(t);
+  } finally {
+    if (hintTimer) clearInterval(hintTimer);
+    chat.thinkingHint = null;
+  }
   if (!owns()) { chat.busy = false; return; } // erase / quick exit / SOS / openChat bumped the seq: drop, no rerender
   chat.busy = false;
   if (!reply) return; // superseded by a newer message
@@ -124,7 +172,7 @@ export async function sendToChat(chat: ChatState, text: string, hooks: ChatHooks
     chat.readOnly = true;
     chat.quiz = null;
   }
-  push(chat, fromReply(reply));
+  push(chat, fromReply(reply, chat.modelPick));
   hooks.rerender();
   if (reply.kind === "referral") hooks.referral?.(reply.intents, reply.banner);
 }
@@ -142,6 +190,7 @@ function bubble(m: ChatMsg, i: number, last: boolean, chat: ChatState, hooks: Ch
     janeImg("avatar96"),
     h("div", { class: "msg-body" },
       m.banner?.length ? strip(m.banner) : null,
+      m.engineLabel ? h("p", { class: "engine-label", "data-testid": "engine-label" }, m.engineLabel) : null,
       h("p", { "data-testid": "chat-text" }, shown),
       m.reworded && h("p", { class: "note", "data-testid": "reword-note" }, "เรียบเรียงโดยโมเดลในเครื่อง ",
         h("button", { class: "link", "data-testid": "show-original", onclick: () => { m.showOriginal = !m.showOriginal; hooks.rerender(); } }, m.showOriginal ? "ดูฉบับเรียบเรียง" : "ดูข้อความต้นฉบับ")),
@@ -169,7 +218,7 @@ export function chatView(chat: ChatState, hooks: ChatHooks): HTMLElement {
       empty ? emptyChatArt() : null,
       ...chat.messages.map((m, i) => bubble(m, i, i === n - 1 && !chat.quiz, chat, hooks))),
     chat.quiz && quizPanel(chat.quiz, { update: (next) => applyQuizUpdate(chat, next, hooks) }),
-    chat.busy && h("p", { class: "note", "data-testid": "chat-busy" }, "พี่เจนกำลังพิมพ์…"),
+    chat.busy && h("p", { class: "note", "data-testid": "chat-busy" }, chat.modelPick ? (chat.thinkingHint ?? thinkingHintAt(0)) : "พี่เจนกำลังพิมพ์…"),
     chat.readOnly && h("p", { class: "note", "data-testid": "cap-hard" }, "แชทนี้ยาวมากแล้ว ตอนนี้ส่งข้อความเพิ่มไม่ได้ คุยกับเจ้าหน้าที่ตัวจริง หรือกดลบแชทเพื่อเริ่มใหม่ได้"),
     h("form", { class: "chat-form", onsubmit: submit },
       h("label", { class: "sr", for: "chat-input" }, "ข้อความถึงพี่เจน"), ta,

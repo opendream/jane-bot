@@ -31,6 +31,7 @@ def main() -> None:
         req = json.loads(line)
         if req.get("cmd") == "quit":
             break
+        req_id = req.get("req_id", req.get("id"))
         schema = req["schema"]
         grammar = LlamaGrammar.from_json_schema(json.dumps(schema))
         t0 = time.perf_counter()
@@ -49,6 +50,7 @@ def main() -> None:
         sys.stdout.write(
             json.dumps(
                 {
+                    "req_id": req_id,
                     "raw": choice,
                     "latencyMs": ms,
                     "promptTokens": int(usage.get("prompt_tokens") or 0),

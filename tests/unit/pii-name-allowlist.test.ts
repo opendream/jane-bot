@@ -87,7 +87,7 @@ describe("scoped PII name allowlist (synthetic data only)", () => {
   });
 
   it("each allowlist entry has a why comment and a card id that exists in the bank", () => {
-    expect(PII_NAME_ALLOWLIST.length).toBeGreaterThan(0);
+    expect(PII_NAME_ALLOWLIST.length).toBe(4);
     for (const e of PII_NAME_ALLOWLIST) {
       expect(e.why.trim().length, e.span).toBeGreaterThan(8);
       expect(BANK.some((c) => c.id === e.id), e.id).toBe(true);

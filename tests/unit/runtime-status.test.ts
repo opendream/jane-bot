@@ -7,6 +7,7 @@ import {
   gpuFailedThisSession,
   modelPillCopy,
   rememberGpuFailure,
+  resetLoaderEta,
   startModel,
 } from "../../src/llm/runtime";
 import { bindWebLLMEngine, isWebGpuRuntimeFailure } from "../../src/llm/webllm-adapter";
@@ -107,6 +108,7 @@ function baseDeps(over: Partial<StartModelDeps> = {}): StartModelDeps {
 
 afterEach(() => {
   clearGpuFailureForTests();
+  resetLoaderEta();
 });
 
 describe("isWebGpuRuntimeFailure", () => {
@@ -132,6 +134,12 @@ describe("model pill copy", () => {
       .toBe("⏳ กำลังตรวจหาโมเดลในเครื่อง · ใช้งานได้ตามปกติ");
     expect(modelPillCopy({ state: "failed", runtime: "rules", label: "", progress: 0 }).text).toBe(RULES_PILL);
     expect(modelPillCopy({ state: "off", runtime: "rules", label: "", progress: 0 }).text).toBe(RULES_PILL);
+  });
+
+  it("flag-on loading uses the readiness line; flag-off keeps the existing loading copy", () => {
+    const loading = { state: "loading" as const, runtime: "wasm" as const, label: "Qwen3-1.7B", progress: 0.4 };
+    expect(modelPillCopy(loading, { modelPick: true }).text).toBe("กำลังเตรียมพี่เจน…");
+    expect(modelPillCopy(loading).text).toBe("⏳ กำลังโหลดโมเดล Qwen3-1.7B 40% · ใช้งานได้ตามปกติระหว่างนี้");
   });
 });
 
@@ -248,6 +256,29 @@ describe("startModel: WebGPU dies on the first generate", () => {
     expect(afterGenerate.state === "ready" && afterGenerate.runtime === "webgpu").toBe(false);
     releaseWasm(fakeWasm());
     await waitStatus(statuses, (s) => s.state === "ready" && s.runtime === "wasm");
+  });
+});
+
+describe("startModel test hooks for model-first pick", () => {
+  it("pick-ok exposes pickCard and a warmupRemainingMs callback", async () => {
+    const a = await startModel(() => {}, { search: "?testRuntime=pick-ok&runtime=wasm" });
+    expect(a?.runtime).toBe("wasm");
+    expect(a?.pickCard).toBeTypeOf("function");
+    expect(a?.warmupRemainingMs).toBeTypeOf("function");
+    const id = await a!.pickCard!("ทดสอบ", [{ id: "birth.control.000", title_th: "คุมกำเนิด" }], null, new AbortController().signal);
+    expect(id).toContain("birth.control.000");
+  });
+
+  it("pick-warmup remaining is ≤ 5 s and not-ready; pick-warmup-slow remaining is > 5 s", async () => {
+    const warm = await startModel(() => {}, { search: "?testRuntime=pick-warmup&runtime=wasm" });
+    const left = warm?.warmupRemainingMs?.() ?? 0;
+    expect(warm?.ready()).toBe(false);
+    expect(left).toBeGreaterThan(0);
+    expect(left).toBeLessThanOrEqual(5_000);
+
+    const slow = await startModel(() => {}, { search: "?testRuntime=pick-warmup-slow&runtime=wasm" });
+    expect(slow?.ready()).toBe(false);
+    expect(slow?.warmupRemainingMs?.() ?? 0).toBeGreaterThan(5_000);
   });
 });
 

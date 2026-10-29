@@ -2,6 +2,7 @@ import type { AgeState } from "./age";
 import { ageAllowed } from "./age";
 import type { BankCard, BankTopic } from "./bank";
 import { shippable } from "./bank";
+import { shouldForceRulesFallback } from "./pick-guards";
 import { retrieve } from "./retrieve";
 
 /**
@@ -49,7 +50,9 @@ export type EngineReason =
   | "age-gated"
   | "unknown-id"
   | "no-candidates"
-  | "not-ready";
+  | "not-ready"
+  | "confident-agree"
+  | "post-check";
 
 export interface CardPicker {
   ready(): boolean;
@@ -58,7 +61,7 @@ export interface CardPicker {
   /** Raw model text (JSON). Allowed ids = shortlist plus 'none'. */
   pick(
     text: string,
-    shortlist: { id: string; title_th: string }[],
+    shortlist: { id: string; title_th: string; key_fact?: string }[],
     previousTitle: string | null,
     signal: AbortSignal,
   ): Promise<string>;
@@ -133,12 +136,14 @@ async function waitUntilReady(
   signal: AbortSignal | undefined,
   now: () => number,
   sleep: (ms: number, signal?: AbortSignal) => Promise<void>,
+  extraEta?: () => number | null,
 ): Promise<CardPicker | null> {
   const current = () => getPicker?.() ?? picker;
+  const etaOf = (p: CardPicker | null) => p?.warmupRemainingMs?.() ?? extraEta?.() ?? null;
   const first = current();
   if (first?.ready()) return first;
-  const eta = first?.warmupRemainingMs?.() ?? null;
-  if (!first || eta == null || eta > WARMUP_WAIT_MAX_MS) return null;
+  const eta = etaOf(first);
+  if (eta == null || eta > WARMUP_WAIT_MAX_MS) return null;
   const deadline = now() + Math.min(budgetMs, Math.max(0, eta) + 25);
   while (now() < deadline) {
     if (signal?.aborted) return null;
@@ -162,6 +167,8 @@ export interface DecidePickArgs {
   timeoutMs: number;
   signal?: AbortSignal;
   getPicker?: () => CardPicker | null;
+  /** Loader ETA when the picker object does not yet exist (warm-up in flight). */
+  warmupRemainingMs?: () => number | null;
   now?: () => number;
   sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
 }
@@ -198,12 +205,18 @@ export async function decideCardPick(args: DecidePickArgs): Promise<PickDecision
   if (isLockedRouteId(topId)) return fallback("rules-locked");
 
   const t0 = now();
-  const ready = await waitUntilReady(args.picker, args.getPicker, args.timeoutMs, args.signal, now, sleep);
+  const ready = await waitUntilReady(
+    args.picker, args.getPicker, args.timeoutMs, args.signal, now, sleep, args.warmupRemainingMs,
+  );
   if (!ready) return fallback("rules-not-ready", "not-ready");
 
   const used = now() - t0;
   const budget = Math.max(0, args.timeoutMs - used);
-  const shortlist = r.ranked.slice(0, MODEL_PICK_TOP_N).map((s) => ({ id: s.card.id, title_th: s.card.title_th }));
+  const shortlist = r.ranked.slice(0, MODEL_PICK_TOP_N).map((s) => ({
+    id: s.card.id,
+    title_th: s.card.title_th,
+    key_fact: s.card.key_facts?.[0],
+  }));
   const ids = shortlist.map((s) => s.id);
 
   const attempt = await withTimeout((s) => ready.pick(args.modelText, shortlist, args.previousTitle, s), budget, args.signal);
@@ -220,6 +233,9 @@ export async function decideCardPick(args: DecidePickArgs): Promise<PickDecision
   if (!ageAllowed(picked, args.ageBand)) return fallback("rules-fallback", "age-gated");
   // Belt-and-suspenders: an under-18 HIV-privacy rules top-1 must never move.
   if (topId === HIV_PRIVACY_ID && parsed.id !== HIV_PRIVACY_ID) return fallback("rules-locked");
+  // V1/V3: on a rules-confident turn, a different model pick is the labelled rules fallback.
+  if (r.confident && parsed.id !== topId) return fallback("rules-fallback", "confident-agree");
+  if (shouldForceRulesFallback(topId, parsed.id)) return fallback("rules-fallback", "post-check");
   // Locked ids may only override a non-locked route when shortlisted (already) and age-ok (above).
   return { cardId: picked.id, via: "model", engine: "model" };
 }

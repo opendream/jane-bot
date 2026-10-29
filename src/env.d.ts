@@ -6,6 +6,7 @@ interface Window {
     webllm?: "warmup-lost" | "generate-lost" | "disposed";
     wasm?: "ok" | "unavailable";
     gpu?: boolean;
+    pick?: "ok" | "timeout" | "not-ready" | "warmup" | "warmup-slow";
   };
 }
 declare module "*.css";
