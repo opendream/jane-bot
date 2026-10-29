@@ -86,6 +86,23 @@ export function renderChatChoice(
   return formatChatReply(opener, body, follow);
 }
 
+/**
+ * Final chat-bubble text for a turn. If the card bubble will also show,
+ * treat c as 0 so answer_th appears once (on the card bubble).
+ */
+export function renderChatChoiceForTurn(
+  choice: ChatChoice,
+  lang: ChatLang,
+  cardText: string,
+  showCardBubble: boolean,
+): string {
+  return renderChatChoice(
+    showCardBubble ? { o: choice.o, c: 0, q: choice.q } : choice,
+    lang,
+    cardText,
+  );
+}
+
 /** Default stub / no-card choice: opener 0, no card, follow-up 0. */
 export const DEFAULT_CHAT_CHOICE: ChatChoice = { o: 0, c: 0, q: 0 };
 export const DEFAULT_CHAT_CHOICE_JSON = encodeChatChoice(DEFAULT_CHAT_CHOICE);

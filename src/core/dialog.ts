@@ -10,6 +10,7 @@ import { checkInput, REFUSAL_CARDS, type GuardReason } from "./guard";
 import { retrieve } from "./retrieve";
 import { VALID_INTENTS, type ChatReplyOpts } from "../llm/adapter";
 import { acceptGroundedChat, groundingCard } from "../llm/chat-ground";
+import { renderChatChoiceForTurn } from "../llm/chat-choice";
 import type { ChatGrounding } from "../llm/chat-system";
 import { detectChatLang, type ChatLang } from "../llm/chat-lang";
 import { currentGenerationToken, bumpGenerationToken, isCurrentGeneration } from "../llm/generation-token";
@@ -630,7 +631,6 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
       const top = rulesTop(retrieveText);
       return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, lang === "en" ? lang : undefined);
     }
-    const chatText = acc.text;
 
     let card: BankCard | null = null;
     let via: Via = "rules";
@@ -684,6 +684,8 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
       if (shown.id === FALLBACK_ID && offer === "none") offer = "soft";
       offerIntents = offer === "none" ? shown.referral.intents : (shown.referral.intents.length ? shown.referral.intents : asIntents(shown.topic === "general" ? state.topic : shown.topic, ["other"]));
     }
+
+    const chatText = renderChatChoiceForTurn(acc.choice, lang, cardFacts ?? "", !!shown);
 
     const chips = shown ? shown.next : [showCardNowChip(lang)];
     const nextFlow = shown

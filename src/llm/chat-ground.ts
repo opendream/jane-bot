@@ -11,7 +11,7 @@ import type { BankCard } from "../core/bank";
 import { isLockedRouteId } from "../core/pick-engine";
 import type { Retrieval } from "../core/retrieve";
 import type { ChatReplyOpts } from "./adapter";
-import { formatChatReply, parseChatChoice, renderChatChoice } from "./chat-choice";
+import { formatChatReply, parseChatChoice, renderChatChoice, type ChatChoice } from "./chat-choice";
 import { followUpsFor, openersFor } from "./chat-voice";
 import { acceptChatReply, type ChatGuardReason } from "./chatGuard";
 import type { ChatLang } from "./chat-lang";
@@ -21,7 +21,7 @@ export type { ChatGrounding } from "./chat-system";
 export type GroundedFailReason = ChatGuardReason | "invalid";
 
 export type GroundedAccept =
-  | { ok: true; text: string }
+  | { ok: true; text: string; choice: ChatChoice }
   | { ok: false; reasons: GroundedFailReason[] };
 
 /**
@@ -67,5 +67,5 @@ export function acceptGroundedChat(
   const voice = formatChatReply(opener, "", follow);
   const guard = acceptChatReply(voice, lang, opts);
   if (!guard.ok) return guard;
-  return { ok: true, text: renderChatChoice(parsed.choice, lang, hasCard ? card : "") };
+  return { ok: true, text: renderChatChoice(parsed.choice, lang, hasCard ? card : ""), choice: parsed.choice };
 }

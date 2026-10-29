@@ -3,9 +3,16 @@
  * SYNTHETIC chat text only.
  */
 import { test, expect, type Page } from "@playwright/test";
+import fs from "node:fs";
 import { startAs } from "./helpers";
 import { SHOW_CARD_NOW } from "../../src/core/chat-flow";
 import { CARD_THAI_NOTE_EN } from "../../src/core/card-lang";
+
+const LEAK_ANSWER = (
+  JSON.parse(fs.readFileSync("src/data/bank/contraception.json", "utf8")) as {
+    cards: { id: string; answer_th: string }[];
+  }
+).cards.find((c) => c.id === "condom.leak.000")!.answer_th;
 
 const lastJane = (page: Page) => page.locator('[data-testid="chat-msg"][data-from="jane"]').last();
 
@@ -29,6 +36,17 @@ async function say(page: Page, text: string) {
 function modelCalls(page: Page) {
   return page.evaluate(() => window.__JANE_RUNTIME_CALLS__ ?? { chat: 0, pick: 0 });
 }
+
+test("c=1 plus a shown card shows answer_th exactly once on that turn", async ({ page }) => {
+  await page.goto("/?chatFirst=1&testRuntime=chat-whole&runtime=wasm");
+  await page.waitForLoadState("domcontentloaded");
+  await expect(page.getByTestId("model-status")).toHaveAttribute("data-state", "ready", { timeout: 10_000 });
+  await openChat(page);
+  await say(page, "ถุงยางแตกต้องทำยังไง");
+  await expect(page.locator('[data-testid="chat-msg"][data-from="jane"][data-card="condom.leak.000"]')).toHaveCount(1);
+  const texts = await page.locator('[data-testid="chat-text"]').allTextContents();
+  expect(texts.filter((t) => t.includes(LEAK_ANSWER))).toHaveLength(1);
+});
 
 test("turn 3 of a stubbed chat-first topic closes with a bank card", async ({ page }) => {
   await openChatFirst(page);

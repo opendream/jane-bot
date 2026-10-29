@@ -110,7 +110,7 @@ describe("groundingCard (rules matcher top card)", () => {
 describe("acceptGroundedChat (strict JSON + chatGuard on voice)", () => {
   it("accepts the default no-card choice and renders opener plus follow-up", () => {
     const acc = acceptGroundedChat(DEFAULT_CHAT_CHOICE_JSON, "th", leak.answer_th);
-    expect(acc).toEqual({ ok: true, text: defaultChatReply("th") });
+    expect(acc).toEqual({ ok: true, text: defaultChatReply("th"), choice: { o: 0, c: 0, q: 0 } });
   });
 
   it("c=1 copies the exact full answer_th, including digits that live on the card", () => {

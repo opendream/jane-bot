@@ -5,6 +5,7 @@ import {
   formatChatReply,
   parseChatChoice,
   renderChatChoice,
+  renderChatChoiceForTurn,
   type ChatChoiceBounds,
 } from "../../src/llm/chat-choice";
 import {
@@ -159,6 +160,23 @@ describe("renderChatChoice (whole card or none)", () => {
     const text = renderChatChoice({ o: 0, c: 1, q: 0 }, "th", CONDOM_LEAK.answer_th);
     expect(text).toContain(CONDOM_LEAK.answer_th);
     expect(text).not.toContain(PREP.answer_th);
+  });
+
+  it("when the card bubble will show, c=1 renders as opener plus follow-up only", () => {
+    const text = renderChatChoiceForTurn({ o: 0, c: 1, q: 0 }, "th", CONDOM.answer_th, true);
+    expect(text).toBe(formatChatReply(CHAT_OPENERS_TH[0]!, "", CHAT_FOLLOWUPS_TH[0]!));
+    expect(text).not.toContain(CONDOM.answer_th);
+  });
+
+  it("c=1 with no card bubble still includes the exact full answer_th", () => {
+    const text = renderChatChoiceForTurn({ o: 0, c: 1, q: 0 }, "th", CONDOM.answer_th, false);
+    expect(text).toBe(formatChatReply(CHAT_OPENERS_TH[0]!, CONDOM.answer_th, CHAT_FOLLOWUPS_TH[0]!));
+  });
+
+  it("c=0 is unchanged whether the card bubble shows or not", () => {
+    const expected = formatChatReply(CHAT_OPENERS_TH[0]!, "", CHAT_FOLLOWUPS_TH[1]!);
+    expect(renderChatChoiceForTurn({ o: 0, c: 0, q: 1 }, "th", CONDOM.answer_th, true)).toBe(expected);
+    expect(renderChatChoiceForTurn({ o: 0, c: 0, q: 1 }, "th", CONDOM.answer_th, false)).toBe(expected);
   });
 });
 
