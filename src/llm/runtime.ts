@@ -1,4 +1,5 @@
 import { MODEL, chatFirstEnabled, shouldPreloadModel } from "../config";
+import { detectChatLang } from "./chat-lang";
 import { wllamaContextLength } from "./wllama-ctx";
 import { MODELS, type ModelSpec, type WebGpuBuild } from "./models";
 import type { LLMAdapter } from "./adapter";
@@ -149,14 +150,15 @@ function mockPickCard(hook: RuntimeTestHook): LLMAdapter["pickCard"] | undefined
   };
 }
 
-/** Synthetic guarded line for the chat-first e2e stub. Never user text. */
+/** Synthetic guarded lines for the chat-first e2e stub. Never user text. */
 const MOCK_CHAT_REPLY = "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย";
+const MOCK_CHAT_REPLY_EN = "I'm here. You can tell me more whenever you like.";
 
 function mockChatReply(hook: RuntimeTestHook): LLMAdapter["chatReply"] | undefined {
   if (!hook.pick || hook.pick === "not-ready" || hook.pick === "fail") return undefined;
-  return async () => {
+  return async (text) => {
     noteCall("chat");
-    return MOCK_CHAT_REPLY;
+    return detectChatLang(text) === "en" ? MOCK_CHAT_REPLY_EN : MOCK_CHAT_REPLY;
   };
 }
 
@@ -259,7 +261,7 @@ function watchWebGpu(adapter: LLMAdapter, onFail: () => void): LLMAdapter {
       ? (card, signal) => guard(adapter.rewordCard!(card, signal))
       : undefined,
     chatReply: adapter.chatReply
-      ? (text, history, signal) => guard(adapter.chatReply!(text, history, signal))
+      ? (text, history, signal, lang) => guard(adapter.chatReply!(text, history, signal, lang))
       : undefined,
     warmupRemainingMs: adapter.warmupRemainingMs ? () => adapter.warmupRemainingMs!() : () => getWarmupRemainingMs(),
     dispose: () => adapter.dispose?.(),
