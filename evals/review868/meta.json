@@ -1,0 +1,7 @@
+{
+  "$comment": "Licence wrapper for evals/review868/queries.json (flat JSON array of 868 synthetic Thai query strings). The array file is byte-identical to the Codex review pack (sha256 31f26dfc913934fafcfa0337831ae4cc4e82d7a7dc636ce6d89b2f486927a948). See NOTE.md.",
+  "licence": "CC-BY-SA-4.0",
+  "queries_file": "evals/review868/queries.json",
+  "queries_sha256": "31f26dfc913934fafcfa0337831ae4cc4e82d7a7dc636ce6d89b2f486927a948",
+  "count": 868
+}

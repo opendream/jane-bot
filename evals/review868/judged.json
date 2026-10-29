@@ -1,0 +1,1324 @@
+{
+  "$comment": "Agent-judged labels for a stratified subset of evals/review868/queries.json. Labels are card_id | 'none' | 'crisis' using only the 35 reviewed bank cards as truth. Status: agent-judged, pending human spot-check. Pregnancy.ec_ask.000 and ending.staff.000 are unreachable via retrieve (empty triggers; staff is the talk-to-a-person referral path) so they are not labelled here; general.fallback.000 is the runtime destination of label 'none'.",
+  "licence": "CC-BY-SA-4.0",
+  "judged_by": "agent",
+  "status": "agent-judged, pending human spot-check",
+  "queries_file": "evals/review868/queries.json",
+  "queries_sha256": "31f26dfc913934fafcfa0337831ae4cc4e82d7a7dc636ce6d89b2f486927a948",
+  "sampling": {
+    "target": 200,
+    "n": 187,
+    "method": "Stratified from the 868: (1) 2–8 distinctive singleton probes per reachable reviewed card (exact triggers/titles, plus later paraphrase probes); skip gen2 adjacent-pair concatenations that glue two topics; (2) crisis overrides from detectCrisis; (3) out-of-scope/none (prices for things with no price card, bare fragments, false-friend 'prepare', period pain, warts); (4) extra locked-card coverage (#34 under-18 HIV privacy, #35 PrEP price, EC timing, urgent-pills); (5) PrEP price vs dose/efficacy disambiguation (dose/efficacy → protection.prep.000, price → price.trc.prep.000); (6) no-rules-candidate items that still have a correct card, for backup-shortlist measurement."
+  },
+  "items": [
+    {
+      "id": "j000",
+      "q_index": 0,
+      "text": "ถุงยางใช้ได้ไหม",
+      "label": "condom.000",
+      "stratum": "card:condom.000"
+    },
+    {
+      "id": "j001",
+      "q_index": 1,
+      "text": "ถุงยางเวิร์ก",
+      "label": "condom.000",
+      "stratum": "card:condom.000"
+    },
+    {
+      "id": "j002",
+      "q_index": 2,
+      "text": "ใช้ถุงยาง",
+      "label": "condom.000",
+      "stratum": "card:condom.000"
+    },
+    {
+      "id": "j003",
+      "q_index": 3,
+      "text": "วิธีใช้ถุงยาง",
+      "label": "condom.how_to.000",
+      "stratum": "card:condom.how_to.000"
+    },
+    {
+      "id": "j004",
+      "q_index": 4,
+      "text": "ใส่ถุงยางยังไง",
+      "label": "condom.how_to.000",
+      "stratum": "card:condom.how_to.000"
+    },
+    {
+      "id": "j005",
+      "q_index": 548,
+      "text": "วิธีใช้ ถุงยาง",
+      "label": "condom.how_to.000",
+      "stratum": "card:condom.how_to.000"
+    },
+    {
+      "id": "j006",
+      "q_index": 5,
+      "text": "ไซส์ถุงยาง",
+      "label": "condom.size.000",
+      "stratum": "card:condom.size.000"
+    },
+    {
+      "id": "j007",
+      "q_index": 6,
+      "text": "ถุงยางขนาด",
+      "label": "condom.size.000",
+      "stratum": "card:condom.size.000"
+    },
+    {
+      "id": "j008",
+      "q_index": 7,
+      "text": "ถุงยางแตก",
+      "label": "condom.leak.000",
+      "stratum": "card:condom.leak.000"
+    },
+    {
+      "id": "j009",
+      "q_index": 8,
+      "text": "ถุงยางรั่ว",
+      "label": "condom.leak.000",
+      "stratum": "card:condom.leak.000"
+    },
+    {
+      "id": "j010",
+      "q_index": 9,
+      "text": "คุมกำเนิด",
+      "label": "birth.control.000",
+      "stratum": "card:birth.control.000"
+    },
+    {
+      "id": "j011",
+      "q_index": 10,
+      "text": "ยาคุม",
+      "label": "birth.control.000",
+      "stratum": "card:birth.control.000"
+    },
+    {
+      "id": "j012",
+      "q_index": 11,
+      "text": "อยากรู้เรื่องคุมกำเนิด",
+      "label": "birth.control.000",
+      "stratum": "card:birth.control.000"
+    },
+    {
+      "id": "j013",
+      "q_index": 12,
+      "text": "ยาคุมรายเดือน",
+      "label": "birth.control.pills.000",
+      "stratum": "card:birth.control.pills.000"
+    },
+    {
+      "id": "j014",
+      "q_index": 13,
+      "text": "กินยาคุมยังไง",
+      "label": "birth.control.pills.000",
+      "stratum": "card:birth.control.pills.000"
+    },
+    {
+      "id": "j015",
+      "q_index": 14,
+      "text": "ยาคุม 21 เม็ด",
+      "label": "birth.control.pills.000",
+      "stratum": "card:birth.control.pills.000"
+    },
+    {
+      "id": "j016",
+      "q_index": 490,
+      "text": "ยาคุม 28 เม็ด",
+      "label": "birth.control.pills.000",
+      "stratum": "card:birth.control.pills.000"
+    },
+    {
+      "id": "j017",
+      "q_index": 676,
+      "text": "คุมรายเดือนกินยังไง",
+      "label": "birth.control.pills.000",
+      "stratum": "card:birth.control.pills.000"
+    },
+    {
+      "id": "j018",
+      "q_index": 15,
+      "text": "ฝังยาคุม",
+      "label": "birth.control.implant.000",
+      "stratum": "card:birth.control.implant.000"
+    },
+    {
+      "id": "j019",
+      "q_index": 16,
+      "text": "ยาฝัง",
+      "label": "birth.control.implant.000",
+      "stratum": "card:birth.control.implant.000"
+    },
+    {
+      "id": "j020",
+      "q_index": 683,
+      "text": "ฝังยาคุมกี่ปี",
+      "label": "birth.control.implant.000",
+      "stratum": "card:birth.control.implant.000"
+    },
+    {
+      "id": "j021",
+      "q_index": 17,
+      "text": "ยาคุมฉุกเฉินคืออะไร",
+      "label": "urgent.pills.000",
+      "stratum": "card:urgent.pills.000"
+    },
+    {
+      "id": "j022",
+      "q_index": 18,
+      "text": "อยากรู้เรื่องยาคุมฉุกเฉิน",
+      "label": "urgent.pills.000",
+      "stratum": "card:urgent.pills.000"
+    },
+    {
+      "id": "j023",
+      "q_index": 19,
+      "text": "ยาคุมฉุกเฉินทำงานยังไง",
+      "label": "urgent.pills.000",
+      "stratum": "card:urgent.pills.000"
+    },
+    {
+      "id": "j024",
+      "q_index": 24,
+      "text": "ยาคุมฉุกเฉินอันตราย",
+      "label": "urgent.pills.000",
+      "stratum": "card:urgent.pills.000"
+    },
+    {
+      "id": "j025",
+      "q_index": 25,
+      "text": "ยาคุมฉุกเฉินมีผลข้างเคียง",
+      "label": "urgent.pills.000",
+      "stratum": "card:urgent.pills.000"
+    },
+    {
+      "id": "j026",
+      "q_index": 26,
+      "text": "ยาคุมฉุกเฉินกินได้กี่ครั้ง",
+      "label": "urgent.pills.000",
+      "stratum": "card:urgent.pills.000"
+    },
+    {
+      "id": "j027",
+      "q_index": 114,
+      "text": "ยาคุมฉุกเฉินอันตรายไหม",
+      "label": "urgent.pills.000",
+      "stratum": "card:urgent.pills.000"
+    },
+    {
+      "id": "j028",
+      "q_index": 135,
+      "text": "กินยาคุมฉุกเฉินได้กี่ครั้ง",
+      "label": "urgent.pills.000",
+      "stratum": "card:urgent.pills.000"
+    },
+    {
+      "id": "j029",
+      "q_index": 27,
+      "text": "กินยาคุมฉุกเฉิน",
+      "label": "ec.timing.b001",
+      "stratum": "card:ec.timing.b001"
+    },
+    {
+      "id": "j030",
+      "q_index": 29,
+      "text": "คุมฉุกเฉินทันไหม",
+      "label": "ec.timing.b001",
+      "stratum": "card:ec.timing.b001"
+    },
+    {
+      "id": "j031",
+      "q_index": 30,
+      "text": "ยาคุมฉุกเฉินกินเมื่อไร",
+      "label": "ec.timing.b001",
+      "stratum": "card:ec.timing.b001"
+    },
+    {
+      "id": "j032",
+      "q_index": 39,
+      "text": "ยาคุมฉุกเฉินกี่ชั่วโมง",
+      "label": "ec.timing.b001",
+      "stratum": "card:ec.timing.b001"
+    },
+    {
+      "id": "j033",
+      "q_index": 46,
+      "text": "วิธีการกินยาคุมฉุกเฉิน",
+      "label": "ec.timing.b001",
+      "stratum": "card:ec.timing.b001"
+    },
+    {
+      "id": "j034",
+      "q_index": 138,
+      "text": "ยาคุมฉุกเฉินกินภายในกี่ชั่วโมง",
+      "label": "ec.timing.b001",
+      "stratum": "card:ec.timing.b001"
+    },
+    {
+      "id": "j035",
+      "q_index": 399,
+      "text": "ยาคุมฉุกเฉินยังทันไหม",
+      "label": "ec.timing.b001",
+      "stratum": "card:ec.timing.b001"
+    },
+    {
+      "id": "j036",
+      "q_index": 47,
+      "text": "บายพี่เจน",
+      "label": "ending.byejane.000",
+      "stratum": "card:ending.byejane.000"
+    },
+    {
+      "id": "j037",
+      "q_index": 48,
+      "text": "พอแค่นี้ก่อน",
+      "label": "ending.byejane.000",
+      "stratum": "card:ending.byejane.000"
+    },
+    {
+      "id": "j038",
+      "q_index": 224,
+      "text": "บายพี่เจน พอแค่นี้ก่อน",
+      "label": "ending.byejane.000",
+      "stratum": "card:ending.byejane.000"
+    },
+    {
+      "id": "j039",
+      "q_index": 226,
+      "text": "สวัสดีพี่เจน",
+      "label": "general.welcome.000",
+      "stratum": "card:general.welcome.000"
+    },
+    {
+      "id": "j040",
+      "q_index": 227,
+      "text": "เริ่มใหม่",
+      "label": "general.welcome.000",
+      "stratum": "card:general.welcome.000"
+    },
+    {
+      "id": "j041",
+      "q_index": 228,
+      "text": "ทักทาย",
+      "label": "general.welcome.000",
+      "stratum": "card:general.welcome.000"
+    },
+    {
+      "id": "j042",
+      "q_index": 49,
+      "text": "กลัวท้อง",
+      "label": "pregnancy.ornot.000",
+      "stratum": "card:pregnancy.ornot.000"
+    },
+    {
+      "id": "j043",
+      "q_index": 50,
+      "text": "กังวลเรื่องท้อง",
+      "label": "pregnancy.ornot.000",
+      "stratum": "card:pregnancy.ornot.000"
+    },
+    {
+      "id": "j044",
+      "q_index": 51,
+      "text": "กลัวจะท้อง",
+      "label": "pregnancy.ornot.000",
+      "stratum": "card:pregnancy.ornot.000"
+    },
+    {
+      "id": "j045",
+      "q_index": 411,
+      "text": "ประจำเดือนไม่มา",
+      "label": "pregnancy.ornot.000",
+      "stratum": "card:pregnancy.ornot.000"
+    },
+    {
+      "id": "j046",
+      "q_index": 52,
+      "text": "ตรวจครรภ์เมื่อไร",
+      "label": "pregnancy.signs.when.000",
+      "stratum": "card:pregnancy.signs.when.000"
+    },
+    {
+      "id": "j047",
+      "q_index": 53,
+      "text": "ที่ตรวจครรภ์กี่วัน",
+      "label": "pregnancy.signs.when.000",
+      "stratum": "card:pregnancy.signs.when.000"
+    },
+    {
+      "id": "j048",
+      "q_index": 110,
+      "text": "ตรวจครรภ์กี่วันหลังมีเพศสัมพันธ์",
+      "label": "pregnancy.signs.when.000",
+      "stratum": "card:pregnancy.signs.when.000"
+    },
+    {
+      "id": "j049",
+      "q_index": 54,
+      "text": "ท้องไม่พร้อม",
+      "label": "pregnancy.notthetime.000",
+      "stratum": "card:pregnancy.notthetime.000"
+    },
+    {
+      "id": "j050",
+      "q_index": 55,
+      "text": "ไม่พร้อมท้อง",
+      "label": "pregnancy.notthetime.000",
+      "stratum": "card:pregnancy.notthetime.000"
+    },
+    {
+      "id": "j051",
+      "q_index": 56,
+      "text": "กฎหมายทำแท้ง",
+      "label": "pregnancy.abortion.001",
+      "stratum": "card:pregnancy.abortion.001"
+    },
+    {
+      "id": "j052",
+      "q_index": 57,
+      "text": "ทำแท้งถูกกฎหมายไหม",
+      "label": "pregnancy.abortion.001",
+      "stratum": "card:pregnancy.abortion.001"
+    },
+    {
+      "id": "j053",
+      "q_index": 58,
+      "text": "เครือข่าย RSA",
+      "label": "pregnancy.abortion.003",
+      "stratum": "card:pregnancy.abortion.003"
+    },
+    {
+      "id": "j054",
+      "q_index": 59,
+      "text": "ทำแท้งปลอดภัย",
+      "label": "pregnancy.abortion.003",
+      "stratum": "card:pregnancy.abortion.003"
+    },
+    {
+      "id": "j055",
+      "q_index": 60,
+      "text": "ยินยอม",
+      "label": "sex.activity.consent.000",
+      "stratum": "card:sex.activity.consent.000"
+    },
+    {
+      "id": "j056",
+      "q_index": 61,
+      "text": "แฟนกดดัน",
+      "label": "sex.activity.consent.000",
+      "stratum": "card:sex.activity.consent.000"
+    },
+    {
+      "id": "j057",
+      "q_index": 62,
+      "text": "ความยินยอม",
+      "label": "sex.activity.consent.000",
+      "stratum": "card:sex.activity.consent.000"
+    },
+    {
+      "id": "j058",
+      "q_index": 63,
+      "text": "ถูกคุกคาม",
+      "label": "harassment.002",
+      "stratum": "card:harassment.002"
+    },
+    {
+      "id": "j059",
+      "q_index": 65,
+      "text": "เอชไอวีคืออะไร",
+      "label": "disease.hiv.000",
+      "stratum": "card:disease.hiv.000"
+    },
+    {
+      "id": "j060",
+      "q_index": 66,
+      "text": "hiv คือ",
+      "label": "disease.hiv.000",
+      "stratum": "card:disease.hiv.000"
+    },
+    {
+      "id": "j061",
+      "q_index": 67,
+      "text": "เอดส์คืออะไร",
+      "label": "disease.hiv.000",
+      "stratum": "card:disease.hiv.000"
+    },
+    {
+      "id": "j062",
+      "q_index": 68,
+      "text": "เอชไอวีรักษาหาย",
+      "label": "disease.hiv.001",
+      "stratum": "card:disease.hiv.001"
+    },
+    {
+      "id": "j063",
+      "q_index": 69,
+      "text": "เอดส์รักษาหาย",
+      "label": "disease.hiv.001",
+      "stratum": "card:disease.hiv.001"
+    },
+    {
+      "id": "j064",
+      "q_index": 502,
+      "text": "เอชไอวีรักษาหายไหม",
+      "label": "disease.hiv.001",
+      "stratum": "card:disease.hiv.001"
+    },
+    {
+      "id": "j065",
+      "q_index": 70,
+      "text": "อาการเอชไอวี",
+      "label": "disease.hiv.002",
+      "stratum": "card:disease.hiv.002"
+    },
+    {
+      "id": "j066",
+      "q_index": 71,
+      "text": "ตรวจเอชไอวี",
+      "label": "disease.hiv.002",
+      "stratum": "card:disease.hiv.002"
+    },
+    {
+      "id": "j067",
+      "q_index": 72,
+      "text": "อยากตรวจเอช",
+      "label": "disease.hiv.002",
+      "stratum": "card:disease.hiv.002"
+    },
+    {
+      "id": "j068",
+      "q_index": 408,
+      "text": "ตรวจเอชไอวีที่ไหน",
+      "label": "disease.hiv.002",
+      "stratum": "card:disease.hiv.002"
+    },
+    {
+      "id": "j069",
+      "q_index": 410,
+      "text": "อยากตรวจ hiv",
+      "label": "disease.hiv.002",
+      "stratum": "card:disease.hiv.002"
+    },
+    {
+      "id": "j070",
+      "q_index": 73,
+      "text": "หนองใน",
+      "label": "disease.gonorrhea.000",
+      "stratum": "card:disease.gonorrhea.000"
+    },
+    {
+      "id": "j071",
+      "q_index": 74,
+      "text": "หนองในคืออะไร",
+      "label": "disease.gonorrhea.000",
+      "stratum": "card:disease.gonorrhea.000"
+    },
+    {
+      "id": "j072",
+      "q_index": 75,
+      "text": "สงสัยว่าติดหนองใน",
+      "label": "disease.gonorrhea.001",
+      "stratum": "card:disease.gonorrhea.001"
+    },
+    {
+      "id": "j073",
+      "q_index": 76,
+      "text": "เป็นหนองใน",
+      "label": "disease.gonorrhea.001",
+      "stratum": "card:disease.gonorrhea.001"
+    },
+    {
+      "id": "j074",
+      "q_index": 513,
+      "text": "เป็นหนองในต้องทำยังไง",
+      "label": "disease.gonorrhea.001",
+      "stratum": "card:disease.gonorrhea.001"
+    },
+    {
+      "id": "j075",
+      "q_index": 77,
+      "text": "เริม",
+      "label": "disease.herpes.000",
+      "stratum": "card:disease.herpes.000"
+    },
+    {
+      "id": "j076",
+      "q_index": 78,
+      "text": "เริมคืออะไร",
+      "label": "disease.herpes.000",
+      "stratum": "card:disease.herpes.000"
+    },
+    {
+      "id": "j077",
+      "q_index": 79,
+      "text": "เฮอร์พีส์",
+      "label": "disease.herpes.000",
+      "stratum": "card:disease.herpes.000"
+    },
+    {
+      "id": "j078",
+      "q_index": 80,
+      "text": "เริมรักษาหาย",
+      "label": "disease.herpes.002",
+      "stratum": "card:disease.herpes.002"
+    },
+    {
+      "id": "j079",
+      "q_index": 81,
+      "text": "เริมหายขาด",
+      "label": "disease.herpes.002",
+      "stratum": "card:disease.herpes.002"
+    },
+    {
+      "id": "j080",
+      "q_index": 505,
+      "text": "เริมรักษาหายไหม",
+      "label": "disease.herpes.002",
+      "stratum": "card:disease.herpes.002"
+    },
+    {
+      "id": "j081",
+      "q_index": 82,
+      "text": "ซิฟิลิส",
+      "label": "disease.syphilis.000",
+      "stratum": "card:disease.syphilis.000"
+    },
+    {
+      "id": "j082",
+      "q_index": 83,
+      "text": "ซิฟิลิสคืออะไร",
+      "label": "disease.syphilis.000",
+      "stratum": "card:disease.syphilis.000"
+    },
+    {
+      "id": "j083",
+      "q_index": 84,
+      "text": "อาการซิฟิลิส",
+      "label": "disease.syphilis.001",
+      "stratum": "card:disease.syphilis.001"
+    },
+    {
+      "id": "j084",
+      "q_index": 85,
+      "text": "แผลซิฟิลิส",
+      "label": "disease.syphilis.001",
+      "stratum": "card:disease.syphilis.001"
+    },
+    {
+      "id": "j085",
+      "q_index": 515,
+      "text": "อาการซิฟิลิสระยะแรก",
+      "label": "disease.syphilis.001",
+      "stratum": "card:disease.syphilis.001"
+    },
+    {
+      "id": "j086",
+      "q_index": 86,
+      "text": "เพร็พ",
+      "label": "protection.prep.000",
+      "stratum": "card:protection.prep.000"
+    },
+    {
+      "id": "j087",
+      "q_index": 87,
+      "text": "prep",
+      "label": "protection.prep.000",
+      "stratum": "card:protection.prep.000"
+    },
+    {
+      "id": "j088",
+      "q_index": 88,
+      "text": "ยาเพร็พ",
+      "label": "protection.prep.000",
+      "stratum": "card:protection.prep.000"
+    },
+    {
+      "id": "j089",
+      "q_index": 707,
+      "text": "PrEP คืออะไร",
+      "label": "protection.prep.000",
+      "stratum": "card:protection.prep.000"
+    },
+    {
+      "id": "j090",
+      "q_index": 732,
+      "text": "กินเพร็พยังไง",
+      "label": "protection.prep.000",
+      "stratum": "card:protection.prep.000"
+    },
+    {
+      "id": "j091",
+      "q_index": 89,
+      "text": "เป็ป",
+      "label": "protection.pep.000",
+      "stratum": "card:protection.pep.000"
+    },
+    {
+      "id": "j092",
+      "q_index": 90,
+      "text": "pep",
+      "label": "protection.pep.000",
+      "stratum": "card:protection.pep.000"
+    },
+    {
+      "id": "j093",
+      "q_index": 91,
+      "text": "ยาเป็ป",
+      "label": "protection.pep.000",
+      "stratum": "card:protection.pep.000"
+    },
+    {
+      "id": "j094",
+      "q_index": 100,
+      "text": "PEP กินเมื่อไร หลังมีเพศสัมพันธ์ ยังทันไหม",
+      "label": "protection.pep.000",
+      "stratum": "card:protection.pep.000"
+    },
+    {
+      "id": "j095",
+      "q_index": 690,
+      "text": "ขอยาเป็ปภายใน 72 ชั่วโมง",
+      "label": "protection.pep.000",
+      "stratum": "card:protection.pep.000"
+    },
+    {
+      "id": "j096",
+      "q_index": 92,
+      "text": "ตรวจเอชไอวีโดยไม่บอกผู้ปกครอง",
+      "label": "hiv.test.under18.000",
+      "stratum": "card:hiv.test.under18.000"
+    },
+    {
+      "id": "j097",
+      "q_index": 93,
+      "text": "เด็กตรวจเอชไอวีได้ไหม",
+      "label": "hiv.test.under18.000",
+      "stratum": "card:hiv.test.under18.000"
+    },
+    {
+      "id": "j098",
+      "q_index": 520,
+      "text": "อายุ 15 ตรวจเอชไอวีได้ไหม",
+      "label": "hiv.test.under18.000",
+      "stratum": "card:hiv.test.under18.000"
+    },
+    {
+      "id": "j099",
+      "q_index": 521,
+      "text": "อายุไม่ถึง 18 ตรวจเอชไอวีได้ไหม",
+      "label": "hiv.test.under18.000",
+      "stratum": "card:hiv.test.under18.000"
+    },
+    {
+      "id": "j100",
+      "q_index": 522,
+      "text": "วัยรุ่นตรวจเอชไอวีได้ไหม",
+      "label": "hiv.test.under18.000",
+      "stratum": "card:hiv.test.under18.000"
+    },
+    {
+      "id": "j101",
+      "q_index": 538,
+      "text": "อยากตรวจเอชไอวีโดยไม่บอกผู้ปกครอง",
+      "label": "hiv.test.under18.000",
+      "stratum": "card:hiv.test.under18.000"
+    },
+    {
+      "id": "j102",
+      "q_index": 539,
+      "text": "วัยรุ่นตรวจเอชไอวีโดยไม่บอกผู้ปกครอง",
+      "label": "hiv.test.under18.000",
+      "stratum": "card:hiv.test.under18.000"
+    },
+    {
+      "id": "j103",
+      "q_index": 546,
+      "text": "เด็กตรวจเอชไอวี",
+      "label": "hiv.test.under18.000",
+      "stratum": "card:hiv.test.under18.000"
+    },
+    {
+      "id": "j104",
+      "q_index": 94,
+      "text": "ราคาเพร็พ",
+      "label": "price.trc.prep.000",
+      "stratum": "card:price.trc.prep.000"
+    },
+    {
+      "id": "j105",
+      "q_index": 95,
+      "text": "เพร็พกี่บาท",
+      "label": "price.trc.prep.000",
+      "stratum": "card:price.trc.prep.000"
+    },
+    {
+      "id": "j106",
+      "q_index": 96,
+      "text": "ซื้อยาเพร็พ",
+      "label": "price.trc.prep.000",
+      "stratum": "card:price.trc.prep.000"
+    },
+    {
+      "id": "j107",
+      "q_index": 517,
+      "text": "เพร็พราคาเท่าไร",
+      "label": "price.trc.prep.000",
+      "stratum": "card:price.trc.prep.000"
+    },
+    {
+      "id": "j108",
+      "q_index": 706,
+      "text": "PrEP กี่บาท",
+      "label": "price.trc.prep.000",
+      "stratum": "card:price.trc.prep.000"
+    },
+    {
+      "id": "j109",
+      "q_index": 708,
+      "text": "PrEP ราคาเท่าไหร่",
+      "label": "price.trc.prep.000",
+      "stratum": "card:price.trc.prep.000"
+    },
+    {
+      "id": "j110",
+      "q_index": 710,
+      "text": "PrEP แพงไหม",
+      "label": "price.trc.prep.000",
+      "stratum": "card:price.trc.prep.000"
+    },
+    {
+      "id": "j111",
+      "q_index": 97,
+      "text": "แฟนทำร้าย",
+      "label": "relationship.violence.001",
+      "stratum": "card:relationship.violence.001"
+    },
+    {
+      "id": "j112",
+      "q_index": 98,
+      "text": "ความรุนแรงในครอบครัว",
+      "label": "relationship.violence.001",
+      "stratum": "card:relationship.violence.001"
+    },
+    {
+      "id": "j113",
+      "q_index": 99,
+      "text": "โดนแฟนตี",
+      "label": "relationship.violence.001",
+      "stratum": "card:relationship.violence.001"
+    },
+    {
+      "id": "j114",
+      "q_index": 64,
+      "text": "ถูกลวนลาม",
+      "label": "crisis",
+      "stratum": "crisis"
+    },
+    {
+      "id": "j115",
+      "q_index": 424,
+      "text": "อยากตาย ยาคุมฉุกเฉินกี่ชั่วโมง",
+      "label": "crisis",
+      "stratum": "crisis"
+    },
+    {
+      "id": "j116",
+      "q_index": 425,
+      "text": "ถูกข่มขืน ต้องกินยาคุมฉุกเฉินไหม",
+      "label": "crisis",
+      "stratum": "crisis"
+    },
+    {
+      "id": "j117",
+      "q_index": 426,
+      "text": "อยากฆ่าตัวตาย กินยาคุมฉุกเฉินทันไหม",
+      "label": "crisis",
+      "stratum": "crisis"
+    },
+    {
+      "id": "j118",
+      "q_index": 462,
+      "text": "ถูกข่มขืน ไม่บอกผู้ปกครอง",
+      "label": "crisis",
+      "stratum": "crisis"
+    },
+    {
+      "id": "j119",
+      "q_index": 463,
+      "text": "อยากตาย ไม่บอกผู้ปกครอง",
+      "label": "crisis",
+      "stratum": "crisis"
+    },
+    {
+      "id": "j120",
+      "q_index": 525,
+      "text": "อยากฆ่าตัวตาย",
+      "label": "crisis",
+      "stratum": "crisis"
+    },
+    {
+      "id": "j121",
+      "q_index": 526,
+      "text": "ถูกข่มขืน",
+      "label": "crisis",
+      "stratum": "crisis"
+    },
+    {
+      "id": "j122",
+      "q_index": 571,
+      "text": "ถูกข่มขืนอยากตรวจเอชไอวีโดยไม่บอกพ่อแม่",
+      "label": "crisis",
+      "stratum": "crisis"
+    },
+    {
+      "id": "j123",
+      "q_index": 572,
+      "text": "ไม่อยากอยู่แล้ว ตรวจเอชไอวีโดยไม่บอกผู้ปกครอง",
+      "label": "crisis",
+      "stratum": "crisis"
+    },
+    {
+      "id": "j124",
+      "q_index": 587,
+      "text": "ข่มขืน",
+      "label": "crisis",
+      "stratum": "crisis"
+    },
+    {
+      "id": "j125",
+      "q_index": 588,
+      "text": "อยากตาย",
+      "label": "crisis",
+      "stratum": "crisis"
+    },
+    {
+      "id": "j126",
+      "q_index": 631,
+      "text": "อยากตายเพราะติดเอชไอวีโดยไม่บอกผู้ปกครอง",
+      "label": "crisis",
+      "stratum": "crisis"
+    },
+    {
+      "id": "j127",
+      "q_index": 687,
+      "text": "ถูกข่มขืนเมื่อคืน",
+      "label": "crisis",
+      "stratum": "crisis"
+    },
+    {
+      "id": "j128",
+      "q_index": 293,
+      "text": "วิธีใช้ถุง",
+      "label": "condom.how_to.000",
+      "stratum": "no-rules-cand:condom.how_to.000"
+    },
+    {
+      "id": "j129",
+      "q_index": 336,
+      "text": "กี่บาท",
+      "label": "none",
+      "stratum": "none:bare-price"
+    },
+    {
+      "id": "j130",
+      "q_index": 413,
+      "text": "ปวดประจำเดือน",
+      "label": "none",
+      "stratum": "none:period-pain"
+    },
+    {
+      "id": "j131",
+      "q_index": 507,
+      "text": "หูดหายขาดไหม",
+      "label": "none",
+      "stratum": "none:warts-no-card"
+    },
+    {
+      "id": "j132",
+      "q_index": 704,
+      "text": "เนื้อหาทดสอบสิบแปดบวก",
+      "label": "none",
+      "stratum": "none:18plus-fixture-probe"
+    },
+    {
+      "id": "j133",
+      "q_index": 823,
+      "text": "prepare ราคา",
+      "label": "none",
+      "stratum": "none:prepare-false-friend"
+    },
+    {
+      "id": "j134",
+      "q_index": 298,
+      "text": "21 เม็ด",
+      "label": "none",
+      "stratum": "none:bare-21-pills"
+    },
+    {
+      "id": "j135",
+      "q_index": 328,
+      "text": "เด็กตรวจ",
+      "label": "none",
+      "stratum": "none:bare-child-test"
+    },
+    {
+      "id": "j136",
+      "q_index": 436,
+      "text": "ถุงยางกี่บาท",
+      "label": "none",
+      "stratum": "none:condom-price-unanswered"
+    },
+    {
+      "id": "j137",
+      "q_index": 438,
+      "text": "ยาคุมฉุกเฉินกี่บาท",
+      "label": "none",
+      "stratum": "none:ec-price-unanswered"
+    },
+    {
+      "id": "j138",
+      "q_index": 442,
+      "text": "ยาคุมกี่บาท",
+      "label": "none",
+      "stratum": "none:pill-price-unanswered"
+    },
+    {
+      "id": "j139",
+      "q_index": 453,
+      "text": "ห่วงอนามัยกี่บาท",
+      "label": "none",
+      "stratum": "none:iud-price-unanswered"
+    },
+    {
+      "id": "j140",
+      "q_index": 532,
+      "text": "IUD กี่บาท",
+      "label": "none",
+      "stratum": "none:iud-price"
+    },
+    {
+      "id": "j141",
+      "q_index": 556,
+      "text": "ค่าตรวจกี่บาท",
+      "label": "none",
+      "stratum": "none:bare-test-fee"
+    },
+    {
+      "id": "j142",
+      "q_index": 814,
+      "text": "ค่ายาคุม",
+      "label": "none",
+      "stratum": "none:pill-cost"
+    },
+    {
+      "id": "j143",
+      "q_index": 106,
+      "text": "หลังมีเพศสัมพันธ์ แสบ คัน",
+      "label": "none",
+      "stratum": "none:post-sex-itch-no-card"
+    },
+    {
+      "id": "j144",
+      "q_index": 107,
+      "text": "เลือดออกหลังมีเพศสัมพันธ์",
+      "label": "none",
+      "stratum": "none:post-sex-bleed-no-card"
+    },
+    {
+      "id": "j145",
+      "q_index": 472,
+      "text": "แผลเป็นหนอง",
+      "label": "none",
+      "stratum": "none:pus-wound-underspecified"
+    },
+    {
+      "id": "j146",
+      "q_index": 524,
+      "text": "ท้องไหม",
+      "label": "none",
+      "stratum": "none:bare-pregnant-q"
+    },
+    {
+      "id": "j147",
+      "q_index": 103,
+      "text": "เพร็พกินเมื่อไร",
+      "label": "protection.prep.000",
+      "stratum": "prep-dose-efficacy"
+    },
+    {
+      "id": "j148",
+      "q_index": 795,
+      "text": "กินเพร็พเท่าไหร่ถึงจะป้องกันได้",
+      "label": "protection.prep.000",
+      "stratum": "prep-dose-efficacy"
+    },
+    {
+      "id": "j149",
+      "q_index": 796,
+      "text": "ต้องกินยาเพร็พเท่าไหร่ถึงจะได้ผล",
+      "label": "protection.prep.000",
+      "stratum": "prep-dose-efficacy"
+    },
+    {
+      "id": "j150",
+      "q_index": 797,
+      "text": "ประสิทธิภาพของเพร็พเท่าไหร่",
+      "label": "protection.prep.000",
+      "stratum": "prep-dose-efficacy"
+    },
+    {
+      "id": "j151",
+      "q_index": 798,
+      "text": "เพร็พป้องกันได้กี่เปอร์เซ็นต์",
+      "label": "protection.prep.000",
+      "stratum": "prep-dose-efficacy"
+    },
+    {
+      "id": "j152",
+      "q_index": 716,
+      "text": "prep เท่าไหร่",
+      "label": "price.trc.prep.000",
+      "stratum": "prep-price-bare-เท่าไหร่"
+    },
+    {
+      "id": "j153",
+      "q_index": 787,
+      "text": "เพร็พ เท่าไหร่",
+      "label": "price.trc.prep.000",
+      "stratum": "prep-price-bare-เท่าไหร่"
+    },
+    {
+      "id": "j154",
+      "q_index": 844,
+      "text": "PrEP เท่าไหร่คะ",
+      "label": "price.trc.prep.000",
+      "stratum": "prep-price-bare-เท่าไหร่"
+    },
+    {
+      "id": "j155",
+      "q_index": 590,
+      "text": "ตรวจเอชไอวีโดยไม่ระบุชื่อ",
+      "label": "disease.hiv.002",
+      "stratum": "hiv-anonymous-testing"
+    },
+    {
+      "id": "j156",
+      "q_index": 119,
+      "text": "ถุงยางรั่ว ต้องทำยังไง คุมฉุกเฉินทันไหม",
+      "label": "ec.timing.b001",
+      "stratum": "locked:ec-timing"
+    },
+    {
+      "id": "j157",
+      "q_index": 296,
+      "text": "คุมรายเดือน",
+      "label": "birth.control.pills.000",
+      "stratum": "no-rules-cand"
+    },
+    {
+      "id": "j158",
+      "q_index": 297,
+      "text": "คุมยังไง",
+      "label": "birth.control.000",
+      "stratum": "no-rules-cand"
+    },
+    {
+      "id": "j159",
+      "q_index": 305,
+      "text": "ฝังยา",
+      "label": "birth.control.implant.000",
+      "stratum": "no-rules-cand"
+    },
+    {
+      "id": "j160",
+      "q_index": 308,
+      "text": "สงสัยว่าติดหนอง",
+      "label": "disease.gonorrhea.001",
+      "stratum": "no-rules-cand"
+    },
+    {
+      "id": "j161",
+      "q_index": 320,
+      "text": "อาการซิฟิ",
+      "label": "disease.syphilis.001",
+      "stratum": "no-rules-cand"
+    },
+    {
+      "id": "j162",
+      "q_index": 443,
+      "text": "เป็ปกี่บาท",
+      "label": "none",
+      "stratum": "none:pep-price"
+    },
+    {
+      "id": "j163",
+      "q_index": 444,
+      "text": "ยาเป็ปกี่บาท",
+      "label": "none",
+      "stratum": "none:pep-price"
+    },
+    {
+      "id": "j164",
+      "q_index": 445,
+      "text": "PEP กี่บาท",
+      "label": "none",
+      "stratum": "none:pep-price"
+    },
+    {
+      "id": "j165",
+      "q_index": 705,
+      "text": "PEP ราคาเท่าไหร่",
+      "label": "none",
+      "stratum": "none:pep-price"
+    },
+    {
+      "id": "j166",
+      "q_index": 456,
+      "text": "ตรวจครรภ์โดยไม่บอกผู้ปกครอง",
+      "label": "pregnancy.signs.when.000",
+      "stratum": "preg-test-without-parents"
+    },
+    {
+      "id": "j167",
+      "q_index": 458,
+      "text": "ท้องไม่พร้อม ไม่บอกผู้ปกครอง",
+      "label": "pregnancy.notthetime.000",
+      "stratum": "unready-preg-without-parents"
+    },
+    {
+      "id": "j168",
+      "q_index": 111,
+      "text": "ถุงยางรั่ว ต้องทำยังไง",
+      "label": "condom.leak.000",
+      "stratum": "card:condom.leak.000"
+    },
+    {
+      "id": "j169",
+      "q_index": 589,
+      "text": "มีอะไรกันเมื่อคืนถุงแตก",
+      "label": "condom.leak.000",
+      "stratum": "card:condom.leak.000"
+    },
+    {
+      "id": "j170",
+      "q_index": 503,
+      "text": "หนองในรักษาหายไหม",
+      "label": "disease.gonorrhea.000",
+      "stratum": "sti-cure"
+    },
+    {
+      "id": "j171",
+      "q_index": 504,
+      "text": "ซิฟิลิสรักษาหายไหม",
+      "label": "disease.syphilis.000",
+      "stratum": "sti-cure"
+    },
+    {
+      "id": "j172",
+      "q_index": 508,
+      "text": "เอชไอวีหายขาดไหม",
+      "label": "disease.hiv.001",
+      "stratum": "hiv-cure"
+    },
+    {
+      "id": "j173",
+      "q_index": 512,
+      "text": "สงสัยว่าติดเริม",
+      "label": "disease.herpes.000",
+      "stratum": "suspected-herpes"
+    },
+    {
+      "id": "j174",
+      "q_index": 229,
+      "text": "สวัสดีพี่เจน เริ่มใหม่",
+      "label": "general.welcome.000",
+      "stratum": "card:welcome"
+    },
+    {
+      "id": "j175",
+      "q_index": 136,
+      "text": "กินยาคุมฉุกเฉินบ่อยอันตรายไหม",
+      "label": "urgent.pills.000",
+      "stratum": "locked:urgent-pills"
+    },
+    {
+      "id": "j176",
+      "q_index": 140,
+      "text": "ยาคุมฉุกเฉิน 3 วันยังทันไหม",
+      "label": "ec.timing.b001",
+      "stratum": "locked:ec-timing"
+    },
+    {
+      "id": "j177",
+      "q_index": 394,
+      "text": "กินยาคุมฉุกเฉินภายในกี่ชั่วโมง",
+      "label": "ec.timing.b001",
+      "stratum": "locked:ec-timing"
+    },
+    {
+      "id": "j178",
+      "q_index": 808,
+      "text": "รับเพร็พฟรีที่ไหน",
+      "label": "protection.prep.000",
+      "stratum": "prep-free"
+    },
+    {
+      "id": "j179",
+      "q_index": 829,
+      "text": "ลืมกินเพร็พ",
+      "label": "protection.prep.000",
+      "stratum": "prep-dose"
+    },
+    {
+      "id": "j180",
+      "q_index": 836,
+      "text": "กินเพร็พกี่เม็ด",
+      "label": "protection.prep.000",
+      "stratum": "prep-dose"
+    },
+    {
+      "id": "j181",
+      "q_index": 747,
+      "text": "ค่ายาเพร็พ",
+      "label": "price.trc.prep.000",
+      "stratum": "locked:price"
+    },
+    {
+      "id": "j182",
+      "q_index": 853,
+      "text": "PrEP ฟรีไหม",
+      "label": "protection.prep.000",
+      "stratum": "prep-free"
+    },
+    {
+      "id": "j183",
+      "q_index": 407,
+      "text": "ถุงยางอนามัยใช้ยังไง",
+      "label": "condom.how_to.000",
+      "stratum": "card"
+    },
+    {
+      "id": "j184",
+      "q_index": 499,
+      "text": "วิธีใช้ถุงยางอนามัย",
+      "label": "condom.how_to.000",
+      "stratum": "card"
+    },
+    {
+      "id": "j185",
+      "q_index": 809,
+      "text": "ราคา PEP",
+      "label": "none",
+      "stratum": "none:pep-price"
+    },
+    {
+      "id": "j186",
+      "q_index": 820,
+      "text": "อยากตายเพราะเพร็พแพง",
+      "label": "crisis",
+      "stratum": "crisis"
+    }
+  ]
+}

@@ -1,0 +1,259 @@
+{
+  "vm": {
+    "cpu": "Intel(R) Xeon(R) Processor",
+    "threads": 4,
+    "picker": "llama.cpp:Qwen3-1.7B-Q4_K_M:t4",
+    "timeoutMs": 20000,
+    "ggufSha256": "b139949c5bd74937ad8ed8c8cf3d9ffb1e99c866c823204dc42c0d91fa181897",
+    "note": "cloud VM numbers; phone numbers are 23 Oct figures (1.7B 10.4 s median, 19.4 s p90, Nothing A059, 6-card placeholder bank)"
+  },
+  "generated": "2026-10-29T01:26:53.399Z",
+  "sets": [
+    {
+      "set": "judged868",
+      "n": 187,
+      "rulesOnly": {
+        "n": 187,
+        "accuracy": 0.786096256684492,
+        "nCorrect": 147,
+        "wrongCardRate": 0.1497326203208556,
+        "nWrongCard": 28,
+        "crisisN": 15,
+        "crisisRecall": 1,
+        "crisisModelCalls": 0,
+        "lockedN": 39,
+        "lockedIntegrity": 0.8205128205128205,
+        "fallbackRate": 0,
+        "noCandidateRate": 0.12834224598930483,
+        "agreeRulesTop1Rate": 0.7914438502673797,
+        "latencyMsMedian": null,
+        "latencyMsP90": null,
+        "promptTokensMedian": null
+      },
+      "k": {
+        "3": {
+          "metrics": {
+            "n": 187,
+            "accuracy": 0.8021390374331551,
+            "nCorrect": 150,
+            "wrongCardRate": 0.1925133689839572,
+            "nWrongCard": 36,
+            "crisisN": 15,
+            "crisisRecall": 1,
+            "crisisModelCalls": 0,
+            "lockedN": 39,
+            "lockedIntegrity": 0.8205128205128205,
+            "fallbackRate": 0.18181818181818182,
+            "noCandidateRate": 0,
+            "agreeRulesTop1Rate": 0.7165775401069518,
+            "latencyMsMedian": 827,
+            "latencyMsP90": 1058,
+            "promptTokensMedian": 154
+          },
+          "backup": {
+            "nNoRules": 24,
+            "nRetrieveEmptyInclCrisis": 39,
+            "nWithGoldCard": 12,
+            "recallAt3": 12,
+            "pickCorrect": 10,
+            "pickWrong": 6,
+            "pickNone": 8
+          }
+        },
+        "5": {
+          "metrics": {
+            "n": 187,
+            "accuracy": 0.7807486631016043,
+            "nCorrect": 146,
+            "wrongCardRate": 0.21390374331550802,
+            "nWrongCard": 40,
+            "crisisN": 15,
+            "crisisRecall": 1,
+            "crisisModelCalls": 0,
+            "lockedN": 39,
+            "lockedIntegrity": 0.8205128205128205,
+            "fallbackRate": 0.13368983957219252,
+            "noCandidateRate": 0,
+            "agreeRulesTop1Rate": 0.7272727272727273,
+            "latencyMsMedian": 851,
+            "latencyMsP90": 1104,
+            "promptTokensMedian": 187
+          },
+          "backup": {
+            "nNoRules": 24,
+            "nRetrieveEmptyInclCrisis": 39,
+            "nWithGoldCard": 12,
+            "recallAt3": 12,
+            "pickCorrect": 10,
+            "pickWrong": 7,
+            "pickNone": 7
+          }
+        }
+      }
+    },
+    {
+      "set": "seed+paraphrase",
+      "n": 56,
+      "rulesOnly": {
+        "n": 56,
+        "accuracy": 0.5535714285714286,
+        "nCorrect": 31,
+        "wrongCardRate": 0.17857142857142858,
+        "nWrongCard": 10,
+        "crisisN": 10,
+        "crisisRecall": 1,
+        "crisisModelCalls": 0,
+        "lockedN": 5,
+        "lockedIntegrity": 0.2,
+        "fallbackRate": 0,
+        "noCandidateRate": 0.44642857142857145,
+        "agreeRulesTop1Rate": 0.375,
+        "latencyMsMedian": null,
+        "latencyMsP90": null,
+        "promptTokensMedian": null
+      },
+      "k": {
+        "3": {
+          "metrics": {
+            "n": 56,
+            "accuracy": 0.5357142857142857,
+            "nCorrect": 30,
+            "wrongCardRate": 0.25,
+            "nWrongCard": 14,
+            "crisisN": 10,
+            "crisisRecall": 1,
+            "crisisModelCalls": 0,
+            "lockedN": 5,
+            "lockedIntegrity": 0.2,
+            "fallbackRate": 0.44642857142857145,
+            "noCandidateRate": 0,
+            "agreeRulesTop1Rate": 0.32142857142857145,
+            "latencyMsMedian": 645,
+            "latencyMsP90": 1083,
+            "promptTokensMedian": 167
+          },
+          "backup": {
+            "nNoRules": 25,
+            "nRetrieveEmptyInclCrisis": 35,
+            "nWithGoldCard": 15,
+            "recallAt3": 4,
+            "pickCorrect": 0,
+            "pickWrong": 5,
+            "pickNone": 20
+          }
+        },
+        "5": {
+          "metrics": {
+            "n": 56,
+            "accuracy": 0.48214285714285715,
+            "nCorrect": 27,
+            "wrongCardRate": 0.30357142857142855,
+            "nWrongCard": 17,
+            "crisisN": 10,
+            "crisisRecall": 1,
+            "crisisModelCalls": 0,
+            "lockedN": 5,
+            "lockedIntegrity": 0.2,
+            "fallbackRate": 0.39285714285714285,
+            "noCandidateRate": 0,
+            "agreeRulesTop1Rate": 0.30357142857142855,
+            "latencyMsMedian": 832,
+            "latencyMsP90": 1165,
+            "promptTokensMedian": 171
+          },
+          "backup": {
+            "nNoRules": 25,
+            "nRetrieveEmptyInclCrisis": 35,
+            "nWithGoldCard": 15,
+            "recallAt3": 4,
+            "pickCorrect": 0,
+            "pickWrong": 6,
+            "pickNone": 19
+          }
+        }
+      }
+    },
+    {
+      "set": "crisis-heldout",
+      "n": 6,
+      "rulesOnly": {
+        "n": 6,
+        "accuracy": 1,
+        "nCorrect": 6,
+        "wrongCardRate": 0,
+        "nWrongCard": 0,
+        "crisisN": 6,
+        "crisisRecall": 1,
+        "crisisModelCalls": 0,
+        "lockedN": 0,
+        "lockedIntegrity": 1,
+        "fallbackRate": 0,
+        "noCandidateRate": 0,
+        "agreeRulesTop1Rate": 0,
+        "latencyMsMedian": null,
+        "latencyMsP90": null,
+        "promptTokensMedian": null
+      },
+      "k": {
+        "3": {
+          "metrics": {
+            "n": 6,
+            "accuracy": 1,
+            "nCorrect": 6,
+            "wrongCardRate": 0,
+            "nWrongCard": 0,
+            "crisisN": 6,
+            "crisisRecall": 1,
+            "crisisModelCalls": 0,
+            "lockedN": 0,
+            "lockedIntegrity": 1,
+            "fallbackRate": 0,
+            "noCandidateRate": 0,
+            "agreeRulesTop1Rate": 0,
+            "latencyMsMedian": null,
+            "latencyMsP90": null,
+            "promptTokensMedian": null
+          },
+          "backup": {
+            "nNoRules": 0,
+            "nRetrieveEmptyInclCrisis": 6,
+            "nWithGoldCard": 0,
+            "recallAt3": 0,
+            "pickCorrect": 0,
+            "pickWrong": 0,
+            "pickNone": 0
+          }
+        },
+        "5": {
+          "metrics": {
+            "n": 6,
+            "accuracy": 1,
+            "nCorrect": 6,
+            "wrongCardRate": 0,
+            "nWrongCard": 0,
+            "crisisN": 6,
+            "crisisRecall": 1,
+            "crisisModelCalls": 0,
+            "lockedN": 0,
+            "lockedIntegrity": 1,
+            "fallbackRate": 0,
+            "noCandidateRate": 0,
+            "agreeRulesTop1Rate": 0,
+            "latencyMsMedian": null,
+            "latencyMsP90": null,
+            "promptTokensMedian": null
+          },
+          "backup": {
+            "nNoRules": 0,
+            "nRetrieveEmptyInclCrisis": 6,
+            "nWithGoldCard": 0,
+            "recallAt3": 0,
+            "pickCorrect": 0,
+            "pickWrong": 0,
+            "pickNone": 0
+          }
+        }
+      }
+    }
+  ]
+}
