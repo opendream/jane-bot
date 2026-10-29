@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { CHAT_HOLDING_LINE, acceptChatReply, chatGuardFailures } from "../../src/llm/chatGuard";
+import {
+  CHAT_HOLDING_LINE,
+  CHAT_HOLDING_LINE_EN,
+  CHAT_HOLDING_LINE_EN_STATUS,
+  CHAT_MAX_CHARS_EN,
+  acceptChatReply,
+  chatGuardFailures,
+} from "../../src/llm/chatGuard";
 
 // SYNTHETIC strings only — never real names, phones, or clinical claims.
 
@@ -147,5 +154,91 @@ describe("chatGuard (generated Jane replies)", () => {
   it("the holding line itself passes the guard", () => {
     expect(chatGuardFailures(CHAT_HOLDING_LINE)).toEqual([]);
     expect(CHAT_HOLDING_LINE.length).toBeLessThanOrEqual(160);
+  });
+});
+
+const SAFE_EN = "I'm here. You can tell me more whenever you like.";
+
+describe("chatGuard English path", () => {
+  it("accepts a short warm English line", () => {
+    expect(chatGuardFailures(SAFE_EN, "en")).toEqual([]);
+    expect(acceptChatReply(SAFE_EN, "en")).toEqual({ ok: true, text: SAFE_EN });
+  });
+
+  it("accepts a warm reply that names birth control or emergency contraception", () => {
+    const bc = "You can ask about birth control. I'm here.";
+    const ec = "Emergency contraception is okay to ask about.";
+    expect(chatGuardFailures(bc, "en")).toEqual([]);
+    expect(chatGuardFailures(ec, "en")).toEqual([]);
+    expect(acceptChatReply(bc, "en").ok).toBe(true);
+    expect(acceptChatReply(ec, "en").ok).toBe(true);
+  });
+
+  it("rejects digits", () => {
+    expect(chatGuardFailures("Wait 2 minutes and tell me more.", "en")).toContain("digits");
+  });
+
+  it("rejects English number words used as amounts or times next to a unit", () => {
+    expect(chatGuardFailures("Take two pills after food.", "en")).toContain("dose");
+    expect(chatGuardFailures("Take it within three days.", "en")).toContain("dose");
+    expect(chatGuardFailures("Once a day is enough.", "en")).toContain("dose");
+    expect(chatGuardFailures("Twice a week after food.", "en")).toContain("dose");
+    expect(chatGuardFailures("A half hour is enough.", "en")).toContain("dose");
+    expect(chatGuardFailures("Twenty mg with food.", "en")).toContain("dose");
+  });
+
+  it("rejects pill(s) per day and take within as dose patterns", () => {
+    expect(chatGuardFailures("Pills per day with food is the way.", "en")).toContain("dose");
+    expect(chatGuardFailures("Take within a short window.", "en")).toContain("dose");
+  });
+
+  it("does not treat a bare pill mention as a dose", () => {
+    expect(chatGuardFailures("You can ask about the pill whenever you like.", "en")).toEqual([]);
+  });
+
+  it("rejects links, @handles and phone numbers", () => {
+    expect(chatGuardFailures("See www.example.com for more.", "en")).toContain("url");
+    expect(chatGuardFailures("Ping @teen_helper if you want.", "en")).toContain("handle");
+    expect(chatGuardFailures("Call 0812345678 later.", "en")).toContain("digits");
+  });
+
+  it("rejects absolute medical claims", () => {
+    expect(chatGuardFailures("This is 100% safe for you.", "en")).toContain("claim");
+    expect(chatGuardFailures("It is guaranteed to work.", "en")).toContain("claim");
+    expect(chatGuardFailures("This will cure you for good.", "en")).toContain("claim");
+    expect(chatGuardFailures("You definitely have an infection.", "en")).toContain("claim");
+    expect(chatGuardFailures("You definitely don't have anything.", "en")).toContain("claim");
+    expect(chatGuardFailures("You're not pregnant, I promise.", "en")).toContain("claim");
+  });
+
+  it("rejects roleplay and sexual content", () => {
+    expect(chatGuardFailures("Let's roleplay as a couple tonight.", "en")).toContain("roleplay");
+    expect(chatGuardFailures("Some dirty talk is fine with me.", "en")).toContain("explicit");
+    expect(chatGuardFailures("A sexual scene is okay to describe.", "en")).toContain("explicit");
+  });
+
+  it("rejects crisis wording", () => {
+    expect(chatGuardFailures("If you want to die I'm here.", "en")).toContain("crisis");
+  });
+
+  it("caps English replies at 220 characters (Thai stays 160)", () => {
+    const long = "I'm here. " + "You can tell me more whenever you like. ".repeat(8);
+    expect(long.length).toBeGreaterThan(CHAT_MAX_CHARS_EN);
+    expect(chatGuardFailures(long, "en")).toContain("length");
+    expect(chatGuardFailures(SAFE, "th")).not.toContain("length");
+    expect(SAFE_EN.length).toBeLessThanOrEqual(CHAT_MAX_CHARS_EN);
+  });
+
+  it("fails a reply in the wrong language for the turn", () => {
+    expect(chatGuardFailures(SAFE, "en")).toContain("script");
+    expect(chatGuardFailures(SAFE_EN, "th")).toContain("script");
+    expect(acceptChatReply(SAFE, "en").ok).toBe(false);
+    expect(acceptChatReply(SAFE_EN, "th").ok).toBe(false);
+  });
+
+  it("the English holding line itself passes the English guard and is marked DRAFT", () => {
+    expect(CHAT_HOLDING_LINE_EN_STATUS).toBe("draft");
+    expect(chatGuardFailures(CHAT_HOLDING_LINE_EN, "en")).toEqual([]);
+    expect(CHAT_HOLDING_LINE_EN.length).toBeLessThanOrEqual(CHAT_MAX_CHARS_EN);
   });
 });

@@ -2,16 +2,26 @@ import { detectCrisis } from "../core/crisis";
 import { GUARD_RULES, type GuardReason } from "../core/guard";
 import { stripPII } from "../core/summary";
 import { findPhrases } from "../core/text";
+import { type ChatLang, mostlyLatin } from "./chat-lang";
 
 /**
  * Output guard for free-generated Jane chat (PR A). Pinned `src/core/guard.ts` is imported
- * read-only. A reject replaces the model line with CHAT_HOLDING_LINE; it never blocks a card.
+ * read-only. A reject replaces the model line with the holding line for that turn's
+ * language; it never blocks a card.
  *
- * DRAFT copy (holding line): Thai review pending.
+ * DRAFT copy (holding lines): Thai and English review pending.
  */
 
 export const CHAT_HOLDING_LINE = "พี่ฟังอยู่นะ ขอส่งข้อมูลที่ตรวจแล้วให้ก่อน";
+/** DRAFT. Keng review required before this string is treated as product copy. */
+export const CHAT_HOLDING_LINE_EN = "I hear you. Let me share the checked information first.";
+export const CHAT_HOLDING_LINE_EN_STATUS = "draft" as const;
 export const CHAT_MAX_CHARS = 160;
+export const CHAT_MAX_CHARS_EN = 220;
+
+export function holdingLineFor(lang: ChatLang): string {
+  return lang === "en" ? CHAT_HOLDING_LINE_EN : CHAT_HOLDING_LINE;
+}
 
 export type ChatGuardReason =
   | "empty"
@@ -58,6 +68,30 @@ const THAI_QTY_RE = new RegExp(`${THAI_NUM}\\s*${QTY_UNIT}|${QTY_UNIT}\\s*${THAI
 /** Latin dose units as whole words, and only beside a number word (digits already fail the digit check). */
 const LATIN_QTY_RE = new RegExp(`(?:${THAI_NUM})\\s*(?:dosage|mg)\\b|\\b(?:dosage|mg)\\s*(?:${THAI_NUM})`, "iu");
 
+const EN_NUM =
+  "(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|hundred|thousand|half)";
+const EN_UNIT =
+  "(?:days?|hours?|hrs?|weeks?|months?|years?|minutes?|mins?|seconds?|times?|pills?|tablets?|doses?|mg|milligrams?)";
+/** Number word next to a unit / time word. `mg` only as a unit, never a bare substring. */
+const EN_QTY_RE = new RegExp(`\\b${EN_NUM}\\s+(?:a\\s+)?${EN_UNIT}\\b|\\b${EN_UNIT}\\s+${EN_NUM}\\b`, "i");
+const EN_FREQ_RE = /\b(?:once|twice)\s+(?:a\s+)?(?:day|week|month|year|hour)\b/i;
+const EN_DOSE_PHRASE_RE = /\b(?:pills?|tablets?|doses?)\s+per\s+(?:day|week|month)\b|\btake\s+(?:it\s+)?within\b/i;
+
+const EN_CLAIM_PHRASES = [
+  "100% safe",
+  "one hundred percent safe",
+  "guaranteed",
+  "you definitely have",
+  "you definitely don't have",
+  "you definitely do not have",
+  "you're not pregnant",
+  "you are not pregnant",
+] as const;
+const EN_CURE_RE = /\bcure[ds]?\b/i;
+const EN_GUARANTEE_RE = /\bguarantee(?:d|s)?\b/i;
+
+const EN_EXPLICIT_EXTRA_RE = /\b(?:sexual scenes?|sex scenes?)\b/i;
+
 function nfc(s: string): string {
   return s.normalize("NFC").replace(/[\u200B-\u200D\uFEFF]/g, "");
 }
@@ -74,8 +108,20 @@ function mostlyThai(s: string): boolean {
   return thai > 0 && thai >= latin;
 }
 
+function thaiDose(raw: string): boolean {
+  return !!(findPhrases(raw, DOSE_PHRASES).length || THAI_QTY_RE.test(raw) || LATIN_QTY_RE.test(raw));
+}
+
+function englishDose(raw: string): boolean {
+  return EN_QTY_RE.test(raw) || EN_FREQ_RE.test(raw) || EN_DOSE_PHRASE_RE.test(raw);
+}
+
+function englishClaim(raw: string): boolean {
+  return !!(findPhrases(raw, EN_CLAIM_PHRASES).length || EN_CURE_RE.test(raw) || EN_GUARANTEE_RE.test(raw));
+}
+
 /** All failed checks for a generated reply (empty array = accept). Never logs text. */
-export function chatGuardFailures(text: string | null | undefined): ChatGuardReason[] {
+export function chatGuardFailures(text: string | null | undefined, lang: ChatLang = "th"): ChatGuardReason[] {
   const fails: ChatGuardReason[] = [];
   const raw = text == null ? "" : nfc(String(text));
   if (!raw.trim()) return ["empty"];
@@ -84,21 +130,25 @@ export function chatGuardFailures(text: string | null | undefined): ChatGuardRea
   if (/(^|[^A-Za-z0-9._])@[A-Za-z0-9._]{2,}/.test(raw)) fails.push("handle");
   if (/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/.test(raw)) fails.push("email");
   if (/(?:\+66|0[689])[\d๐-๙\s-]{7,}/.test(raw) || /โทร\s*[\d๐-๙]/.test(raw)) fails.push("phone");
-  if (findPhrases(raw, DOSE_PHRASES).length || THAI_QTY_RE.test(raw) || LATIN_QTY_RE.test(raw)) fails.push("dose");
-  if (findPhrases(raw, CLAIM_PHRASES).length) fails.push("claim");
+  if (lang === "en" ? englishDose(raw) : thaiDose(raw)) fails.push("dose");
+  if (lang === "en" ? englishClaim(raw) : findPhrases(raw, CLAIM_PHRASES).length) fails.push("claim");
   for (const r of OUTPUT_GUARD_REASONS) {
     if (findPhrases(raw, GUARD_RULES[r]).length) fails.push(r);
   }
+  if (lang === "en" && EN_EXPLICIT_EXTRA_RE.test(raw) && !fails.includes("explicit")) fails.push("explicit");
   if (detectCrisis(raw).level !== "none") fails.push("crisis");
   if (stripPII(raw) !== whitespaceNorm(raw)) fails.push("pii");
   if (/<\/?think>|\/no_think|<\|im_(start|end)\|>/i.test(raw)) fails.push("think");
-  if (raw.length > CHAT_MAX_CHARS) fails.push("length");
-  if (!mostlyThai(raw)) fails.push("script");
+  if (raw.length > (lang === "en" ? CHAT_MAX_CHARS_EN : CHAT_MAX_CHARS)) fails.push("length");
+  if (lang === "en" ? !mostlyLatin(raw) : !mostlyThai(raw)) fails.push("script");
   return fails;
 }
 
-export function acceptChatReply(text: string | null | undefined): { ok: true; text: string } | { ok: false; reasons: ChatGuardReason[] } {
-  const reasons = chatGuardFailures(text);
+export function acceptChatReply(
+  text: string | null | undefined,
+  lang: ChatLang = "th",
+): { ok: true; text: string } | { ok: false; reasons: ChatGuardReason[] } {
+  const reasons = chatGuardFailures(text, lang);
   if (reasons.length) return { ok: false, reasons };
   return { ok: true, text: nfc(String(text)).trim() };
 }
