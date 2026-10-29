@@ -59,6 +59,22 @@ export function modelCardPickEnabled(search?: string): boolean {
   return MODEL_CARD_PICK;
 }
 
+/**
+ * Start the on-device model unless it is explicitly off. Independent of MODEL_CARD_PICK:
+ * flag-off chat uses the same trigger as v2/answer-bank-chat (call start after first
+ * paint; startModel then loads if weights are installed). Only model-card-pick UI is
+ * flag-gated, not this load. `?model=off` still skips the fetch and worker.
+ */
+export function shouldPreloadModel(search?: string): boolean {
+  try {
+    const raw = search ?? (typeof location !== "undefined" ? location.search : "");
+    const p = new URLSearchParams(raw.startsWith("?") ? raw.slice(1) : raw);
+    const model = (p.get("model") ?? MODEL).toLowerCase();
+    if (model === "off") return false;
+  } catch { /* node unit tests */ }
+  return MODEL !== "off";
+}
+
 export function pickTimeoutMsFromSearch(search?: string, fallback = 20_000): number {
   try {
     const raw = search ?? (typeof location !== "undefined" ? location.search : "");

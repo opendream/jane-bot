@@ -1,4 +1,4 @@
-import { MODEL } from "../config";
+import { MODEL, shouldPreloadModel } from "../config";
 import { MODELS, type ModelSpec, type WebGpuBuild } from "./models";
 import type { LLMAdapter } from "./adapter";
 import {
@@ -45,7 +45,7 @@ export type RuntimeTestHook = {
   wasm?: "ok" | "unavailable";
   gpu?: boolean;
   /** Mock card-pick worker (e2e / unit). */
-  pick?: "ok" | "timeout" | "not-ready" | "warmup" | "warmup-slow";
+  pick?: "ok" | "timeout" | "not-ready" | "warmup" | "warmup-slow" | "loading" | "fail";
 };
 
 export {
@@ -115,6 +115,8 @@ function readTestHook(deps: StartModelDeps, params: URLSearchParams): RuntimeTes
   if (fromUrl === "pick-not-ready") return { pick: "not-ready", gpu: false, wasm: "unavailable" };
   if (fromUrl === "pick-warmup") return { wasm: "ok", gpu: false, pick: "warmup" };
   if (fromUrl === "pick-warmup-slow") return { wasm: "ok", gpu: false, pick: "warmup-slow" };
+  if (fromUrl === "pick-loading") return { wasm: "ok", gpu: false, pick: "loading" };
+  if (fromUrl === "pick-fail") return { wasm: "ok", gpu: false, pick: "fail" };
   try {
     if (typeof window !== "undefined" && window.__JANE_RUNTIME_TEST__) return window.__JANE_RUNTIME_TEST__;
   } catch { /* node unit tests */ }
@@ -122,7 +124,7 @@ function readTestHook(deps: StartModelDeps, params: URLSearchParams): RuntimeTes
 }
 
 function mockPickCard(hook: RuntimeTestHook): LLMAdapter["pickCard"] | undefined {
-  if (!hook.pick || hook.pick === "not-ready") return undefined;
+  if (!hook.pick || hook.pick === "not-ready" || hook.pick === "fail") return undefined;
   return async (_text, shortlist, _prev, signal) => {
     if (hook.pick === "timeout") {
       await new Promise<void>((_resolve, reject) => {
@@ -168,6 +170,11 @@ function hookLoaders(hook: RuntimeTestHook): Pick<StartModelDeps, "gpuInfo" | "i
     },
     loadWllama: async (_file, label, onProgress, opts) => {
       if (hook.wasm === "unavailable") throw new Error("wasm mocked unavailable");
+      if (hook.pick === "fail") throw new Error("mocked load failure");
+      if (hook.pick === "loading") {
+        onProgress(0.05);
+        await new Promise((r) => setTimeout(r, 8_000));
+      }
       const warmupMs = hook.pick === "warmup" ? 700 : hook.pick === "warmup-slow" ? 8_000 : 0;
       if (warmupMs) {
         opts?.onWarmup?.(warmupMs);
@@ -230,6 +237,34 @@ function watchWebGpu(adapter: LLMAdapter, onFail: () => void): LLMAdapter {
 function withLoaderEta(a: LLMAdapter): LLMAdapter {
   if (a.warmupRemainingMs) return a;
   return { ...a, warmupRemainingMs: () => getWarmupRemainingMs() };
+}
+
+let preloadOnce: Promise<LLMAdapter | null> | null = null;
+
+export function resetPreloadForTests(): void {
+  preloadOnce = null;
+}
+
+/**
+ * Start the model once at app open (same trigger as v2/answer-bank-chat).
+ * `?model=off` skips the fetch. A finished or failed load is never restarted
+ * (including after a backgrounded tab). MODEL_CARD_PICK does not gate this.
+ */
+export function preloadModel(onStatus: (s: ModelStatus) => void, deps: StartModelDeps = {}): Promise<LLMAdapter | null> {
+  const search = deps.search ?? (typeof location !== "undefined" ? location.search : "");
+  if (!shouldPreloadModel(search)) {
+    onStatus({ state: "off", runtime: "rules", label: "", progress: 0 });
+    return Promise.resolve(null);
+  }
+  if (preloadOnce) return preloadOnce;
+  preloadOnce = startModel(onStatus, { ...deps, search }).then(
+    (a) => a,
+    () => {
+      onStatus({ state: "failed", runtime: "rules", label: "", progress: 0 });
+      return null;
+    },
+  );
+  return preloadOnce;
 }
 
 /**

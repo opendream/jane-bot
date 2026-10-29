@@ -5,6 +5,8 @@ import {
   RULES_ANSWER_LABEL,
   READINESS_LINE,
   thinkingHintAt,
+  nextThinkingHintDelay,
+  applyThinkingHint,
   engineAnswerLabel,
 } from "../../src/ui/thinking";
 
@@ -28,6 +30,25 @@ describe("model-first thinking copy (Keng, exact Thai)", () => {
     expect(thinkingHintAt(12_000)).toBe("ขอเวลาอีกนิดนะ พี่เจนอยากตอบให้ตรงที่สุด");
     expect(thinkingHintAt(17_000)).toBe("ใกล้เสร็จแล้วนะ");
     expect(thinkingHintAt(19_999)).toBe("ใกล้เสร็จแล้วนะ");
+  });
+
+  it("nextThinkingHintDelay fires only at the 6 / 12 / 17 s steps", () => {
+    expect(nextThinkingHintDelay(0)).toBe(6_000);
+    expect(nextThinkingHintDelay(5_999)).toBe(1);
+    expect(nextThinkingHintDelay(6_000)).toBe(6_000);
+    expect(nextThinkingHintDelay(11_999)).toBe(1);
+    expect(nextThinkingHintDelay(12_000)).toBe(5_000);
+    expect(nextThinkingHintDelay(16_999)).toBe(1);
+    expect(nextThinkingHintDelay(17_000)).toBeNull();
+    expect(nextThinkingHintDelay(20_000)).toBeNull();
+  });
+
+  it("applyThinkingHint writes the next copy onto the existing node", () => {
+    const node = { textContent: thinkingHintAt(0) };
+    const root = { querySelector: (sel: string) => (sel === '[data-testid="chat-busy"]' ? node : null) };
+    expect(applyThinkingHint(root, thinkingHintAt(6_000))).toBe(true);
+    expect(node.textContent).toBe("พี่เจนกำลังเลือกคำตอบที่ตรงกับเรื่องนี้อยู่นะ");
+    expect(applyThinkingHint({ querySelector: () => null }, thinkingHintAt(12_000))).toBe(false);
   });
 
   it("flag-off never labels an engine; flag-on uses the model label only for engine=model", () => {

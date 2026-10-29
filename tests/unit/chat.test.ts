@@ -338,6 +338,52 @@ describe("model-first chat labels (flag off by default)", () => {
     expect(jane?.cardId).toBe("birth.control.000");
   });
 
+  it("flag-on thinking hint updates in place at 0/6/12/17 s without extra rerenders", async () => {
+    vi.useFakeTimers();
+    try {
+      const patched: string[] = [];
+      let renders = 0;
+      const model = readyModel(async (_t, sl) => {
+        await new Promise((r) => setTimeout(r, 18_000));
+        return sl[0]?.id ?? null;
+      });
+      const chat = newChat("18-24", model, null, { modelPick: true, pickTimeoutMs: 20_000 });
+      const h = hooks();
+      h.rerender = () => { renders++; };
+      h.updateThinkingHint = (text) => { patched.push(text); };
+      const pending = sendToChat(chat, "อยากรู้เรื่องคุมกำเนิด", h);
+      expect(chat.busy).toBe(true);
+      expect(chat.thinkingHint).toBe(thinkingHintAt(0));
+      expect(renders).toBe(1);
+      await vi.advanceTimersByTimeAsync(250);
+      expect(patched).toEqual([]);
+      expect(renders).toBe(1);
+      await vi.advanceTimersByTimeAsync(5_749);
+      expect(patched).toEqual([]);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(chat.thinkingHint).toBe(thinkingHintAt(6_000));
+      expect(patched).toEqual([thinkingHintAt(6_000)]);
+      expect(renders).toBe(1);
+      await vi.advanceTimersByTimeAsync(6_000);
+      expect(chat.thinkingHint).toBe(thinkingHintAt(12_000));
+      expect(patched.at(-1)).toBe(thinkingHintAt(12_000));
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(chat.thinkingHint).toBe(thinkingHintAt(17_000));
+      expect(patched).toEqual([
+        thinkingHintAt(6_000),
+        thinkingHintAt(12_000),
+        thinkingHintAt(17_000),
+      ]);
+      expect(renders).toBe(1);
+      await vi.advanceTimersByTimeAsync(1_000);
+      await pending;
+      expect(chat.thinkingHint).toBeNull();
+      expect(renders).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("flag-on locked and fallback answers use the rules label, never AI", async () => {
     const chat = newChat("18-24", readyModel(), null, { modelPick: true, pickTimeoutMs: 80 });
     await sendToChat(chat, "ยาคุมฉุกเฉินกินภายในกี่ชั่วโมง", hooks());

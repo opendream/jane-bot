@@ -22,6 +22,26 @@ export function thinkingHintAt(elapsedMs: number): string {
   return text;
 }
 
+/** Ms until the next staged hint, or null after 17 s. Used so the UI is not polled. */
+export function nextThinkingHintDelay(elapsedMs: number): number | null {
+  for (const h of THINKING_HINTS) {
+    if (elapsedMs < h.atMs) return h.atMs - elapsedMs;
+  }
+  return null;
+}
+
+export interface ThinkingHintRoot {
+  querySelector(sel: string): { textContent: string | null } | null;
+}
+
+/** Patch the busy hint in place. Never recreates the textarea. */
+export function applyThinkingHint(root: ThinkingHintRoot, text: string): boolean {
+  const el = root.querySelector('[data-testid="chat-busy"]');
+  if (!el) return false;
+  if (el.textContent !== text) el.textContent = text;
+  return true;
+}
+
 export function engineAnswerLabel(engine: string | undefined, modelPick: boolean): string | null {
   if (!modelPick) return null;
   if (engine === "model") return MODEL_ANSWER_LABEL;

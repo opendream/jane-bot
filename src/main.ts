@@ -11,10 +11,11 @@ import { suggestServices, CRISIS_LINES, DATA_VERSION, INTENT_LABEL_TH, SUPPORT_L
 import { hoursLabel, hoursCitation } from "./core/openNow";
 import { finalizeSummary, stripPII } from "./core/summary";
 import { classifyWithFallback, polishWithFallback, type LLMAdapter } from "./llm/adapter";
-import { startModel, modelPillCopy, getWarmupRemainingMs, type ModelStatus } from "./llm/runtime";
+import { preloadModel, modelPillCopy, getWarmupRemainingMs, type ModelStatus } from "./llm/runtime";
 import { toDialogModel } from "./llm/dialogModel";
 import { shouldApplyAsyncResult, newNeedGate, beginNeed, bumpNeed, needBusy, endNeed } from "./core/dialog";
 import { h } from "./ui/dom";
+import { applyThinkingHint } from "./ui/thinking";
 import { newChat, chatView, beginQuiz, type ChatState } from "./ui/chat";
 import { ART_CREDIT, janeImg, preloadJaneArt, welcomeStars } from "./ui/jane";
 import { QUIZ_MENU, pickQuizItems, quizCopyStatus } from "./core/quiz";
@@ -205,6 +206,7 @@ function openChat() {
 
 const chatHooks = {
   rerender: () => { if (state.screen === "chat") render(); },
+  updateThinkingHint: (text: string) => { applyThinkingHint(app, text); },
   // Crisis rules decided this before any model step; show the existing crisis screen.
   crisis: (categories: CrisisCategory[]) => { bumpNeed(need); go({ screen: "crisis", crisisCategories: categories, crisisFrom: "chat" }); },
   // In-chat referral (plan v2 §5): the same service cards, summary, approval and DEMO handoff as the one-shot flow.
@@ -441,7 +443,9 @@ async function resolveMatcher(): Promise<IntentMatcher | null> {
   return loadMatcher({ search });
 }
 // Status updates only swap the small indicator, so typing is never interrupted.
-startModel((st) => {
+// Same trigger as v2/answer-bank-chat: start after first paint. Flag-on adds
+// preloadOnce (no retry). MODEL_CARD_PICK only gates pick UI, not this load.
+preloadModel((st) => {
   modelStatus = st;
   const old = app.querySelector('[data-testid="model-status"]');
   if (old) old.replaceWith(modelPill());
