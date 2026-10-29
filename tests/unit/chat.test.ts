@@ -321,6 +321,14 @@ describe("model-first chat labels (flag off by default)", () => {
     expect(chat.chatFirst).toBe(false);
   });
 
+  it("chat-first without modelPick never shows an engine label", async () => {
+    const chat = newChat("18-24", readyModel(), null, { chatFirst: true, modelPick: false });
+    await sendToChat(chat, "I want to know about birth control", hooks());
+    const jane = [...chat.messages].reverse().find((m) => m.from === "jane");
+    expect(jane?.cardId).toBeTruthy();
+    expect(jane?.engineLabel).toBeFalsy();
+  });
+
   it("flag-on shows the 0 s thinking hint, then an engine label on the card", async () => {
     const hints: string[] = [];
     const model = readyModel(async (_t, sl) => {

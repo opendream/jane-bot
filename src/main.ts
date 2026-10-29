@@ -126,9 +126,17 @@ function header() {
 }
 
 function modelPill() {
+  const show = modelCardPickEnabled();
   const m = modelStatus;
-  const { text, title } = modelPillCopy(m, { modelPick: modelCardPickEnabled() });
-  return h("div", { class: `model-pill ${m.state}`, "data-testid": "model-status", "data-state": m.state, "data-runtime": m.runtime, title }, text);
+  const { text, title } = modelPillCopy(m, { modelPick: show });
+  return h("div", {
+    class: `model-pill ${m.state}${show ? "" : " is-dev-hidden"}`,
+    "data-testid": "model-status",
+    "data-state": m.state,
+    "data-runtime": m.runtime,
+    hidden: show ? undefined : true,
+    title,
+  }, text);
 }
 
 function footer() {

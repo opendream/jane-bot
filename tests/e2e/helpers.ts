@@ -56,6 +56,14 @@ export async function scrollClearOfHeader(page: Page, target: Locator) {
   });
 }
 
+/** True when two Playwright bounding boxes overlap on screen. */
+export function rectsOverlap(
+  a: { x: number; y: number; width: number; height: number },
+  b: { x: number; y: number; width: number; height: number },
+): boolean {
+  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+}
+
 /** Live geometry: the sticky header must not cover this element. */
 export async function assertHeaderDoesNotOverlap(page: Page, testid: string) {
   const geo = await page.evaluate((id) => {

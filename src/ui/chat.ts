@@ -118,7 +118,7 @@ function fromReply(r: TurnReply, modelPick = false, chatFirst = false): ChatMsg 
   if (r.kind === "card") {
     return { from: "jane", text: r.text, cardId: r.card.id, placeholder: !!r.card.placeholder, reworded: r.reworded, original: r.card.answer_th,
       banner: r.banner, chips: r.chips, offer: r.offer, offerIntents: r.offerIntents, cap: r.capNotice,
-      engine: r.engine, engineLabel: engineAnswerLabel(r.engine, modelPick || chatFirst), cardNote: r.cardNote,
+      engine: r.engine, engineLabel: engineAnswerLabel(r.engine, modelPick), cardNote: r.cardNote,
       softCrisis: r.softCrisis };
   }
   if (r.kind === "chat") {
@@ -147,7 +147,7 @@ function fromChatCard(r: Extract<TurnReply, { kind: "chat" }>, modelPick = false
   return {
     from: "jane", text: r.cardText, cardId: r.card.id, placeholder: !!r.card.placeholder, reworded: false, original: r.card.answer_th,
     banner: r.banner, chips: r.chips, offer: r.offer, offerIntents: r.offerIntents, cap: r.capNotice,
-    engine: r.engine, engineLabel: engineAnswerLabel(r.engine, modelPick || chatFirst), cardNote: r.cardNote,
+    engine: r.engine, engineLabel: engineAnswerLabel(r.engine, modelPick), cardNote: r.cardNote,
   };
 }
 
