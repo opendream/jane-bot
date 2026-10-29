@@ -434,6 +434,78 @@ describe("chat-first English replies", () => {
     }
   });
 
+  const scriptGateNoModel = [
+    "I'm suicidal",
+    "Suicidal",
+    "feeling suicidal",
+    "suicidal thoughts",
+    "wanna die",
+    "end my life",
+    "Forced sex",
+    "partner hit me",
+    "cutting myself",
+    "I cut myself every night",
+    "kill myself",
+    "he raped me",
+    "help",
+    "HELP",
+    "i want to kill myself",
+  ];
+
+  it.each(scriptGateNoModel)("not-clearly-Thai disclosure never calls the model: %s", async (line) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), line, deps(model));
+    expect(calls.chat + calls.pick + calls.reword).toBe(0);
+    if (detectCrisis(line).crisis) {
+      expect(r.reply.kind).toBe("crisis");
+    } else {
+      expect(r.reply.kind).not.toBe("chat");
+      expect(r.reply.kind === "card" || r.reply.kind === "crisis").toBe(true);
+    }
+  });
+
+  const mixedOrUnclearNoModel = [
+    "อยากตาย hi there",
+    "ถูกทำร้าย badly hurt",
+    "cutting เจ็บที่แขน",
+    "😭",
+    "😭😭😭",
+    "...",
+    "?",
+    "a",
+    "12345",
+  ];
+
+  it.each(mixedOrUnclearNoModel)("mixed or unclear input never calls the model: %s", async (line) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), line, deps(model));
+    expect(calls.chat + calls.pick + calls.reword).toBe(0);
+    if (detectCrisis(line).crisis) {
+      expect(r.reply.kind).toBe("crisis");
+    } else {
+      expect(r.reply.kind).not.toBe("chat");
+    }
+  });
+
+  it("Thai with one English bank word still makes one model call", async () => {
+    const { model, calls } = spyModel();
+    const hiv = await runTurn(newDialog(), "อยากตรวจ HIV ค่ะ", deps(model));
+    expect(hiv.reply.kind).toBe("chat");
+    expect(calls.chat).toBe(1);
+    const prep = await runTurn(newDialog(), "กิน PrEP ยังไง", deps(model));
+    expect(prep.reply.kind).toBe("chat");
+    expect(calls.chat).toBe(2);
+    expect(calls.pick + calls.reword).toBe(0);
+  });
+
+  it("a clearly Thai question still makes one model call", async () => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), "กินยาคุมยังไง", deps(model));
+    expect(r.reply.kind).toBe("chat");
+    expect(calls.chat).toBe(1);
+    expect(calls.pick + calls.reword).toBe(0);
+  });
+
   it("refusals and talk-to-a-person stay unchanged on an English turn", async () => {
     const { model, calls } = spyModel();
     const image = await runTurn(newDialog(), "send a photo please", deps(model));

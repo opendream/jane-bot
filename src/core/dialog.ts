@@ -9,7 +9,7 @@ import { retrieve } from "./retrieve";
 import { CHAT_TIMEOUT_MS, ENGLISH_MODEL_CHAT } from "../config";
 import { VALID_INTENTS } from "../llm/adapter";
 import { acceptChatReply, holdingLineFor } from "../llm/chatGuard";
-import { detectChatLang, type ChatLang } from "../llm/chat-lang";
+import { detectChatLang, modelChatScript, type ChatLang } from "../llm/chat-lang";
 import { bankAnswerForLang, cardNoteForLang } from "./card-lang";
 import { acceptReword, type RewordContext } from "../llm/rewordGuard";
 import type { IntentMatcher } from "./matcher";
@@ -382,11 +382,16 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     }
 
     const lang = detectChatLang(input);
-    // English model chat is gated by ENGLISH_MODEL_CHAT. While false, skip
-    // generation and show the rules card (English body or Thai + DRAFT note).
-    if (lang === "en" && !ENGLISH_MODEL_CHAT) {
+    const script = modelChatScript(input);
+    // Model chat is gated by letter script, not the English word list.
+    // Only clearly Thai (Thai letter share ≥ 60%) calls the model. English
+    // (Latin share ≥ 60%) is skipped while ENGLISH_MODEL_CHAT is false.
+    // Mixed/unclear (Thai share between 40% and 60%, <2 letters, no letters)
+    // never calls the model. Reply language still uses detectChatLang.
+    const allowModel = script === "th" || (script === "en" && ENGLISH_MODEL_CHAT);
+    if (!allowModel) {
       const top = rulesTop(retrieveText);
-      return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, lang);
+      return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, lang === "en" ? lang : undefined);
     }
 
     const history: { role: "user" | "assistant"; content: string }[] = [];

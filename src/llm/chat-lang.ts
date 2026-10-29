@@ -1,12 +1,37 @@
 /**
- * Per-turn chat language. Rules only — the model never chooses.
+ * Per-turn chat language and the model-call script gate. Rules only — the
+ * model never chooses.
  *
- * English iff at least 60% of letters are Latin AND the text contains at least
- * two English words. Everything else is Thai. Re-evaluate on every turn.
- * No other mixed-language detection.
+ * Reply language (`detectChatLang`): English iff at least 60% of letters are
+ * Latin AND the text contains at least two English words. Everything else is
+ * Thai. Used for persona, holding line, chip label, and bank English overlay.
+ *
+ * Model-call gate (`modelChatScript`): letter script only (digits, spaces,
+ * punctuation, and emoji are ignored). Thresholds:
+ *   - fewer than 2 letters, or no letters → mixed/unclear (no model call)
+ *   - Latin share ≥ 60% → English
+ *   - Thai share ≥ 60% → clearly Thai (model chat, as before)
+ *   - otherwise mixed (when the rest is Latin, Thai share is between 40%
+ *     and 60%) → no model call
+ * A Thai sentence with one English bank word (PrEP, HIV) stays Thai.
+ *
+ * Re-evaluate on every turn.
  */
 
 export type ChatLang = "th" | "en";
+/** Letter-script class for whether this turn may call the Thai chat model. */
+export type ChatScript = "th" | "en" | "mixed";
+
+/** Latin-letter share at or above this is English for both reply language and the model gate. */
+export const LATIN_SHARE_ENGLISH = 0.6;
+/**
+ * Thai-letter share at or above this is clearly Thai for the model-call gate.
+ * Mixed is the band below this and below LATIN_SHARE_ENGLISH (Thai share
+ * between 40% and 60% when the rest of the letters are Latin).
+ */
+export const THAI_SHARE_MODEL_CHAT = 0.6;
+/** Unclear: fewer than this many letters never reaches the model. */
+export const MIN_LETTERS_FOR_SCRIPT = 2;
 
 /**
  * Common English function words plus SRH terms Jane actually sees.
@@ -28,15 +53,17 @@ const ENGLISH_WORDS = new Set<string>([
   "would", "yes", "you", "your",
 ]);
 
-function lettersOf(s: string): { latin: number; total: number } {
+function lettersOf(s: string): { latin: number; thai: number; total: number } {
   let latin = 0;
+  let thai = 0;
   let total = 0;
   for (const c of s) {
     if (!/\p{L}/u.test(c)) continue;
     total++;
     if (/[A-Za-z]/.test(c)) latin++;
+    else if (/\p{Script=Thai}/u.test(c)) thai++;
   }
-  return { latin, total };
+  return { latin, thai, total };
 }
 
 function englishWordCount(s: string): number {
@@ -58,9 +85,23 @@ export function detectChatLang(text: string): ChatLang {
   const raw = text == null ? "" : String(text).normalize("NFC");
   const { latin, total } = lettersOf(raw);
   if (total === 0) return "th";
-  if (latin / total < 0.6) return "th";
+  if (latin / total < LATIN_SHARE_ENGLISH) return "th";
   if (englishWordCount(raw) < 2) return "th";
   return "en";
+}
+
+/**
+ * Whether this turn may reach Thai model chat. English (≥60% Latin) and
+ * mixed/unclear (Thai share between 40% and 60%, <2 letters, no letters,
+ * other scripts) do not. Only clearly Thai (Thai letter share ≥ 60%) does.
+ */
+export function modelChatScript(text: string): ChatScript {
+  const raw = text == null ? "" : String(text).normalize("NFC");
+  const { latin, thai, total } = lettersOf(raw);
+  if (total < MIN_LETTERS_FOR_SCRIPT) return "mixed";
+  if (latin / total >= LATIN_SHARE_ENGLISH) return "en";
+  if (thai / total >= THAI_SHARE_MODEL_CHAT) return "th";
+  return "mixed";
 }
 
 /**
@@ -70,5 +111,5 @@ export function detectChatLang(text: string): ChatLang {
 export function mostlyLatin(text: string): boolean {
   const { latin, total } = lettersOf(text.normalize("NFC"));
   if (total === 0) return false;
-  return latin / total >= 0.6;
+  return latin / total >= LATIN_SHARE_ENGLISH;
 }
