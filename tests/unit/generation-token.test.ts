@@ -3,6 +3,7 @@ import {
   bumpGenerationToken,
   currentGenerationToken,
   isCurrentGeneration,
+  onGenerationTokenChange,
   resetGenerationTokenForTests,
   shouldSkipGeneration,
 } from "../../src/llm/generation-token";
@@ -32,5 +33,16 @@ describe("generation token", () => {
     ac.abort();
     expect(shouldSkipGeneration(undefined, ac.signal)).toBe(true);
     expect(shouldSkipGeneration(undefined)).toBe(false);
+  });
+
+  it("onGenerationTokenChange fires on bump", () => {
+    let n = 0;
+    const stop = onGenerationTokenChange(() => { n += 1; });
+    bumpGenerationToken();
+    bumpGenerationToken();
+    expect(n).toBe(2);
+    stop();
+    bumpGenerationToken();
+    expect(n).toBe(2);
   });
 });

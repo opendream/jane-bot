@@ -17,6 +17,7 @@ import {
   resetGenerationTokenForTests,
   shouldSkipGeneration,
 } from "../../src/llm/generation-token";
+import { createGenerationQueue } from "../../src/llm/generation-queue";
 
 const SAFE_CHAT = "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย";
 const BAD_CHAT = "กิน 2 เม็ด แล้วไม่ท้องแน่ https://evil.test";
@@ -37,7 +38,7 @@ function delayedModel(opts: { delayMs?: number; serial?: boolean; replies?: Arra
   const calls = { chat: 0, pick: 0, started: 0, lastChat: "" };
   const replies = opts.replies ?? [];
   let n = 0;
-  let busy = Promise.resolve<string | null>(null);
+  const queue = opts.serial ? createGenerationQueue() : null;
   const run = async (
     text: string,
     _history: { role: "user" | "assistant"; content: string }[],
@@ -63,12 +64,8 @@ function delayedModel(opts: { delayMs?: number; serial?: boolean; replies?: Arra
   const model: DialogModel = {
     ready: () => true,
     pickCard: async () => "none",
-    chatReply: opts.serial
-      ? (text, history, signal, lang, groupId) => {
-        const p = busy.then(() => run(text, history, signal, lang, groupId), () => run(text, history, signal, lang, groupId));
-        busy = p.catch(() => null);
-        return p;
-      }
+    chatReply: queue
+      ? (text, history, signal, lang, groupId) => queue.run(groupId, signal, (s) => run(text, history, s, lang, groupId))
       : run,
   };
   return { model, calls };
@@ -232,6 +229,41 @@ describe("chat-first message grouping", () => {
     const p3 = s.send(C);
     await p1; await p2; await p3;
     expect(calls.chat).toBe(1);
+  });
+
+  it("an abandoned timed-out call does not delay the next turn", async () => {
+    const queue = createGenerationQueue();
+    const calls = { started: 0, aborted: 0 };
+    const model: DialogModel = {
+      ready: () => true,
+      chatReply: (_text, _history, signal, _lang, groupId) =>
+        queue.run(groupId, signal, async (s) => {
+          calls.started++;
+          const waitMs = calls.started === 1 ? 250 : 5;
+          try {
+            await new Promise<void>((resolve, reject) => {
+              const t = setTimeout(resolve, waitMs);
+              const onAbort = () => { clearTimeout(t); calls.aborted++; reject(new Error("aborted")); };
+              if (s.aborted) return onAbort();
+              s.addEventListener("abort", onAbort, { once: true });
+            });
+          } catch { return null; }
+          if (shouldSkipGeneration(groupId, s)) return null;
+          return SAFE_CHAT;
+        }),
+    };
+    const s = new DialogSession("18+", deps(model, { chatTimeoutMs: 25 }));
+    s.start();
+    const first = await s.send(A);
+    expect(first?.kind).toBe("card");
+    expect(calls.aborted).toBeGreaterThan(0);
+    const beforeStarted = calls.started;
+    const t0 = Date.now();
+    const second = s.send(B);
+    await waitUntil(() => calls.started > beforeStarted, 200);
+    expect(Date.now() - t0).toBeLessThan(80);
+    const r2 = await second;
+    expect(r2?.kind).toBe("chat");
   });
 });
 
