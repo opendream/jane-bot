@@ -27,14 +27,23 @@ export function countedGroupMessages(messages: readonly string[]): string[] {
   return messages.filter((m) => !isEmojiOnly(m));
 }
 
-/** True when the group must take the no-model card path. Idle emoji-only is false. */
-export function groupTakesNoModelPath(messages: readonly string[], allowEnglish: boolean): boolean {
+/**
+ * True when the group must take the no-model card path. Idle emoji-only is false.
+ * `allowMixed` is for chat-first AMBIGUOUS: leftover crisis-token Latin still
+ * takes Thai chat. English stays off the model unless `allowEnglish` is true.
+ */
+export function groupTakesNoModelPath(
+  messages: readonly string[],
+  allowEnglish: boolean,
+  allowMixed = false,
+): boolean {
   const counted = countedGroupMessages(messages);
   if (!counted.length) return false;
   return counted.some((m) => {
     const script = modelChatScript(m);
     if (script === "th") return false;
     if (script === "en") return !allowEnglish;
+    if (allowMixed) return false;
     return true;
   });
 }

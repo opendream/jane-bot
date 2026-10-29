@@ -25,15 +25,21 @@ Art: 2018 *Sex Safe Safe* vector stars and approved figures in `src/assets/jane/
 7. Crisis detection has two levels: **override** (full crisis screen) and **banner** (topic/fiction/news or resolved mild
    wording: normal flow plus a crisis strip with the numbers). False-positive probe: `evals/crisis-fp-set.json` → `evals/crisis-scorecard.md`.
    Chat then runs an add-only extra check (`src/core/chat-crisis.ts`) after pinned `crisis.ts`. The extra check has three
-   outcomes: **CLEAR** (full crisis screen, no model), **AMBIGUOUS** (the turn's bank card plus a DRAFT Thai line
-   `ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ` and a button that opens the existing crisis screen; no model), or **NONE**.
-   Precision guards (never on the pin) only downgrade CLEAR → AMBIGUOUS, never to NONE: Thai `ไม่` / `ไม่ค่อย` / `ไม่เคย` /
-   `ไม่เคยคิด` / `ไม่คิดจะ` / `ไม่ได้` / `ไม่ได้คิดจะ` with optional spaces before `อยาก`/`คิดจะ` + die/kms/unalive; up to two
-   words between don't/dont/do not/never and wanna/want to die; a same-clause ทำให้…ไหม / แล้ว…ไหม / ผลข้างเคียง / cause…? /
-   side-effect frame or `ไม่ได้รู้สึก` around suicidal; same-clause accidental cut (shaving, wrapper, razor, nails, by accident
-   / โกน not inside มีดโกน, ซอง, เล็บ, โดนบาด). มีดโกน is a self-harm tool, not an accident cue. A help-seeking tail never
-   weakens a disclosure. A separate first-person disclosure in the same message still opens the crisis screen. Jane is
-   Thai-only for now; English extra-check rules are a short exact-phrase list.
+   outcomes: **CLEAR** (full crisis screen, no model), **AMBIGUOUS** (chat-first is model-first: the same
+   guarded model reply as a NONE turn — guard, one retry — plus a fixed DRAFT Thai line
+   `ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ` and a button that opens the existing crisis screen;
+   the bank card is only a fallback on guard fail after retry, timeout, model not ready, or
+   non-Thai text. Card-first stays card plus that DRAFT line), or **NONE**.
+   Precision guards (never on the pin) only downgrade CLEAR → AMBIGUOUS, never to NONE, and only when the cue is
+   structurally bound to the crisis term: Thai `ไม่` / `ไม่ค่อย` / `ไม่เคย` / `ไม่เคยคิด` / `ไม่คิดจะ` / `ไม่ได้` /
+   `ไม่ได้คิดจะ` with optional spaces immediately before `อยาก`/`คิดจะ`/`รู้สึก` (not `ทนไม่ได้` / `นอนไม่ได้` / `กินไม่ได้` /
+   `ไม่ไหว`); up to two words between don't/dont/do not/never and wanna/want to die; a same-clause question whether the
+   feeling is a side effect (`X เป็นผลข้างเคียง…ไหม`, `กิน/ใช้/ฉีด` drug `แล้วรู้สึก X` …ไหม/มั้ย, or ทำให้…ได้ไหม — not
+   `ไหวไหม` / `เข้าใจหนูไหม` / `ควรบอกแม่ไหม`) or `ไม่ได้รู้สึก`; same-clause passive/accidental cut (shaving, wrapper, razor,
+   nails, by accident, `โดนมีดบาด`, `บาดตอนโกน`, `เผลอบาด`, `ตอนโกน`). `มีดโกน` / `ที่ใช้โกนขน` naming the tool is not an
+   accident. A help-seeking tail never weakens a disclosure. The multi-turn window may only escalate to CLEAR (a previous
+   AMBIGUOUS line is not inherited). A separate first-person disclosure in the same message still opens the crisis screen.
+   Jane is Thai-only for now; English extra-check rules are a short exact-phrase list.
 
 ## On-device model (optional; the app works without it)
 

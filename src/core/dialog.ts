@@ -46,11 +46,17 @@ export type { CardPicker, EngineReason, EngineTag } from "./pick-engine";
  *   1. crisis rules (every message, synchronous, BEFORE anything else; never the model or matcher)
  *      pinned detectCrisis first (raw AND NFKC/folded/lowercased; hit on either
  *      is crisis), then an add-only chat-crisis check (never clears a pin):
- *      CLEAR → existing crisis screen; AMBIGUOUS → bank card + DRAFT soft line
- *      (no model); NONE → continue. Both run on every turn, whatever the
- *      letter-script class, on both paths. Then the script/allowlist gate:
- *      English → English model chat, clearly Thai → Thai chat,
- *      mixed/unclear → 0 model calls (fixed card or fallback).
+ *      CLEAR → existing crisis screen (no model); AMBIGUOUS on chat-first is
+ *      MODEL-FIRST: the same guarded chat path as NONE (guard, one retry) plus
+ *      a fixed DRAFT soft line and a button that opens the existing crisis
+ *      screen. The bank card is only a fallback (guard fail after retry,
+ *      timeout, model not ready, or non-Thai while ENGLISH_MODEL_CHAT is
+ *      false). Card-first AMBIGUOUS stays card + DRAFT soft line. Staff
+ *      request → referral card + the same soft line. NONE → continue.
+ *      Both run on every turn, whatever the letter-script class, on both
+ *      paths. Then the script/allowlist gate: English → English model chat,
+ *      clearly Thai → Thai chat, mixed/unclear → 0 model calls except
+ *      chat-first AMBIGUOUS (Thai-majority mixed still takes Thai chat).
  *   2. input guard (refusals; chat-first banner-level wording comes after this)   3. follow-up chips
  *   4. optional matcher (injected only when the desktop-dev flag is on; abstain → fallback)
  *   5. rules retrieval   6. model pick (only if unsure; every free-text turn when modelPick is on, except locked routes)
@@ -290,7 +296,7 @@ export type Via = "followup" | "rules" | "model" | "rules_top1" | "fallback" | "
 export type TurnReply =
   | { kind: "crisis"; categories: CrisisCategory[]; engine?: EngineTag; groupId?: number }
   | { kind: "readonly"; groupId?: number }
-  | { kind: "referral"; intents: Intent[]; banner: CrisisCategory[]; capNotice: CapNotice; groupId?: number }
+  | { kind: "referral"; intents: Intent[]; banner: CrisisCategory[]; capNotice: CapNotice; groupId?: number; softCrisis?: { line: string; categories: CrisisCategory[] } }
   | { kind: "idle"; capNotice: CapNotice; groupId?: number }
   | {
       kind: "card"; card: BankCard; text: string; reworded: boolean; via: Via; banner: CrisisCategory[];
@@ -303,6 +309,8 @@ export type TurnReply =
       kind: "chat"; text: string; card: BankCard | null; cardText: string | null; via: Via; banner: CrisisCategory[];
       chips: CardNext[]; offer: "none" | "soft" | "strong"; offerIntents: Intent[]; capNotice: CapNotice;
       engine?: EngineTag; engineReason?: EngineReason; holding?: boolean; cardNote?: string | null; groupId?: number;
+      /** AMBIGUOUS extra-check: DRAFT line + button on the model reply. */
+      softCrisis?: { line: string; categories: CrisisCategory[] };
     };
 export type CapNotice = "soft" | "hard" | null;
 
@@ -441,8 +449,26 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     return reply(REFUSAL_CARDS[g], "guard", g, pickOn ? "rules-guard" : undefined);
   }
 
-  // AMBIGUOUS: the turn's bank card plus a DRAFT soft line. Never the model.
-  if (extraAmbiguous) {
+  const softCrisis = extraAmbiguous
+    ? { line: AMBIGUOUS_CRISIS_LINE_TH, categories: extraAmbiguous.categories }
+    : undefined;
+
+  // AMBIGUOUS + staff request: referral card plus the DRAFT soft line. Never the model.
+  if (extraAmbiguous && findPhrases(input, HUMAN_ASK).length) {
+    return {
+      state: { ...state, turns, recentUser, pendingChips: [] },
+      reply: {
+        kind: "referral",
+        intents: asIntents(state.topic, retrieve(input, []).prior.intents),
+        banner,
+        capNotice,
+        softCrisis,
+      },
+    };
+  }
+
+  // Card-first AMBIGUOUS: the turn's bank card plus a DRAFT soft line. Never the model.
+  if (extraAmbiguous && !chatFirst) {
     const top = rulesTop(input);
     return verbatimCard(
       top.card,
@@ -451,14 +477,14 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
       undefined,
       undefined,
       null,
-      { line: AMBIGUOUS_CRISIS_LINE_TH, categories: extraAmbiguous.categories },
+      softCrisis,
     );
   }
 
   // Chat-first: banner-level wording is a rules-only turn (no generation). After refusals.
   if (chatFirst && crisis.level === "banner") {
     const top = rulesTop(input);
-    return verbatimCard(top.card, top.via, "rules-fallback");
+    return verbatimCard(top.card, top.via, "rules-fallback", undefined, undefined, null, softCrisis);
   }
 
   // "Talk to a real person" → referral offer for the current topic.
@@ -507,21 +533,24 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     if (plan.reason === "post-crisis" || plan.reason === "locked") {
       const chosen = plan.reason === "locked" && lockedCard ? lockedCard : rulesTop(retrieveText).card;
       const via = plan.reason === "locked" ? "rules" as const : rulesTop(retrieveText).via;
-      return verbatimCard(chosen, via, plan.reason === "locked" ? "rules-locked" : undefined);
+      return verbatimCard(chosen, via, plan.reason === "locked" ? "rules-locked" : undefined, undefined, undefined, null, softCrisis);
     }
 
     const lang = groupReplyLang(groupMessages);
     // Crisis already returned above (pin, then extra check) on every script
     // class. Model chat is then gated per message: if any counted message
     // would take the no-model path, the group takes it (card). Emoji-only
-    // messages do not count either way.
+    // messages do not count either way. Chat-first AMBIGUOUS is model-first:
+    // leftover crisis-token Latin (mixed) still takes Thai chat. English
+    // script stays off the model while ENGLISH_MODEL_CHAT is false (card +
+    // DRAFT soft line).
     const allowEnglishChat = deps.englishModelChat ?? ENGLISH_MODEL_CHAT;
     if (countedGroupMessages(groupMessages).length === 0) {
       return { state: { ...state, turns, recentUser }, reply: { kind: "idle", capNotice } };
     }
-    if (groupTakesNoModelPath(groupMessages, allowEnglishChat)) {
+    if (groupTakesNoModelPath(groupMessages, allowEnglishChat, !!extraAmbiguous)) {
       const top = rulesTop(retrieveText);
-      return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, lang === "en" ? lang : undefined);
+      return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, lang === "en" ? lang : undefined, softCrisis);
     }
 
     const history: { role: "user" | "assistant"; content: string }[] = [];
@@ -538,7 +567,7 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
 
     if (!plan.callChat || !live?.ready() || !live.chatReply) {
       const top = rulesTop(retrieveText);
-      return verbatimCard(top.card, top.via, tagged ? "rules-not-ready" : undefined);
+      return verbatimCard(top.card, top.via, tagged ? "rules-not-ready" : undefined, undefined, undefined, null, softCrisis);
     }
     if (stale()) return dropStale();
 
@@ -550,7 +579,7 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     if (stale()) return dropStale();
     if (out == null) {
       const top = rulesTop(retrieveText);
-      return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined);
+      return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, null, softCrisis);
     }
     let acc = acceptChatReply(out, lang);
     if (!acc.ok) {
@@ -558,13 +587,13 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
       if (stale()) return dropStale();
       if (out == null) {
         const top = rulesTop(retrieveText);
-        return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined);
+        return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, null, softCrisis);
       }
       acc = acceptChatReply(out, lang);
     }
     if (!acc.ok) {
       const top = rulesTop(retrieveText);
-      return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, lang === "en" ? lang : undefined);
+      return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, lang === "en" ? lang : undefined, softCrisis);
     }
     const chatText = acc.text;
 
@@ -649,6 +678,7 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
         capNotice,
         ...(engine ? { engine } : {}),
         ...(engineReason ? { engineReason } : {}),
+        ...(softCrisis ? { softCrisis } : {}),
       },
     };
   }

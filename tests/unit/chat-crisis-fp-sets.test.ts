@@ -453,8 +453,9 @@ async function scanPathOutcomes(items: Item[], deps: TurnDeps): Promise<OutcomeC
     }
     const r = await runTurn(newDialog(), x.text, deps);
     if (r.reply.kind === "crisis") out.clear += 1;
-    else if (r.reply.kind === "card" && r.reply.softCrisis) out.ambiguous += 1;
-    else out.none += 1;
+    else if ((r.reply.kind === "card" || r.reply.kind === "chat" || r.reply.kind === "referral") && r.reply.softCrisis) {
+      out.ambiguous += 1;
+    } else out.none += 1;
   }
   return out;
 }
