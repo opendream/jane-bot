@@ -5,6 +5,7 @@ import type { Intent } from "../core/types";
 import { cachedBlob } from "./weights-cache";
 import { CLASSIFY_SCHEMA, CLASSIFY_SYSTEM, POLISH_SYSTEM, PICK_SYSTEM, PICK_MAX_TOKENS, REWORD_SYSTEM, REWORD_MAX_TOKENS, cleanPolished, cleanReword, parseIntent, pickSchema, pickUser, rewordUser } from "./prompts";
 import { CHAT_MAX_TOKENS, CHAT_TEMPERATURE, CHAT_TOP_P, chatSystemFor, cleanChat } from "./chat-system";
+import { runChatWarmup } from "./chat-warmup";
 import { detectChatLang } from "./chat-lang";
 import { wllamaContextLength } from "./wllama-ctx";
 import { shouldSkipGeneration } from "./generation-token";
@@ -43,6 +44,21 @@ export async function loadWllama(
   // would otherwise hit the 8 s classify timeout on her first message.
   await classifyRaw("สวัสดี").catch(() => "");
   onProgress(1);
+  // Chat warm-up is background: crisis/card never wait. A user turn aborts it
+  // via the generation queue. Synthetic prompt only; no network.
+  void runChatWarmup(async ({ user, maxTokens, signal, groupId, lang }) => {
+    await chatQueue.run(groupId, signal, async (s) => {
+      if (shouldSkipGeneration(groupId, s)) return null;
+      await w.createChatCompletion({
+        messages: [
+          { role: "system", content: chatSystemFor(lang) },
+          { role: "user", content: `${user} /no_think` },
+        ],
+        max_tokens: maxTokens, temperature: 0, abortSignal: s,
+      } as any);
+      return null;
+    });
+  }).catch(() => {});
   return {
     name: `${label} (WASM)`,
     runtime: "wasm" as const,

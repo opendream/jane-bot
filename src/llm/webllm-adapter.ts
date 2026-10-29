@@ -5,6 +5,7 @@ import type { WebGpuBuild } from "./models";
 import { modelUrl } from "./weights-cache";
 import { CLASSIFY_SYSTEM, POLISH_SYSTEM, PICK_SYSTEM, PICK_MAX_TOKENS, REWORD_SYSTEM, REWORD_MAX_TOKENS, cleanPolished, cleanReword, parseIntent, pickSchema, pickUser, rewordUser } from "./prompts";
 import { CHAT_MAX_TOKENS, CHAT_TEMPERATURE, CHAT_TOP_P, chatSystemFor, cleanChat } from "./chat-system";
+import { runChatWarmup } from "./chat-warmup";
 import { detectChatLang } from "./chat-lang";
 import { needLine, replaceNeedLine } from "./summary-lines";
 import { isWebGpuRuntimeFailure } from "./gpu-failure";
@@ -107,6 +108,32 @@ export async function bindWebLLMEngine(
   // Do not wait for a previous GPU generate: interrupt is best-effort and a
   // late result is discarded by the generation token.
   const chatQueue = createGenerationQueue({ waitForPrevious: false });
+
+  // Chat warm-up is background: crisis/card never wait. A user turn aborts it.
+  // Synthetic prompt only; no network. interruptGenerate cancels if a turn arrives.
+  void runChatWarmup(async ({ user, maxTokens, signal, groupId, lang }) => {
+    await chatQueue.run(groupId, signal, async (s) => {
+      if (shouldSkipGeneration(groupId, s)) return null;
+      const stop = () => {
+        try { void engine.interruptGenerate?.(); } catch { /* best-effort */ }
+      };
+      if (s.aborted) { stop(); return null; }
+      s.addEventListener("abort", stop, { once: true });
+      try {
+        await engine.chat.completions.create({
+          messages: [
+            { role: "system", content: chatSystemFor(lang) },
+            { role: "user", content: user },
+          ],
+          max_tokens: maxTokens, temperature: 0,
+          extra_body: { enable_thinking: false },
+        });
+        return null;
+      } finally {
+        s.removeEventListener("abort", stop);
+      }
+    });
+  }).catch(() => {});
 
   return {
     name: `${label} (WebGPU)`,
