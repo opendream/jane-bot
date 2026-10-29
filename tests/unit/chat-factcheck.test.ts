@@ -38,6 +38,40 @@ describe("must-reject regressions", () => {
     expect(chatFactCheckFailures("A nineteen year old needs a parent present to get PrEP.", PREP.answer_th))
       .toContain("permission");
   });
+
+  // Codex HIGH 1: reworded permission claims (no ผู้ปกครอง / parent token).
+  it.each([
+    "อายุสิบเก้าต้องให้คุณพ่อคุณแม่ไปด้วยนะคะ",
+    "ต้องให้พ่อหรือแม่เซ็น",
+    "ต้องพาผู้ใหญ่ไปด้วย",
+  ])("rejects reworded PrEP permission %s", (reply) => {
+    expect(acceptChatFacts(reply, PREP.answer_th).ok).toBe(false);
+  });
+
+  // Codex HIGH 2: invented instructions / units, including verb-group leaks.
+  it("rejects double-condom-is-safer against the leak card", () => {
+    expect(acceptChatFacts("ใส่ถุงยางสองชั้นจะปลอดภัยกว่านะคะ", CONDOM_LEAK.answer_th).ok).toBe(false);
+  });
+
+  it("rejects douching-with-soapy-water against the leak card (ล้าง on the card is not a free pass)", () => {
+    expect(acceptChatFacts("สวนช่องคลอดด้วยน้ำสบู่", CONDOM_LEAK.answer_th).ok).toBe(false);
+  });
+
+  it("rejects drink-two-bottles against birth.control.000", () => {
+    expect(acceptChatFacts("ดื่มยาคุมสองขวดนะ", BIRTH.answer_th).ok).toBe(false);
+  });
+
+  // Codex HIGH 3: Thai number word invents an age limit with no unit beside it.
+  it("rejects invented PrEP age สิบเก้า with no unit", () => {
+    const reasons = chatFactCheckFailures("อายุสิบเก้าถึงรับเพร็พได้นะ", PREP.answer_th);
+    expect(reasons).toContain("quantity");
+    expect(acceptChatFacts("อายุสิบเก้าถึงรับเพร็พได้นะ", PREP.answer_th).ok).toBe(false);
+  });
+
+  // Codex MEDIUM 7: named hospitals and provinces.
+  it.each(["ไปศิริราชเลยนะ", "อยู่เชียงใหม่ได้นะ"])("rejects place name %s against the PrEP card", (reply) => {
+    expect(acceptChatFacts(reply, PREP.answer_th).ok).toBe(false);
+  });
 });
 
 const PLANTS: { extra: string; reason: "quantity" | "instruction" | "permission" }[] = [
@@ -47,7 +81,7 @@ const PLANTS: { extra: string; reason: "quantity" | "instruction" | "permission"
   { extra: "เอากุงยางไปอุ่น", reason: "instruction" },
   { extra: "ล้างด้วยสบู่", reason: "instruction" },
   { extra: "สอดเข้าไป", reason: "instruction" },
-  { extra: "ทายาเอง", reason: "instruction" },
+  { extra: "ทายาเอง", reason: "coverage" },
   { extra: "กินยาแก้ปวด", reason: "instruction" },
   { extra: "heat it first", reason: "instruction" },
   { extra: "ต้องมีผู้ปกครองไปด้วย", reason: "permission" },
@@ -69,24 +103,62 @@ const FAITHFUL: { id: string; reply: string }[] = [
     reply: "ถุงยางกันได้ทั้งท้องและโรค ถ้าใช้ถูกวิธีก็เวิร์กเลย",
   },
   {
+    id: "condom.000",
+    reply: "ถุงยางกันได้ทั้งเรื่องท้องและเรื่องโรคเลย",
+  },
+  {
+    id: "condom.000",
+    reply: "ถ้าใช้อย่างถูกวิธี ถุงยางเวิร์กสุดแล้วนะ",
+  },
+  {
     id: "condom.leak.000",
     reply: "ถุงยางแตกได้หลายสาเหตุ เช่น ไซส์ไม่พอดี ใกล้ความร้อน หรือหมดอายุ ถ้าแตกให้หยุด ล้าง แล้วเปลี่ยนถุงใหม่นะ",
+  },
+  {
+    id: "condom.leak.000",
+    reply: "ถุงยางแตกได้หลายสาเหตุ เช่น ไซส์ไม่พอดี หรือหมดอายุนะ",
+  },
+  {
+    id: "condom.leak.000",
+    reply: "ถ้าแตกควรหยุด ไปล้างแล้วเปลี่ยนถุงอันใหม่นะ",
   },
   {
     id: "birth.control.000",
     reply: "ยาคุมกันท้องได้แต่กันโรคไม่ได้นะ",
   },
   {
+    id: "birth.control.000",
+    reply: "ยาคุมกันท้องได้ แต่ยังกันโรคไม่ได้นะ",
+  },
+  {
+    id: "birth.control.000",
+    reply: "ยาคุมกำเนิดมีให้เลือกหลายประเภทเลย",
+  },
+  {
     id: "protection.prep.000",
     reply: "เพร็พคือยาลดความเสี่ยง HIV กินไว้ก่อนมีกิจกรรมเสี่ยงนะ",
+  },
+  {
+    id: "protection.prep.000",
+    reply: "เพร็พคือยาสำหรับลดความเสี่ยง HIV ทานไว้ก่อนมีกิจกรรมเสี่ยงนะ",
+  },
+  {
+    id: "protection.prep.000",
+    reply: "คนไทยทุกคนรับเพร็พฟรีได้ที่หน่วยบริการนะ",
   },
 ];
 
 describe("false-positive: faithful paraphrases of real cards pass", () => {
-  it.each(FAITHFUL)("$id paraphrase is accepted", ({ id, reply }) => {
+  it.each(FAITHFUL)("$id paraphrase is accepted: $reply", ({ id, reply }) => {
     const card = byId(id);
     expect(chatFactCheckFailures(reply, card.answer_th), reply).toEqual([]);
     expect(acceptChatFacts(reply, card.answer_th).ok).toBe(true);
+  });
+
+  it("does not false-reject ทาน / ทาง / ซักถาม via Thai substring (Codex MEDIUM 4)", () => {
+    expect(acceptChatFacts("เพร็พคือยาสำหรับลดความเสี่ยง HIV ทานไว้ก่อนมีกิจกรรมเสี่ยงนะ", PREP.answer_th).ok).toBe(true);
+    expect(acceptChatFacts("น้องซักถามได้เลยนะ", "").ok).toBe(true);
+    expect(chatFactCheckFailures("ทางนี้พี่เข้าใจนะ", "")).toEqual([]);
   });
 
   it("clips of real first lines (digits stripped) pass the fact check", () => {

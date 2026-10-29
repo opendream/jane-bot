@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ENGLISH_MODEL_CHAT } from "../../src/config";
-import { BANK } from "../../src/core/bankData";
+import { BANK, BANK_FIXTURES } from "../../src/core/bankData";
 import { retrieve } from "../../src/core/retrieve";
 import { FALLBACK_ID, WELCOME_ID } from "../../src/core/dialog";
 import { shippable } from "../../src/core/bank";
@@ -73,6 +73,21 @@ describe("groundingCard (rules matcher top card)", () => {
     const r = retrieve("ขอสูตรเค้กช็อกโกแลตที่ไม่มีในคลัง", pool);
     expect(groundingCard(r)).toBeNull();
   });
+
+  it("does not return an 18+ card for unverified or underage context (Codex MEDIUM 6)", () => {
+    const adult = BANK_FIXTURES.find((c) => c.id === "other.adult_only.000")!;
+    const withAdult = [...pool, adult];
+    const r = retrieve("เนื้อหาทดสอบสิบแปดบวก", withAdult);
+    expect(r.confident).toBe(true);
+    expect(r.ranked[0]?.card.id).toBe("other.adult_only.000");
+    expect(groundingCard(r)).toBeNull();
+    expect(groundingCard(r, "15-17")).toBeNull();
+    expect(groundingCard(r, "unspecified")).toBeNull();
+    expect(groundingCard(r, null)).toBeNull();
+    expect(groundingCard(r, "18-24")?.id).toBe("other.adult_only.000");
+    expect(groundingCard(r, "25+")?.id).toBe("other.adult_only.000");
+    expect(groundingCard(r, "18+")?.id).toBe("other.adult_only.000");
+  });
 });
 
 describe("acceptGroundedChat (trim + guard + fact check)", () => {
@@ -83,6 +98,12 @@ describe("acceptGroundedChat (trim + guard + fact check)", () => {
 
   it("rejects an incomplete reply", () => {
     const acc = acceptGroundedChat("น้องเล่าเพิ่", "th", leak.answer_th);
+    expect(acc.ok).toBe(false);
+    if (!acc.ok) expect(acc.reasons).toContain("incomplete");
+  });
+
+  it("rejects a particle-only trim leftover as incomplete", () => {
+    const acc = acceptGroundedChat("ค่ะ เรื่องแฟนนี่พี่เข้าใจ", "th", leak.answer_th);
     expect(acc.ok).toBe(false);
     if (!acc.ok) expect(acc.reasons).toContain("incomplete");
   });

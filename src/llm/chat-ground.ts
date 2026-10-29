@@ -5,6 +5,7 @@
  * Never logs user text.
  */
 
+import { ageAllowed, type AgeState } from "../core/age";
 import type { BankCard } from "../core/bank";
 import type { Retrieval } from "../core/retrieve";
 import { acceptChatReply, type ChatGuardReason } from "./chatGuard";
@@ -21,14 +22,20 @@ export type GroundedAccept =
   | { ok: false; reasons: GroundedFailReason[] };
 
 /**
- * Well-enough = rules retrieval is confident on a shippable non-fallback card.
- * Weak / empty matches leave facts null so the model may only give a short
- * warm no-fact reply and point at ขอข้อมูลเลย.
+ * Well-enough = rules retrieval is confident on a shippable non-fallback card
+ * that also passes the same age/eligibility gate as card display. An 18+
+ * card never reaches the model for an unverified or underage context
+ * (facts stay null; display still redirects via afterPick).
  */
-export function groundingCard(retrieved: Retrieval, fallbackId = "general.fallback.000"): BankCard | null {
+export function groundingCard(
+  retrieved: Retrieval,
+  age: AgeState = null,
+  fallbackId = "general.fallback.000",
+): BankCard | null {
   if (!retrieved.confident) return null;
   const top = retrieved.ranked[0]?.card;
   if (!top || top.id === fallbackId) return null;
+  if (!ageAllowed(top, age)) return null;
   return top;
 }
 

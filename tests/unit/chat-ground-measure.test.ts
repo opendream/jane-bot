@@ -19,8 +19,11 @@ describe("grounded fixture-set measurement (no live model)", () => {
 
     const byId = new Map(r.rows.map((row) => [row.id, row]));
     expect(byId.get("keep-warm")?.accepted).toBe(true);
+    expect(byId.get("keep-prep-than")?.accepted).toBe(true);
     expect(byId.get("fb-heat-condom")?.accepted).toBe(false);
     expect(byId.get("fb-parent-prep")?.accepted).toBe(false);
     expect(byId.get("fb-incomplete")?.accepted).toBe(false);
+    expect(byId.get("fb-prep-age-word")?.accepted).toBe(false);
+    expect(byId.get("fb-particle-only")?.accepted).toBe(false);
   });
 });

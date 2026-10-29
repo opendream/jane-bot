@@ -575,7 +575,7 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     }
     if (stale()) return dropStale();
 
-    const groundCard = groundingCard(retrieved);
+    const groundCard = groundingCard(retrieved, state.ageBand);
     const cardFacts = groundCard ? bankAnswerForLang(groundCard, lang) : null;
     const grounding: ChatGrounding = { facts: cardFacts };
 

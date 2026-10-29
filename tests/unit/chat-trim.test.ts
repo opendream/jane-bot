@@ -41,4 +41,18 @@ describe("trimToLastCompleteSentence", () => {
   it("does not treat คะ inside คะแนน as an ending", () => {
     expect(trimToLastCompleteSentence("ดูคะแนนรวมก่อน")).toBeNull();
   });
+
+  it("does not treat a lone particle as a complete sentence (Codex MEDIUM 5)", () => {
+    expect(endsComplete("ค่ะ")).toBe(false);
+    expect(trimToLastCompleteSentence("ค่ะ")).toBeNull();
+    expect(trimToLastCompleteSentence("ค่ะ เรื่องแฟนนี่พี่เข้าใจ")).toBeNull();
+    expect(trimToLastCompleteSentence("ค่ะ เรื่องแฟนนี่พี่เข้าใจเรื่")).toBeNull();
+    expect(trimToLastCompleteSentence("นะ")).toBeNull();
+    expect(trimToLastCompleteSentence("เลยค่ะ")).toBeNull();
+  });
+
+  it("still keeps a particle ending when at least two content words remain", () => {
+    expect(trimToLastCompleteSentence("พี่เข้าใจนะ")).toBe("พี่เข้าใจนะ");
+    expect(endsComplete("พี่เข้าใจนะ")).toBe(true);
+  });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { ENGLISH_MODEL_CHAT } from "../../src/config";
-import { BANK } from "../../src/core/bankData";
+import { BANK, BANK_FIXTURES } from "../../src/core/bankData";
 import { AMBIGUOUS_CRISIS_LINE_TH } from "../../src/core/chat-crisis";
 import {
   newDialog,
@@ -85,6 +85,30 @@ describe("chat-first grounding in runTurn", () => {
     const r = await runTurn(newDialog(), "ช่วงนี้กังวลเรื่องแฟน", deps(model));
     expect(calls.chat).toBe(2);
     expect(r.reply.kind).toBe("card");
+  });
+
+  it("a particle-only leftover retries once then shows the card", async () => {
+    const { model, calls } = spyModel("ค่ะ เรื่องแฟนนี่พี่เข้าใจ");
+    const r = await runTurn(newDialog(), "ช่วงนี้กังวลเรื่องแฟน", deps(model));
+    expect(calls.chat).toBe(2);
+    expect(r.reply.kind).toBe("card");
+  });
+
+  it("does not send an 18+ card's answer_th to the model when age is unverified or under 18", async () => {
+    const cards = [...BANK, ...BANK_FIXTURES];
+    const adultAnswer = BANK_FIXTURES.find((c) => c.id === "other.adult_only.000")!.answer_th;
+    for (const band of ["15-17", "unspecified", null] as const) {
+      const { model, calls } = spyModel();
+      await runTurn(newDialog(band), "เนื้อหาทดสอบสิบแปดบวก", deps(model, { cards }));
+      expect(calls.chat).toBeGreaterThan(0);
+      for (const g of calls.groundings) {
+        expect(g?.facts ?? null, String(band)).not.toBe(adultAnswer);
+        expect(g?.facts ?? "", String(band)).not.toContain("ข้อความทดสอบสำหรับอายุ 18 ปีขึ้นไปเท่านั้น");
+      }
+    }
+    const { model, calls } = spyModel();
+    await runTurn(newDialog("18-24"), "เนื้อหาทดสอบสิบแปดบวก", deps(model, { cards }));
+    expect(calls.groundings[0]?.facts).toContain("ข้อความทดสอบสำหรับอายุ 18 ปีขึ้นไปเท่านั้น");
   });
 
   it("incomplete then a complete line keeps the second reply", async () => {
