@@ -24,6 +24,13 @@ Art: 2018 *Sex Safe Safe* vector stars and approved figures in `src/assets/jane/
    being forced → crisis, 191 then 1300), S5 mental health (1323 first; suicidal wording → crisis override).
 7. Crisis detection has two levels: **override** (full crisis screen) and **banner** (topic/fiction/news or resolved mild
    wording: normal flow plus a crisis strip with the numbers). False-positive probe: `evals/crisis-fp-set.json` → `evals/crisis-scorecard.md`.
+   Chat then runs an add-only extra check (`src/core/chat-crisis.ts`) after pinned `crisis.ts`. **Safe-side policy:** missing a real
+   crisis is worse than a false alarm. Negated or side-effect mentions that still contain crisis wording (`die` / `kms` /
+   `suicidal` / `cut myself`), and accidental-injury lines that use `cut myself`, open the crisis screen. That matches the pin,
+   which already sends `ยาคุมทำให้รู้สึกอยากตายได้ไหม` to crisis. There is no shaving or accidental-cut exception for
+   `cut myself`. Jane is Thai-only for now; English extra-check rules are a short exact-phrase list (`kill myself`, `kms`,
+   `commit suicide`, `wanna`/`want to die`, `end my life`, `I was raped` / `he raped me`, `self-harm`, `cut myself`,
+   `I'm`/`I am suicidal`). Keng's acceptance of this policy is pending via the coordinator.
 
 ## On-device model (optional; the app works without it)
 

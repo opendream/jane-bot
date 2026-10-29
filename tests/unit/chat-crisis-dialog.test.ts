@@ -582,6 +582,47 @@ describe("don't-wanna-die and Codex card lines, both paths", () => {
   });
 });
 
+/**
+ * Safe-side policy: missing a real crisis is worse than a false alarm.
+ * Negated or side-effect mentions that still contain crisis wording
+ * (die / kms / suicidal / cut myself), and accidental-injury lines that
+ * use 'cut myself', are accepted as expected crisis-screen results.
+ * Same stance as pinned crisis.ts, which already sends
+ * 'ยาคุมทำให้รู้สึกอยากตายได้ไหม' to crisis. There is no shaving or
+ * accidental-cut exception for 'cut myself'. The card cases above
+ * (don't wanna die, cut my skin shaving, condom got cut) stay cards
+ * because they do not contain those crisis phrases.
+ */
+const EXPECTED_SAFE_SIDE_CRISIS = [
+  "หนูไม่ อยาก die เพราะ HIV ต้องทำยังไง",
+  "หนูไม่เคยอยาก die แค่กลัวติด HIV",
+  "หนูไม่คิดจะ die หรอก แค่อยากรู้ว่า HIV รักษาได้ไหม",
+  "ผมไม่คิดจะ kms นะครับ แค่ถามเรื่อง PrEP",
+  "I don't really wanna die, is HIV curable",
+  "ยาคุมทำให้รู้สึก suicidal ได้ไหม",
+  "PrEP ทำให้รู้สึก suicidal ไหมคะ",
+  "หนูไม่ได้รู้สึก suicidal นะ แค่ถามเรื่องยาคุม",
+  "I cut myself shaving down there, can I get HIV",
+  "I cut myself on the condom wrapper is that bad",
+  "ผม cut ตัวเองตอนโกนขน จะติด HIV ไหม",
+];
+
+describe("expected safe-side crisis, both paths, 0 model calls", () => {
+  it.each(EXPECTED_SAFE_SIDE_CRISIS)("chat-first %s", async (text) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, chatDeps(model));
+    expect(r.reply.kind, text).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
+  });
+
+  it.each(EXPECTED_SAFE_SIDE_CRISIS)("card-first %s", async (text) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, cardDeps(model));
+    expect(r.reply.kind, text).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
+  });
+});
+
 describe("Codex precision false positives keep the original card, both paths", () => {
   const cited: { text: string; id?: string }[] = [
     { text: "หนูอยากรู้ว่าเชื้อ HIV die นอกร่างกายไหม", id: "disease.hiv.000" },
