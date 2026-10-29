@@ -45,7 +45,7 @@ export type { CardPicker, EngineReason, EngineTag } from "./pick-engine";
  *   1. crisis rules (every message, synchronous, BEFORE anything else; never the model or matcher)
  *      pinned detectCrisis first, then an add-only chat-crisis check (never clears a pin).
  *      Both run on every turn, whatever the letter-script class, on both paths.
- *      Then the script gate: English → English model chat, clearly Thai → Thai chat,
+ *      Then the script/allowlist gate: English → English model chat, clearly Thai → Thai chat,
  *      mixed/unclear → 0 model calls (fixed card or fallback).
  *   2. input guard (refusals; chat-first banner-level wording comes after this)   3. follow-up chips
  *   4. optional matcher (injected only when the desktop-dev flag is on; abstain → fallback)
@@ -400,10 +400,11 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     const lang = detectChatLang(input);
     const script = modelChatScript(input);
     // Crisis already returned above (pin, then extra check) on every script
-    // class. Model chat is then gated by letter script, not the word list:
-    // clearly Thai (Thai share ≥ 60%) → Thai chat; English (Latin share ≥ 60%)
-    // → English chat while ENGLISH_MODEL_CHAT is true; mixed/unclear (Thai
-    // share 40–60%, <2 letters, no letters) → 0 model calls.
+    // class. Model chat is then gated by remaining Latin after stripping the
+    // health-loanword allowlist, not the English word list: clearly Thai
+    // (no leftover Latin; Thai share of what remains ≥ 60%) → Thai chat;
+    // English (Latin share ≥ 60%) → English chat while ENGLISH_MODEL_CHAT
+    // is true; mixed/unclear never calls the model.
     // Reply language still uses detectChatLang.
     const allowModel = script === "th" || (script === "en" && ENGLISH_MODEL_CHAT);
     if (!allowModel) {

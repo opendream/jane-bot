@@ -6,14 +6,18 @@
  * Latin AND the text contains at least two English words. Everything else is
  * Thai. Used for persona, holding line, chip label, and bank English overlay.
  *
- * Model-call gate (`modelChatScript`): letter script only (digits, spaces,
- * punctuation, and emoji are ignored). Thresholds:
+ * Model-call gate (`modelChatScript`): letter script after a short
+ * whole-word, case-insensitive health-loanword allowlist is stripped
+ * (digits, spaces, punctuation, and emoji are ignored). Thresholds:
  *   - fewer than 2 letters, or no letters → mixed/unclear (no model call)
- *   - Latin share ≥ 60% → English
- *   - Thai share ≥ 60% → clearly Thai (model chat, as before)
- *   - otherwise mixed (when the rest is Latin, Thai share is between 40%
- *     and 60%) → no model call
- * A Thai sentence with one English bank word (PrEP, HIV) stays Thai.
+ *   - any non-allowlisted Latin remaining, and original Latin share ≥ 60%
+ *     → English
+ *   - any other remaining Latin → mixed (no model call)
+ *   - no remaining Latin and Thai share of what remains ≥ 60% → Thai chat
+ *   - otherwise mixed
+ * Allowlisted loanwords (HIV, PrEP, condom, …) do not block Thai chat.
+ * A Thai sentence with a non-allowlisted English word does not call the
+ * model. English-only lines stay English.
  *
  * Re-evaluate on every turn.
  */
@@ -25,13 +29,30 @@ export type ChatScript = "th" | "en" | "mixed";
 /** Latin-letter share at or above this is English for both reply language and the model gate. */
 export const LATIN_SHARE_ENGLISH = 0.6;
 /**
- * Thai-letter share at or above this is clearly Thai for the model-call gate.
- * Mixed is the band below this and below LATIN_SHARE_ENGLISH (Thai share
- * between 40% and 60% when the rest of the letters are Latin).
+ * Thai-letter share of text remaining after the loanword allowlist is
+ * stripped. At or above this (with no leftover Latin) is Thai model chat.
  */
 export const THAI_SHARE_MODEL_CHAT = 0.6;
 /** Unclear: fewer than this many letters never reaches the model. */
 export const MIN_LETTERS_FOR_SCRIPT = 2;
+
+/**
+ * Whole-word, case-insensitive clinical/health loanwords already used in
+ * the Thai bank and test/eval queries. After these tokens are removed,
+ * any remaining Latin letter means this turn is not Thai model chat.
+ * Keep this list short.
+ */
+export const HEALTH_LOANWORDS = [
+  "hiv", "prep", "pep", "condom", "condoms", "sti", "stis", "std", "stds",
+  "hpv", "ec", "iud", "iuds", "rsa",
+] as const;
+
+const HEALTH_LOANWORD_SET = new Set<string>(HEALTH_LOANWORDS);
+
+/** Drop allowlisted loanwords; leftover Latin tokens are left in place. */
+function stripHealthLoanwords(s: string): string {
+  return s.replace(/[A-Za-z]+/g, (tok) => (HEALTH_LOANWORD_SET.has(tok.toLowerCase()) ? " " : tok));
+}
 
 /**
  * Common English function words plus SRH terms Jane actually sees.
@@ -91,16 +112,25 @@ export function detectChatLang(text: string): ChatLang {
 }
 
 /**
- * Whether this turn may reach Thai model chat. English (≥60% Latin) and
- * mixed/unclear (Thai share between 40% and 60%, <2 letters, no letters,
- * other scripts) do not. Only clearly Thai (Thai letter share ≥ 60%) does.
+ * Whether this turn may reach Thai model chat. Strip allowlisted health
+ * loanwords first. Any leftover Latin letter is not Thai chat (English if
+ * the original Latin share is ≥ 60%, otherwise mixed). Only remaining
+ * text with no Latin and Thai letter share ≥ 60% is Thai chat.
  */
 export function modelChatScript(text: string): ChatScript {
   const raw = text == null ? "" : String(text).normalize("NFC");
-  const { latin, thai, total } = lettersOf(raw);
-  if (total < MIN_LETTERS_FOR_SCRIPT) return "mixed";
-  if (latin / total >= LATIN_SHARE_ENGLISH) return "en";
-  if (thai / total >= THAI_SHARE_MODEL_CHAT) return "th";
+  const original = lettersOf(raw);
+  if (original.total < MIN_LETTERS_FOR_SCRIPT) return "mixed";
+
+  const remaining = lettersOf(stripHealthLoanwords(raw));
+  if (remaining.latin > 0) {
+    if (original.latin / original.total >= LATIN_SHARE_ENGLISH) return "en";
+    return "mixed";
+  }
+  if (remaining.total >= MIN_LETTERS_FOR_SCRIPT && remaining.thai / remaining.total >= THAI_SHARE_MODEL_CHAT) {
+    return "th";
+  }
+  if (original.latin / original.total >= LATIN_SHARE_ENGLISH) return "en";
   return "mixed";
 }
 

@@ -490,14 +490,61 @@ describe("chat-first English replies with ENGLISH_MODEL_CHAT on", () => {
     }
   });
 
-  it("Thai with one English bank word still makes one model call", async () => {
+  const thaiPlusEnglishCrisisNoModel = [
+    "หนูอยาก die ค่ะ",
+    "หนูคิดจะ kms คืนนี้",
+    "หนูรู้สึก suicidal มาหลายวันแล้ว",
+    "แฟน abuse หนูทุกวัน",
+    "หนู cut ตัวเองทุกคืนค่ะ",
+    "อยาก unalive ตัวเองค่ะ",
+  ];
+
+  it.each(thaiPlusEnglishCrisisNoModel)("mostly-Thai line with a non-allowlisted English word never calls the model: %s", async (line) => {
     const { model, calls } = spyModel();
-    const hiv = await runTurn(newDialog(), "อยากตรวจ HIV ค่ะ", deps(model));
+    const r = await runTurn(newDialog(), line, deps(model));
+    expect(calls.chat).toBe(0);
+    expect(calls.chat + calls.pick + calls.reword).toBe(0);
+    expect(r.reply.kind).not.toBe("chat");
+    if (detectCrisis(line).crisis) {
+      expect(r.reply.kind).toBe("crisis");
+    } else {
+      expect(r.reply.kind === "card" || r.reply.kind === "crisis").toBe(true);
+    }
+  });
+
+  it("a Thai line with a non-allowlisted English word takes the no-model path", async () => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), "อยากรู้เรื่อง prepare ค่ะ", deps(model));
+    expect(calls.chat).toBe(0);
+    expect(calls.chat + calls.pick + calls.reword).toBe(0);
+    expect(r.reply.kind).not.toBe("chat");
+    expect(r.reply.kind).toBe("card");
+  });
+
+  it("Thai with an allowlisted health loanword still makes one model call", async () => {
+    const { model, calls } = spyModel();
+    const hiv = await runTurn(newDialog(), "ตรวจ HIV ที่ไหนดี", deps(model));
     expect(hiv.reply.kind).toBe("chat");
     expect(calls.chat).toBe(1);
-    const prep = await runTurn(newDialog(), "กิน PrEP ยังไง", deps(model));
+    const prep = await runTurn(newDialog(), "กิน PrEP ยังไงคะ", deps(model));
     expect(prep.reply.kind).toBe("chat");
     expect(calls.chat).toBe(2);
+    const condom = await runTurn(newDialog(), "ใช้ condom ยังไง", deps(model));
+    expect(condom.reply.kind).toBe("chat");
+    expect(calls.chat).toBe(3);
+    const hivBank = await runTurn(newDialog(), "อยากตรวจ HIV ค่ะ", deps(model));
+    expect(hivBank.reply.kind).toBe("chat");
+    expect(calls.chat).toBe(4);
+    const prepBank = await runTurn(newDialog(), "กิน PrEP ยังไง", deps(model));
+    expect(prepBank.reply.kind).toBe("chat");
+    expect(calls.chat).toBe(5);
+    const shortHiv = await runTurn(newDialog(), "ตรวจ HIV", deps(model));
+    expect(shortHiv.reply.kind).toBe("chat");
+    expect(calls.chat).toBe(6);
+    const shortPrep = await runTurn(newDialog(), "กิน PrEP", deps(model));
+    expect(shortPrep.reply.kind).toBe("chat");
+    expect(calls.chat).toBe(7);
+    expect(calls.lastLang).toBe("th");
     expect(calls.pick + calls.reword).toBe(0);
   });
 
@@ -541,8 +588,8 @@ describe("chat-first English replies with ENGLISH_MODEL_CHAT on", () => {
     "อยาก unalive ตัวเองค่ะ",
   ];
 
-  it.each(thEnCrisisLoanword)("mostly-Thai English crisis word shows the crisis screen before Thai chat: %s", async (line) => {
-    expect(modelChatScript(line), line).toBe("th");
+  it.each(thEnCrisisLoanword)("mostly-Thai English crisis word shows the crisis screen before the script gate: %s", async (line) => {
+    expect(modelChatScript(line), line).toBe("mixed");
     expect(detectCrisis(line).crisis, line).toBe(false);
     const { model, calls } = spyModel();
     const r = await runTurn(newDialog(), line, deps(model));
@@ -557,26 +604,6 @@ describe("chat-first English replies with ENGLISH_MODEL_CHAT on", () => {
     const r = await runTurn(newDialog(), line, deps(model));
     expect(r.reply.kind, line).not.toBe("crisis");
     expect(calls.chat, line).toBe(1);
-  });
-
-  it("short mixed loanword lines are a card with 0 model calls, not Thai chat", async () => {
-    for (const line of ["ตรวจ HIV", "ใช้ condom ยังไง"]) {
-      expect(modelChatScript(line), line).toBe("mixed");
-      const { model, calls } = spyModel();
-      const r = await runTurn(newDialog(), line, deps(model));
-      expect(r.reply.kind, line).not.toBe("crisis");
-      expect(r.reply.kind, line).not.toBe("chat");
-      expect(calls.chat + calls.pick + calls.reword, line).toBe(0);
-    }
-  });
-
-  it("short Latin-majority loanword กิน PrEP reaches English model chat (not Thai chat)", async () => {
-    expect(modelChatScript("กิน PrEP")).toBe("en");
-    const { model, calls } = spyModel();
-    const r = await runTurn(newDialog(), "กิน PrEP", deps(model));
-    expect(r.reply.kind).not.toBe("crisis");
-    expect(r.reply.kind).toBe("chat");
-    expect(calls.chat).toBe(1);
   });
 
   it("refusals and talk-to-a-person stay unchanged on an English turn", async () => {

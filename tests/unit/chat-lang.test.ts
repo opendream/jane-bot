@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  HEALTH_LOANWORDS,
   MIN_LETTERS_FOR_SCRIPT,
   THAI_SHARE_MODEL_CHAT,
   detectChatLang,
@@ -50,7 +51,14 @@ describe("detectChatLang (rules, per turn)", () => {
   });
 });
 
-describe("modelChatScript (letter-script gate, not the word list)", () => {
+describe("modelChatScript (allowlist loanwords; any other Latin is not Thai chat)", () => {
+  it("exports a short whole-word health loanword allowlist", () => {
+    expect([...HEALTH_LOANWORDS]).toEqual([
+      "hiv", "prep", "pep", "condom", "condoms", "sti", "stis", "std", "stds",
+      "hpv", "ec", "iud", "iuds", "rsa",
+    ]);
+  });
+
   it("treats ≥60% Latin letters as English, even with fewer than 2 English-list words", () => {
     expect(MIN_LETTERS_FOR_SCRIPT).toBe(2);
     expect(THAI_SHARE_MODEL_CHAT).toBe(0.6);
@@ -62,12 +70,30 @@ describe("modelChatScript (letter-script gate, not the word list)", () => {
     expect(detectChatLang("help")).toBe("th");
   });
 
-  it("treats Thai share ≥60% as clearly Thai, including one English bank word", () => {
+  it("treats pure Thai as Thai chat", () => {
     expect(modelChatScript("กินยาคุมยังไง")).toBe("th");
+  });
+
+  it("treats Thai plus an allowlisted health loanword as Thai chat", () => {
     expect(modelChatScript("อยากตรวจ HIV ค่ะ")).toBe("th");
     expect(modelChatScript("กิน PrEP ยังไง")).toBe("th");
+    expect(modelChatScript("ตรวจ HIV ที่ไหนดี")).toBe("th");
+    expect(modelChatScript("กิน PrEP ยังไงคะ")).toBe("th");
+    expect(modelChatScript("ใช้ condom ยังไง")).toBe("th");
+    expect(modelChatScript("กิน PrEP")).toBe("th");
+    expect(modelChatScript("ตรวจ HIV")).toBe("th");
     expect(latinLetterShare("อยากตรวจ HIV ค่ะ")).toBeLessThan(0.6);
     expect(latinLetterShare("กิน PrEP ยังไง")).toBeLessThan(0.6);
+  });
+
+  it("does not treat mostly-Thai lines with a non-allowlisted English word as Thai chat", () => {
+    expect(modelChatScript("หนูอยาก die ค่ะ")).toBe("mixed");
+    expect(modelChatScript("หนูคิดจะ kms คืนนี้")).toBe("mixed");
+    expect(modelChatScript("หนูรู้สึก suicidal มาหลายวันแล้ว")).toBe("mixed");
+    expect(modelChatScript("แฟน abuse หนูทุกวัน")).toBe("mixed");
+    expect(modelChatScript("หนู cut ตัวเองทุกคืนค่ะ")).toBe("mixed");
+    expect(modelChatScript("อยาก unalive ตัวเองค่ะ")).toBe("mixed");
+    expect(modelChatScript("อยากรู้เรื่อง prepare ค่ะ")).toBe("mixed");
   });
 
   it("treats mixed script (Thai share between 40% and 60%) as mixed", () => {

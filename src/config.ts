@@ -95,11 +95,13 @@ export const CHAT_FIRST = false;
 /**
  * English model chat is on. Crisis still runs first on every turn (pinned
  * detectCrisis, then the add-only chat-crisis check), whatever the letter-
- * script class, on both chat-first and card-first. Then the script gate:
- * Latin share ≥ 60% may call English chatReply; Thai share ≥ 60% calls Thai
- * chat; mixed/unclear (Thai share 40–60%, <2 letters, no letters) makes 0
- * model calls (fixed card or fallback). Reply language still uses the
- * word-list rule. Non-crisis English chat-first turns may call chatReply.
+ * script class, on both chat-first and card-first. Then the script/allowlist
+ * gate: after stripping the short health-loanword allowlist, leftover Latin
+ * share ≥ 60% may call English chatReply; no leftover Latin and Thai share
+ * of what remains ≥ 60% calls Thai chat; mixed/unclear (remaining Latin that
+ * is not English-majority, <2 letters, or no letters) makes 0 model calls
+ * (fixed card or fallback). Reply language still uses the word-list rule.
+ * Non-crisis English chat-first turns may call chatReply.
  */
 export const ENGLISH_MODEL_CHAT = true;
 /** User turns in one topic before Jane must close with a card. */
