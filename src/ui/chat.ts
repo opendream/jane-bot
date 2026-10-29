@@ -8,6 +8,13 @@ import { BANK, cardsForSession, bankContext } from "../core/bankData";
 import { THAI_COPY_STATUS, chatFirstEnabled, modelCardPickEnabled, pickTimeoutMsFromSearch } from "../config";
 import { MODEL_PICK_TIMEOUT_MS, type EngineTag } from "../core/pick-engine";
 import { engineAnswerLabel, nextThinkingHintDelay, thinkingHintAt } from "./thinking";
+import {
+  CHAT_THINKING_ROTATE_MS,
+  prefersReducedMotion,
+  thinkingLabelFor,
+  thinkingPhraseAt,
+} from "./chat-thinking";
+import type { ChatLang } from "../llm/chat-lang";
 import { QUIZ_CHIP, hasRelatedQuiz, quizCopyStatus, startQuiz, type QuizSession } from "../core/quiz";
 import { h } from "./dom";
 import { emptyChatArt, janeImg } from "./jane";
@@ -48,6 +55,11 @@ export interface ChatState {
   modelPick: boolean;
   chatFirst: boolean;
   thinkingHint: string | null;
+  /** Chat-first model-generation indicator. Never stored in the transcript. */
+  thinking: boolean;
+  thinkingToken: number;
+  thinkingLang: ChatLang;
+  thinkingPhrase: string | null;
 }
 
 export interface NewChatOpts {
@@ -62,6 +74,8 @@ export interface ChatHooks {
   rerender(): void;
   /** Patch the busy hint in place. Must not recreate the textarea. */
   updateThinkingHint?(text: string): void;
+  /** Patch the chat-first thinking phrase in place. Must not recreate the textarea. */
+  updateThinkingPhrase?(text: string): void;
   /** Crisis override: the app shows the crisis screen (rules only, no model). */
   crisis(categories: CrisisCategory[]): void;
   /** Referral offer accepted (PR5 wires this to the service cards). Banner is the chat's active crisis strip. */
@@ -84,7 +98,10 @@ export function newChat(ageBand: AgeState, model: DialogModel | null, matcher: I
     warmupRemainingMs: opts.warmupRemainingMs,
     pickTimeoutMs: opts.pickTimeoutMs ?? (modelPick ? pickTimeoutMsFromSearch(opts.search, MODEL_PICK_TIMEOUT_MS) : undefined),
   });
-  const chat: ChatState = { session, messages: [], busy: false, draft: "", readOnly: false, quiz: null, modelPick, chatFirst, thinkingHint: null };
+  const chat: ChatState = {
+    session, messages: [], busy: false, draft: "", readOnly: false, quiz: null, modelPick, chatFirst,
+    thinkingHint: null, thinking: false, thinkingToken: 0, thinkingLang: "th", thinkingPhrase: null,
+  };
   push(chat, fromReply(session.start(), modelPick, chatFirst));
   return chat;
 }
@@ -102,8 +119,10 @@ function fromReply(r: TurnReply, modelPick = false, chatFirst = false): ChatMsg 
       engine: r.engine, engineLabel: engineAnswerLabel(r.engine, modelPick || chatFirst), cardNote: r.cardNote };
   }
   if (r.kind === "chat") {
+    if (!r.text && !r.card) return null;
     return { from: "jane", text: r.text, banner: r.banner, chips: r.card ? [] : r.chips, cap: r.capNotice };
   }
+  if (r.kind === "idle") return null;
   if (r.kind === "referral") return { from: "jane", text: "ได้เลย พี่ช่วยหาที่ปรึกษาที่เปิดอยู่ตอนนี้ให้นะ", banner: r.banner, offer: "strong", offerIntents: r.intents, cap: r.capNotice, note: "referral" };
   if (r.kind === "readonly") return { from: "jane", text: "แชทนี้ยาวมากแล้ว ตอนนี้ส่งข้อความเพิ่มไม่ได้ คุยกับเจ้าหน้าที่ตัวจริง หรือกดลบแชทเพื่อเริ่มใหม่ได้", note: "readonly", offer: "strong", offerIntents: ["other"] };
   return null;
@@ -163,11 +182,18 @@ export async function sendToChat(chat: ChatState, text: string, hooks: ChatHooks
   chat.draft = "";
   push(chat, { from: "user", text: t });
   chat.busy = true;
+  if (chat.chatFirst && chat.thinking) {
+    chat.thinking = false;
+    chat.thinkingPhrase = null;
+    chat.thinkingToken = 0;
+  }
   if (chat.modelPick) chat.thinkingHint = thinkingHintAt(0);
   hooks.rerender();
   if (!fromQuiz && chatDelayMs() > 0) await new Promise((r) => setTimeout(r, chatDelayMs()));
-  if (!owns()) { chat.busy = false; return; }
+  if (!owns()) { chat.busy = false; chat.thinking = false; return; }
   let hintTimer: ReturnType<typeof setTimeout> | undefined;
+  let rotateTimer: ReturnType<typeof setInterval> | undefined;
+  let myGen: number | undefined;
   if (chat.modelPick) {
     const t0 = Date.now();
     const tick = () => {
@@ -184,16 +210,50 @@ export async function sendToChat(chat: ChatState, text: string, hooks: ChatHooks
     const wait = nextThinkingHintDelay(0);
     if (wait != null) hintTimer = setTimeout(tick, wait);
   }
+  const clearThinkingIfMine = () => {
+    if (myGen != null && chat.thinkingToken === myGen) {
+      chat.thinking = false;
+      chat.thinkingPhrase = null;
+      chat.thinkingToken = 0;
+    }
+  };
   let reply: Awaited<ReturnType<DialogSession["send"]>>;
   try {
-    reply = await chat.session.send(t);
+    reply = await chat.session.send(t, {
+      onGenerating: ({ groupId, lang }) => {
+        if (!owns()) return;
+        myGen = groupId;
+        chat.thinking = true;
+        chat.thinkingToken = groupId;
+        chat.thinkingLang = lang;
+        chat.thinkingPhrase = thinkingPhraseAt(lang, 0);
+        if (!prefersReducedMotion() && !rotateTimer) {
+          let i = 0;
+          rotateTimer = setInterval(() => {
+            if (chat.thinkingToken !== groupId) return;
+            i += 1;
+            const phrase = thinkingPhraseAt(lang, i);
+            chat.thinkingPhrase = phrase;
+            hooks.updateThinkingPhrase?.(phrase);
+          }, CHAT_THINKING_ROTATE_MS);
+        }
+        hooks.rerender();
+      },
+    });
   } finally {
     if (hintTimer) clearTimeout(hintTimer);
+    if (rotateTimer) clearInterval(rotateTimer);
     chat.thinkingHint = null;
   }
-  if (!owns()) { chat.busy = false; return; } // erase / quick exit / SOS / openChat bumped the seq: drop, no rerender
+  if (!owns()) { chat.busy = false; clearThinkingIfMine(); return; } // erase / quick exit / SOS / openChat bumped the seq: drop, no rerender
+  if (!reply) return; // superseded: the newer send owns busy/thinking
   chat.busy = false;
-  if (!reply) return; // superseded by a newer message
+  clearThinkingIfMine();
+  if (reply.kind === "idle") {
+    if (reply.capNotice === "hard") { chat.readOnly = true; chat.quiz = null; }
+    hooks.rerender();
+    return;
+  }
   if (reply.kind === "crisis") { hooks.crisis(reply.categories); return; }
   if (reply.kind === "readonly" || ((reply.kind === "card" || reply.kind === "chat") && reply.capNotice === "hard")) {
     chat.readOnly = true;
@@ -215,6 +275,11 @@ function strip(categories: CrisisCategory[]) {
     h("div", { class: "chans" }, ...crisisOrder(categories).map((n) => h("a", { class: "btn-call small danger", href: `tel:${n}` }, `โทร ${n}`))));
 }
 
+function lastJaneIndex(messages: ChatMsg[]): number {
+  for (let i = messages.length - 1; i >= 0; i--) if (messages[i]!.from === "jane") return i;
+  return -1;
+}
+
 function bubble(m: ChatMsg, i: number, last: boolean, chat: ChatState, hooks: ChatHooks) {
   if (m.from === "user") return h("div", { class: "msg user", "data-testid": "chat-msg", "data-from": "user" }, h("p", {}, m.text));
   const shown = m.reworded && m.showOriginal ? m.original! : m.text;
@@ -228,7 +293,7 @@ function bubble(m: ChatMsg, i: number, last: boolean, chat: ChatState, hooks: Ch
       m.reworded && h("p", { class: "note", "data-testid": "reword-note" }, "เรียบเรียงโดยโมเดลในเครื่อง ",
         h("button", { class: "link", "data-testid": "show-original", onclick: () => { m.showOriginal = !m.showOriginal; hooks.rerender(); } }, m.showOriginal ? "ดูฉบับเรียบเรียง" : "ดูข้อความต้นฉบับ")),
       m.cap === "soft" && h("p", { class: "note", "data-testid": "cap-soft" }, `คุยกันมา ${SOFT_CAP} ข้อความแล้ว ลองคุยกับเจ้าหน้าที่ตัวจริง หรือกดลบแชทเพื่อเริ่มใหม่ก็ได้นะ`),
-      last && !chat.readOnly && !chat.quiz && m.chips?.length ? h("div", { class: "chips" }, ...m.chips.map((c, k) =>
+      !chat.readOnly && !chat.quiz && m.chips?.length && (last || (chat.chatFirst && i === lastJaneIndex(chat.messages) && (chat.thinking || chat.busy))) ? h("div", { class: "chips" }, ...m.chips.map((c, k) =>
         h("button", { class: "chip", "data-testid": `chat-chip-${k}`, onclick: () => sendToChat(chat, c.label_th, hooks) }, c.label_th))) : null,
       last && !chat.readOnly && !chat.busy && !chat.quiz && m.cardId && hasRelatedQuiz(BANK.find((c) => c.id === m.cardId)?.topic, chat.session.state.ageBand, undefined, quizCopyStatus())
         ? h("button", { class: "chip", "data-testid": "quiz-start", type: "button", onclick: () => beginQuiz(chat, BANK.find((c) => c.id === m.cardId)?.topic ?? null, hooks) }, QUIZ_CHIP) : null,
@@ -251,7 +316,18 @@ export function chatView(chat: ChatState, hooks: ChatHooks): HTMLElement {
       empty ? emptyChatArt() : null,
       ...chat.messages.map((m, i) => bubble(m, i, i === n - 1 && !chat.quiz, chat, hooks))),
     chat.quiz && quizPanel(chat.quiz, { update: (next) => applyQuizUpdate(chat, next, hooks) }),
-    chat.busy && h("p", { class: "note", "data-testid": "chat-busy" }, chat.modelPick ? (chat.thinkingHint ?? thinkingHintAt(0)) : "พี่เจนกำลังพิมพ์…"),
+    chat.chatFirst && chat.thinking ? h("div", {
+      class: "chat-thinking",
+      "data-testid": "chat-thinking",
+    },
+      h("span", { class: "sr", "data-testid": "chat-thinking-label", "aria-live": "polite" }, thinkingLabelFor(chat.thinkingLang)),
+      h("span", {
+        class: prefersReducedMotion() ? "chat-thinking-phrase" : "chat-thinking-phrase chat-thinking-bob",
+        "data-testid": "chat-thinking-phrase",
+        "aria-hidden": "true",
+      }, chat.thinkingPhrase ?? thinkingPhraseAt(chat.thinkingLang, 0)),
+    ) : null,
+    !chat.chatFirst && chat.busy && h("p", { class: "note", "data-testid": "chat-busy" }, chat.modelPick ? (chat.thinkingHint ?? thinkingHintAt(0)) : "พี่เจนกำลังพิมพ์…"),
     chat.readOnly && h("p", { class: "note", "data-testid": "cap-hard" }, "แชทนี้ยาวมากแล้ว ตอนนี้ส่งข้อความเพิ่มไม่ได้ คุยกับเจ้าหน้าที่ตัวจริง หรือกดลบแชทเพื่อเริ่มใหม่ได้"),
     h("form", { class: "chat-form", onsubmit: submit },
       h("label", { class: "sr", for: "chat-input" }, "ข้อความถึงพี่เจน"), ta,

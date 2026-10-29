@@ -9,6 +9,7 @@ import { detectChatLang } from "./chat-lang";
 import { needLine, replaceNeedLine } from "./summary-lines";
 import { isWebGpuRuntimeFailure } from "./gpu-failure";
 import { WARMUP_BUDGET_MS } from "./loader-eta";
+import { shouldSkipGeneration } from "./generation-token";
 
 export { isWebGpuRuntimeFailure } from "./gpu-failure";
 
@@ -110,7 +111,8 @@ export async function bindWebLLMEngine(
     },
     pickCard: async (text, shortlist, prev) => ask(PICK_SYSTEM, pickUser(text, shortlist, prev), PICK_MAX_TOKENS, pickSchema(shortlist.map((s) => s.id))),
     rewordCard: async (card) => cleanReword(await ask(REWORD_SYSTEM, rewordUser(card), REWORD_MAX_TOKENS)) || null,
-    chatReply: async (text, history, _signal, lang) => {
+    chatReply: async (text, history, _signal, lang, groupId) => {
+      if (shouldSkipGeneration(groupId, _signal)) return null;
       if (dead) throw dead;
       try {
         const r: any = await engine.chat.completions.create({
@@ -123,6 +125,7 @@ export async function bindWebLLMEngine(
           extra_body: { enable_thinking: false },
         });
         if (dead) throw dead;
+        if (shouldSkipGeneration(groupId, _signal)) return null;
         return cleanChat(String(r.choices?.[0]?.message?.content ?? "")) || null;
       } catch (e) {
         if (isWebGpuRuntimeFailure(e) || dead) markDead(e);

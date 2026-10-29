@@ -115,15 +115,16 @@ const VIOLENCE_CUE = new RegExp(
 );
 
 export const bareFollowupInContext = (cur: string, prev: string[]): boolean =>
-  isBareFollowup(cur) && prev.slice(-2).some((p) => VIOLENCE_CUE.test(prepTh(p)) || VIOLENCE_CUE.test(prepEn(p)));
+  isBareFollowup(cur) && prev.some((p) => VIOLENCE_CUE.test(prepTh(p)) || VIOLENCE_CUE.test(prepEn(p)));
 
 function joinedWindow(input: string, prev: string[]): string {
-  return prev.length ? [...prev.slice(-2), input].join(" ") : input;
+  return prev.length ? [...prev, input].join(" ") : input;
 }
 
 /**
- * Current line, then current + previous 1–2 user lines (same window as the pinned
- * check), then the context-armed bare follow-up. The cue line alone never fires.
+ * Current line, then current + previous user lines (same window as the pinned
+ * check; unanswered chat-first lines are all included), then the context-armed
+ * bare follow-up. The cue line alone never fires.
  */
 export function detectChatCrisisForTurn(input: string, prev: string[]): ChatCrisisHit {
   const cur = detectChatCrisis(input);

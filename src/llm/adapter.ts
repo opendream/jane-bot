@@ -24,14 +24,16 @@ export interface LLMAdapter {
   /** Chat: reword one curated card. Output is validated by rewordGuard; failures show the exact text. */
   rewordCard?(card: { answer_th: string; key_facts: string[] }, signal: AbortSignal): Promise<string | null>;
   /**
-   * Chat-first connective talk. Output is validated by chatGuard; failures become a holding line.
+   * Chat-first connective talk. Output is validated by chatGuard.
    * History is PII-stripped, memory-only, and excludes crisis lines.
+   * `groupId` is the generation token; a stale token must return without generating.
    */
   chatReply?(
     text: string,
     history: { role: "user" | "assistant"; content: string }[],
     signal: AbortSignal,
     lang?: ChatLang,
+    groupId?: number,
   ): Promise<string | null>;
   /** Tear down a worker / GPU engine. Used when WebGPU dies and we fall back. */
   dispose?(): void | Promise<void>;

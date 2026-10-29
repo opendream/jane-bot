@@ -16,6 +16,7 @@ import { toDialogModel } from "./llm/dialogModel";
 import { shouldApplyAsyncResult, newNeedGate, beginNeed, bumpNeed, needBusy, endNeed } from "./core/dialog";
 import { h } from "./ui/dom";
 import { applyThinkingHint } from "./ui/thinking";
+import { applyChatThinkingPhrase } from "./ui/chat-thinking";
 import { newChat, chatView, beginQuiz, type ChatState } from "./ui/chat";
 import { ART_CREDIT, janeImg, preloadJaneArt, welcomeStars } from "./ui/jane";
 import { QUIZ_MENU, pickQuizItems, quizCopyStatus } from "./core/quiz";
@@ -84,6 +85,10 @@ function dropInflightChat() {
   if (state.chat) {
     state.chat.session.abort();
     state.chat.busy = false;
+    state.chat.thinking = false;
+    state.chat.thinkingPhrase = null;
+    state.chat.thinkingToken = 0;
+    state.chat.thinkingHint = null;
   }
 }
 
@@ -207,6 +212,7 @@ function openChat() {
 const chatHooks = {
   rerender: () => { if (state.screen === "chat") render(); },
   updateThinkingHint: (text: string) => { applyThinkingHint(app, text); },
+  updateThinkingPhrase: (text: string) => { applyChatThinkingPhrase(app, text); },
   // Crisis rules decided this before any model step; show the existing crisis screen.
   crisis: (categories: CrisisCategory[]) => { bumpNeed(need); go({ screen: "crisis", crisisCategories: categories, crisisFrom: "chat" }); },
   // In-chat referral (plan v2 §5): the same service cards, summary, approval and DEMO handoff as the one-shot flow.

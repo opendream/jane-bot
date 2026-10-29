@@ -290,23 +290,17 @@ describe("chat-first conversation", () => {
     }
   });
 
-  it("a rejected chat line becomes the holding line and never blocks the card on a close turn", async () => {
-    const { model } = spyModel("กิน 2 เม็ด แล้วไม่ท้องแน่ https://evil.test", "none");
+  it("a rejected chat line retries once then shows the top card with no holding bubble", async () => {
+    const { model, calls } = spyModel("กิน 2 เม็ด แล้วไม่ท้องแน่ https://evil.test", "none");
+    const before = { chat: calls.chat };
     const r = await runTurn(newDialog(), "ช่วงนี้กังวลเรื่องแฟน", deps(model));
-    expect(r.reply.kind).toBe("chat");
-    if (r.reply.kind === "chat") {
-      expect(r.reply.text).toBe(CHAT_HOLDING_LINE);
-      expect(r.reply.holding).toBe(true);
+    expect(calls.chat).toBe(before.chat + 2);
+    expect(r.reply.kind).toBe("card");
+    if (r.reply.kind === "card") {
+      expect(r.reply.text).toBe(r.reply.card.answer_th);
+      expect(r.reply.text).not.toBe(CHAT_HOLDING_LINE);
     }
-    const closed = await runTurn(r.state, "แฟนไม่ยอมคุยด้วย", deps(model));
-    // Second reject in the topic closes with a bank card; the holding line still shows.
-    if (closed.reply.kind === "chat") {
-      expect(closed.reply.text).toBe(CHAT_HOLDING_LINE);
-      expect(closed.reply.card).not.toBeNull();
-      expect(closed.reply.cardText).toBe(closed.reply.card!.answer_th);
-    } else if (closed.reply.kind === "card") {
-      expect(closed.reply.text).toBe(closed.reply.card.answer_th);
-    }
+    expect(CHAT_HOLDING_LINE.length).toBeGreaterThan(0);
   });
 
   it("card text always comes from the bank, never from the model", async () => {
@@ -505,15 +499,16 @@ describe("chat-first English replies with ENGLISH_MODEL_CHAT on", () => {
     }
   });
 
-  it("an unsafe English stub is invoked but the guard holds the line", async () => {
+  it("an unsafe English stub is invoked twice then the top card shows, with no holding bubble", async () => {
     const { model, calls } = spyModel("Take two pills now. You are not pregnant.");
+    const before = { chat: calls.chat };
     const r = await runTurn(newDialog(), "I am worried about birth control", enChatDeps(model));
-    expect(calls.chat).toBeGreaterThan(0);
-    expect(r.reply.kind).toBe("chat");
-    if (r.reply.kind === "chat") {
-      expect(r.reply.text).toBe(CHAT_HOLDING_LINE_EN);
+    expect(calls.chat).toBe(before.chat + 2);
+    expect(r.reply.kind).toBe("card");
+    if (r.reply.kind === "card") {
+      expect(r.reply.text).toBe(r.reply.card.answer_th);
+      expect(r.reply.text).not.toBe(CHAT_HOLDING_LINE_EN);
       expect(r.reply.text).not.toContain("pills");
-      expect(r.reply.holding).toBe(true);
     }
   });
 

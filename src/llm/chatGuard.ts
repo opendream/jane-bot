@@ -6,8 +6,8 @@ import { type ChatLang, mostlyLatin } from "./chat-lang";
 
 /**
  * Output guard for free-generated Jane chat (PR A). Pinned `src/core/guard.ts` is imported
- * read-only. A reject replaces the model line with the holding line for that turn's
- * language; it never blocks a card.
+ * read-only. Chat-first retries once, then shows the rules' top card (no holding bubble).
+ * Holding-line strings stay for card-first / later and are unused in chat-first.
  *
  * DRAFT copy (holding lines): Thai and English review pending.
  */

@@ -7,6 +7,7 @@ import { CLASSIFY_SCHEMA, CLASSIFY_SYSTEM, POLISH_SYSTEM, PICK_SYSTEM, PICK_MAX_
 import { CHAT_MAX_TOKENS, CHAT_TEMPERATURE, CHAT_TOP_P, chatSystemFor, cleanChat } from "./chat-system";
 import { detectChatLang } from "./chat-lang";
 import { wllamaContextLength } from "./wllama-ctx";
+import { shouldSkipGeneration } from "./generation-token";
 import { replaceNeedLine, needLine } from "./summary-lines";
 import { WARMUP_BUDGET_MS } from "./loader-eta";
 
@@ -70,7 +71,9 @@ export async function loadWllama(
       } as any);
       return cleanReword(String(r.choices?.[0]?.message?.content ?? "")) || null;
     }),
-    chatReply: (text, history, signal, lang) => serial(async () => {
+    chatReply: (text, history, signal, lang, groupId) => serial(async () => {
+      // Check at dequeue time: a queued request whose group is stale must not generate.
+      if (shouldSkipGeneration(groupId, signal)) return null;
       const r: any = await w.createChatCompletion({
         messages: [
           { role: "system", content: chatSystemFor(lang ?? detectChatLang(text)) },
@@ -79,6 +82,7 @@ export async function loadWllama(
         ],
         max_tokens: CHAT_MAX_TOKENS, temperature: CHAT_TEMPERATURE, top_p: CHAT_TOP_P, abortSignal: signal,
       } as any);
+      if (shouldSkipGeneration(groupId, signal)) return null;
       return cleanChat(String(r.choices?.[0]?.message?.content ?? "")) || null;
     }),
   };
