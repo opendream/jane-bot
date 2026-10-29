@@ -3,6 +3,9 @@ import { classifyNeed } from "../core/intent";
 import { detectCrisis } from "../core/crisis";
 import type { ChatLang } from "./chat-lang";
 
+/** Extra chat-turn flags. `ambiguous` adds the short AMBIGUOUS system line. */
+export type ChatReplyOpts = { ambiguous?: boolean };
+
 /**
  * Interface for an optional in-browser model (WebLLM / wllama). The deterministic rules are always
  * the fallback: if the adapter is missing, slow, throws, or returns something invalid, rules win.
@@ -34,6 +37,7 @@ export interface LLMAdapter {
     signal: AbortSignal,
     lang?: ChatLang,
     groupId?: number,
+    opts?: ChatReplyOpts,
   ): Promise<string | null>;
   /** Tear down a worker / GPU engine. Used when WebGPU dies and we fall back. */
   dispose?(): void | Promise<void>;
