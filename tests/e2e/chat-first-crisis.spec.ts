@@ -96,3 +96,21 @@ test("card-first mostly-Thai English crisis word shows the existing crisis card 
   const calls = await modelCalls(page);
   expect(calls.chat + calls.pick).toBe(0);
 });
+
+test("?chatFirst=1 bare help line shows the existing crisis card with zero model calls", async ({ page }) => {
+  await openChatFirst(page);
+  await openChat(page);
+  await say(page, "help");
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  const calls = await modelCalls(page);
+  expect(calls.chat + calls.pick).toBe(0);
+});
+
+test("card-first bare help line shows the existing crisis card with zero model calls", async ({ page }) => {
+  await openStubbed(page);
+  await openChat(page);
+  await say(page, "please help");
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  const calls = await modelCalls(page);
+  expect(calls.chat + calls.pick).toBe(0);
+});

@@ -2,25 +2,29 @@
  * Per-turn chat language and the model-call script gate. Rules only — the
  * model never chooses.
  *
- * Reply language (`detectChatLang`): English iff at least 60% of letters are
- * Latin AND the text contains at least two English words. Everything else is
- * Thai. Used for persona, holding line, chip label, and bank English overlay.
+ * Reply language (`detectChatLang`): fold fullwidth/accented Latin, strip the
+ * health-loanword allowlist, then English iff at least 60% of remaining letters
+ * are Latin AND the remaining text contains at least two English words.
+ * Everything else is Thai. Used for persona, holding line, chip label, and
+ * bank English overlay. Thai combining vowel/tone marks are not letters, so
+ * without the strip a short line like "กิน PrEP" would look Latin-majority.
  *
- * Model-call gate (`modelChatScript`): letter script after a short
- * whole-word, case-insensitive health-loanword allowlist is stripped
- * (digits, spaces, punctuation, and emoji are ignored). Thresholds:
+ * Model-call gate (`modelChatScript`): fold fullwidth/accented Latin to ASCII
+ * (Thai unchanged), then a short whole-word, case-insensitive health-loanword
+ * allowlist is stripped (digits, spaces, punctuation, and emoji are ignored).
+ * Thresholds:
  *   - fewer than 2 letters, or no letters → mixed/unclear (no model call)
- *   - any non-allowlisted Latin remaining, and original Latin share ≥ 60%
- *     → English
- *   - any other remaining Latin → mixed (no model call)
- *   - no remaining Latin and Thai share of what remains ≥ 60% → Thai chat
- *   - otherwise mixed
+ *   - any remaining letter that is not Thai → English if original Latin
+ *     share ≥ 60%, otherwise mixed (no model call)
+ *   - every remaining letter is Thai and there are ≥ 2 → Thai chat
  * Allowlisted loanwords (HIV, PrEP, condom, …) do not block Thai chat.
- * A Thai sentence with a non-allowlisted English word does not call the
- * model. English-only lines stay English.
+ * A Thai sentence with a non-allowlisted English word (including fullwidth
+ * or accented letters) does not call the model. English-only lines stay English.
  *
  * Re-evaluate on every turn.
  */
+
+import { foldLatinCompat } from "../core/text";
 
 export type ChatLang = "th" | "en";
 /** Letter-script class for whether this turn may call the Thai chat model. */
@@ -30,7 +34,7 @@ export type ChatScript = "th" | "en" | "mixed";
 export const LATIN_SHARE_ENGLISH = 0.6;
 /**
  * Thai-letter share of text remaining after the loanword allowlist is
- * stripped. At or above this (with no leftover Latin) is Thai model chat.
+ * stripped. At or above this (with no leftover non-Thai letters) is Thai model chat.
  */
 export const THAI_SHARE_MODEL_CHAT = 0.6;
 /** Unclear: fewer than this many letters never reaches the model. */
@@ -39,7 +43,7 @@ export const MIN_LETTERS_FOR_SCRIPT = 2;
 /**
  * Whole-word, case-insensitive clinical/health loanwords already used in
  * the Thai bank and test/eval queries. After these tokens are removed,
- * any remaining Latin letter means this turn is not Thai model chat.
+ * any remaining non-Thai letter means this turn is not Thai model chat.
  * Keep this list short.
  */
 export const HEALTH_LOANWORDS = [
@@ -48,6 +52,10 @@ export const HEALTH_LOANWORDS = [
 ] as const;
 
 const HEALTH_LOANWORD_SET = new Set<string>(HEALTH_LOANWORDS);
+
+function fold(text: string): string {
+  return foldLatinCompat(text == null ? "" : String(text));
+}
 
 /** Drop allowlisted loanwords; leftover Latin tokens are left in place. */
 function stripHealthLoanwords(s: string): string {
@@ -81,8 +89,8 @@ function lettersOf(s: string): { latin: number; thai: number; total: number } {
   for (const c of s) {
     if (!/\p{L}/u.test(c)) continue;
     total++;
-    if (/[A-Za-z]/.test(c)) latin++;
-    else if (/\p{Script=Thai}/u.test(c)) thai++;
+    if (/\p{Script=Thai}/u.test(c)) thai++;
+    else if (/\p{Script=Latin}/u.test(c)) latin++;
   }
   return { latin, thai, total };
 }
@@ -103,31 +111,33 @@ export function latinLetterShare(s: string): number {
 }
 
 export function detectChatLang(text: string): ChatLang {
-  const raw = text == null ? "" : String(text).normalize("NFC");
-  const { latin, total } = lettersOf(raw);
+  const raw = fold(text);
+  const stripped = stripHealthLoanwords(raw);
+  const { latin, total } = lettersOf(stripped);
   if (total === 0) return "th";
   if (latin / total < LATIN_SHARE_ENGLISH) return "th";
-  if (englishWordCount(raw) < 2) return "th";
+  if (englishWordCount(stripped) < 2) return "th";
   return "en";
 }
 
 /**
- * Whether this turn may reach Thai model chat. Strip allowlisted health
- * loanwords first. Any leftover Latin letter is not Thai chat (English if
- * the original Latin share is ≥ 60%, otherwise mixed). Only remaining
- * text with no Latin and Thai letter share ≥ 60% is Thai chat.
+ * Whether this turn may reach Thai model chat. NFKC-normalise, then strip
+ * allowlisted health loanwords. Thai chat only if every remaining letter is
+ * Thai. Any other remaining letter is not Thai chat (English if the original
+ * Latin share is ≥ 60%, otherwise mixed).
  */
 export function modelChatScript(text: string): ChatScript {
-  const raw = text == null ? "" : String(text).normalize("NFC");
+  const raw = fold(text);
   const original = lettersOf(raw);
   if (original.total < MIN_LETTERS_FOR_SCRIPT) return "mixed";
 
   const remaining = lettersOf(stripHealthLoanwords(raw));
-  if (remaining.latin > 0) {
+  const nonThai = remaining.total - remaining.thai;
+  if (nonThai > 0) {
     if (original.latin / original.total >= LATIN_SHARE_ENGLISH) return "en";
     return "mixed";
   }
-  if (remaining.total >= MIN_LETTERS_FOR_SCRIPT && remaining.thai / remaining.total >= THAI_SHARE_MODEL_CHAT) {
+  if (remaining.total >= MIN_LETTERS_FOR_SCRIPT && remaining.thai === remaining.total) {
     return "th";
   }
   if (original.latin / original.total >= LATIN_SHARE_ENGLISH) return "en";

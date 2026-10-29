@@ -1,16 +1,19 @@
 /**
  * Pre-model crisis check (chat-first and card-first). Additive to pinned
- * detectCrisis(); never edits crisis.ts. Thai matches run on compact() (NFC, zero-width stripped, spaces removed)
- * because users space Thai unpredictably. English uses lowercased normalize() with
- * curly quotes folded. Named regexes (not word lists) so bystander / definition
- * questions do not fire. Whole-token English crisis words also match inside
- * mixed Thai lines; word boundaries keep HIV / PrEP / condom from firing.
+ * detectCrisis(); never edits crisis.ts. Fullwidth / accented Latin is folded
+ * to ASCII (Thai unchanged, including SARA AM) so those crisis words still
+ * match. Thai matches run on compact() (NFC, zero-width stripped, spaces
+ * removed) because users space Thai unpredictably. English uses lowercased
+ * normalize() with curly quotes folded. Named regexes (not word lists) so
+ * bystander / definition questions do not fire. Whole-token English crisis
+ * words also match inside mixed Thai lines; word boundaries keep HIV / PrEP /
+ * condom from firing.
  *
  * The in-memory reason tag is "chat-crisis" (distinct from "rules-crisis"). It
  * stores rule ids only — never user text — and is compiled out of production.
  */
 import type { CrisisCategory } from "./types";
-import { compact, normalize } from "./text";
+import { compact, foldLatinCompat, normalize } from "./text";
 
 export interface ChatCrisisRule {
   id: string;
@@ -45,6 +48,7 @@ export const TH_RULES: ChatCrisisRule[] = [
   // ตี is omitted on purpose: short "โดนแฟนตี" stays on relationship.violence.001.
   { id: "TH-E1 relation + violent verb", cat: "violence_danger", lang: "th", re: new RegExp(`${REL_TH}(ชอบ|มัก|เคย)?(ซ้อม(?!${ZOOM_PRACTICE})|ข่วน|ใช้กำลัง)`) },
   { id: "TH-E2 victim + beaten/forced", cat: "violence_danger", lang: "th", re: new RegExp(`(ถูก|โดน)(แฟน|ผัว|สามี|เมีย|พ่อ|แม่|เขา)?(ซ้อม(?!${ZOOM_PRACTICE})|ใช้กำลัง|ข่วน)`) },
+  { id: "TH-G suicide transliteration", cat: "self_harm", lang: "th", re: /ซ(ุย|ูอิ?|ู)ไซด์/ },
 ];
 
 /** English rules run on lowercased normalize() with curly quotes folded. */
@@ -63,6 +67,9 @@ export const EN_RULES: ChatCrisisRule[] = [
   { id: "EN-H cutting myself", cat: "self_harm", lang: "en", re: /\bcutting myself\b/ },
   { id: "EN-I end my life", cat: "self_harm", lang: "en", re: /\bend my life\b(?! insurance)/ },
   { id: "EN-J bare forced sex", cat: "sexual_violence", lang: "en", re: /^forced sex[.!?]*$/ },
+  // Bare help line only. Punctuation/emoji around the phrase is allowed;
+  // extra Latin words ("help me choose a condom") do not fire.
+  { id: "EN-K bare help", cat: "self_harm", lang: "en", re: /^(?:[^a-z]*)(?:please |pls )?help(?: me)?(?:[^a-z]*)$/ },
   // Whole-token English crisis words. Also match inside mixed Thai lines
   // (word boundaries keep HIV / PrEP / condom from firing).
   { id: "EN-T die", cat: "self_harm", lang: "en", re: /\bdie\b/ },
@@ -75,8 +82,8 @@ export const EN_RULES: ChatCrisisRule[] = [
 
 export const TH_F_ID = "TH-F bare follow-up after violence cue";
 
-const prepTh = (t: string) => compact(t);
-const prepEn = (t: string) => normalize(t).replace(/[\u2018\u2019]/g, "'");
+const prepTh = (t: string) => compact(foldLatinCompat(t));
+const prepEn = (t: string) => normalize(foldLatinCompat(t)).replace(/[\u2018\u2019]/g, "'");
 
 export function detectChatCrisis(text: string): ChatCrisisHit {
   const th = prepTh(text);

@@ -588,6 +588,31 @@ describe("chat-first English replies with ENGLISH_MODEL_CHAT on", () => {
     "อยาก unalive ตัวเองค่ะ",
   ];
 
+  const fullwidthOrAccentedInThai: { text: string; kind: "crisis" | "card" }[] = [
+    { text: "หนูอยาก ｄｉｅ ค่ะ", kind: "crisis" },
+    { text: "อยาก ｋｉｌｌ ตัวเอง", kind: "card" },
+    { text: "หนูรู้สึก ｓｕｉｃｉｄａｌ มาหลายวันแล้ว", kind: "crisis" },
+    { text: "หนูอยาก ḍïë ค่ะ", kind: "crisis" },
+    { text: "อยาก ｄｉｅ HIV ค่ะ", kind: "crisis" },
+  ];
+
+  it.each(fullwidthOrAccentedInThai)("fullwidth/accented line never calls the model: $text", async ({ text, kind }) => {
+    expect(detectCrisis(text).crisis, text).toBe(false);
+    expect(modelChatScript(text), text).not.toBe("th");
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, deps(model));
+    expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
+    expect(r.reply.kind, text).toBe(kind);
+  });
+
+  it.each(["ซุยไซด์", "ซูอิไซด์", "ซูไซด์"])("Thai suicide transliteration shows the crisis screen, stub 0 times: %s", async (line) => {
+    expect(detectCrisis(line).crisis, line).toBe(false);
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), line, deps(model));
+    expect(r.reply.kind, line).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, line).toBe(0);
+  });
+
   it.each(thEnCrisisLoanword)("mostly-Thai English crisis word shows the crisis screen before the script gate: %s", async (line) => {
     expect(modelChatScript(line), line).toBe("mixed");
     expect(detectCrisis(line).crisis, line).toBe(false);
@@ -597,13 +622,23 @@ describe("chat-first English replies with ENGLISH_MODEL_CHAT on", () => {
     expect(calls.chat + calls.pick + calls.reword, line).toBe(0);
   });
 
-  it.each(["help", "HELP"])("short English help is not a crisis screen and reaches model chat: %s", async (line) => {
+  const bareHelp = ["help", "HELP", "help me", "please help", "pls help me", "help!", "help 😭"];
+
+  it.each(bareHelp)("bare help line shows the crisis screen, stub 0 times: %s", async (line) => {
     expect(modelChatScript(line)).toBe("en");
     expect(detectCrisis(line).crisis).toBe(false);
     const { model, calls } = spyModel();
     const r = await runTurn(newDialog(), line, deps(model));
-    expect(r.reply.kind, line).not.toBe("crisis");
-    expect(calls.chat, line).toBe(1);
+    expect(r.reply.kind, line).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, line).toBe(0);
+  });
+
+  it("longer help-in-normal-use still reaches English model chat", async () => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), "help me choose a condom", deps(model));
+    expect(r.reply.kind).not.toBe("crisis");
+    expect(r.reply.kind).toBe("chat");
+    expect(calls.chat).toBe(1);
   });
 
   it("refusals and talk-to-a-person stay unchanged on an English turn", async () => {

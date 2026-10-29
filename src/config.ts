@@ -100,8 +100,10 @@ export const CHAT_FIRST = false;
  * share ≥ 60% may call English chatReply; no leftover Latin and Thai share
  * of what remains ≥ 60% calls Thai chat; mixed/unclear (remaining Latin that
  * is not English-majority, <2 letters, or no letters) makes 0 model calls
- * (fixed card or fallback). Reply language still uses the word-list rule.
- * Non-crisis English chat-first turns may call chatReply.
+ * (fixed card or fallback). Reply language still uses the word-list rule
+ * after the same allowlist strip (Thai combining marks must not tip a
+ * Thai+loanword line to English). Non-crisis English chat-first turns may
+ * call chatReply.
  */
 export const ENGLISH_MODEL_CHAT = true;
 /** User turns in one topic before Jane must close with a card. */

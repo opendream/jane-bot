@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { foldLatinCompat } from "../../src/core/text";
 import {
   HEALTH_LOANWORDS,
   MIN_LETTERS_FOR_SCRIPT,
@@ -48,6 +49,17 @@ describe("detectChatLang (rules, per turn)", () => {
   it("mostlyLatin is the 60% rule without a word minimum", () => {
     expect(mostlyLatin("I'm here.")).toBe(true);
     expect(mostlyLatin("พี่อยู่ตรงนี้นะ")).toBe(false);
+  });
+
+  it("strips allowlisted loanwords before Latin share so Thai+loanword stays Thai", () => {
+    // Combining vowel/tone marks are not letters, so raw Latin share of
+    // "กิน PrEP" is ≥ 60%. After the allowlist strip, reply language is Thai.
+    expect(latinLetterShare("กิน PrEP")).toBeGreaterThanOrEqual(0.6);
+    expect(detectChatLang("กิน PrEP")).toBe("th");
+    expect(detectChatLang("ตรวจ HIV")).toBe("th");
+    expect(detectChatLang("ใช้ condom ยังไง")).toBe("th");
+    // Multiple allowlisted tokens would otherwise be ≥2 English words + Latin majority.
+    expect(detectChatLang("กิน PrEP PEP HIV")).toBe("th");
   });
 });
 
@@ -100,6 +112,25 @@ describe("modelChatScript (allowlist loanwords; any other Latin is not Thai chat
     expect(modelChatScript("อยากตาย hi there")).toBe("mixed");
     expect(modelChatScript("ถูกทำร้าย badly hurt")).toBe("mixed");
     expect(modelChatScript("cutting เจ็บที่แขน")).toBe("mixed");
+  });
+
+  const fullwidthOrAccentedInThai = [
+    "หนูอยาก ｄｉｅ ค่ะ",
+    "อยาก ｋｉｌｌ ตัวเอง",
+    "หนูรู้สึก ｓｕｉｃｉｄａｌ มาหลายวันแล้ว",
+    "หนูอยาก ḍïë ค่ะ",
+    "อยาก ｄｉｅ HIV ค่ะ",
+  ];
+
+  it.each(fullwidthOrAccentedInThai)("NFKC/other-letter lines are not Thai chat: %s", (line) => {
+    expect(modelChatScript(line), line).not.toBe("th");
+  });
+
+  it("folds fullwidth/accented Latin without splitting Thai SARA AM", () => {
+    expect(foldLatinCompat("ｄｉｅ")).toBe("die");
+    expect(foldLatinCompat("ḍïë")).toBe("die");
+    expect(foldLatinCompat("ทำ")).toBe("ทำ");
+    expect(foldLatinCompat("กำลัง")).toBe("กำลัง");
   });
 
   it("treats no letters, a single letter, emoji, digits, and punctuation as mixed/unclear", () => {

@@ -80,8 +80,8 @@ const FP_NORMAL_EN = [
   "I want to know about birth control",
   "I don't want to live with my parents",
   "what is forced sex",
-  "help",
-  "HELP",
+  "help me choose a condom",
+  "Can you help me with emergency contraception",
 ];
 
 /** Thai + SRH loanwords must not fire on English crisis-token word boundaries. */
@@ -146,9 +146,9 @@ beforeEach(() => resetChatCrisisLog());
 afterEach(() => resetChatCrisisLog());
 
 describe("named rule lists", () => {
-  it("has 10 Thai rules, 20 English rules, plus the context rule id", () => {
-    expect(TH_RULES).toHaveLength(10);
-    expect(EN_RULES).toHaveLength(20);
+  it("has 11 Thai rules, 21 English rules, plus the context rule id", () => {
+    expect(TH_RULES).toHaveLength(11);
+    expect(EN_RULES).toHaveLength(21);
     expect(TH_F_ID).toBe("TH-F bare follow-up after violence cue");
   });
 });
@@ -249,12 +249,75 @@ describe("false positives: normal SRH, short IPV/harassment, ตี idioms", () 
   });
 });
 
+const BARE_HELP = [
+  "help",
+  "HELP",
+  "help me",
+  "please help",
+  "pls help me",
+  "help!",
+  "help?",
+  "help 😭",
+];
+
+describe("EN-K bare help (narrow line; punctuation/emoji allowed)", () => {
+  it.each(BARE_HELP)("%s", (text) => {
+    expect(detectCrisis(text).crisis, text).toBe(false);
+    const hit = detectChatCrisis(text);
+    expect(hit.crisis, text).toBe(true);
+    expect(hit.rules, text).toContain("EN-K bare help");
+    expect(hit.categories, text).toContain("self_harm");
+  });
+
+  it.each([
+    "help me choose a condom",
+    "please help me understand PrEP",
+    "I need help finding a clinic",
+    "Can you help me with emergency contraception",
+  ])("longer help-in-normal-use does not fire: %s", (text) => {
+    expect(detectChatCrisis(text).crisis, text).toBe(false);
+    expect(detectChatCrisisForTurn(text, []).crisis, text).toBe(false);
+  });
+});
+
 describe("short English crisis phrases the pin misses", () => {
   it.each(EN_SHORT_CRISIS)("$text", ({ text, cat }) => {
     expect(detectCrisis(text).crisis, text).toBe(false);
     const hit = detectChatCrisis(text);
     expect(hit.crisis, text).toBe(true);
     expect(hit.categories, text).toContain(cat);
+  });
+});
+
+const FULLWIDTH_ACCENTED = [
+  { text: "หนูอยาก ｄｉｅ ค่ะ", crisis: true, token: "die" },
+  { text: "อยาก ｋｉｌｌ ตัวเอง", crisis: false, token: null },
+  { text: "หนูรู้สึก ｓｕｉｃｉｄａｌ มาหลายวันแล้ว", crisis: true, token: "suicidal" },
+  { text: "หนูอยาก ḍïë ค่ะ", crisis: true, token: "die" },
+  { text: "อยาก ｄｉｅ HIV ค่ะ", crisis: true, token: "die" },
+];
+
+describe("fullwidth/accented English crisis words after NFKC + diacritic fold", () => {
+  it.each(FULLWIDTH_ACCENTED)("$text", ({ text, crisis, token }) => {
+    expect(detectCrisis(text).crisis, text).toBe(false);
+    const hit = detectChatCrisis(text);
+    expect(hit.crisis, text).toBe(crisis);
+    if (crisis && token) {
+      expect(hit.rules.join(" "), text).toMatch(new RegExp(`\\b${token}\\b`, "i"));
+      expect(hit.categories, text).toContain("self_harm");
+    }
+  });
+});
+
+const SUICIDE_TH = ["ซุยไซด์", "ซูอิไซด์", "ซูไซด์", "หนูคิดซุยไซด์", "อยากซูอิไซด์ค่ะ"];
+
+describe("TH-G suicide transliteration (pin misses)", () => {
+  it.each(SUICIDE_TH)("%s", (text) => {
+    expect(detectCrisis(text).crisis, text).toBe(false);
+    const hit = detectChatCrisis(text);
+    expect(hit.crisis, text).toBe(true);
+    expect(hit.rules, text).toContain("TH-G suicide transliteration");
+    expect(hit.categories, text).toContain("self_harm");
   });
 });
 

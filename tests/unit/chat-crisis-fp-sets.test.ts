@@ -202,6 +202,14 @@ const SYNTHETIC_ENGLISH_NORMAL: Item[] = [
   { id: "en-n10", text: "what is forced sex" },
 ];
 
+/** SYNTHETIC English-normal lines that contain 'help' in ordinary SRH use. */
+const SYNTHETIC_ENGLISH_HELP_NORMAL: Item[] = [
+  { id: "en-h01", text: "help me choose a condom" },
+  { id: "en-h02", text: "Can you help me with emergency contraception" },
+  { id: "en-h03", text: "please help me understand PrEP" },
+  { id: "en-h04", text: "I need help finding a clinic" },
+];
+
 const SYNTHETIC_ENGLISH_NORMAL_FP: SetCount = { hits: 0, total: 10 };
 
 describe("English extra-check false positives on every normal set (ENGLISH_MODEL_CHAT on)", () => {
@@ -228,5 +236,16 @@ describe("English extra-check false positives on every normal set (ENGLISH_MODEL
     expect(synCard, "synthetic English card-first vs detector").toEqual(synDet);
     expect(synChat, "synthetic English chat-first vs detector").toEqual(synDet);
     expect(synCard, "pinned synthetic English-normal FP").toEqual(SYNTHETIC_ENGLISH_NORMAL_FP);
+
+    expect(englishItems(SYNTHETIC_ENGLISH_HELP_NORMAL)).toHaveLength(SYNTHETIC_ENGLISH_HELP_NORMAL.length);
+    const helpDet = scanDetector(SYNTHETIC_ENGLISH_HELP_NORMAL);
+    const helpCard = await scanPath(SYNTHETIC_ENGLISH_HELP_NORMAL, cardDeps());
+    const helpChat = await scanPath(SYNTHETIC_ENGLISH_HELP_NORMAL, chatDeps());
+    expect(helpCard, "synthetic English-help card-first vs detector").toEqual(helpDet);
+    expect(helpChat, "synthetic English-help chat-first vs detector").toEqual(helpDet);
+    expect(helpCard, "pinned synthetic English-help-normal FP").toEqual({
+      hits: 0,
+      total: SYNTHETIC_ENGLISH_HELP_NORMAL.length,
+    });
   });
 });

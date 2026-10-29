@@ -84,6 +84,18 @@ const TH_EN_CRISIS_LOANWORD = [
 
 const PINNED_EN_SHORT = ["kill myself", "he raped me", "i want to kill myself"];
 
+const BARE_HELP = ["help", "HELP", "help me", "please help", "pls help me", "help!", "help 😭"];
+
+const FULLWIDTH_ACCENTED: { text: string; kind: "crisis" | "card" }[] = [
+  { text: "หนูอยาก ｄｉｅ ค่ะ", kind: "crisis" },
+  { text: "อยาก ｋｉｌｌ ตัวเอง", kind: "card" },
+  { text: "หนูรู้สึก ｓｕｉｃｉｄａｌ มาหลายวันแล้ว", kind: "crisis" },
+  { text: "หนูอยาก ḍïë ค่ะ", kind: "crisis" },
+  { text: "อยาก ｄｉｅ HIV ค่ะ", kind: "crisis" },
+];
+
+const SUICIDE_TH = ["ซุยไซด์", "ซูอิไซด์", "ซูไซด์"];
+
 const FP = [
   "อยากกินยาคุม",
   "ยาคุมฉุกเฉินกินเมื่อไร",
@@ -200,6 +212,40 @@ describe("chat-first extra check: probes return the existing crisis card, zero m
     expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
   });
 
+  it.each(BARE_HELP)("bare help line shows crisis, stub 0 times: %s", async (text) => {
+    expect(detectCrisis(text).crisis, text).toBe(false);
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, chatDeps(model));
+    expect(r.reply.kind, text).toBe("crisis");
+    if (r.reply.kind === "crisis") expect(r.reply.engine, text).toBe("chat-crisis");
+    expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
+  });
+
+  it.each(FULLWIDTH_ACCENTED)("fullwidth/accented line never calls the model: $text", async ({ text, kind }) => {
+    expect(detectCrisis(text).crisis, text).toBe(false);
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, chatDeps(model));
+    expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
+    expect(r.reply.kind, text).toBe(kind);
+    if (kind === "crisis" && r.reply.kind === "crisis") expect(r.reply.engine, text).toBe("chat-crisis");
+  });
+
+  it.each(SUICIDE_TH)("Thai suicide transliteration shows crisis, stub 0 times: %s", async (text) => {
+    expect(detectCrisis(text).crisis, text).toBe(false);
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, chatDeps(model));
+    expect(r.reply.kind, text).toBe("crisis");
+    if (r.reply.kind === "crisis") expect(r.reply.engine, text).toBe("chat-crisis");
+    expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
+  });
+
+  it("longer help-in-normal-use is not a crisis override", async () => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), "help me choose a condom", chatDeps(model));
+    expect(r.reply.kind).not.toBe("crisis");
+    expect(calls.chat).toBe(1);
+  });
+
   it.each(PINNED_EN_SHORT)("pinned short English still crisis, stub 0 times: %s", async (text) => {
     expect(detectCrisis(text).crisis, text).toBe(true);
     const { model, calls } = spyModel();
@@ -290,6 +336,34 @@ describe("card-first extra check: probes return the existing crisis card, zero m
     const r = await runTurn(newDialog(), text, cardDeps(model));
     expect(r.reply.kind, text).toBe("crisis");
     expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
+  });
+
+  it.each(BARE_HELP)("bare help line shows crisis, stub 0 times: %s", async (text) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, cardDeps(model));
+    expect(r.reply.kind, text).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
+  });
+
+  it.each(FULLWIDTH_ACCENTED)("fullwidth/accented line never calls the model: $text", async ({ text, kind }) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, cardDeps(model));
+    expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
+    expect(r.reply.kind, text).toBe(kind);
+  });
+
+  it.each(SUICIDE_TH)("Thai suicide transliteration shows crisis, stub 0 times: %s", async (text) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, cardDeps(model));
+    expect(r.reply.kind, text).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
+  });
+
+  it("longer help-in-normal-use is not a crisis override", async () => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), "help me choose a condom", cardDeps(model));
+    expect(r.reply.kind).not.toBe("crisis");
+    expect(typeof calls.chat).toBe("number");
   });
 
   it("de88: prior violence cue then a bare follow-up, zero model calls on the crisis turn", async () => {
