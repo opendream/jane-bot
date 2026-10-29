@@ -115,6 +115,59 @@ test("crisis prompt in arm mode shows the crisis screen (0 picker UI)", async ({
   await expect(page.getByTestId("screen-crisis")).toBeVisible();
 });
 
+const TRACE = JSON.stringify({
+  enabled: true,
+  includeTyped: true,
+  rows: [{ time: "t", arm: "A-base", sha: "x", runtime: "wasm", coldLoadMs: 1, ms: 1, text: "secret-trace" }],
+});
+
+async function seedDevtestStorage(page: Page) {
+  await page.evaluate(({ logKey, armKey, payload }) => {
+    localStorage.setItem(logKey, payload);
+    localStorage.setItem(armKey, "A-base");
+  }, { logKey: "jane.devtest.log", armKey: "jane.devtest.arm", payload: TRACE });
+}
+
+async function storageKeys(page: Page) {
+  return page.evaluate(() => ({
+    log: localStorage.getItem("jane.devtest.log"),
+    arm: localStorage.getItem("jane.devtest.arm"),
+  }));
+}
+
+test("erase chat removes jane.devtest.log so a reload cannot restore rows", async ({ page }) => {
+  await openDev(page);
+  await expect(page.getByTestId("dev-arm")).toBeVisible();
+  await startAs(page, "15-17");
+  await seedDevtestStorage(page);
+  expect((await storageKeys(page)).log).toBeTruthy();
+  await page.getByTestId("erase").click();
+  const after = await storageKeys(page);
+  expect(after.log).toBeNull();
+  expect(after.arm).toBe("A-base");
+  await page.reload();
+  await page.waitForLoadState("domcontentloaded");
+  const reloaded = await storageKeys(page);
+  expect(reloaded.log).toBeNull();
+  expect(reloaded.arm).toBe("A-base");
+});
+
+test("quick exit removes jane.devtest.log so a reload cannot restore rows", async ({ page }) => {
+  await openDev(page);
+  await expect(page.getByTestId("dev-arm")).toBeVisible();
+  await seedDevtestStorage(page);
+  expect((await storageKeys(page)).log).toBeTruthy();
+  await page.getByTestId("quick-exit").click();
+  const after = await storageKeys(page);
+  expect(after.log).toBeNull();
+  expect(after.arm).toBe("A-base");
+  await page.reload();
+  await page.waitForLoadState("domcontentloaded");
+  const reloaded = await storageKeys(page);
+  expect(reloaded.log).toBeNull();
+  expect(reloaded.arm).toBe("A-base");
+});
+
 test("with the log on, export makes no request off 127.0.0.1", async ({ page }) => {
   const urls = await openDev(page, "?arm=A-base&testRuntime=pick-ok");
   await page.getByTestId("dev-arm").click();

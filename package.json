@@ -8,6 +8,7 @@
     "dev": "vite --host 127.0.0.1 --port 5173 --strictPort",
     "build": "npm run bank:validate && tsc --noEmit && vite build",
     "build:devtest": "npm run bank:validate && tsc --noEmit && vite build --mode devtest",
+    "build:eval": "vite build -c vite.eval.config.ts",
     "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
     "test": "vitest run",
     "e2e": "npm run build && playwright test",

@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { stripPII } from "../../src/core/summary";
 import type { TurnReply } from "../../src/core/dialog";
+import { LAST_ARM_KEY } from "../../src/dev/arms";
 import {
   LOG_KEY,
   clearLog,
+  clearLogMemory,
   exportLogBlob,
   isLogEnabled,
   logState,
@@ -107,6 +109,37 @@ describe("turn log (dev-test only)", () => {
     expect(logState().rows).toHaveLength(0);
     restoreLog();
     expect(logState().rows).toHaveLength(0);
+  });
+
+  function seedTrace(store: ReturnType<typeof memoryStore>): void {
+    store.setItem(LAST_ARM_KEY, "A-tuned");
+    setLogStore(store);
+    setLogEnabled(true);
+    recordTurn("อยากรู้เรื่องคุมกำเนิด", card(), 2, meta);
+    expect(store.getItem(LOG_KEY)).toBeTruthy();
+  }
+
+  function assertWipeLeavesNoRestorableLog(store: ReturnType<typeof memoryStore>): void {
+    expect(logState().rows).toHaveLength(0);
+    expect(store.getItem(LOG_KEY)).toBeNull();
+    expect(store.getItem(LAST_ARM_KEY)).toBe("A-tuned");
+    restoreLog();
+    expect(logState().rows).toHaveLength(0);
+    expect(store.getItem(LOG_KEY)).toBeNull();
+  }
+
+  it("erase chat removes jane.devtest.log so restoreLog cannot reload rows", () => {
+    const store = memoryStore();
+    seedTrace(store);
+    clearLogMemory();
+    assertWipeLeavesNoRestorableLog(store);
+  });
+
+  it("quick exit removes jane.devtest.log so restoreLog cannot reload rows", () => {
+    const store = memoryStore();
+    seedTrace(store);
+    clearLogMemory();
+    assertWipeLeavesNoRestorableLog(store);
   });
 
   it("export is a JSON blob and makes no network call", async () => {

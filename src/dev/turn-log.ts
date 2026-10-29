@@ -130,7 +130,9 @@ export function clearLog(): void {
 
 export function clearLogMemory(): void {
   mem.rows = [];
-  // Keep the opt-in flags; wipe rows only (erase chat / quick exit).
+  // Keep in-memory opt-in flags. Drop the storage key so restoreLog cannot
+  // reload rows after erase chat / quick exit (no-trace). Last-arm key stays.
+  ls()?.removeItem(LOG_KEY);
 }
 
 export function exportLogBlob(): Blob {

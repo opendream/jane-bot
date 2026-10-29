@@ -64,7 +64,7 @@ The last-used arm's weights stay in Cache Storage (at most one arm). Use **Clear
 
 ## 5. Optional turn log
 
-Off by default. Opt in on the panel. It stays on this phone, in memory (and in `localStorage` only so a switch-reload does not wipe it). Export writes a JSON file on the phone; pull it with `adb pull`. Clear wipes it. ลบแชท and ออกทันที clear the in-memory rows. **Nothing is sent anywhere.**
+Off by default. Opt in on the panel. It stays on this phone, in memory (and in `localStorage` only so a switch-reload does not wipe it). Export writes a JSON file on the phone; pull it with `adb pull`. Clear wipes it. ลบแชท and ออกทันที clear the in-memory rows and remove `jane.devtest.log` so a reload cannot restore them. The last-used arm key stays. **Nothing is sent anywhere.**
 
 Default rows store synthetic prompt ids from `evals/seed-set.json` and `evals/paraphrase-set.json`. Typed text is stored only after a second opt-in, and only after `stripPII`. Crisis rows store a tag, never text.
 
