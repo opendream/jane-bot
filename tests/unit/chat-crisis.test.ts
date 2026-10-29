@@ -192,10 +192,10 @@ describe("dev/eval in-memory reason tag", () => {
   });
 });
 
-describe("card-first switch stays off", () => {
-  it("CHAT_CRISIS_CARD_FIRST is false so flag-off does not run the extra check", () => {
-    expect(CHAT_CRISIS_CARD_FIRST).toBe(false);
-    expect(chatCrisisEnabled(false)).toBe(false);
+describe("card-first switch is on", () => {
+  it("CHAT_CRISIS_CARD_FIRST is true so both paths run the extra check", () => {
+    expect(CHAT_CRISIS_CARD_FIRST).toBe(true);
+    expect(chatCrisisEnabled(false)).toBe(true);
     expect(chatCrisisEnabled(true)).toBe(true);
   });
 });

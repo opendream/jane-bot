@@ -96,6 +96,10 @@ const chatDeps = (model: DialogModel | null = null, extra: Partial<TurnDeps> = {
   cards: BANK, model, copyStatus: "draft", chatFirst: true, ...extra,
 });
 
+const cardDeps = (model: DialogModel | null = null, extra: Partial<TurnDeps> = {}): TurnDeps => ({
+  cards: BANK, model, copyStatus: "draft", ...extra,
+});
+
 async function talk(lines: string[], d: TurnDeps, st: DialogState = newDialog("18-24")) {
   const replies = [];
   for (const l of lines) {
@@ -175,30 +179,92 @@ describe("add-only: never cancels or weakens a pinned crisis.ts hit", () => {
   });
 });
 
-describe("flag-off / card-first switch off: extra check does not run", () => {
-  it("CHAT_CRISIS_CARD_FIRST is false", () => {
-    expect(CHAT_CRISIS_CARD_FIRST).toBe(false);
+describe("card-first extra check: probes return the existing crisis card, zero model calls", () => {
+  it("CHAT_CRISIS_CARD_FIRST is true", () => {
+    expect(CHAT_CRISIS_CARD_FIRST).toBe(true);
   });
 
-  it("without chatFirst, a chat-crisis-only phrase stays a bank card", async () => {
+  it.each(TH_PROBES)("Thai $id", async ({ id, text }) => {
+    expect(detectCrisis(text).crisis, id).toBe(false);
     const { model, calls } = spyModel();
-    const r = await runTurn(newDialog(), "หนูถูกคุกคามที่ทำงาน", {
-      cards: BANK, model, copyStatus: "draft",
-    });
-    expect(r.reply.kind).not.toBe("crisis");
-    expect(r.reply.kind).toBe("card");
-    if (r.reply.kind === "card") expect(r.reply.card.id).toBe("harassment.002");
-    expect(calls.chat).toBe(0);
+    const r = await runTurn(newDialog(), text, cardDeps(model));
+    expect(r.reply.kind, id).toBe("crisis");
+    if (r.reply.kind === "crisis") {
+      expect(r.reply.categories.length, id).toBeGreaterThan(0);
+    }
+    expect(calls.chat + calls.pick + calls.reword, id).toBe(0);
+    expect(chatCrisisLog()?.reason, id).toBe("chat-crisis");
+    expect(JSON.stringify(chatCrisisLog()), id).not.toContain(text);
   });
 
-  it("short IPV without crisis wording stays on relationship.violence.001 when chatFirst is on", async () => {
+  it.each(EN_PROBES)("English $id", async ({ id, text }) => {
+    expect(detectCrisis(text).crisis, id).toBe(false);
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, cardDeps(model));
+    expect(r.reply.kind, id).toBe("crisis");
+    if (r.reply.kind === "crisis") expect(r.reply.categories.length, id).toBeGreaterThan(0);
+    expect(calls.chat + calls.pick + calls.reword, id).toBe(0);
+    expect(chatCrisisLog()?.reason, id).toBe("chat-crisis");
+  });
+
+  it("de88: prior violence cue then a bare follow-up, zero model calls on the crisis turn", async () => {
+    const { model, calls } = spyModel();
+    const { replies } = await talk(["แฟนทำร้าย", "ต้องทำไงดี"], cardDeps(model));
+    expect(replies[0].kind).not.toBe("crisis");
+    if (replies[0].kind === "card") expect(replies[0].card.id).toBe("relationship.violence.001");
+    const afterCue = calls.chat + calls.pick + calls.reword;
+    expect(replies[1].kind).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword).toBe(afterCue);
+    expect(chatCrisisLog()?.reason).toBe("chat-crisis");
+  });
+});
+
+describe("card-first locked ids and short IPV/harassment stay on their own cards", () => {
+  const lockedQs: { id: string; q: string }[] = [
+    { id: "hiv.test.under18.000", q: "ตรวจเอชไอวีโดยไม่บอกผู้ปกครอง" },
+    { id: "price.trc.prep.000", q: "เพร็พราคาเท่าไหร่" },
+    { id: "ec.timing.b001", q: "ยาคุมฉุกเฉินกินเมื่อไร" },
+    { id: "urgent.pills.000", q: "ยาคุมฉุกเฉินคืออะไร" },
+  ];
+
+  it.each(lockedQs)("locked id $id", async ({ id, q }) => {
+    const { model } = spyModel();
+    const r = await runTurn(newDialog(), q, cardDeps(model));
+    expect(r.reply.kind, id).toBe("card");
+    if (r.reply.kind === "card") expect(r.reply.card.id, id).toBe(id);
+    expect(chatCrisisLog()).toBeNull();
+  });
+
+  it.each([
+    { text: "โดนแฟนตี", id: "relationship.violence.001" },
+    { text: "แฟนทำร้าย", id: "relationship.violence.001" },
+    { text: "ถูกคุกคาม", id: "harassment.002" },
+  ])("short $text stays on $id", async ({ text, id }) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, cardDeps(model));
+    expect(r.reply.kind, text).toBe("card");
+    if (r.reply.kind === "card") expect(r.reply.card.id, text).toBe(id);
+    expect(calls.pick, text).toBeGreaterThanOrEqual(0);
+  });
+
+  it("short definition without crisis wording is not an override", async () => {
+    const { model } = spyModel();
+    const r = await runTurn(newDialog(), "ลวนลามคืออะไร", cardDeps(model));
+    expect(r.reply.kind).not.toBe("crisis");
+  });
+});
+
+describe("short IPV without crisis wording stays on relationship.violence.001 when chatFirst is on", () => {
+  it("โดนแฟนตี is not a crisis override", async () => {
     const { model, calls } = spyModel();
     const r = await runTurn(newDialog(), "โดนแฟนตี", chatDeps(model));
     expect(r.reply.kind).not.toBe("crisis");
     expect(calls.chat + calls.pick + calls.reword).toBeGreaterThanOrEqual(0);
   });
+});
 
-  it.each(FP)("FP does not override in chat-first: %s", async (text) => {
+describe("FP does not override in chat-first", () => {
+  it.each(FP)("%s", async (text) => {
     const { model, calls } = spyModel();
     const r = await runTurn(newDialog(), text, chatDeps(model));
     expect(r.reply.kind, text).not.toBe("crisis");

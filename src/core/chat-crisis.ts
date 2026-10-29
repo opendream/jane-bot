@@ -1,6 +1,6 @@
 /**
- * Chat-first pre-model crisis check. Additive to pinned detectCrisis(); never edits
- * crisis.ts. Thai matches run on compact() (NFC, zero-width stripped, spaces removed)
+ * Pre-model crisis check (chat-first and card-first). Additive to pinned
+ * detectCrisis(); never edits crisis.ts. Thai matches run on compact() (NFC, zero-width stripped, spaces removed)
  * because users space Thai unpredictably. English uses lowercased normalize() with
  * curly quotes folded. Named regexes (not word lists) so bystander / definition
  * questions do not fire.

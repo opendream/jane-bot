@@ -309,7 +309,7 @@ describe("model-first chat labels (flag off by default)", () => {
   it("flag-off keeps the old busy copy and never shows an engine label", async () => {
     expect(MODEL_CARD_PICK).toBe(false);
     expect(CHAT_FIRST).toBe(false);
-    expect(CHAT_CRISIS_CARD_FIRST).toBe(false);
+    expect(CHAT_CRISIS_CARD_FIRST).toBe(true);
     const chat = newChat("18-24", readyModel(), null, { modelPick: false });
     expect(chat.modelPick).toBe(false);
     expect(chat.thinkingHint).toBeNull();

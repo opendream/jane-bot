@@ -107,14 +107,12 @@ export function chatFirstEnabled(search?: string): boolean {
 }
 
 /**
- * Extra chat-crisis rules (src/core/chat-crisis.ts) on the card-first path.
- * Off: card-first stays byte-for-byte the production rules-first path.
- * Flip to true to run the same pre-model check after pinned detectCrisis.
- * Chat-first (?chatFirst=1) always runs the extra check regardless of this flag.
+ * Extra chat-crisis rules (src/core/chat-crisis.ts) after pinned detectCrisis.
+ * On for both paths: chat-first and card-first. Add-only (never clears a pin).
  */
-export const CHAT_CRISIS_CARD_FIRST = false;
+export const CHAT_CRISIS_CARD_FIRST = true;
 
-/** True when the extra pre-model crisis check should run (chat-first, or the card-first switch). */
+/** True when the extra pre-model crisis check should run (always, with the card-first switch on). */
 export function chatCrisisEnabled(chatFirst: boolean): boolean {
   return chatFirst || CHAT_CRISIS_CARD_FIRST;
 }

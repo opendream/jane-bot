@@ -29,8 +29,8 @@ describe("shouldPreloadModel (flag off by default)", () => {
   it("keeps the base trigger: default search still starts the model", () => {
     expect(MODEL_CARD_PICK).toBe(false);
     expect(CHAT_FIRST).toBe(false);
-    expect(CHAT_CRISIS_CARD_FIRST).toBe(false);
-    expect(chatCrisisEnabled(false)).toBe(false);
+    expect(CHAT_CRISIS_CARD_FIRST).toBe(true);
+    expect(chatCrisisEnabled(false)).toBe(true);
     expect(chatCrisisEnabled(true)).toBe(true);
     expect(modelCardPickEnabled("")).toBe(false);
     expect(chatFirstEnabled("")).toBe(false);
