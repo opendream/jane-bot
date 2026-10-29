@@ -1,6 +1,7 @@
 import type { Intent, IntentResult } from "../core/types";
 import { classifyNeed } from "../core/intent";
 import { detectCrisis } from "../core/crisis";
+import type { ChatLang } from "./chat-lang";
 
 /**
  * Interface for an optional in-browser model (WebLLM / wllama). The deterministic rules are always
@@ -30,6 +31,7 @@ export interface LLMAdapter {
     text: string,
     history: { role: "user" | "assistant"; content: string }[],
     signal: AbortSignal,
+    lang?: ChatLang,
   ): Promise<string | null>;
   /** Tear down a worker / GPU engine. Used when WebGPU dies and we fall back. */
   dispose?(): void | Promise<void>;
