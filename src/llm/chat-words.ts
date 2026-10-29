@@ -1,8 +1,8 @@
 /**
  * Thai/English word segmentation for grounded chat (Intl.Segmenter).
- * Used by the positive card-coverage fact check and by trim's "meaningful
- * sentence" bar. No new dependency. Fail closed if Segmenter is missing.
- * Never logs text.
+ * Used by the sentence-level faithfulness check (whole-token numbers and
+ * polarity) and by trim's "meaningful sentence" bar. No new dependency.
+ * Fail closed if Segmenter is missing. Never logs text.
  */
 
 export const MIN_CONTENT_WORDS = 2;
@@ -106,19 +106,20 @@ function parseThaiNumberWord(w: string): number | null {
   return null;
 }
 
-function thaiNumberTokens(): string[] {
-  const ones = Object.keys(THAI_ONES);
-  const tens = Object.keys(THAI_TENS);
-  const out: string[] = ["ครึ่ง", "ร้อย", "พัน"];
-  for (const t of tens) {
-    for (const o of ones) out.push(t + o);
-    out.push(t);
-  }
-  out.push(...ones);
-  return [...new Set(out)].sort((a, b) => b.length - a.length || a.localeCompare(b));
+const EN_NUM_MAP = new Map(EN_NUMS.map(([tok, val]) => [tok, val]));
+
+function parseEnNumberWord(w: string): number | null {
+  return EN_NUM_MAP.get(w.toLowerCase()) ?? null;
 }
 
-const THAI_NUM_TOKS = thaiNumberTokens();
+function parseFractionToken(w: string): number | null {
+  const m = nfc(w).match(/^(.+?)(?:ใน|in)(.+)$/i);
+  if (!m) return null;
+  const a = parseThaiNumberWord(m[1]!) ?? parseDigitRun(m[1]!) ?? parseEnNumberWord(m[1]!);
+  const b = parseThaiNumberWord(m[2]!) ?? parseDigitRun(m[2]!) ?? parseEnNumberWord(m[2]!);
+  if (a == null || b == null || b === 0) return null;
+  return a / b;
+}
 
 function isListMarker(text: string, start: number, end: number): boolean {
   let i = start - 1;
@@ -134,9 +135,10 @@ function overlaps(a: NumberSpan, start: number, end: number): boolean {
 }
 
 /**
- * Number values in `text`: Arabic digits, Thai digits, Thai number words
- * (including สิบเก้า / สอง), English number words. List markers ("1. …")
- * are skipped so a card's numbered list does not license the value 1, 2, …
+ * Number values in `text` as whole tokens only (Intl.Segmenter), never as a
+ * substring inside สามารถ / เสี่ยง / ห้าม / เพศสัมพันธ์. Digits, Thai digits,
+ * Thai/English number words, and fractions like สามในสี่. List markers
+ * ("1. …") are skipped so a card's numbered list does not license 1, 2, …
  */
 export function extractNumberSpans(text: string): NumberSpan[] {
   const raw = nfc(text ?? "");
@@ -145,35 +147,51 @@ export function extractNumberSpans(text: string): NumberSpan[] {
     if (spans.some((s) => overlaps(s, start, end))) return;
     spans.push({ start, end, value });
   };
+  const words = wordSpans(raw);
 
-  for (const tok of THAI_NUM_TOKS) {
-    const val = parseThaiNumberWord(tok);
-    if (val == null) continue;
-    let from = 0;
-    while (from < raw.length) {
-      const i = raw.indexOf(tok, from);
-      if (i < 0) break;
-      take(i, i + tok.length, val);
-      from = i + tok.length;
-    }
+  for (let i = 0; i + 2 < words.length; i++) {
+    const a = words[i]!;
+    const mid = words[i + 1]!;
+    const b = words[i + 2]!;
+    const midW = normWord(mid.word);
+    if (midW !== "ใน" && midW !== "in") continue;
+    const av = parseThaiNumberWord(a.word) ?? parseDigitRun(a.word) ?? parseEnNumberWord(a.word);
+    const bv = parseThaiNumberWord(b.word) ?? parseDigitRun(b.word) ?? parseEnNumberWord(b.word);
+    if (av == null || bv == null || bv === 0) continue;
+    take(a.start, b.end, av / bv);
   }
 
-  for (const [tok, val] of EN_NUMS) {
-    const re = new RegExp(`(^|[^A-Za-z])(${tok})(?![A-Za-z])`, "gi");
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(raw))) {
-      const start = m.index + m[1]!.length;
-      take(start, start + m[2]!.length, val);
+  // Compound Thai numbers that Segmenter splits (สิบ+เก้า → 19), never
+  // substrings inside สามารถ / เสี่ยง / ห้าม / เพศสัมพันธ์.
+  let i = 0;
+  while (i < words.length) {
+    const start = i;
+    while (i < words.length && parseThaiNumberWord(words[i]!.word) != null) i++;
+    if (i > start) {
+      const run = words.slice(start, i);
+      const joined = run.map((w) => w.word).join("");
+      const compound = parseThaiNumberWord(joined);
+      if (compound != null) {
+        if (!isListMarker(raw, run[0]!.start, run[run.length - 1]!.end)) {
+          take(run[0]!.start, run[run.length - 1]!.end, compound);
+        }
+      } else {
+        for (const w of run) {
+          const val = parseThaiNumberWord(w.word);
+          if (val == null || isListMarker(raw, w.start, w.end)) continue;
+          take(w.start, w.end, val);
+        }
+      }
+      continue;
     }
+    i++;
   }
 
-  const digitRe = /[0-9๐-๙]+(?:[.,][0-9๐-๙]+)*/g;
-  let d: RegExpExecArray | null;
-  while ((d = digitRe.exec(raw))) {
-    if (isListMarker(raw, d.index, d.index + d[0].length)) continue;
-    const val = parseDigitRun(d[0]);
+  for (const w of words) {
+    if (isListMarker(raw, w.start, w.end)) continue;
+    const val = parseDigitRun(w.word) ?? parseEnNumberWord(w.word) ?? parseFractionToken(w.word);
     if (val == null) continue;
-    take(d.index, d.index + d[0].length, val);
+    take(w.start, w.end, val);
   }
   return spans;
 }
@@ -206,5 +224,5 @@ export function insideSpan(start: number, end: number, spans: readonly NumberSpa
 
 export function parseNumberToken(word: string): number | null {
   const w = nfc(word);
-  return parseThaiNumberWord(w) ?? parseDigitRun(w);
+  return parseFractionToken(w) ?? parseThaiNumberWord(w) ?? parseDigitRun(w) ?? parseEnNumberWord(w);
 }

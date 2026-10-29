@@ -37,4 +37,17 @@ describe("number values in any form", () => {
     expect(numberValues("1. ไซส์ไม่พอดี\n2. ความร้อน")).toEqual([]);
     expect(numberValues("กินวันละ 1 เม็ด")).toEqual([1]);
   });
+
+  it("does not treat สามารถ / เสี่ยง / ห้าม / เพศสัมพันธ์ as number words", () => {
+    expect(numberValues("สามารถ")).toEqual([]);
+    expect(numberValues("เสี่ยง")).toEqual([]);
+    expect(numberValues("ห้าม")).toEqual([]);
+    expect(numberValues("เพศสัมพันธ์")).toEqual([]);
+    expect(numberValues("เพร็พสามารถลดความเสี่ยงได้")).toEqual([]);
+  });
+
+  it("reads สามในสี่ as a fraction, not as สามารถ-style substrings", () => {
+    expect(numberValues("สามในสี่")).toEqual([0.75]);
+    expect(numberValues("เพร็พลดโอกาสได้สามในสี่ค่ะ")).toEqual([0.75]);
+  });
 });

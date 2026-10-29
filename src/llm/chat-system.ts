@@ -74,8 +74,9 @@ export const CHAT_SYSTEM_AMBIGUOUS_EN =
 
 /** DRAFT. Appended when a confident approved card is the only allowed source. */
 export const CHAT_GROUND_FACTS_TH =
-  "ตอบจากข้อเท็จจริงด้านล่างเท่านั้น ด้วยน้ำเสียงพี่เจนที่อบอุ่น " +
-  "ห้ามเพิ่มข้อเท็จจริง ตัวเลข ขนาดยา ราคา สายด่วน ลิงก์ สถานที่ หรือคำสั่งที่ไม่มีในนี้ " +
+  "ตอบโดยยึดประโยคในข้อเท็จจริงด้านล่างให้ใกล้ต้นฉบับ น้ำเสียงพี่เจน " +
+  "เติมประโยคปลอบใจสั้นได้หนึ่งประโยค " +
+  "ห้ามกลับความหมาย ห้ามสลับหัวข้อ ห้ามเปลี่ยนตัวเลข ห้ามเพิ่มข้อเท็จจริงที่ไม่มีในนี้ " +
   "ถ้าไม่มีในนี้ให้บอกว่ายังไม่ทราบ จบประโยคด้วยค่ะ นะ ครับ หรือจ้ะ ข้อเท็จจริงที่อนุญาต:";
 
 export const CHAT_GROUND_NONE_TH =
@@ -83,12 +84,12 @@ export const CHAT_GROUND_NONE_TH =
   "บอกได้ว่ายังตอบเรื่องนี้ไม่ได้ และชวนกดขอข้อมูลเลย จบประโยคด้วยค่ะ นะ ครับ หรือจ้ะ";
 
 export const CHAT_GROUND_STRICT_TH =
-  "รอบนี้เข้มงวด: ห้ามมีตัวเลข อายุ ระยะเวลา ขนาดยา ราคา เบอร์โทร สถานที่ " +
-  "คำสั่ง (อุ่น ล้าง กิน สอด ทา) หรือคำว่าผู้ปกครอง ใบสั่ง ยินยอม ที่ไม่มีในข้อเท็จจริงด้านบน ถ้าไม่มีให้บอกว่ายังไม่ทราบ";
+  "รอบนี้เข้มงวด: พูดประโยคในข้อเท็จจริงด้านบนซ้ำให้ใกล้ต้นฉบับ " +
+  "เติมประโยคปลอบใจสั้นได้หนึ่งประโยค ห้ามกลับไม่หรือห้าม ห้ามเปลี่ยนตัวเลข ห้ามสลับหัวข้อ ถ้าไม่มีให้บอกว่ายังไม่ทราบ";
 
 export const CHAT_GROUND_FACTS_EN =
-  "Answer only from the facts below, in P'Jane's warm voice. " +
-  "Do not add facts, numbers, doses, prices, hotlines, links, places, or instructions that are not there. " +
+  "Restate the fact sentences below closely, in P'Jane's warm voice. " +
+  "You may add one short empathy phrase. Do not flip meaning, swap the topic, change numbers, or add facts that are not there. " +
   "If it is not there, say you do not know. End on a complete sentence. Allowed facts:";
 
 export const CHAT_GROUND_NONE_EN =
@@ -96,8 +97,8 @@ export const CHAT_GROUND_NONE_EN =
   "You may say you cannot answer that yet and point them to Just show me the info. End on a complete sentence.";
 
 export const CHAT_GROUND_STRICT_EN =
-  "Stricter this time: no numbers, ages, durations, doses, prices, phone numbers, places, " +
-  "instructions (heat, wash, take, insert, apply), or parent/guardian/prescription/permission claims that are not in the facts. If not there, say you do not know.";
+  "Stricter this time: restate the fact sentences above closely. You may add one short empathy phrase. " +
+  "Do not flip negators, change numbers, or swap the topic. If not there, say you do not know.";
 
 export function chatSystemFor(lang: ChatLang, opts?: ChatReplyOpts): string {
   const base = lang === "en" ? CHAT_SYSTEM_EN : CHAT_SYSTEM;

@@ -1,193 +1,355 @@
 /**
- * Add-only output fact check for grounded Jane chat. Never loosens chatGuard.
+ * Sentence-level faithfulness check for grounded Jane chat. Never loosens
+ * chatGuard or the AMBIGUOUS guard. Fact checks only ever reject.
  *
- * Core: every content word in the reply must appear in the approved card's
- * word set (Intl.Segmenter) or in the reviewed conversational allowlist.
- * Numbers in any form must match a value that is on the card. The old
- * denylist (instruction / permission / place / price) stays as an extra
- * layer, matched at word level so ทา≠ทาน and ซัก in ซักถาม do not trip it.
- *
- * Pattern + coverage checks cannot catch every wrong fact — that limit is
- * documented on the PR. Synthetic strings only. Never logs text.
+ * Each reply sentence is either (A) a whole DRAFT empathy phrase or (B) a
+ * close restatement of one card sentence (character LCS, matching polarity
+ * and numbers, subject kept). No card → only (A). Synthetic strings only.
+ * Never logs text.
  */
 
 import { compact } from "../core/text";
-import { CHAT_COVERAGE_ALLOW_SET } from "./chat-factcheck-allow";
 import {
-  extractNumberSpans,
+  CHAT_EMPATHY_PHRASES_EN,
+  CHAT_EMPATHY_PHRASES_TH,
+} from "./chat-factcheck-empathy";
+import {
   hasWordSegmenter,
-  insideSpan,
-  normWord,
+  nfcText,
   numberValues,
-  parseNumberToken,
   wordSpans,
 } from "./chat-words";
 
-export type FactCheckReason = "quantity" | "instruction" | "permission" | "coverage";
+export type FactCheckReason = "quantity" | "polarity" | "topic" | "coverage";
 
-const THAI_NUM = "(?:ยี่สิบ|สิบเอ็ด|สิบ|หนึ่ง|เอ็ด|สอง|สาม|สี่|ห้า|หก|เจ็ด|แปด|เก้า|ร้อย|พัน|ครึ่ง)";
-const THAI_UNIT = "(?:ปี|ขวบ|วัน|ชั่วโมง|ชม\\.|นาที|สัปดาห์|อาทิตย์|เดือน|เม็ด|โดส|ครั้ง|บาท|เปอร์เซ็นต์)";
-const THAI_QTY_RE = new RegExp(`${THAI_NUM}\\s*${THAI_UNIT}|${THAI_UNIT}\\s*${THAI_NUM}`, "gu");
+/**
+ * 85% of the reply sentence (whitespace, punctuation, digits, and Jane ending
+ * voice stripped; letters kept so English facts still score) must be an
+ * ordered subsequence of one card sentence. The Codex-named ช่วย restatement
+ * lands just above this bar; polarity, numbers, and topic catch meaning flips
+ * that LCS would miss.
+ */
+export const FACT_LCS_MIN = 0.85;
 
-const EN_NUM =
-  "(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|half|nineteen)";
-const EN_UNIT =
-  "(?:days?|hours?|hrs?|weeks?|months?|years?|minutes?|mins?|pills?|tablets?|doses?|mg|baht|percent)";
-const EN_QTY_RE = new RegExp(`\\b${EN_NUM}\\s+(?:a\\s+)?${EN_UNIT}\\b|\\b${EN_UNIT}\\s+${EN_NUM}\\b`, "gi");
-
-const PLACE_TERMS = [
-  "โรงพยาบาล", "คลินิก", "ร้านขายยา", "ศูนย์พึ่งได้", "สภากาชาด", "หน่วยบริการ",
-  "ร้านสะดวกซื้อ", "สายด่วน", "hospital", "clinic", "pharmacy", "hotline",
+const ENDING_PARTICLES = [
+  "นะค่ะ", "นะคะ", "นะจ๊ะ", "นะจ้ะ", "ครับผม", "ค่ะนะ",
+  "ค่ะ", "คะ", "ครับ", "จ้ะ", "จ๊ะ", "จ้า", "น้า", "นะ", "เลย",
 ] as const;
 
-const PRICE_TERMS = ["บาท", "ราคา", "baht"] as const;
+const NEGATORS: readonly string[] = [
+  "ไม่สามารถ", "cannot", "can't", "dont", "don't", "doesnt", "doesn't",
+  "didnt", "didn't", "wont", "won't", "never",
+  "ไม่ได้", "ไม่ต้อง", "ไม่ควร", "ไม่ใช่", "ยังไม่", "ห้าม", "อย่า", "ไม่",
+  "not",
+];
 
-type Needle = string | RegExp;
-
-const HEAT: readonly Needle[] = ["heat", "heating", "อุ่น", "ต้ม", "ลวก", "เผา", "ไมโครเวฟ", "ตั้งไฟ"];
-const WASH: readonly Needle[] = ["wash", "washing", "ล้าง", "ซัก"];
-const INSERT: readonly Needle[] = ["insert", "inserting", "สอด"];
-const APPLY: readonly Needle[] = ["apply", "applying", "ทา"];
-const TAKE: readonly Needle[] = ["take", "taking", "กินยา", "รับประทาน", /กิน.{0,12}เม็ด/u];
-const INSTRUCTION_GROUPS: readonly (readonly Needle[])[] = [HEAT, WASH, INSERT, APPLY, TAKE];
-
-const PERMISSION_TH = [
-  "ผู้ปกครอง", "พ่อแม่", "บิดามารดา", "ใบสั่งแพทย์", "ใบสั่งยา", "ยินยอม", "อนุญาต",
-] as const;
-const PERMISSION_EN = ["parent", "parents", "guardian", "prescription", "permission"] as const;
-
-/** Same-act aliases: only when the card already has one of the group. */
-const VERB_ALIASES: readonly (readonly string[])[] = [
-  ["กิน", "ทาน", "ประทาน"],
+/**
+ * Competing subject terms. Longest first inside each group. A reply sentence
+ * may not swap the matched card sentence's group for another group.
+ */
+const TOPIC_GROUPS: readonly (readonly string[])[] = [
+  ["ยาคุมฉุกเฉิน"],
+  ["ยาคุมกำเนิด", "ยาคุม"],
+  ["ถุงยางอนามัย", "ถุงยาง"],
+  ["เพร็พ", "prep"],
+  ["เอชไอวี", "hiv"],
+  ["ห่วงอนามัย"],
+  ["ยาฝัง", "ฝังยา"],
+  ["ยาฉีด"],
 ];
 
 function nfc(s: string): string {
-  return s.normalize("NFC").replace(/[\u200B-\u200D\uFEFF]/g, "");
+  return nfcText(s);
 }
 
-function englishWord(text: string, word: string): boolean {
-  return new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(text);
+function collapseWs(s: string): string {
+  return nfc(s).toLowerCase().replace(/[.!?…,;:]+/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function qtySpans(text: string, re: RegExp): string[] {
-  return [...text.matchAll(new RegExp(re.source, re.flags))].map((m) => m[0]!);
-}
-
-function cardWordSet(card: string): Set<string> {
-  const set = new Set(wordSpans(card).map((w) => normWord(w.word)));
-  for (const group of VERB_ALIASES) {
-    if (group.some((v) => set.has(v))) for (const v of group) set.add(v);
+function particleEnd(text: string, i: number): number {
+  for (const p of ENDING_PARTICLES) {
+    if (!text.startsWith(p, i)) continue;
+    let end = i + p.length;
+    if (p === "จ้า" || p === "น้า") {
+      while (text[end] === "า") end++;
+    }
+    const after = text[end];
+    if (after != null && !/[\s.!?…,]/.test(after) && end !== text.length) continue;
+    return end;
   }
-  return set;
+  return -1;
 }
 
-function ngramAt(words: readonly string[], i: number, len: number): string | null {
-  if (i < 0 || i + len > words.length) return null;
-  return words.slice(i, i + len).map(normWord).join("");
-}
-
-function allowCovers(words: readonly string[], i: number): boolean {
-  const w = normWord(words[i]!);
-  if (CHAT_COVERAGE_ALLOW_SET.has(w)) return true;
-  for (let len = 2; len <= 4; len++) {
-    for (let start = Math.max(0, i - len + 1); start <= i; start++) {
-      const gram = ngramAt(words, start, len);
-      if (gram && CHAT_COVERAGE_ALLOW_SET.has(gram)) return true;
+function stripTrailingParticlesText(s: string): string {
+  let t = collapseWs(s);
+  let changed = true;
+  while (changed && t) {
+    changed = false;
+    for (const p of ENDING_PARTICLES) {
+      if (p === "จ้า" || p === "น้า") {
+        const re = new RegExp(`${p}า*$`);
+        if (re.test(t) && t !== p && t.length > p.length) {
+          t = t.replace(re, "").replace(/\s+/g, " ").trim();
+          changed = true;
+          break;
+        }
+      }
+      if (t.endsWith(p) && t.length > p.length) {
+        t = t.slice(0, t.length - p.length).replace(/\s+/g, " ").trim();
+        changed = true;
+        break;
+      }
     }
   }
-  return false;
+  return t;
 }
 
-function spanCoveredByAllow(words: readonly string[], from: number, to: number): boolean {
-  for (let end = to; end < Math.min(words.length, from + 4); end++) {
-    const gram = ngramAt(words, from, end - from + 1);
-    if (!gram || !CHAT_COVERAGE_ALLOW_SET.has(gram)) continue;
-    if (end > to) return true;
-    if (end === to && from !== to) return true;
-  }
-  if (from === to) {
-    for (let end = from + 1; end < Math.min(words.length, from + 4); end++) {
-      const gram = ngramAt(words, from, end - from + 1);
-      if (gram && CHAT_COVERAGE_ALLOW_SET.has(gram)) return true;
+function stripTrailingVoiceCompact(s: string): string {
+  let t = s;
+  let changed = true;
+  while (changed && t) {
+    changed = false;
+    for (const p of ENDING_PARTICLES) {
+      if (p === "จ้า" || p === "น้า") {
+        const re = new RegExp(`${p}า*$`);
+        if (re.test(t) && t.length > p.length) {
+          t = t.replace(re, "");
+          changed = true;
+          break;
+        }
+      }
+      if (t.endsWith(p) && t.length > p.length) {
+        t = t.slice(0, t.length - p.length);
+        changed = true;
+        break;
+      }
     }
   }
-  return false;
+  if (t.endsWith("ได้") && !t.endsWith("ไม่ได้") && t.length > 3) t = t.slice(0, -3);
+  return t;
 }
 
-function thaiPhrasePresent(words: readonly string[], needle: string): boolean {
-  const want = compact(needle);
-  if (!want) return false;
-  for (let i = 0; i < words.length; i++) {
-    let acc = "";
-    for (let j = i; j < words.length; j++) {
-      acc += compact(words[j]!);
-      if (acc === want) return !spanCoveredByAllow(words, i, j);
-      if (acc.length > want.length) break;
+/** Whitespace-stripped text used for character LCS. Ending voice is not a fact. */
+export function stripForLcs(s: string): string {
+  const t = nfc(s)
+    .toLowerCase()
+    .replace(/[0-9๐-๙()[\]{}.!?,:;'"…%/_-]/g, "")
+    .replace(/\s+/g, "");
+  return stripTrailingVoiceCompact(t);
+}
+
+export function lcsLength(a: string, b: string): number {
+  const x = [...a];
+  const y = [...b];
+  if (!x.length || !y.length) return 0;
+  let prev = new Array<number>(y.length + 1).fill(0);
+  let cur = new Array<number>(y.length + 1).fill(0);
+  for (let i = 1; i <= x.length; i++) {
+    for (let j = 1; j <= y.length; j++) {
+      cur[j] = x[i - 1] === y[j - 1] ? (prev[j - 1]! + 1) : Math.max(prev[j]!, cur[j - 1]!);
+    }
+    const tmp = prev;
+    prev = cur;
+    cur = tmp;
+    cur.fill(0);
+  }
+  return prev[y.length]!;
+}
+
+export function lcsCover(reply: string, cardSentence: string): number {
+  const a = stripForLcs(reply);
+  const b = stripForLcs(cardSentence);
+  if (!a.length) return 0;
+  return lcsLength(a, b) / a.length;
+}
+
+function splitOnPunctParticlesNewlines(text: string): string[] {
+  const raw = nfc(text).replace(/\r\n/g, "\n").trim();
+  if (!raw) return [];
+  const out: string[] = [];
+  let start = 0;
+  const push = (end: number) => {
+    const s = raw.slice(start, end).trim();
+    if (s) out.push(s);
+    start = end;
+    while (start < raw.length && /\s/.test(raw[start]!)) start++;
+  };
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i]!;
+    if (ch === "\n") {
+      push(i);
+      continue;
+    }
+    if (/[.!?…]/.test(ch)) {
+      let end = i + 1;
+      while (end < raw.length && /[.!?…]/.test(raw[end]!)) end++;
+      push(end);
+      i = end - 1;
+      continue;
+    }
+    const pEnd = particleEnd(raw, i);
+    if (pEnd > i) {
+      push(pEnd);
+      i = pEnd - 1;
     }
   }
+  if (start < raw.length) {
+    const rest = raw.slice(start).trim();
+    if (rest) out.push(rest);
+  }
+  return out;
+}
+
+function isEmpathyPhrase(sentence: string): boolean {
+  const norm = stripTrailingParticlesText(sentence);
+  if (!norm) return false;
+  const compactNorm = compact(norm);
+  for (const p of CHAT_EMPATHY_PHRASES_TH) {
+    const n = stripTrailingParticlesText(p);
+    if (norm === n || compactNorm === compact(n)) return true;
+  }
+  for (const p of CHAT_EMPATHY_PHRASES_EN) {
+    if (norm === p) return true;
+  }
   return false;
 }
 
-function needleInWords(text: string, words: readonly string[], n: Needle): boolean {
-  if (typeof n !== "string") return n.test(text);
-  if (/^[a-z]+$/i.test(n)) return englishWord(text, n);
-  return thaiPhrasePresent(words, n);
+function splitEmpathyPrefixes(chunk: string): string[] {
+  if (!/[\u0E00-\u0E7F]/.test(chunk)) return [chunk.trim()].filter(Boolean);
+  const parts: string[] = [];
+  let rest = chunk.trim();
+  while (rest) {
+    let splitAt = -1;
+    for (let i = 1; i < rest.length; i++) {
+      if (rest[i] !== " ") continue;
+      if (isEmpathyPhrase(rest.slice(0, i))) {
+        splitAt = i;
+        break;
+      }
+    }
+    if (splitAt < 0) break;
+    parts.push(rest.slice(0, splitAt).trim());
+    rest = rest.slice(splitAt).trim();
+  }
+  if (rest) parts.push(rest);
+  return parts;
 }
 
-function extraQuantities(reply: string, card: string, replyWords: readonly string[], cardWords: readonly string[]): boolean {
-  for (const span of [...qtySpans(reply, THAI_QTY_RE), ...qtySpans(reply, EN_QTY_RE)]) {
-    if (!compact(card).includes(compact(span))) return true;
+/** Reply/card sentences: particles, newlines, .!?, and a leading empathy phrase before a space. */
+export function splitSentences(text: string): string[] {
+  const out: string[] = [];
+  for (const chunk of splitOnPunctParticlesNewlines(text)) {
+    out.push(...splitEmpathyPrefixes(chunk));
   }
-  for (const term of PLACE_TERMS) {
-    if (needleInWords(reply, replyWords, term) && !needleInWords(card, cardWords, term)) return true;
-  }
-  for (const term of PRICE_TERMS) {
-    if (needleInWords(reply, replyWords, term) && !needleInWords(card, cardWords, term)) return true;
-  }
-  return false;
+  return out.filter((s) => s.trim().length > 0);
 }
 
-function extraInstruction(reply: string, card: string, replyWords: readonly string[], cardWords: readonly string[]): boolean {
-  for (const group of INSTRUCTION_GROUPS) {
-    if (group.some((n) => needleInWords(reply, replyWords, n)) && !group.some((n) => needleInWords(card, cardWords, n))) {
-      return true;
+function clauseSplits(sentence: string): string[] {
+  return nfc(sentence)
+    .split(/\s*(?:แต่|หรือ|,|;)\s*/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function polarityBag(sentence: string): string[] {
+  const found: string[] = [];
+  for (const clause of clauseSplits(sentence)) {
+    const words = wordSpans(clause);
+    const toks = words.map((w) => w.word.toLowerCase().replace(/'/g, ""));
+    const used = new Array<boolean>(toks.length).fill(false);
+    for (const neg of NEGATORS) {
+      const needle = neg.replace(/'/g, "");
+      for (let i = 0; i < toks.length; i++) {
+        if (used[i]) continue;
+        if (toks[i] === needle) {
+          found.push(lemmaNeg(neg));
+          used[i] = true;
+          continue;
+        }
+        if (i + 1 < toks.length && !used[i + 1] && `${toks[i]}${toks[i + 1]}` === needle) {
+          found.push(lemmaNeg(neg));
+          used[i] = true;
+          used[i + 1] = true;
+        }
+      }
     }
   }
-  return false;
+  return found.sort();
 }
 
-function extraPermission(reply: string, card: string, replyWords: readonly string[], cardWords: readonly string[]): boolean {
-  for (const p of PERMISSION_TH) {
-    if (thaiPhrasePresent(replyWords, p) && !thaiPhrasePresent(cardWords, p)) return true;
-  }
-  for (const p of PERMISSION_EN) {
-    if (englishWord(reply, p) && !englishWord(card, p)) return true;
-  }
-  return false;
+function lemmaNeg(neg: string): string {
+  if (neg === "ห้าม" || neg === "อย่า") return neg;
+  if (/never|not|don't|dont|can't|cannot|doesn't|didn't|won't/i.test(neg)) return "not";
+  return "ไม่";
 }
 
-function uncoveredContent(reply: string, cardSet: Set<string>): boolean {
-  const nums = extractNumberSpans(reply);
-  const words = wordSpans(reply);
-  const list = words.map((w) => w.word);
-  for (let i = 0; i < words.length; i++) {
-    const span = words[i]!;
-    if (insideSpan(span.start, span.end, nums)) continue;
-    if (parseNumberToken(span.word) != null) continue;
-    const w = normWord(span.word);
-    if (cardSet.has(w)) continue;
-    if (allowCovers(list, i)) continue;
-    return true;
-  }
-  return false;
+function samePolarity(reply: string, cardSentence: string): boolean {
+  return polarityBag(reply).join(",") === polarityBag(cardSentence).join(",");
 }
 
-function extraNumbers(reply: string, card: string): boolean {
-  const allowed = new Set(numberValues(card));
+function extraNumbers(reply: string, cardSentence: string): boolean {
+  const allowed = new Set(numberValues(cardSentence));
   for (const v of numberValues(reply)) {
     if (!allowed.has(v)) return true;
   }
   return false;
+}
+
+function topicGroupIds(text: string): Set<string> {
+  const c = compact(text);
+  const hit = new Set<string>();
+  const used = new Array<boolean>(c.length).fill(false);
+  const terms = TOPIC_GROUPS
+    .flatMap((g) => g.map((t) => ({ t: compact(t), id: compact(g[0]!) })))
+    .sort((a, b) => b.t.length - a.t.length);
+  for (const { t, id } of terms) {
+    let from = 0;
+    while (from <= c.length - t.length) {
+      const i = c.indexOf(t, from);
+      if (i < 0) break;
+      let blocked = false;
+      for (let k = i; k < i + t.length; k++) if (used[k]) blocked = true;
+      if (!blocked) {
+        hit.add(id);
+        for (let k = i; k < i + t.length; k++) used[k] = true;
+      }
+      from = i + t.length;
+    }
+  }
+  return hit;
+}
+
+function topicKept(reply: string, cardSentence: string): boolean {
+  const cardT = topicGroupIds(cardSentence);
+  const replyT = topicGroupIds(reply);
+  for (const t of replyT) {
+    if (!cardT.has(t)) return false;
+  }
+  if (cardT.size > 0) {
+    for (const t of cardT) if (replyT.has(t)) return true;
+    return false;
+  }
+  return true;
+}
+
+function classifySentence(sentence: string, cardSentences: readonly string[]): FactCheckReason | null {
+  if (isEmpathyPhrase(sentence)) return null;
+  if (!cardSentences.length) return "coverage";
+  let best = -1;
+  let bestCover = -1;
+  for (let i = 0; i < cardSentences.length; i++) {
+    const cover = lcsCover(sentence, cardSentences[i]!);
+    if (cover > bestCover) {
+      bestCover = cover;
+      best = i;
+    }
+  }
+  if (best < 0 || bestCover < FACT_LCS_MIN) return "coverage";
+  const cardSent = cardSentences[best]!;
+  if (!samePolarity(sentence, cardSent)) return "polarity";
+  if (extraNumbers(sentence, cardSent)) return "quantity";
+  if (!topicKept(sentence, cardSent)) return "topic";
+  return null;
 }
 
 /** Failed fact-check reasons (empty = accept). Add-only; never logs text. */
@@ -196,15 +358,14 @@ export function chatFactCheckFailures(reply: string | null | undefined, cardText
   const card = nfc(cardText == null ? "" : String(cardText));
   if (!raw.trim()) return [];
   if (!hasWordSegmenter()) return ["coverage"];
+  const sentences = splitSentences(raw);
+  if (!sentences.length) return ["coverage"];
+  const cardSentences = card.trim() ? splitSentences(card) : [];
   const fails: FactCheckReason[] = [];
-  const replyWords = wordSpans(raw).map((w) => w.word);
-  const cardWords = wordSpans(card).map((w) => w.word);
-  const cardSet = cardWordSet(card);
-  if (extraNumbers(raw, card)) fails.push("quantity");
-  if (uncoveredContent(raw, cardSet)) fails.push("coverage");
-  if (extraQuantities(raw, card, replyWords, cardWords) && !fails.includes("quantity")) fails.push("quantity");
-  if (extraInstruction(raw, card, replyWords, cardWords)) fails.push("instruction");
-  if (extraPermission(raw, card, replyWords, cardWords)) fails.push("permission");
+  for (const s of sentences) {
+    const reason = classifySentence(s, cardSentences);
+    if (reason && !fails.includes(reason)) fails.push(reason);
+  }
   return fails;
 }
 

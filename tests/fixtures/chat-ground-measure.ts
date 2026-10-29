@@ -7,13 +7,13 @@ import type { GroundMeasureCase } from "../../src/llm/chat-ground-measure";
  */
 export const GROUND_MEASURE_CASES: readonly GroundMeasureCase[] = [
   { id: "keep-warm", cardId: "condom.000", reply: "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย" },
-  { id: "keep-condom-paraphrase", cardId: "condom.000", reply: "ถุงยางกันได้ทั้งท้องและโรค ถ้าใช้ถูกวิธีก็เวิร์กเลย" },
-  { id: "keep-leak-paraphrase", cardId: "condom.leak.000", reply: "ถุงยางแตกได้หลายสาเหตุ ถ้าแตกให้หยุด ล้าง แล้วเปลี่ยนถุงใหม่นะ" },
-  { id: "keep-birth-paraphrase", cardId: "birth.control.000", reply: "ยาคุมกันท้องได้แต่กันโรคไม่ได้นะ" },
-  { id: "keep-prep-paraphrase", cardId: "protection.prep.000", reply: "เพร็พคือยาลดความเสี่ยง HIV กินไว้ก่อนมีกิจกรรมเสี่ยงนะ" },
+  { id: "keep-condom-paraphrase", cardId: "condom.000", reply: "พี่เข้าใจ ถุงยางเป็นเครื่องป้องกันที่เวิร์กสุดแล้ว ณ เวลานี้ เพราะกันได้ทั้งเรื่องท้องและเรื่องโรคนะ" },
+  { id: "keep-leak-paraphrase", cardId: "condom.leak.000", reply: "ถุงยางแตกนี่มีหลายสาเหตุเลย เช่นนะ" },
+  { id: "keep-birth-paraphrase", cardId: "birth.control.000", reply: "ยาคุมกันท้องได้ แต่ยังกันโรคไม่ได้นะ" },
+  { id: "keep-prep-paraphrase", cardId: "protection.prep.000", reply: "เพร็พลดความเสี่ยงได้ค่ะ" },
   { id: "keep-prep-than", cardId: "protection.prep.000", reply: "เพร็พคือยาสำหรับลดความเสี่ยง HIV ทานไว้ก่อนมีกิจกรรมเสี่ยงนะ" },
   { id: "keep-ask-compound", cardId: "", reply: "น้องซักถามได้เลยนะ" },
-  { id: "keep-complete-particle", cardId: "", reply: "ยังตอบเรื่องนี้ไม่ได้ค่ะ ขอกดขอข้อมูลเลยได้นะ" },
+  { id: "keep-complete-particle", cardId: "", reply: "ยังตอบเรื่องนี้ไม่ได้ค่ะ กดขอข้อมูลเลยนะ" },
   { id: "keep-english-complete", cardId: "", reply: "I'm here. You can tell me more whenever you like.", lang: "en" },
   { id: "fb-heat-condom", cardId: "condom.leak.000", reply: "ถุงยางแตกแล้วให้นำไปอุ่นก่อนใช้นะ" },
   { id: "fb-parent-prep", cardId: "protection.prep.000", reply: "อายุสิบเก้าปีต้องมีผู้ปกครองไปด้วยถึงจะรับเพร็พได้นะ" },
