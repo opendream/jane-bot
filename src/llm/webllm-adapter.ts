@@ -6,6 +6,7 @@ import { modelUrl } from "./weights-cache";
 import { CLASSIFY_SYSTEM, POLISH_SYSTEM, PICK_SYSTEM, PICK_MAX_TOKENS, REWORD_SYSTEM, REWORD_MAX_TOKENS, cleanPolished, cleanReword, parseIntent, pickSchema, pickUser, rewordUser } from "./prompts";
 import { needLine, replaceNeedLine } from "./summary-lines";
 import { isWebGpuRuntimeFailure } from "./gpu-failure";
+import { WARMUP_BUDGET_MS } from "./loader-eta";
 
 export { isWebGpuRuntimeFailure } from "./gpu-failure";
 
@@ -23,6 +24,8 @@ export interface WebLLMWorkerLike {
 
 export interface BindWebLLMOpts {
   onDead?: (err: Error) => void;
+  /** Final one-token warm-up is about to start. */
+  onWarmup?: (budgetMs: number) => void;
 }
 
 function asError(err: unknown): Error {
@@ -128,6 +131,7 @@ export async function loadWebLLM(
     const engine = await CreateWebWorkerMLCEngine(worker, build.modelId, {
       appConfig, initProgressCallback: (r) => onProgress(r.progress ?? 0),
     });
+    opts?.onWarmup?.(WARMUP_BUDGET_MS);
     onProgress(1);
     return await bindWebLLMEngine(engine as WebLLMEngineLike, worker, label, opts);
   } catch (e) {

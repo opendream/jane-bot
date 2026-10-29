@@ -13,6 +13,7 @@ import {
   type TurnReply,
 } from "../../src/core/dialog";
 import { LOCKED_ROUTE_IDS, MODEL_PICK_TIMEOUT_MS, MODEL_PICK_TOP_N, type CardPicker } from "../../src/core/pick-engine";
+import { shouldForceRulesFallback } from "../../src/core/pick-guards";
 import { retrieve } from "../../src/core/retrieve";
 import { shippable } from "../../src/core/bank";
 import { BANK, BANK_FIXTURES } from "../../src/core/bankData";
@@ -49,7 +50,7 @@ function rulesTop(q: string, cards = BANK) {
 
 type StubOpts = { delayMs?: number; ready?: boolean; warmupRemainingMs?: number | null; throwError?: boolean };
 function stubPicker(raw: string | ((ids: string[]) => string), opts: StubOpts = {}) {
-  const calls = { pick: 0, lastText: "", lastIds: [] as string[] };
+  const calls = { pick: 0, lastText: "", lastIds: [] as string[], lastFacts: [] as (string | undefined)[] };
   const picker: CardPicker = {
     ready: () => opts.ready !== false,
     warmupRemainingMs: opts.warmupRemainingMs === undefined ? undefined : () => opts.warmupRemainingMs ?? null,
@@ -57,6 +58,7 @@ function stubPicker(raw: string | ((ids: string[]) => string), opts: StubOpts = 
       calls.pick++;
       calls.lastText = text;
       calls.lastIds = shortlist.map((s) => s.id);
+      calls.lastFacts = shortlist.map((s) => s.key_fact);
       if (opts.delayMs) await new Promise((r) => setTimeout(r, opts.delayMs));
       if (signal.aborted) throw new Error("aborted");
       if (opts.throwError) throw new Error("runtime");
@@ -244,9 +246,21 @@ describe("forced-pick engine (flag on, stub picker, no weights)", () => {
         expect(calls.pick, `${t.name} ${out.kind}`).toBe(1);
         expect(calls.lastIds.length).toBeLessThanOrEqual(MODEL_PICK_TOP_N);
         if (out.kind === "id") {
-          expect(c.card.id, `${t.name} ${out.id}`).toBe(out.id);
-          expect(c.engine).toBe("model");
-          expect(c.via).toBe("model");
+          const ranked = retrieve(t.q, pool());
+          const force = shouldForceRulesFallback(rulesCard, out.id);
+          if (ranked.confident && out.id !== rulesCard) {
+            expect(c.card.id, `${t.name} ${out.id}`).toBe(rulesCard);
+            expect(c.engine).toBe("rules-fallback");
+            expect(c.engineReason).toBe("confident-agree");
+          } else if (force) {
+            expect(c.card.id, `${t.name} ${out.id}`).toBe(rulesCard);
+            expect(c.engine).toBe("rules-fallback");
+            expect(c.engineReason).toBe("post-check");
+          } else {
+            expect(c.card.id, `${t.name} ${out.id}`).toBe(out.id);
+            expect(c.engine).toBe("model");
+            expect(c.via).toBe("model");
+          }
         } else {
           expect(c.card.id, `${t.name} ${out.kind}`).toBe(rulesCard);
           expect(c.engine, `${t.name} ${out.kind}`).toBe("rules-fallback");
@@ -297,8 +311,15 @@ describe("forced-pick engine (flag on, stub picker, no weights)", () => {
       const r = await runTurn(newDialog(band), q, pickDeps(picker, { cards }));
       const c = cardOf(r);
       expect(calls.pick, band).toBe(1);
-      expect(c.card.id, band).toBe(ADULT_ID);
-      expect(c.engine).toBe("model");
+      const ranked = retrieve(q, pool(cards));
+      if (ranked.confident && ranked.ranked[0]?.card.id !== ADULT_ID) {
+        expect(c.card.id, band).toBe(ranked.ranked[0].card.id);
+        expect(c.engine).toBe("rules-fallback");
+        expect(c.engineReason).toBe("confident-agree");
+      } else {
+        expect(c.card.id, band).toBe(ADULT_ID);
+        expect(c.engine).toBe("model");
+      }
     }
   });
 
@@ -395,6 +416,50 @@ describe("forced-pick engine (flag on, stub picker, no weights)", () => {
     expect(calls.pick).toBe(1);
     expect(r.card.id).toBe("birth.control.000");
     expect(r.engine).toBe("model");
+  });
+
+  it("loader extraEta > 5 s is rules-not-ready even when the picker omits warmupRemainingMs", async () => {
+    const q = "อยากรู้เรื่องคุมกำเนิด";
+    const { picker, calls } = stubPicker(JSON.stringify({ id: "birth.control.000" }), { ready: false });
+    const t0 = Date.now();
+    const r = cardOf(await turn(q, picker, { pickTimeoutMs: 200, warmupRemainingMs: () => 8000 }));
+    expect(Date.now() - t0).toBeLessThan(100);
+    expect(calls.pick).toBe(0);
+    expect(r.engine).toBe("rules-not-ready");
+    expect(r.card.id).toBe("birth.control.000");
+  });
+
+  it("loader extraEta ≤ 5 s waits then picks when the picker omits warmupRemainingMs", async () => {
+    const q = "อยากรู้เรื่องคุมกำเนิด";
+    let ready = false;
+    const calls = { pick: 0 };
+    const picker: CardPicker = {
+      ready: () => ready,
+      pick: async () => {
+        calls.pick++;
+        return JSON.stringify({ id: "birth.control.000" });
+      },
+    };
+    setTimeout(() => { ready = true; }, 20);
+    const r = cardOf(await turn(q, picker, { pickTimeoutMs: 400, warmupRemainingMs: () => (ready ? null : 40) }));
+    expect(calls.pick).toBe(1);
+    expect(r.card.id).toBe("birth.control.000");
+    expect(r.engine).toBe("model");
+  });
+
+  it("V3 shortlist includes the first reviewed key_fact and confident disagreement is rules-fallback", async () => {
+    const q = "อยากรู้เรื่องคุมกำเนิด";
+    expect(retrieve(q, pool()).confident).toBe(true);
+    const ids = shortlistIds(q);
+    const other = ids.find((id) => id !== "birth.control.000") ?? ids[1];
+    expect(other).toBeTruthy();
+    const { picker, calls } = stubPicker(JSON.stringify({ id: other }));
+    const r = cardOf(await turn(q, picker));
+    expect(calls.pick).toBe(1);
+    expect(calls.lastFacts.some(Boolean)).toBe(true);
+    expect(r.card.id).toBe("birth.control.000");
+    expect(r.engine).toBe("rules-fallback");
+    expect(r.engineReason).toBe("confident-agree");
   });
 
   it("the picker only sees PII-stripped, clipped text and never generates the shown answer", async () => {

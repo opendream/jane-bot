@@ -80,6 +80,8 @@ async function runSet(
       backup: true,
       mode,
       age: "18-24",
+      describe: arg("--policy") === "v3",
+      confidentAgree: arg("--policy") === "v3",
     });
     outs.push({ item, out });
     if ((i + 1) % 20 === 0 || i + 1 === items.length) {

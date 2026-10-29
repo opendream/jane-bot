@@ -42,8 +42,14 @@ export const PICK_MAX_TOKENS = 32;
 export function pickSchema(ids: readonly string[]) {
   return { type: "object", properties: { id: { type: "string", enum: [...ids, NONE_ID] } }, required: ["id"] };
 }
-export function pickUser(text: string, shortlist: { id: string; title_th: string }[], previousTitle: string | null): string {
-  const list = shortlist.map((s) => `${s.id} = ${s.title_th}`).join("\n");
+export function pickUser(
+  text: string,
+  shortlist: { id: string; title_th: string; key_fact?: string }[],
+  previousTitle: string | null,
+): string {
+  const list = shortlist.map((s) => (
+    s.key_fact ? `${s.id} = ${s.title_th} — ${s.key_fact}` : `${s.id} = ${s.title_th}`
+  )).join("\n");
   return `${previousTitle ? `หัวข้อก่อนหน้า: ${previousTitle}\n` : ""}รายการ:\n${list}\nข้อความ: ${text}`;
 }
 /** Only an id from the shortlist counts; "none", unknown ids and junk all mean "no pick". */

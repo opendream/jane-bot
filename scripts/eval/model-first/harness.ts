@@ -7,6 +7,7 @@ import { checkInput } from "../../../src/core/guard";
 import { retrieve } from "../../../src/core/retrieve";
 import { stripPII } from "../../../src/core/summary";
 import { findPhrases, normalize } from "../../../src/core/text";
+import { shouldForceRulesFallback } from "../../../src/core/pick-guards";
 import { backupShortlist } from "./backup-shortlist";
 import { isLockedCardId } from "./locked";
 import type { EvalPicker } from "./pickers";
@@ -64,6 +65,10 @@ export interface EvalTurnOpts {
   copyStatus?: "draft" | "reviewed";
   previousTitle?: string | null;
   mode?: "model-first" | "rules";
+  /** V1/V3: rules-confident disagreement shows the rules card. */
+  confidentAgree?: boolean;
+  /** V2/V3: include first key_fact on each shortlist line. */
+  describe?: boolean;
 }
 
 function predictedLabel(out: EvalTurnOut): string {
@@ -188,16 +193,60 @@ export async function evalTurn(text: string, opts: EvalTurnOpts): Promise<EvalTu
   }
 
   const picker = opts.picker;
+  picker?.configure?.({ describe: !!opts.describe });
   const shortlistCards = r.ranked.filter((s) => !isLockedCardId(s.card.id)).slice(0, k).map((s) => s.card);
 
   const finishModel = async (list: BankCard[], viaOk: EvalVia, backupUsed: boolean, backupIds: string[]) => {
-    const shortlist = list.map((c) => ({ id: c.id, title_th: c.title_th }));
+    const shortlist = list.map((c) => ({
+      id: c.id,
+      title_th: c.title_th,
+      ...(opts.describe && c.key_facts?.[0] ? { key_fact: c.key_facts[0] } : {}),
+    }));
     const clean = stripPII(text).slice(0, MODEL_INPUT_CHARS);
     const picked = picker
       ? await withTimeout((s) => picker.pick(clean, shortlist, opts.previousTitle ?? null, s), timeoutMs)
       : null;
     const modelCalls = picker ? 1 : 0;
     const id = picked?.id && shortlist.some((s) => s.id === picked.id) ? picked.id : null;
+    const rulesCard = r.ranked[0]?.card;
+    if (id && shouldForceRulesFallback(rulesTop1, id)) {
+      const fallbackCard = rulesCard ?? fallback;
+      const aged = applyAge(fallbackCard, age, cards);
+      return base({
+        kind: rulesCard ? "card" : "fallback",
+        via: rulesCard ? "rules_fallback" : "fallback",
+        cardId: aged.card.id,
+        modelCalls,
+        fallback: true,
+        noCandidates: !rulesCard,
+        ageRedirect: aged.redirect,
+        latencyMs: picked?.latencyMs ?? null,
+        promptTokens: picked?.promptTokens ?? null,
+        shortlistIds: shortlist.map((s) => s.id),
+        pickRaw: picked?.raw ?? null,
+        backupUsed,
+        backupIds,
+        ...rulesMeta,
+      });
+    }
+    if (opts.confidentAgree && r.confident && rulesCard && id !== rulesCard.id) {
+      const aged = applyAge(rulesCard, age, cards);
+      return base({
+        kind: "card",
+        via: "rules_fallback",
+        cardId: aged.card.id,
+        modelCalls,
+        fallback: true,
+        ageRedirect: aged.redirect,
+        latencyMs: picked?.latencyMs ?? null,
+        promptTokens: picked?.promptTokens ?? null,
+        shortlistIds: shortlist.map((s) => s.id),
+        pickRaw: picked?.raw ?? null,
+        backupUsed,
+        backupIds,
+        ...rulesMeta,
+      });
+    }
     const chosen = id ? byId.get(id) : undefined;
     if (chosen && shippable(chosen, copyStatus)) {
       const aged = applyAge(chosen, age, cards);

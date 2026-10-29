@@ -42,11 +42,32 @@ export const MODEL: "qwen3-1.7b" | "qwen3-4b" | "off" = "qwen3-1.7b";
 export const MATCHER = false;
 
 /**
- * Model-first card pick (PR 2 engine). Off by default: PR 3 adds thinking UI / labels
- * and turns this on. When off, chat behaviour is unchanged (rules-first; model only
- * if the rules are unsure). Crisis, guard, chip and locked routes never call the model.
+ * Model-first card pick (PR 2 engine + PR 3 UI). Off by default. When off, chat
+ * behaviour is unchanged (rules-first; model only if the rules are unsure).
+ * Crisis, guard, chip and locked routes never call the model.
+ * Testing/filming override: ?modelPick=1 (same pattern as ?model=).
  */
 export const MODEL_CARD_PICK = false;
+
+export function modelCardPickEnabled(search?: string): boolean {
+  try {
+    const raw = search ?? (typeof location !== "undefined" ? location.search : "");
+    const v = new URLSearchParams(raw.startsWith("?") ? raw.slice(1) : raw).get("modelPick")?.toLowerCase() ?? "";
+    if (v === "1" || v === "on" || v === "true") return true;
+    if (v === "0" || v === "off" || v === "false") return false;
+  } catch { /* node unit tests */ }
+  return MODEL_CARD_PICK;
+}
+
+export function pickTimeoutMsFromSearch(search?: string, fallback = 20_000): number {
+  try {
+    const raw = search ?? (typeof location !== "undefined" ? location.search : "");
+    const v = new URLSearchParams(raw.startsWith("?") ? raw.slice(1) : raw).get("pickTimeoutMs");
+    const n = v ? Number(v) : NaN;
+    if (Number.isFinite(n) && n > 0) return n;
+  } catch { /* node unit tests */ }
+  return fallback;
+}
 
 /**
  * Chat reword (plan v2 §4): which runtimes may reword curated cards. The validator shows the exact text on any

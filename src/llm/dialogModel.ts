@@ -10,7 +10,10 @@ import { parsePick } from "./prompts";
  */
 export function toDialogModel(a: LLMAdapter | null, rewordRuntimes: readonly string[] = REWORD_RUNTIMES): DialogModel | null {
   if (!a) return null;
-  const m: DialogModel = { ready: () => a.ready() };
+  const m: DialogModel = {
+    ready: () => a.ready(),
+    warmupRemainingMs: a.warmupRemainingMs ? () => a.warmupRemainingMs!() : undefined,
+  };
   if (a.pickCard) {
     const pick = a.pickCard.bind(a);
     m.pickCard = async (text, shortlist, prev, signal) => parsePick((await pick(text, shortlist, prev, signal)) ?? "", shortlist.map((s) => s.id));

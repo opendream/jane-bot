@@ -3,6 +3,9 @@ import type { CrisisCategory, Intent } from "../../src/core/types";
 import { HARD_CAP, newNeedGate, bumpNeed } from "../../src/core/dialog";
 import { startQuiz } from "../../src/core/quiz";
 import { applyQuizUpdate, beginQuiz, newChat, sendToChat, type ChatHooks } from "../../src/ui/chat";
+import { MODEL_ANSWER_LABEL, RULES_ANSWER_LABEL, thinkingHintAt } from "../../src/ui/thinking";
+import { MODEL_CARD_PICK } from "../../src/config";
+import type { DialogModel } from "../../src/core/dialog";
 
 // SYNTHETIC chat lines only.
 const FILLER = "อยากรู้เรื่องทั่วไปค่ะ";
@@ -294,5 +297,59 @@ describe("chat send path", () => {
     expect(renders).toBe(1); // busy start only; the landing must not rerender
     expect(chat.busy).toBe(false);
     expect(chat.messages.some((m) => m.from === "jane" && m.cardId && m.cardId !== "general.welcome.000")).toBe(false);
+  });
+});
+
+describe("model-first chat labels (flag off by default)", () => {
+  const readyModel = (pick: DialogModel["pickCard"] = async (_t, sl) => sl[0]?.id ?? null): DialogModel => ({
+    ready: () => true,
+    pickCard: pick,
+  });
+
+  it("flag-off keeps the old busy copy and never shows an engine label", async () => {
+    expect(MODEL_CARD_PICK).toBe(false);
+    const chat = newChat("18-24", readyModel(), null, { modelPick: false });
+    expect(chat.modelPick).toBe(false);
+    expect(chat.thinkingHint).toBeNull();
+    await sendToChat(chat, "อยากรู้เรื่องคุมกำเนิด", hooks());
+    const jane = [...chat.messages].reverse().find((m) => m.from === "jane");
+    expect(jane?.engineLabel).toBeFalsy();
+    expect(jane?.engine).toBeUndefined();
+    expect(jane?.cardId).toBe("birth.control.000");
+  });
+
+  it("flag-on shows the 0 s thinking hint, then an engine label on the card", async () => {
+    const hints: string[] = [];
+    const model = readyModel(async (_t, sl) => {
+      await new Promise((r) => setTimeout(r, 40));
+      return sl[0]?.id ?? null;
+    });
+    const chat = newChat("18-24", model, null, { modelPick: true, pickTimeoutMs: 400 });
+    const h = hooks();
+    h.rerender = () => { if (chat.thinkingHint) hints.push(chat.thinkingHint); };
+    const pending = sendToChat(chat, "อยากรู้เรื่องคุมกำเนิด", h);
+    expect(chat.busy).toBe(true);
+    expect(chat.thinkingHint).toBe(thinkingHintAt(0));
+    await pending;
+    expect(hints[0]).toBe("พี่เจนกำลังคิดนะ");
+    expect(chat.thinkingHint).toBeNull();
+    const jane = [...chat.messages].reverse().find((m) => m.from === "jane");
+    expect(jane?.engineLabel).toBe(MODEL_ANSWER_LABEL);
+    expect(jane?.cardId).toBe("birth.control.000");
+  });
+
+  it("flag-on locked and fallback answers use the rules label, never AI", async () => {
+    const chat = newChat("18-24", readyModel(), null, { modelPick: true, pickTimeoutMs: 80 });
+    await sendToChat(chat, "ยาคุมฉุกเฉินกินภายในกี่ชั่วโมง", hooks());
+    const locked = [...chat.messages].reverse().find((m) => m.from === "jane");
+    expect(locked?.engine).toBe("rules-locked");
+    expect(locked?.engineLabel).toBe(RULES_ANSWER_LABEL);
+    expect(locked?.engineLabel).not.toMatch(/AI/);
+
+    const miss = newChat("18-24", readyModel(), null, { modelPick: true, pickTimeoutMs: 80 });
+    await sendToChat(miss, "วันนี้อากาศดีจัง", hooks());
+    const fb = [...miss.messages].reverse().find((m) => m.from === "jane");
+    expect(fb?.engine).toBe("rules-fallback");
+    expect(fb?.engineLabel).toBe(RULES_ANSWER_LABEL);
   });
 });

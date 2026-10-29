@@ -1,5 +1,5 @@
 import "./styles.css";
-import { PRODUCT_NAME, PRODUCT_NAME_EN, MIN_AGE, THAI_COPY_STATUS, MATCHER } from "./config";
+import { PRODUCT_NAME, PRODUCT_NAME_EN, MIN_AGE, THAI_COPY_STATUS, MATCHER, modelCardPickEnabled } from "./config";
 import { matcherEnabled, readMatcherFlag, type IntentMatcher } from "./core/matcher";
 import markSvg from "./assets/mark.svg?raw";
 import type { CrisisCategory, Intent, IntentResult } from "./core/types";
@@ -11,7 +11,7 @@ import { suggestServices, CRISIS_LINES, DATA_VERSION, INTENT_LABEL_TH, SUPPORT_L
 import { hoursLabel, hoursCitation } from "./core/openNow";
 import { finalizeSummary, stripPII } from "./core/summary";
 import { classifyWithFallback, polishWithFallback, type LLMAdapter } from "./llm/adapter";
-import { startModel, modelPillCopy, type ModelStatus } from "./llm/runtime";
+import { startModel, modelPillCopy, getWarmupRemainingMs, type ModelStatus } from "./llm/runtime";
 import { toDialogModel } from "./llm/dialogModel";
 import { shouldApplyAsyncResult, newNeedGate, beginNeed, bumpNeed, needBusy, endNeed } from "./core/dialog";
 import { h } from "./ui/dom";
@@ -121,7 +121,7 @@ function header() {
 
 function modelPill() {
   const m = modelStatus;
-  const { text, title } = modelPillCopy(m);
+  const { text, title } = modelPillCopy(m, { modelPick: modelCardPickEnabled() });
   return h("div", { class: `model-pill ${m.state}`, "data-testid": "model-status", "data-state": m.state, "data-runtime": m.runtime, title }, text);
 }
 
@@ -195,7 +195,11 @@ function describeScreen() {
 /* --------------------------------------- chat (v2) --------------------------------------- */
 function openChat() {
   dropInflightChat();
-  if (!state.chat) state.chat = newChat(state.ageBand, toDialogModel(model), matcher);
+  if (!state.chat) {
+    state.chat = newChat(state.ageBand, toDialogModel(model), matcher, {
+      warmupRemainingMs: getWarmupRemainingMs,
+    });
+  }
   go({ screen: "chat" });
 }
 

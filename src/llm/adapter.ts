@@ -16,8 +16,10 @@ export interface LLMAdapter {
   polishSummary(draft: string, signal: AbortSignal): Promise<string | null>;
   /** Where it runs (decides whether chat reword is on; see REWORD_RUNTIMES in config). */
   readonly runtime?: "webgpu" | "wasm";
+  /** Remaining ms of the final warm-up stage; omit/null if not in that stage. */
+  warmupRemainingMs?(): number | null;
   /** Chat: pick one id from the shortlist (raw model text; parsed and checked by the caller). */
-  pickCard?(text: string, shortlist: { id: string; title_th: string }[], previousTitle: string | null, signal: AbortSignal): Promise<string | null>;
+  pickCard?(text: string, shortlist: { id: string; title_th: string; key_fact?: string }[], previousTitle: string | null, signal: AbortSignal): Promise<string | null>;
   /** Chat: reword one curated card. Output is validated by rewordGuard; failures show the exact text. */
   rewordCard?(card: { answer_th: string; key_facts: string[] }, signal: AbortSignal): Promise<string | null>;
   /** Tear down a worker / GPU engine. Used when WebGPU dies and we fall back. */

@@ -9,6 +9,15 @@ import {
   rememberGpuFailure,
   type StorageLike,
 } from "./gpu-failure";
+import {
+  beginWarmup,
+  getWarmupRemainingMs,
+  markLoaderFailed,
+  markLoaderReady,
+  markLoaderWeights,
+  resetLoaderEta,
+} from "./loader-eta";
+import { READINESS_LINE } from "../ui/thinking";
 
 export type Runtime = "webgpu" | "wasm" | "rules";
 export interface ModelStatus {
@@ -24,8 +33,8 @@ export interface StartModelDeps {
   search?: string;
   gpuInfo?: () => Promise<{ ok: boolean; f16: boolean }>;
   installed?: () => Promise<Installed[]>;
-  loadWebLLM?: (build: WebGpuBuild, label: string, onProgress: (p: number) => void, opts?: { onDead?: (err: Error) => void }) => Promise<LLMAdapter>;
-  loadWllama?: (file: string, label: string, onProgress: (p: number) => void) => Promise<LLMAdapter>;
+  loadWebLLM?: (build: WebGpuBuild, label: string, onProgress: (p: number) => void, opts?: { onDead?: (err: Error) => void; onWarmup?: (ms: number) => void }) => Promise<LLMAdapter>;
+  loadWllama?: (file: string, label: string, onProgress: (p: number) => void, opts?: { onWarmup?: (ms: number) => void }) => Promise<LLMAdapter>;
   storage?: StorageLike;
   onAdapter?: (a: LLMAdapter | null) => void;
   testRuntime?: string | null;
@@ -35,6 +44,8 @@ export type RuntimeTestHook = {
   webllm?: "warmup-lost" | "generate-lost" | "disposed";
   wasm?: "ok" | "unavailable";
   gpu?: boolean;
+  /** Mock card-pick worker (e2e / unit). */
+  pick?: "ok" | "timeout" | "not-ready" | "warmup" | "warmup-slow";
 };
 
 export {
@@ -42,18 +53,23 @@ export {
   clearGpuFailureForTests,
   gpuFailedThisSession,
   rememberGpuFailure,
+  getWarmupRemainingMs,
+  resetLoaderEta,
 };
 
 const LOST_MSG = "Device was lost. This can happen due to insufficient memory or other GPU constraints [GPUDeviceLostInfo]";
 const DISPOSED_MSG = "The current Object has already been disposed";
 
 /** Honest Thai + English copy for the header pill. Rules-only text is the existing label. */
-export function modelPillCopy(m: ModelStatus): { text: string; title: string } {
+export function modelPillCopy(m: ModelStatus, opts?: { modelPick?: boolean }): { text: string; title: string } {
   if (m.state === "ready") {
     return {
       text: `🔒 โมเดลในเครื่อง: ${m.label} · ออฟไลน์`,
       title: `On-device model: ${m.label} (${m.runtime === "webgpu" ? "WebGPU" : "WASM, CPU"}) / offline`,
     };
+  }
+  if (opts?.modelPick && m.state === "loading") {
+    return { text: READINESS_LINE, title: "Preparing the on-device model" };
   }
   if (m.state === "loading" && m.runtime !== "rules") {
     return {
@@ -94,19 +110,43 @@ function readTestHook(deps: StartModelDeps, params: URLSearchParams): RuntimeTes
   if (fromUrl === "gpu-lost") return { webllm: "warmup-lost", wasm: "ok", gpu: true };
   if (fromUrl === "gpu-lost-rules") return { webllm: "warmup-lost", wasm: "unavailable", gpu: true };
   if (fromUrl === "gpu-disposed") return { webllm: "disposed", wasm: "ok", gpu: true };
+  if (fromUrl === "pick-ok") return { wasm: "ok", gpu: false, pick: "ok" };
+  if (fromUrl === "pick-timeout") return { wasm: "ok", gpu: false, pick: "timeout" };
+  if (fromUrl === "pick-not-ready") return { pick: "not-ready", gpu: false, wasm: "unavailable" };
+  if (fromUrl === "pick-warmup") return { wasm: "ok", gpu: false, pick: "warmup" };
+  if (fromUrl === "pick-warmup-slow") return { wasm: "ok", gpu: false, pick: "warmup-slow" };
   try {
     if (typeof window !== "undefined" && window.__JANE_RUNTIME_TEST__) return window.__JANE_RUNTIME_TEST__;
   } catch { /* node unit tests */ }
   return null;
 }
 
+function mockPickCard(hook: RuntimeTestHook): LLMAdapter["pickCard"] | undefined {
+  if (!hook.pick || hook.pick === "not-ready") return undefined;
+  return async (_text, shortlist, _prev, signal) => {
+    if (hook.pick === "timeout") {
+      await new Promise<void>((_resolve, reject) => {
+        const onAbort = () => reject(new Error("aborted"));
+        if (signal?.aborted) return onAbort();
+        signal?.addEventListener("abort", onAbort, { once: true });
+      });
+    }
+    const id = shortlist[0]?.id ?? "none";
+    return JSON.stringify({ id });
+  };
+}
+
 function hookLoaders(hook: RuntimeTestHook): Pick<StartModelDeps, "gpuInfo" | "installed" | "loadWebLLM" | "loadWllama"> {
+  const pickCard = mockPickCard(hook);
   return {
     gpuInfo: async () => ({ ok: hook.gpu !== false, f16: false }),
-    installed: async () => [{
-      model: "qwen3-1.7b",
-      variants: hook.wasm === "unavailable" ? ["webgpu_f32"] : ["webgpu_f32", "wasm"],
-    }],
+    installed: async () => {
+      if (hook.pick === "not-ready") return [];
+      return [{
+        model: "qwen3-1.7b",
+        variants: hook.wasm === "unavailable" ? ["webgpu_f32"] : ["webgpu_f32", "wasm"],
+      }];
+    },
     loadWebLLM: async (_b, label, onProgress) => {
       onProgress(1);
       if (hook.webllm === "warmup-lost" || !hook.webllm) throw new Error(LOST_MSG);
@@ -121,18 +161,32 @@ function hookLoaders(hook: RuntimeTestHook): Pick<StartModelDeps, "gpuInfo" | "i
         ready: () => !dead,
         classify: async () => fail(),
         polishSummary: async () => fail(),
+        pickCard,
+        warmupRemainingMs: () => getWarmupRemainingMs(),
         dispose() { dead = true; },
       };
     },
-    loadWllama: async (_file, label, onProgress) => {
+    loadWllama: async (_file, label, onProgress, opts) => {
       if (hook.wasm === "unavailable") throw new Error("wasm mocked unavailable");
+      const warmupMs = hook.pick === "warmup" ? 700 : hook.pick === "warmup-slow" ? 8_000 : 0;
+      if (warmupMs) {
+        opts?.onWarmup?.(warmupMs);
+        onProgress(0.96);
+      }
       onProgress(1);
+      const readyAt = warmupMs ? Date.now() + warmupMs : 0;
       return {
         name: `${label} (WASM)`,
         runtime: "wasm" as const,
-        ready: () => true,
+        ready: () => !readyAt || Date.now() >= readyAt,
         classify: async () => ["other"],
         polishSummary: async () => null,
+        pickCard,
+        warmupRemainingMs: () => {
+          if (!readyAt) return getWarmupRemainingMs();
+          const left = readyAt - Date.now();
+          return left > 0 ? left : null;
+        },
       };
     },
   };
@@ -168,8 +222,14 @@ function watchWebGpu(adapter: LLMAdapter, onFail: () => void): LLMAdapter {
     rewordCard: adapter.rewordCard
       ? (card, signal) => guard(adapter.rewordCard!(card, signal))
       : undefined,
+    warmupRemainingMs: adapter.warmupRemainingMs ? () => adapter.warmupRemainingMs!() : () => getWarmupRemainingMs(),
     dispose: () => adapter.dispose?.(),
   };
+}
+
+function withLoaderEta(a: LLMAdapter): LLMAdapter {
+  if (a.warmupRemainingMs) return a;
+  return { ...a, warmupRemainingMs: () => getWarmupRemainingMs() };
 }
 
 /**
@@ -179,6 +239,8 @@ function watchWebGpu(adapter: LLMAdapter, onFail: () => void): LLMAdapter {
  * and fall back to WASM when installed. A single non-personal sessionStorage flag skips retrying that GPU.
  */
 export async function startModel(onStatus: (s: ModelStatus) => void, deps: StartModelDeps = {}): Promise<LLMAdapter | null> {
+  resetLoaderEta();
+  markLoaderWeights();
   const search = deps.search ?? (typeof location !== "undefined" ? location.search : "");
   const params = new URLSearchParams(search);
   const hook = readTestHook(deps, params);
@@ -193,6 +255,7 @@ export async function startModel(onStatus: (s: ModelStatus) => void, deps: Start
   const forced = params.get("runtime");
   const key = (params.get("model") ?? MODEL) as ModelSpec["key"] | "off";
   const rules = (state: ModelStatus["state"]) => {
+    markLoaderFailed();
     onStatus({ state, runtime: "rules", label: "", progress: 0 });
     onAdapter?.(null);
   };
@@ -216,6 +279,7 @@ export async function startModel(onStatus: (s: ModelStatus) => void, deps: Start
         onStatus({ state: "loading", runtime: "webgpu", label: spec.label, progress: 0 });
         return load(spec[v as "webgpu_f16"], spec.label, (p) => onStatus({ state: "loading", runtime: "webgpu", label: spec.label, progress: p }), {
           onDead: () => gpuDead?.(),
+          onWarmup: (ms) => beginWarmup(ms),
         });
       },
     });
@@ -226,17 +290,21 @@ export async function startModel(onStatus: (s: ModelStatus) => void, deps: Start
       run: async () => {
         const load = loadWllamaFn ?? (await import("./wllama-adapter")).loadWllama;
         onStatus({ state: "loading", runtime: "wasm", label: wSpec.label, progress: 0 });
-        return load(wSpec.wasm!.file, wSpec.label, (p) => onStatus({ state: "loading", runtime: "wasm", label: wSpec.label, progress: p }));
+        return load(wSpec.wasm!.file, wSpec.label, (p) => onStatus({ state: "loading", runtime: "wasm", label: wSpec.label, progress: p }), {
+          onWarmup: (ms) => beginWarmup(ms),
+        });
       },
     });
   }
 
   const wasmStep = plan.find((s) => s.runtime === "wasm");
   const ready = (a: LLMAdapter) => {
-    const runtime: Runtime = a.runtime ?? (isWebGpuAdapter(a) ? "webgpu" : "wasm");
-    onStatus({ state: "ready", runtime, label: a.name.replace(/ \((WebGPU|WASM)\)$/, ""), progress: 1 });
-    onAdapter?.(a);
-    return a;
+    markLoaderReady();
+    const wrapped = withLoaderEta(a);
+    const runtime: Runtime = wrapped.runtime ?? (isWebGpuAdapter(wrapped) ? "webgpu" : "wasm");
+    onStatus({ state: "ready", runtime, label: wrapped.name.replace(/ \((WebGPU|WASM)\)$/, ""), progress: 1 });
+    onAdapter?.(wrapped);
+    return wrapped;
   };
 
   let recovering = false;

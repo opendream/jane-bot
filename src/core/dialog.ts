@@ -101,7 +101,7 @@ function crisisForTurn(input: string, prev: string[]): CrisisResult {
   return cur;
 }
 
-export interface ShortlistItem { id: string; title_th: string }
+export interface ShortlistItem { id: string; title_th: string; key_fact?: string }
 
 /** Optional on-device model. Crisis turns never reach it. */
 export interface DialogModel {
@@ -195,7 +195,7 @@ function pickerFromModel(m: DialogModel | null, warmupRemainingMs?: () => number
   if (!m?.pickCard) return null;
   return {
     ready: () => m.ready() && !!m.pickCard,
-    warmupRemainingMs: warmupRemainingMs ?? (() => m.warmupRemainingMs?.() ?? null),
+    warmupRemainingMs: () => m.warmupRemainingMs?.() ?? warmupRemainingMs?.() ?? null,
     pick: async (text, shortlist, prev, signal) => {
       const id = await m.pickCard!(text, shortlist, prev, signal);
       return id == null ? '{"id":"none"}' : JSON.stringify({ id });
@@ -281,6 +281,7 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
       copyStatus: deps.copyStatus,
       picker: livePicker(),
       getPicker: livePicker,
+      warmupRemainingMs: deps.warmupRemainingMs,
       previousTitle: state.cardId ? byId.get(state.cardId)?.title_th ?? null : null,
       timeoutMs: deps.pickTimeoutMs ?? MODEL_PICK_TIMEOUT_MS,
       signal: deps.signal,

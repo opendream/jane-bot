@@ -5,14 +5,21 @@ import type { Intent } from "../core/types";
 import { cachedBlob } from "./weights-cache";
 import { CLASSIFY_SCHEMA, CLASSIFY_SYSTEM, POLISH_SYSTEM, PICK_SYSTEM, PICK_MAX_TOKENS, REWORD_SYSTEM, REWORD_MAX_TOKENS, cleanPolished, cleanReword, parseIntent, pickSchema, pickUser, rewordUser } from "./prompts";
 import { replaceNeedLine, needLine } from "./summary-lines";
+import { WARMUP_BUDGET_MS } from "./loader-eta";
 
 /** llama.cpp compiled to WASM, CPU only (n_gpu_layers 0). Works with no GPU at all. */
-export async function loadWllama(file: string, label: string, onProgress: (p: number) => void): Promise<LLMAdapter & { classifyRaw(text: string, signal?: AbortSignal): Promise<string> }> {
+export async function loadWllama(
+  file: string,
+  label: string,
+  onProgress: (p: number) => void,
+  opts?: { onWarmup?: (budgetMs: number) => void },
+): Promise<LLMAdapter & { classifyRaw(text: string, signal?: AbortSignal): Promise<string> }> {
   const blob = await cachedBlob(file, (l, t) => onProgress(t ? (0.9 * l) / t : 0));
   onProgress(0.92);
   const w = new Wllama({ default: wasmUrl }, { suppressNativeLog: true, logger: { debug() {}, log() {}, warn() {}, error() {} } as any });
   await w.loadModel([blob], { n_ctx: 1024, n_gpu_layers: 0, n_threads: Math.max(1, Math.min(8, navigator.hardwareConcurrency || 4)) });
   onProgress(0.96);
+  opts?.onWarmup?.(WARMUP_BUDGET_MS);
   let busy: Promise<unknown> = Promise.resolve();
   const serial = <T>(fn: () => Promise<T>): Promise<T> => { const p = busy.then(fn, fn); busy = p.catch(() => null); return p; };
   const classifyRaw = (text: string, signal?: AbortSignal) => serial(async () => {

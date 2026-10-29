@@ -251,6 +251,48 @@ describe("metrics helpers", () => {
   });
 });
 
+describe("V3 policy in the eval harness", () => {
+  it("describe: the picker shortlist carries the first key_fact", async () => {
+    const inner = stubPicker("top1");
+    const seen: { id: string; key_fact?: string }[] = [];
+    const picker: EvalPicker = {
+      name: "cap",
+      async pick(text, shortlist, prev, signal) {
+        seen.push(...shortlist);
+        return inner.pick(text, shortlist, prev, signal);
+      },
+    };
+    await evalTurn("อยากรู้เรื่องคุมกำเนิด", { cards, picker, k: 3, timeoutMs: timeout, describe: true });
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.some((s) => !!s.key_fact)).toBe(true);
+  });
+
+  it("confident-agree: a different model pick on a confident turn is rules_fallback", async () => {
+    const picker = countingPicker(stubPicker("always-other"));
+    const out = await evalTurn("อยากรู้เรื่องคุมกำเนิด", {
+      cards, picker, k: 3, timeoutMs: timeout, confidentAgree: true,
+    });
+    expect(picker.calls).toBe(1);
+    expect(out.via).toBe("rules_fallback");
+    expect(out.cardId).toBe("birth.control.000");
+    expect(out.fallback).toBe(true);
+  });
+
+  it("post-check: IPV vs harassment (j113) falls back to the rules card", async () => {
+    const picker: EvalPicker = {
+      name: "j113",
+      async pick(_t, shortlist) {
+        const id = shortlist.find((s) => s.id.startsWith("harassment."))?.id ?? shortlist[1]?.id ?? "none";
+        return { id, raw: JSON.stringify({ id }), latencyMs: 1, promptTokens: 1 };
+      },
+    };
+    const out = await evalTurn("โดนแฟนตี", { cards, picker, k: 3, timeoutMs: timeout });
+    expect(out.cardId).toBe("relationship.violence.001");
+    expect(out.via).toBe("rules_fallback");
+    expect(out.fallback).toBe(true);
+  });
+});
+
 describe("welcome and fallback stay out of the rules pick pool", () => {
   it("does not offer WELCOME_ID or FALLBACK_ID to the model from rules retrieve", async () => {
     const picker = countingPicker(stubPicker("top1"));
