@@ -17,6 +17,7 @@ import { detectChatLang, modelChatScript } from "../../src/llm/chat-lang";
 import {
   CHAT_LANG_LINE_EN,
   CHAT_LANG_LINE_TH,
+  CHAT_MAX_TOKENS,
   CHAT_SYSTEM,
   CHAT_SYSTEM_EN,
   CHAT_SYSTEM_EN_STATUS,
@@ -96,12 +97,17 @@ describe("production defaults (chat-first flag off)", () => {
     expect(chatFirstEnabled("?chatFirst=true")).toBe(true);
     expect(CHAT_SYSTEM_STATUS).toBe("draft");
     expect(CHAT_SYSTEM).toContain("ห้ามให้ข้อมูลทางการแพทย์ของตัวเอง");
+    expect(CHAT_SYSTEM).toContain("ห้ามสวมบทบาท");
+    expect(CHAT_SYSTEM).toContain("ห้ามคุยเชิงชู้สาว");
+    expect(CHAT_SYSTEM).toContain("สายด่วน");
     expect(CHAT_SYSTEM).toContain(CHAT_LANG_LINE_TH);
+    expect(CHAT_MAX_TOKENS).toBe(60);
     expect(CHAT_SYSTEM_EN_STATUS).toBe("draft");
     expect(chatSystemFor("th")).toBe(CHAT_SYSTEM);
     expect(chatSystemFor("en")).toBe(CHAT_SYSTEM_EN);
     expect(CHAT_SYSTEM_EN).toContain(CHAT_LANG_LINE_EN);
     expect(CHAT_SYSTEM_EN).toContain("Do not give your own medical facts");
+    expect(CHAT_SYSTEM_EN).toContain("hotlines");
     expect(CHAT_SYSTEM_EN).toContain("Do not roleplay");
     expect(CHAT_SYSTEM_EN).toContain("what they need");
     expect(CHAT_SYSTEM_EN).toContain("their name");
