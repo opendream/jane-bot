@@ -29,23 +29,29 @@ export interface GenerationQueueOpts {
   waitForPrevious?: boolean;
 }
 
-function whenSkipped(groupId: number | undefined, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve) => {
-    let settled = false;
-    const finish = () => {
-      if (settled) return;
-      settled = true;
-      unsub();
-      signal.removeEventListener("abort", check);
+function whenSkipped(groupId: number | undefined, signal: AbortSignal): { promise: Promise<void>; stop: () => void } {
+  let settled = false;
+  let unsub = () => {};
+  const stop = () => {
+    if (settled) return;
+    settled = true;
+    unsub();
+    signal.removeEventListener("abort", check);
+  };
+  const check = () => {
+    if (shouldSkipGeneration(groupId, signal)) {
+      stop();
       resolve();
-    };
-    const check = () => {
-      if (shouldSkipGeneration(groupId, signal)) finish();
-    };
-    const unsub = onGenerationTokenChange(check);
+    }
+  };
+  let resolve: () => void = () => {};
+  const promise = new Promise<void>((r) => {
+    resolve = r;
+    unsub = onGenerationTokenChange(check);
     signal.addEventListener("abort", check);
     check();
   });
+  return { promise, stop };
 }
 
 export function createGenerationQueue(opts: GenerationQueueOpts = {}) {
@@ -76,7 +82,12 @@ export function createGenerationQueue(opts: GenerationQueueOpts = {}) {
 
     try {
       if (prev && waitForPrevious) {
-        await Promise.race([prev.done, whenSkipped(groupId, ac.signal)]);
+        const skip = whenSkipped(groupId, ac.signal);
+        try {
+          await Promise.race([prev.done, skip.promise]);
+        } finally {
+          skip.stop();
+        }
       }
       if (shouldSkipGeneration(groupId, ac.signal)) return null;
       const out = await fn(ac.signal);
