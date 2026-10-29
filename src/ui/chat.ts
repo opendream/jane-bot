@@ -104,7 +104,7 @@ export function newChat(ageBand: AgeState, model: DialogModel | null, matcher: I
     session, messages: [], busy: false, draft: "", readOnly: false, quiz: null, modelPick, chatFirst,
     thinkingHint: null, thinking: false, thinkingToken: 0, thinkingLang: "th", thinkingPhrase: null,
   };
-  push(chat, fromReply(session.start(), modelPick, chatFirst));
+  push(chat, chatMsgFromReply(session.start(), modelPick, chatFirst));
   return chat;
 }
 
@@ -114,7 +114,8 @@ function push(chat: ChatState, m: ChatMsg | null) {
   if (chat.messages.length > TRANSCRIPT_MAX) chat.messages.splice(0, chat.messages.length - TRANSCRIPT_MAX);
 }
 
-function fromReply(r: TurnReply, modelPick = false, chatFirst = false): ChatMsg | null {
+/** Map a dialog reply onto a Jane bubble. AMBIGUOUS replies with a soft line always render, even with empty text and no card. */
+export function chatMsgFromReply(r: TurnReply, modelPick = false, chatFirst = false): ChatMsg | null {
   if (r.kind === "card") {
     return { from: "jane", text: r.text, cardId: r.card.id, placeholder: !!r.card.placeholder, reworded: r.reworded, original: r.card.answer_th,
       banner: r.banner, chips: r.chips, offer: r.offer, offerIntents: r.offerIntents, cap: r.capNotice,
@@ -122,10 +123,13 @@ function fromReply(r: TurnReply, modelPick = false, chatFirst = false): ChatMsg 
       softCrisis: r.softCrisis };
   }
   if (r.kind === "chat") {
-    if (!r.text && !r.card) return null;
+    if (!r.text && !r.card && !r.softCrisis) return null;
     return { from: "jane", text: r.text, banner: r.banner, chips: r.card ? [] : r.chips, cap: r.capNotice, softCrisis: r.softCrisis };
   }
-  if (r.kind === "idle") return null;
+  if (r.kind === "idle") {
+    if (!r.softCrisis) return null;
+    return { from: "jane", text: "", cap: r.capNotice, softCrisis: r.softCrisis };
+  }
   if (r.kind === "referral") {
     return {
       from: "jane",
@@ -138,7 +142,16 @@ function fromReply(r: TurnReply, modelPick = false, chatFirst = false): ChatMsg 
       softCrisis: r.softCrisis,
     };
   }
-  if (r.kind === "readonly") return { from: "jane", text: "แชทนี้ยาวมากแล้ว ตอนนี้ส่งข้อความเพิ่มไม่ได้ คุยกับเจ้าหน้าที่ตัวจริง หรือกดลบแชทเพื่อเริ่มใหม่ได้", note: "readonly", offer: "strong", offerIntents: ["other"] };
+  if (r.kind === "readonly") {
+    return {
+      from: "jane",
+      text: "แชทนี้ยาวมากแล้ว ตอนนี้ส่งข้อความเพิ่มไม่ได้ คุยกับเจ้าหน้าที่ตัวจริง หรือกดลบแชทเพื่อเริ่มใหม่ได้",
+      note: "readonly",
+      offer: "strong",
+      offerIntents: ["other"],
+      softCrisis: r.softCrisis,
+    };
+  }
   return null;
 }
 
@@ -269,6 +282,7 @@ export async function sendToChat(chat: ChatState, text: string, hooks: ChatHooks
   clearThinkingIfMine();
   if (reply.kind === "idle") {
     if (reply.capNotice === "hard") { chat.readOnly = true; chat.quiz = null; }
+    push(chat, chatMsgFromReply(reply, chat.modelPick, chat.chatFirst));
     hooks.rerender();
     return;
   }
@@ -278,10 +292,10 @@ export async function sendToChat(chat: ChatState, text: string, hooks: ChatHooks
     chat.quiz = null;
   }
   if (reply.kind === "chat") {
-    push(chat, fromReply(reply, chat.modelPick, chat.chatFirst));
+    push(chat, chatMsgFromReply(reply, chat.modelPick, chat.chatFirst));
     push(chat, fromChatCard(reply, chat.modelPick, chat.chatFirst));
   } else {
-    push(chat, fromReply(reply, chat.modelPick, chat.chatFirst));
+    push(chat, chatMsgFromReply(reply, chat.modelPick, chat.chatFirst));
   }
   hooks.rerender();
   if (reply.kind === "referral") hooks.referral?.(reply.intents, reply.banner);

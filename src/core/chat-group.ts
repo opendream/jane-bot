@@ -14,11 +14,23 @@ const LETTER_RE = /\p{L}/u;
 const ACK_RE = /^(ขอบคุณ(ค่ะ|ครับ|นะ|คะ)?|ขอบใจ(ค่ะ|ครับ)?|thanks?(you)?|thankyou|thx|ตกลง(ค่ะ|ครับ)?|โอเค(ค่ะ|ครับ)?|okay|ok|รับทราบ|เข้าใจแล้ว)[!.,…ๆ]*$/u;
 const ACK_PARTICLE_RE = /^(ค่ะ|ครับ|คะ|จ้า|จ้ะ|งับ)$/u;
 
+/**
+ * DRAFT. Keng review required before this string is treated as product copy.
+ * Fixed local acknowledgement for a whole-line thanks/ack. Never generated.
+ */
+export const ACK_LINE_TH = "ยินดีค่ะ พี่อยู่ตรงนี้นะ";
+export const ACK_LINE_TH_STATUS = "draft" as const;
+
 /** True for thanks / short particles with no topic words. Never logs the line. */
 export function isAckLine(text: string): boolean {
   const t = compact(text).replace(/[!.,?…ๆ]+$/g, "");
   if (!t) return false;
   return ACK_RE.test(t) || ACK_PARTICLE_RE.test(t);
+}
+
+/** Drop whole-line acks. Remaining lines keep every gate (lock, English, crisis). */
+export function dropAckLines(messages: readonly string[]): string[] {
+  return messages.filter((m) => !isAckLine(m));
 }
 
 /** True when the line has no letters and at least one emoji. */

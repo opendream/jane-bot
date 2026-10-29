@@ -145,15 +145,18 @@ test("thanks after a condom topic does not show that card on the thanks turn", a
   await say(page, "ถุงยางแตกค่ะ");
   await expect(lastJane(page).getByTestId("chat-text")).toContainText("พี่อยู่ตรงนี้นะ");
   await expect(lastJane(page)).toHaveAttribute("data-card", "");
+  const before = await modelCalls(page);
   await say(page, "ขอบคุณค่ะ");
-  await expect(lastJane(page).getByTestId("chat-text")).toContainText("พี่อยู่ตรงนี้นะ");
   await expect(lastJane(page)).toHaveAttribute("data-card", "");
   const cardAfterThanks = page.locator('[data-testid="chat-msg"][data-from="user"]').filter({ hasText: "ขอบคุณค่ะ" })
     .locator("xpath=following-sibling::*[@data-testid='chat-msg' and @data-from='jane'][@data-card='condom.leak.000']");
   await expect(cardAfterThanks).toHaveCount(0);
+  const after = await modelCalls(page);
+  expect(after.chat).toBe(before.chat);
+  expect(after.pick).toBe(before.pick);
 });
 
-test("thanks sent mid-generation does not attach the previous topic card", async ({ page }) => {
+test("thanks sent mid-generation drops the ack and answers the remaining question", async ({ page }) => {
   await page.goto("/?chatFirst=1&testRuntime=pick-ok&runtime=wasm&chatReplyMs=1500");
   await page.waitForLoadState("domcontentloaded");
   await expect(page.getByTestId("model-status")).toHaveAttribute("data-state", "ready", { timeout: 10_000 });
@@ -161,6 +164,6 @@ test("thanks sent mid-generation does not attach the previous topic card", async
   await say(page, "ถุงยางแตกต้องทำยังไง");
   await expect(page.getByTestId("chat-thinking")).toBeVisible({ timeout: 2_000 });
   await say(page, "ขอบคุณค่ะ");
-  await expect(lastJane(page).getByTestId("chat-text")).toContainText("พี่อยู่ตรงนี้นะ", { timeout: 8_000 });
-  await expect(lastJane(page)).toHaveAttribute("data-card", "");
+  await expect(lastJane(page)).toBeVisible({ timeout: 8_000 });
+  await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
 });

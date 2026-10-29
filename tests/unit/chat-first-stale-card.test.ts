@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { DialogSession, type DialogModel, type TurnDeps, type TurnReply } from "../../src/core/dialog";
+import { DialogSession, newDialog, runTurn, type DialogModel, type TurnDeps, type TurnReply } from "../../src/core/dialog";
 import { BANK } from "../../src/core/bankData";
 import { newChat, sendToChat, type ChatHooks } from "../../src/ui/chat";
-import { isAckLine } from "../../src/core/chat-group";
+import { ACK_LINE_TH, isAckLine } from "../../src/core/chat-group";
 import {
   currentGenerationToken,
   resetGenerationTokenForTests,
@@ -24,10 +24,10 @@ function deps(model: DialogModel | null = null, extra: Partial<TurnDeps> = {}): 
 function chatModel(opts: { delayMs?: number; pick?: "top" | "none" } = {}) {
   const delayMs = opts.delayMs ?? 0;
   const pick = opts.pick ?? "top";
-  const calls = { chat: 0, pick: 0, started: 0 };
+  const calls = { chat: 0, pick: 0, started: 0, lastChat: "" };
   const model: DialogModel = {
     ready: () => true,
-    chatReply: async (_text, _history, signal) => {
+    chatReply: async (text, _history, signal) => {
       calls.started++;
       if (delayMs > 0) {
         await new Promise<void>((resolve) => {
@@ -39,6 +39,7 @@ function chatModel(opts: { delayMs?: number; pick?: "top" | "none" } = {}) {
         if (signal?.aborted) return null;
       }
       calls.chat++;
+      calls.lastChat = text;
       return SAFE_CHAT;
     },
     pickCard: async (_text, list) => {
@@ -88,17 +89,18 @@ describe("chat-first: thanks / small talk never inherit an earlier card", () => 
     const first = await s.send("ถุงยางแตกค่ะ");
     expect(first?.kind).toBe("chat");
     if (first?.kind === "chat") expect(first.card).toBeNull();
+    const chatAfterFirst = calls.chat;
     const thanks = await s.send(THANKS);
     expect(thanks?.kind).toBe("chat");
     if (thanks?.kind === "chat") {
       expect(thanks.card).toBeNull();
       expect(thanks.cardText).toBeNull();
-      expect(thanks.text).toBe(SAFE_CHAT);
+      expect(thanks.text).toBe(ACK_LINE_TH);
     }
-    expect(calls.chat).toBeGreaterThan(0);
+    expect(calls.chat).toBe(chatAfterFirst);
   });
 
-  it("thanks typed mid-generation is grouped but still has no earlier card", async () => {
+  it("thanks typed mid-generation drops the ack and processes the remaining question", async () => {
     const { model, calls } = chatModel({ delayMs: 80, pick: "top" });
     const s = new DialogSession("18+", deps(model));
     s.start();
@@ -107,11 +109,11 @@ describe("chat-first: thanks / small talk never inherit an earlier card", () => 
     const p2 = s.send(THANKS);
     expect(await p1).toBeNull();
     const r2 = await p2;
-    expect(r2?.kind).toBe("chat");
+    expect(r2).not.toBeNull();
+    expect(r2!.kind === "chat" || r2!.kind === "card").toBe(true);
     if (r2?.kind === "chat") {
-      expect(r2.card).toBeNull();
-      expect(r2.cardText).toBeNull();
-      expect(r2.text).toBe(SAFE_CHAT);
+      expect(r2.text).not.toBe(ACK_LINE_TH);
+      expect(calls.lastChat ?? "").not.toContain(THANKS);
     }
   });
 
@@ -170,5 +172,43 @@ describe("chat-first: thanks / small talk never inherit an earlier card", () => 
     const closed = await s.send("แล้วหนูควรพูดยังไงดี");
     expect(closed?.kind).toBe("chat");
     if (closed?.kind === "chat") expect(closed.card).toBeTruthy();
+  });
+});
+
+describe("HIGH 3: whole-line English acks make zero model calls", () => {
+  it.each(["thanks", "ok", "thank you"] as const)("%s is a local Thai ack with 0 model calls", async (line) => {
+    const { model, calls } = chatModel();
+    const r = await runTurn(newDialog("18-24"), line, deps(model));
+    expect(r.reply.kind).toBe("chat");
+    if (r.reply.kind === "chat") {
+      expect(r.reply.text).toBe(ACK_LINE_TH);
+      expect(r.reply.card).toBeNull();
+      expect(r.reply.cardText).toBeNull();
+    }
+    expect(calls.chat + calls.pick).toBe(0);
+  });
+
+  it("an English question plus a trailing thanks still takes the English no-model gate", async () => {
+    const { model, calls } = chatModel();
+    const r = await runTurn(newDialog("18-24"), "I want to know about birth control", deps(model, {
+      groupMessages: ["I want to know about birth control", "thanks"],
+    }));
+    expect(r.reply.kind).toBe("card");
+    expect(calls.chat + calls.pick).toBe(0);
+  });
+});
+
+describe("MEDIUM 4: trailing thanks must not unlock a locked card", () => {
+  it("group ['ยาคุมฉุกเฉินกินเมื่อไร', 'ขอบคุณค่ะ'] shows ec.timing.b001 with 0 model calls", async () => {
+    const { model, calls } = chatModel();
+    const r = await runTurn(newDialog("18-24"), "ขอบคุณค่ะ", deps(model, {
+      groupMessages: ["ยาคุมฉุกเฉินกินเมื่อไร", THANKS],
+    }));
+    const id = r.reply.kind === "card" ? r.reply.card.id
+      : r.reply.kind === "chat" ? r.reply.card?.id
+        : undefined;
+    expect(id).toBe("ec.timing.b001");
+    expect(calls.chat + calls.pick).toBe(0);
+    expect(calls.lastChat ?? "").not.toContain("ยาคุมฉุกเฉินกินเมื่อไร");
   });
 });
