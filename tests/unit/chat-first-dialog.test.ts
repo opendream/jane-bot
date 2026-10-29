@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { CHAT_CRISIS_CARD_FIRST, CHAT_FIRST, ENGLISH_MODEL_CHAT, chatFirstEnabled } from "../../src/config";
+import { CHAT_CRISIS_CARD_FIRST, CHAT_FIRST, CHAT_FIRST_TIMEOUT_MS, CHAT_TIMEOUT_MS, ENGLISH_MODEL_CHAT, chatFirstEnabled } from "../../src/config";
+import { PICK_TIMEOUT_MS, REWORD_TIMEOUT_MS } from "../../src/core/dialog";
 import { detectCrisis } from "../../src/core/crisis";
 import {
   FALLBACK_ID,
@@ -109,6 +110,10 @@ describe("production defaults (chat-first flag off)", () => {
     expect(CHAT_SYSTEM_EN).not.toContain("her name");
     expect(CHAT_SYSTEM_EN).not.toContain("she typed");
     expect(ENGLISH_MODEL_CHAT).toBe(false);
+    expect(CHAT_FIRST_TIMEOUT_MS).toBe(90_000);
+    expect(CHAT_TIMEOUT_MS).toBe(CHAT_FIRST_TIMEOUT_MS);
+    expect(PICK_TIMEOUT_MS).toBe(8_000);
+    expect(REWORD_TIMEOUT_MS).toBe(8_000);
   });
 
   it("without the flag, runTurn stays card-first and never calls chatReply", async () => {

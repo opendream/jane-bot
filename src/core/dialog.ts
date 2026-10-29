@@ -3,7 +3,7 @@ import { type BankCard, type BankTopic, type CardNext, shippable } from "./bank"
 import { AGE_REDIRECT_CARD, AGE_REDIRECT_ID, afterPick, type AgeState } from "./age";
 import { detectCrisis } from "./crisis";
 import { detectChatCrisisForTurn, noteChatCrisisHit } from "./chat-crisis";
-import { CHAT_TIMEOUT_MS, ENGLISH_MODEL_CHAT, chatCrisisEnabled } from "../config";
+import { CHAT_FIRST_TIMEOUT_MS, ENGLISH_MODEL_CHAT, chatCrisisEnabled } from "../config";
 import { normalize, findPhrases, prepCheckText } from "./text";
 import { stripPII } from "./summary";
 import { checkInput, REFUSAL_CARDS, type GuardReason } from "./guard";
@@ -264,7 +264,7 @@ export interface TurnDeps {
    * config const (false on this branch). English model-chat code paths stay.
    */
   englishModelChat?: boolean;
-  /** Override CHAT_TIMEOUT_MS (tests). */
+  /** Override CHAT_FIRST_TIMEOUT_MS / CHAT_TIMEOUT_MS (tests). */
   chatTimeoutMs?: number;
   /** Unanswered user lines waiting for a Jane reply (chat-first grouping). */
   unansweredLines?: string[];
@@ -517,7 +517,7 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     if (stale()) return dropStale();
 
     deps.onGenerating?.({ groupId: token ?? currentGenerationToken(), lang });
-    const timeoutMs = deps.chatTimeoutMs ?? CHAT_TIMEOUT_MS;
+    const timeoutMs = deps.chatTimeoutMs ?? CHAT_FIRST_TIMEOUT_MS;
     const attempt = () => withTimeout((s) => live.chatReply!(currentClip, history, s, lang, token), timeoutMs, deps.signal);
 
     let out = await attempt();
