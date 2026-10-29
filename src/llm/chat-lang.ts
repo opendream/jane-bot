@@ -2,14 +2,14 @@
  * Per-turn chat language and the model-call script gate. Rules only — the
  * model never chooses.
  *
- * Reply language (`detectChatLang`): fold fullwidth/accented Latin, strip the
+ * Reply language (`detectChatLang`): NFKC + Latin fold + lowercase, strip the
  * health-loanword allowlist, then English iff at least 60% of remaining letters
  * are Latin AND the remaining text contains at least two English words.
  * Everything else is Thai. Used for persona, holding line, chip label, and
  * bank English overlay. Thai combining vowel/tone marks are not letters, so
  * without the strip a short line like "กิน PrEP" would look Latin-majority.
  *
- * Model-call gate (`modelChatScript`): fold fullwidth/accented Latin to ASCII
+ * Model-call gate (`modelChatScript`): NFKC + Latin fold + lowercase
  * (Thai unchanged), then a short whole-word, case-insensitive health-loanword
  * allowlist is stripped (digits, spaces, punctuation, and emoji are ignored).
  * Thresholds:
@@ -24,7 +24,7 @@
  * Re-evaluate on every turn.
  */
 
-import { foldLatinCompat } from "../core/text";
+import { prepCheckText } from "../core/text";
 
 export type ChatLang = "th" | "en";
 /** Letter-script class for whether this turn may call the Thai chat model. */
@@ -54,7 +54,7 @@ export const HEALTH_LOANWORDS = [
 const HEALTH_LOANWORD_SET = new Set<string>(HEALTH_LOANWORDS);
 
 function fold(text: string): string {
-  return foldLatinCompat(text == null ? "" : String(text));
+  return prepCheckText(text);
 }
 
 /** Drop allowlisted loanwords; leftover Latin tokens are left in place. */
@@ -106,7 +106,7 @@ function englishWordCount(s: string): number {
 
 /** Latin-letter share of all letters. 0 when the text has no letters. */
 export function latinLetterShare(s: string): number {
-  const { latin, total } = lettersOf(s.normalize("NFC"));
+  const { latin, total } = lettersOf(fold(s));
   return total === 0 ? 0 : latin / total;
 }
 
@@ -149,7 +149,7 @@ export function modelChatScript(text: string): ChatScript {
  * but no English-word minimum (a short "I'm here." must still pass).
  */
 export function mostlyLatin(text: string): boolean {
-  const { latin, total } = lettersOf(text.normalize("NFC"));
+  const { latin, total } = lettersOf(fold(text));
   if (total === 0) return false;
   return latin / total >= LATIN_SHARE_ENGLISH;
 }

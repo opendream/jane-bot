@@ -146,9 +146,9 @@ beforeEach(() => resetChatCrisisLog());
 afterEach(() => resetChatCrisisLog());
 
 describe("named rule lists", () => {
-  it("has 11 Thai rules, 21 English rules, plus the context rule id", () => {
+  it("has 11 Thai rules, 27 English rules, plus the context rule id", () => {
     expect(TH_RULES).toHaveLength(11);
-    expect(EN_RULES).toHaveLength(21);
+    expect(EN_RULES).toHaveLength(27);
     expect(TH_F_ID).toBe("TH-F bare follow-up after violence cue");
   });
 });
@@ -295,6 +295,35 @@ const FULLWIDTH_ACCENTED = [
   { text: "หนูรู้สึก ｓｕｉｃｉｄａｌ มาหลายวันแล้ว", crisis: true, token: "suicidal" },
   { text: "หนูอยาก ḍïë ค่ะ", crisis: true, token: "die" },
   { text: "อยาก ｄｉｅ HIV ค่ะ", crisis: true, token: "die" },
+  { text: "I want to ｋｉｌｌ ｍｙｓｅｌｆ", crisis: true, token: "kill" },
+  { text: "I want to kíll myself", crisis: true, token: "kill" },
+];
+
+/** First-person English disclosures the pin misses (and close variants). */
+const EN_FIRST_PERSON_CRISIS: { text: string; cat: "self_harm" | "sexual_violence" | "violence_danger" }[] = [
+  { text: "I want to hurt myself", cat: "self_harm" },
+  { text: "I want to harm myself", cat: "self_harm" },
+  { text: "I keep hurting myself", cat: "self_harm" },
+  { text: "I don't want to be alive", cat: "self_harm" },
+  { text: "I do not want to be alive", cat: "self_harm" },
+  { text: "I wish I was dead", cat: "self_harm" },
+  { text: "I wish I were dead", cat: "self_harm" },
+  { text: "my stepdad molested me", cat: "sexual_violence" },
+  { text: "he is molesting me", cat: "sexual_violence" },
+  { text: "he forced me", cat: "sexual_violence" },
+  { text: "My boyfriend is forcing me to have sex", cat: "sexual_violence" },
+  { text: "she is forcing me", cat: "sexual_violence" },
+  { text: "he abused me", cat: "sexual_violence" },
+];
+
+/** Health questions that used to fire on bare die/cut/abuse. */
+const FP_HEALTH_DIE_CUT_ABUSE = [
+  "condom got cut what to do",
+  "ถุงยาง cut ได้ไหม",
+  "เชื้อ HIV die นอกร่างกายไหม",
+  "can HIV die in air",
+  "PrEP cut dose",
+  "Do sperm die in water?",
 ];
 
 describe("fullwidth/accented English crisis words after NFKC + diacritic fold", () => {
@@ -328,6 +357,22 @@ describe("English crisis tokens inside mostly-Thai lines", () => {
     expect(hit.crisis, text).toBe(true);
     expect(hit.categories, text).toContain(cat);
     expect(hit.rules.join(" "), text).toMatch(new RegExp(`\\b${token}\\b`, "i"));
+  });
+});
+
+describe("first-person English disclosures the pin misses", () => {
+  it.each(EN_FIRST_PERSON_CRISIS)("$text", ({ text, cat }) => {
+    expect(detectCrisis(text).crisis, text).toBe(false);
+    const hit = detectChatCrisis(text);
+    expect(hit.crisis, text).toBe(true);
+    expect(hit.categories, text).toContain(cat);
+  });
+});
+
+describe("health-question false positives (bare die/cut/abuse must not fire)", () => {
+  it.each(FP_HEALTH_DIE_CUT_ABUSE)("%s", (text) => {
+    expect(detectChatCrisis(text).crisis, text).toBe(false);
+    expect(detectChatCrisisForTurn(text, []).crisis, text).toBe(false);
   });
 });
 

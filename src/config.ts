@@ -93,19 +93,20 @@ export function pickTimeoutMsFromSearch(search?: string, fallback = 20_000): num
  */
 export const CHAT_FIRST = false;
 /**
- * English model chat is on. Crisis still runs first on every turn (pinned
- * detectCrisis, then the add-only chat-crisis check), whatever the letter-
- * script class, on both chat-first and card-first. Then the script/allowlist
- * gate: after stripping the short health-loanword allowlist, leftover Latin
- * share ≥ 60% may call English chatReply; no leftover Latin and Thai share
- * of what remains ≥ 60% calls Thai chat; mixed/unclear (remaining Latin that
- * is not English-majority, <2 letters, or no letters) makes 0 model calls
- * (fixed card or fallback). Reply language still uses the word-list rule
- * after the same allowlist strip (Thai combining marks must not tip a
- * Thai+loanword line to English). Non-crisis English chat-first turns may
- * call chatReply.
+ * English model chat is off on this branch. Everyday English (including
+ * open-ended disclosures the pin misses) takes the no-model card path with
+ * the Thai-card note, same as #37. Crisis still runs first on every turn
+ * (pinned detectCrisis on raw and on NFKC/folded text, then the add-only
+ * chat-crisis check), whatever the letter-script class, on both chat-first
+ * and card-first. Then the script/allowlist gate: leftover Latin share ≥ 60%
+ * is English (no model call while this flag is false); no leftover Latin and
+ * Thai share of what remains ≥ 60% calls Thai chat; mixed/unclear makes 0
+ * model calls. Reply language still uses the word-list rule after the same
+ * allowlist strip. Keep the English chatReply code path; tests that need the
+ * flag on set `englishModelChat: true` on TurnDeps. English model chat is
+ * planned as its own PR after filming.
  */
-export const ENGLISH_MODEL_CHAT = true;
+export const ENGLISH_MODEL_CHAT = false;
 /** User turns in one topic before Jane must close with a card. */
 export const CHAT_MAX_TURNS = 3;
 /** Chat-reply budget (plan §2). Pick still uses PICK_TIMEOUT_MS (8 s). */

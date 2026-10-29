@@ -15,6 +15,14 @@ export function foldLatinCompat(input: string): string {
   return out;
 }
 
+/**
+ * NFKC + Latin fold + lowercase, used before every extra crisis check and
+ * the script / reply-language gates. Thai (including SARA AM) is unchanged.
+ */
+export function prepCheckText(input: string): string {
+  return foldLatinCompat(input == null ? "" : String(input)).toLowerCase();
+}
+
 /** Normalise Thai/English free text for matching. */
 export function normalize(input: string): string {
   return input

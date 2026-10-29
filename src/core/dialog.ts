@@ -4,7 +4,7 @@ import { AGE_REDIRECT_CARD, AGE_REDIRECT_ID, afterPick, type AgeState } from "./
 import { detectCrisis } from "./crisis";
 import { detectChatCrisisForTurn, noteChatCrisisHit } from "./chat-crisis";
 import { CHAT_TIMEOUT_MS, ENGLISH_MODEL_CHAT, chatCrisisEnabled } from "../config";
-import { normalize, findPhrases } from "./text";
+import { normalize, findPhrases, prepCheckText } from "./text";
 import { stripPII } from "./summary";
 import { checkInput, REFUSAL_CARDS, type GuardReason } from "./guard";
 import { retrieve } from "./retrieve";
@@ -43,7 +43,8 @@ export type { CardPicker, EngineReason, EngineTag } from "./pick-engine";
  * Per-turn chat pipeline (build plan v2 §3). Pure apart from the optional model, which is
  * injected. State is memory-only and never logged.
  *   1. crisis rules (every message, synchronous, BEFORE anything else; never the model or matcher)
- *      pinned detectCrisis first, then an add-only chat-crisis check (never clears a pin).
+ *      pinned detectCrisis first (raw AND NFKC/folded/lowercased; hit on either
+ *      is crisis), then an add-only chat-crisis check (never clears a pin).
  *      Both run on every turn, whatever the letter-script class, on both paths.
  *      Then the script/allowlist gate: English → English model chat, clearly Thai → Thai chat,
  *      mixed/unclear → 0 model calls (fixed card or fallback).
@@ -113,17 +114,40 @@ function uniqueCats(cats: CrisisCategory[]): CrisisCategory[] {
   return [...new Set(cats)];
 }
 
+function crisisRank(r: CrisisResult): number {
+  if (r.crisis || r.level === "override") return 2;
+  if (r.level === "banner") return 1;
+  return 0;
+}
+
+/** Stronger level wins (override > banner > none). Categories union. Add-only. */
+export function mergeCrisisResults(a: CrisisResult, b: CrisisResult): CrisisResult {
+  const categories = uniqueCats([...a.categories, ...b.categories]);
+  if (crisisRank(a) >= 2 || crisisRank(b) >= 2) return { crisis: true, level: "override", categories };
+  if (crisisRank(a) >= 1 || crisisRank(b) >= 1) return { crisis: false, level: "banner", categories };
+  return { crisis: false, level: "none", categories: [] };
+}
+
+/**
+ * Pinned detectCrisis on the raw line and on NFKC/folded/lowercased text.
+ * A hit on either is crisis. crisis.ts stays byte-identical.
+ */
+export function detectCrisisRawOrFolded(text: string): CrisisResult {
+  return mergeCrisisResults(detectCrisis(text), detectCrisis(prepCheckText(text)));
+}
+
 function joinedWindow(input: string, prev: string[]): string {
   return prev.length ? [...prev.slice(-2), input].join(" ") : input;
 }
 
 /** Current line, then current + previous 1–2 user lines (in memory only). */
 function crisisForTurn(input: string, prev: string[]): CrisisResult {
-  const cur = detectCrisis(input);
+  const cur = detectCrisisRawOrFolded(input);
   if (cur.crisis) return cur;
   if (prev.length) {
-    const joined = detectCrisis(joinedWindow(input, prev));
+    const joined = detectCrisisRawOrFolded(joinedWindow(input, prev));
     if (joined.crisis) return joined;
+    return mergeCrisisResults(cur, joined);
   }
   return cur;
 }
@@ -183,6 +207,11 @@ export interface TurnDeps {
    * (the query is not dev-only).
    */
   chatFirst?: boolean;
+  /**
+   * Override ENGLISH_MODEL_CHAT for tests. Production omits this and uses the
+   * config const (false on this branch). English model-chat code paths stay.
+   */
+  englishModelChat?: boolean;
 }
 
 export type Via = "followup" | "rules" | "model" | "rules_top1" | "fallback" | "guard" | "welcome" | "age_redirect" | "matcher";
@@ -403,10 +432,12 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     // class. Model chat is then gated by remaining Latin after stripping the
     // health-loanword allowlist, not the English word list: clearly Thai
     // (no leftover Latin; Thai share of what remains ≥ 60%) → Thai chat;
-    // English (Latin share ≥ 60%) → English chat while ENGLISH_MODEL_CHAT
-    // is true; mixed/unclear never calls the model.
+    // English (Latin share ≥ 60%) → English chat only while ENGLISH_MODEL_CHAT
+    // is true (off on this branch; tests may set deps.englishModelChat);
+    // mixed/unclear never calls the model.
     // Reply language still uses detectChatLang.
-    const allowModel = script === "th" || (script === "en" && ENGLISH_MODEL_CHAT);
+    const allowEnglishChat = deps.englishModelChat ?? ENGLISH_MODEL_CHAT;
+    const allowModel = script === "th" || (script === "en" && allowEnglishChat);
     if (!allowModel) {
       const top = rulesTop(retrieveText);
       return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, lang === "en" ? lang : undefined);

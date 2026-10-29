@@ -6,14 +6,17 @@
  * removed) because users space Thai unpredictably. English uses lowercased
  * normalize() with curly quotes folded. Named regexes (not word lists) so
  * bystander / definition questions do not fire. Whole-token English crisis
- * words also match inside mixed Thai lines; word boundaries keep HIV / PrEP /
- * condom from firing.
+ * words match inside mixed Thai lines only with first-person / self phrasing
+ * (Thai หนู/ฉัน/ผม/เรา/อยาก/คิดจะ, or English I/me/myself): die/kms/unalive,
+ * cut+ตัวเอง/myself, abuse+หนู/ฉัน/me. Word boundaries keep HIV / PrEP /
+ * condom health questions from firing. NFKC + lowercase + Latin fold run
+ * before the check (prepCheckText), including English-only lines.
  *
  * The in-memory reason tag is "chat-crisis" (distinct from "rules-crisis"). It
  * stores rule ids only — never user text — and is compiled out of production.
  */
 import type { CrisisCategory } from "./types";
-import { compact, foldLatinCompat, normalize } from "./text";
+import { compact, normalize, prepCheckText } from "./text";
 
 export interface ChatCrisisRule {
   id: string;
@@ -63,27 +66,34 @@ export const EN_RULES: ChatCrisisRule[] = [
   { id: "EN-D fear from behaviour", cat: "violence_danger", lang: "en", re: /\b(scared|afraid|frightened) to (go|be|walk|return)\b.{0,40}\bbecause of (someone|somebody|him|her|them|a person|this person)('s)? (behaviou?r|actions)/ },
   { id: "EN-E partner/family hits me", cat: "violence_danger", lang: "en", re: /\b(my )?(boyfriend|girlfriend|husband|wife|partner|bf|gf|dad|father|stepdad|mum|mom|mother|brother|sister) (beats|hits|hit|scratches|slaps|uses force on) me\b(?! up)|\bi (got|get|was|am being|keep getting) beaten\b/ },
   { id: "EN-F forced sex", cat: "sexual_violence", lang: "en", re: /\bi (was|got|have been|'ve been) forced (to have|into) (sex|sexual (intercourse|activity))\b|\bsomeone forced me (to have|into) (sex|sexual)/ },
-  { id: "EN-G don't want to live", cat: "self_harm", lang: "en", re: /\bi (don't|do not) want to live(?: anymore| any more)?(?=$|[.!?,])|\bi (?:feel like i )?(can't|cannot|can not) go on living\b/ },
+  { id: "EN-G don't want to live", cat: "self_harm", lang: "en", re: /\bi (don't|do not) want to (?:be alive|live(?: anymore| any more)?)(?=$|[.!?,])|\bi (?:feel like i )?(can't|cannot|can not) go on living\b/ },
   { id: "EN-H cutting myself", cat: "self_harm", lang: "en", re: /\bcutting myself\b/ },
   { id: "EN-I end my life", cat: "self_harm", lang: "en", re: /\bend my life\b(?! insurance)/ },
   { id: "EN-J bare forced sex", cat: "sexual_violence", lang: "en", re: /^forced sex[.!?]*$/ },
   // Bare help line only. Punctuation/emoji around the phrase is allowed;
   // extra Latin words ("help me choose a condom") do not fire.
   { id: "EN-K bare help", cat: "self_harm", lang: "en", re: /^(?:[^a-z]*)(?:please |pls )?help(?: me)?(?:[^a-z]*)$/ },
-  // Whole-token English crisis words. Also match inside mixed Thai lines
-  // (word boundaries keep HIV / PrEP / condom from firing).
-  { id: "EN-T die", cat: "self_harm", lang: "en", re: /\bdie\b/ },
-  { id: "EN-T kms", cat: "self_harm", lang: "en", re: /\bkms\b/ },
+  // English crisis tokens inside mixed Thai or first-person English. Bare
+  // die/cut/abuse/kms/unalive do not fire on health questions (HIV die,
+  // condom cut, drug abuse). Thai self/desire markers or I/me/myself required.
+  { id: "EN-T die", cat: "self_harm", lang: "en", re: /(?:หนู|ฉัน|ผม|เรา|กู).{0,24}\bdie\b|(?:อยาก|คิดจะ)\s*\bdie\b|\b(?:wanna|want to|gonna|let me) die\b|\bi(?:'m| am)? (?:wanna|want to|gonna|going to) die\b/ },
+  { id: "EN-T kms", cat: "self_harm", lang: "en", re: /(?:หนู|ฉัน|ผม|เรา|กู).{0,24}\bkms\b|(?:อยาก|คิดจะ)\s*\bkms\b|\b(?:i|i'm|im|wanna|gonna|going to|want to)\b.{0,16}\bkms\b/ },
   { id: "EN-T suicidal", cat: "self_harm", lang: "en", re: /\bsuicidal\b/ },
-  { id: "EN-T abuse", cat: "violence_danger", lang: "en", re: /\babuse\b/ },
-  { id: "EN-T cut", cat: "self_harm", lang: "en", re: /\bcut\b/ },
-  { id: "EN-T unalive", cat: "self_harm", lang: "en", re: /\bunalive\b/ },
+  { id: "EN-T abuse", cat: "violence_danger", lang: "en", re: /\babuse[sd]?\s+(?:หนู|ฉัน|ผม|เรา)|\babuse[sd]?\s+me\b|(?:หนู|ฉัน|ผม|เรา)\s+abuse\b|\babus(?:e|ed|ing) me\b/ },
+  { id: "EN-T cut", cat: "self_harm", lang: "en", re: /\bcut(?:ting)?\b.{0,16}ตัวเอง|\bcut(?:ting)? myself\b|ตัวเอง.{0,12}\bcut(?:ting)?\b|\bmyself.{0,12}\bcut(?:ting)?\b|\bi cut (?:myself|my )/ },
+  { id: "EN-T unalive", cat: "self_harm", lang: "en", re: /(?:หนู|ฉัน|ผม|เรา|กู|ตัวเอง).{0,24}\bunalive\b|(?:อยาก|คิดจะ)\s*\bunalive\b|\bunalive\b.{0,16}ตัวเอง|\bunalive myself\b|\b(?:i|wanna|want to|gonna)\b.{0,16}\bunalive\b/ },
+  { id: "EN-L hurt/harm myself", cat: "self_harm", lang: "en", re: /\b(?:hurt|harm)(?:ing)? myself\b/ },
+  { id: "EN-M wish I was/were dead", cat: "self_harm", lang: "en", re: /\bi wish i (?:was|were) dead\b/ },
+  { id: "EN-N molested me", cat: "sexual_violence", lang: "en", re: /\b(?:molested|molesting) me\b/ },
+  { id: "EN-O forced/forcing me", cat: "sexual_violence", lang: "en", re: /\b(?:forced|forcing) me\b/ },
+  { id: "EN-P raped/abused me", cat: "sexual_violence", lang: "en", re: /\b(?:raped|abused) me\b/ },
+  { id: "EN-Q kill myself", cat: "self_harm", lang: "en", re: /\bkill myself\b/ },
 ];
 
 export const TH_F_ID = "TH-F bare follow-up after violence cue";
 
-const prepTh = (t: string) => compact(foldLatinCompat(t));
-const prepEn = (t: string) => normalize(foldLatinCompat(t)).replace(/[\u2018\u2019]/g, "'");
+const prepTh = (t: string) => compact(prepCheckText(t));
+const prepEn = (t: string) => normalize(prepCheckText(t)).replace(/[\u2018\u2019]/g, "'");
 
 export function detectChatCrisis(text: string): ChatCrisisHit {
   const th = prepTh(text);

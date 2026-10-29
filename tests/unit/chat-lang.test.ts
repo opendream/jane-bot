@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { foldLatinCompat } from "../../src/core/text";
+import { foldLatinCompat, prepCheckText } from "../../src/core/text";
 import {
   HEALTH_LOANWORDS,
   MIN_LETTERS_FOR_SCRIPT,
@@ -131,6 +131,15 @@ describe("modelChatScript (allowlist loanwords; any other Latin is not Thai chat
     expect(foldLatinCompat("ḍïë")).toBe("die");
     expect(foldLatinCompat("ทำ")).toBe("ทำ");
     expect(foldLatinCompat("กำลัง")).toBe("กำลัง");
+  });
+
+  it("NFKC + lowercase + Latin fold before language checks, including English-only lines", () => {
+    expect(prepCheckText("I want to ｋｉｌｌ ｍｙｓｅｌｆ")).toBe("i want to kill myself");
+    expect(prepCheckText("I want to kíll myself")).toBe("i want to kill myself");
+    expect(modelChatScript("I want to ｋｉｌｌ ｍｙｓｅｌｆ")).toBe("en");
+    expect(modelChatScript("I want to kíll myself")).toBe("en");
+    expect(detectChatLang("Ｉ ｗａｎｔ ｂｉｒｔｈ ｃｏｎｔｒｏｌ")).toBe("en");
+    expect(mostlyLatin("Ｉ ａｍ")).toBe(true);
   });
 
   it("treats no letters, a single letter, emoji, digits, and punctuation as mixed/unclear", () => {

@@ -4,7 +4,8 @@
  */
 import { test, expect, type Page } from "@playwright/test";
 import { startAs } from "./helpers";
-import { SHOW_CARD_NOW, SHOW_CARD_NOW_EN } from "../../src/core/chat-flow";
+import { SHOW_CARD_NOW } from "../../src/core/chat-flow";
+import { CARD_THAI_NOTE_EN } from "../../src/core/card-lang";
 
 const lastJane = (page: Page) => page.locator('[data-testid="chat-msg"][data-from="jane"]').last();
 
@@ -69,23 +70,18 @@ test("a crisis message makes zero model calls", async ({ page }) => {
   expect(after.pick).toBe(0);
 });
 
-test("a normal English question reaches model chat and then the card", async ({ page }) => {
+test("an English question shows a bank card with the DRAFT note and zero model calls", async ({ page }) => {
   await openChatFirst(page);
   await openChat(page);
   const before = await modelCalls(page);
   expect(before.chat).toBe(0);
   expect(before.pick).toBe(0);
   await say(page, "I want to know about birth control");
-  await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
-  await expect(lastJane(page).getByTestId("chat-text")).toBeVisible();
-  const afterChat = await modelCalls(page);
-  expect(afterChat.chat).toBeGreaterThan(0);
-  await expect(page.getByRole("button", { name: SHOW_CARD_NOW_EN })).toBeVisible();
-  await page.getByRole("button", { name: SHOW_CARD_NOW_EN }).click();
   await expect(lastJane(page)).toHaveAttribute("data-card", /.+/);
+  await expect(lastJane(page).getByTestId("card-lang-note")).toHaveText(CARD_THAI_NOTE_EN);
   const after = await modelCalls(page);
-  expect(after.chat).toBe(afterChat.chat);
-  expect(after.pick).toBe(afterChat.pick);
+  expect(after.chat).toBe(0);
+  expect(after.pick).toBe(0);
 });
 
 test("English disclosures show the existing crisis screen with zero model calls", async ({ page }) => {
@@ -94,6 +90,8 @@ test("English disclosures show the existing crisis screen with zero model calls"
     "I don't want to live anymore",
     "my boyfriend hits me and I am scared",
     "I was sexually assaulted and I am scared",
+    "I want to hurt myself",
+    "I don't want to be alive",
   ];
   for (const line of lines) {
     await openChatFirst(page);

@@ -94,6 +94,33 @@ const FULLWIDTH_ACCENTED: { text: string; kind: "crisis" | "card" }[] = [
   { text: "อยาก ｄｉｅ HIV ค่ะ", kind: "crisis" },
 ];
 
+const EN_ONLY_FULLWIDTH_ACCENTED = [
+  "I want to ｋｉｌｌ ｍｙｓｅｌｆ",
+  "I want to kíll myself",
+];
+
+const EN_FIRST_PERSON_CRISIS = [
+  "I want to hurt myself",
+  "I don't want to be alive",
+  "I wish I was dead",
+  "my stepdad molested me",
+  "he forced me",
+  "My boyfriend is forcing me to have sex",
+  "I want to harm myself",
+  "I wish I were dead",
+  "he is molesting me",
+  "he abused me",
+];
+
+const FP_HEALTH_CARD_FIRST: { text: string; id: string }[] = [
+  { text: "condom got cut what to do", id: "condom.000" },
+  { text: "ถุงยาง cut ได้ไหม", id: "condom.000" },
+  { text: "เชื้อ HIV die นอกร่างกายไหม", id: "disease.hiv.000" },
+  { text: "can HIV die in air", id: "disease.hiv.000" },
+  { text: "PrEP cut dose", id: "protection.prep.000" },
+  { text: "Do sperm die in water?", id: "general.fallback.000" },
+];
+
 const SUICIDE_TH = ["ซุยไซด์", "ซูอิไซด์", "ซูไซด์"];
 
 const FP = [
@@ -243,7 +270,20 @@ describe("chat-first extra check: probes return the existing crisis card, zero m
     const { model, calls } = spyModel();
     const r = await runTurn(newDialog(), "help me choose a condom", chatDeps(model));
     expect(r.reply.kind).not.toBe("crisis");
-    expect(calls.chat).toBe(1);
+    expect(r.reply.kind).toBe("card");
+    expect(calls.chat + calls.pick + calls.reword).toBe(0);
+  });
+
+  it("de88: prior violence cue then a bare follow-up, zero model calls on the crisis turn", async () => {
+    const { model, calls } = spyModel();
+    const first = await runTurn(newDialog(), "แฟนทำร้าย", chatDeps(model));
+    expect(first.reply.kind).not.toBe("crisis");
+    const afterCue = calls.chat + calls.pick + calls.reword;
+    const second = await runTurn(first.state, "ต้องทำไงดี", chatDeps(model));
+    expect(second.reply.kind).toBe("crisis");
+    if (second.reply.kind === "crisis") expect(second.reply.engine).toBe("chat-crisis");
+    expect(calls.chat + calls.pick + calls.reword).toBe(afterCue);
+    expect(second.state.chatFlow.rulesOnly).toBe(true);
   });
 
   it.each(PINNED_EN_SHORT)("pinned short English still crisis, stub 0 times: %s", async (text) => {
@@ -253,17 +293,6 @@ describe("chat-first extra check: probes return the existing crisis card, zero m
     expect(r.reply.kind, text).toBe("crisis");
     if (r.reply.kind === "crisis") expect(r.reply.engine, text).toBe("rules-crisis");
     expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
-  });
-
-  it("de88: prior violence cue then a bare follow-up, zero model calls on the crisis turn", async () => {
-    const { model, calls } = spyModel();
-    const { st, replies } = await talk(["แฟนทำร้าย", "ต้องทำไงดี"], chatDeps(model));
-    expect(replies[0].kind).not.toBe("crisis");
-    const afterCue = calls.chat + calls.pick + calls.reword;
-    expect(replies[1].kind).toBe("crisis");
-    if (replies[1].kind === "crisis") expect(replies[1].engine).toBe("chat-crisis");
-    expect(calls.chat + calls.pick + calls.reword).toBe(afterCue);
-    expect(st.chatFlow.rulesOnly).toBe(true);
   });
 });
 
@@ -368,11 +397,12 @@ describe("card-first extra check: probes return the existing crisis card, zero m
 
   it("de88: prior violence cue then a bare follow-up, zero model calls on the crisis turn", async () => {
     const { model, calls } = spyModel();
-    const { replies } = await talk(["แฟนทำร้าย", "ต้องทำไงดี"], cardDeps(model));
-    expect(replies[0].kind).not.toBe("crisis");
-    if (replies[0].kind === "card") expect(replies[0].card.id).toBe("relationship.violence.001");
+    const first = await runTurn(newDialog(), "แฟนทำร้าย", cardDeps(model));
+    expect(first.reply.kind).not.toBe("crisis");
+    if (first.reply.kind === "card") expect(first.reply.card.id).toBe("relationship.violence.001");
     const afterCue = calls.chat + calls.pick + calls.reword;
-    expect(replies[1].kind).toBe("crisis");
+    const second = await runTurn(first.state, "ต้องทำไงดี", cardDeps(model));
+    expect(second.reply.kind).toBe("crisis");
     expect(calls.chat + calls.pick + calls.reword).toBe(afterCue);
     expect(chatCrisisLog()?.reason).toBe("chat-crisis");
   });
@@ -429,5 +459,62 @@ describe("FP does not override in chat-first", () => {
     expect(r.reply.kind, text).not.toBe("crisis");
     if (r.reply.kind === "crisis") expect(r.reply.engine).not.toBe("chat-crisis");
     expect(typeof calls.chat).toBe("number");
+  });
+});
+
+describe("health-question false positives keep their original card (card-first)", () => {
+  it.each(FP_HEALTH_CARD_FIRST)("$text → $id, no crisis banner", async ({ text, id }) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, cardDeps(model));
+    expect(r.reply.kind, text).toBe("card");
+    if (r.reply.kind === "card") {
+      expect(r.reply.card.id, text).toBe(id);
+      expect(r.reply.banner, text).toEqual([]);
+    }
+    expect(calls.chat + calls.pick + calls.reword, text).toBeGreaterThanOrEqual(0);
+    expect(r.reply.kind, text).not.toBe("crisis");
+  });
+});
+
+describe("health-question false positives are not crisis on chat-first", () => {
+  it.each(FP_HEALTH_CARD_FIRST)("$text", async ({ text }) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, chatDeps(model));
+    expect(r.reply.kind, text).not.toBe("crisis");
+    expect(calls.chat, text).toBe(0);
+  });
+});
+
+describe("first-person English disclosures: crisis screen, 0 model calls, both paths", () => {
+  it.each(EN_FIRST_PERSON_CRISIS)("chat-first %s", async (text) => {
+    expect(detectCrisis(text).crisis, text).toBe(false);
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, chatDeps(model));
+    expect(r.reply.kind, text).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
+  });
+
+  it.each(EN_FIRST_PERSON_CRISIS)("card-first %s", async (text) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, cardDeps(model));
+    expect(r.reply.kind, text).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
+  });
+});
+
+describe("English-only fullwidth/accented kill-myself: crisis, 0 model calls", () => {
+  it.each(EN_ONLY_FULLWIDTH_ACCENTED)("chat-first %s", async (text) => {
+    expect(detectCrisis(text).crisis, text).toBe(false);
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, chatDeps(model));
+    expect(r.reply.kind, text).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
+  });
+
+  it.each(EN_ONLY_FULLWIDTH_ACCENTED)("card-first %s", async (text) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, cardDeps(model));
+    expect(r.reply.kind, text).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
   });
 });
