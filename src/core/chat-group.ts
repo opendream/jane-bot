@@ -7,9 +7,19 @@
  */
 
 import { detectChatLang, modelChatScript, type ChatLang } from "../llm/chat-lang";
+import { compact } from "./text";
 
 const EMOJI_RE = /\p{Extended_Pictographic}/u;
 const LETTER_RE = /\p{L}/u;
+const ACK_RE = /^(ขอบคุณ(ค่ะ|ครับ|นะ|คะ)?|ขอบใจ(ค่ะ|ครับ)?|thanks?(you)?|thankyou|thx|ตกลง(ค่ะ|ครับ)?|โอเค(ค่ะ|ครับ)?|okay|ok|รับทราบ|เข้าใจแล้ว)[!.,…ๆ]*$/u;
+const ACK_PARTICLE_RE = /^(ค่ะ|ครับ|คะ|จ้า|จ้ะ|งับ)$/u;
+
+/** True for thanks / short particles with no topic words. Never logs the line. */
+export function isAckLine(text: string): boolean {
+  const t = compact(text).replace(/[!.,?…ๆ]+$/g, "");
+  if (!t) return false;
+  return ACK_RE.test(t) || ACK_PARTICLE_RE.test(t);
+}
 
 /** True when the line has no letters and at least one emoji. */
 export function isEmojiOnly(text: string): boolean {

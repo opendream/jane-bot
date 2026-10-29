@@ -132,3 +132,35 @@ test("an English crisis-like message makes zero model calls", async ({ page }) =
   expect(after.chat).toBe(0);
   expect(after.pick).toBe(0);
 });
+
+async function openChatFirstPick(page: Page) {
+  await page.goto("/?chatFirst=1&testRuntime=pick-ok&runtime=wasm");
+  await page.waitForLoadState("domcontentloaded");
+  await expect(page.getByTestId("model-status")).toHaveAttribute("data-state", "ready", { timeout: 10_000 });
+}
+
+test("thanks after a condom topic does not show that card on the thanks turn", async ({ page }) => {
+  await openChatFirstPick(page);
+  await openChat(page);
+  await say(page, "ถุงยางแตกค่ะ");
+  await expect(lastJane(page).getByTestId("chat-text")).toContainText("พี่อยู่ตรงนี้นะ");
+  await expect(lastJane(page)).toHaveAttribute("data-card", "");
+  await say(page, "ขอบคุณค่ะ");
+  await expect(lastJane(page).getByTestId("chat-text")).toContainText("พี่อยู่ตรงนี้นะ");
+  await expect(lastJane(page)).toHaveAttribute("data-card", "");
+  const cardAfterThanks = page.locator('[data-testid="chat-msg"][data-from="user"]').filter({ hasText: "ขอบคุณค่ะ" })
+    .locator("xpath=following-sibling::*[@data-testid='chat-msg' and @data-from='jane'][@data-card='condom.leak.000']");
+  await expect(cardAfterThanks).toHaveCount(0);
+});
+
+test("thanks sent mid-generation does not attach the previous topic card", async ({ page }) => {
+  await page.goto("/?chatFirst=1&testRuntime=pick-ok&runtime=wasm&chatReplyMs=1500");
+  await page.waitForLoadState("domcontentloaded");
+  await expect(page.getByTestId("model-status")).toHaveAttribute("data-state", "ready", { timeout: 10_000 });
+  await openChat(page);
+  await say(page, "ถุงยางแตกต้องทำยังไง");
+  await expect(page.getByTestId("chat-thinking")).toBeVisible({ timeout: 2_000 });
+  await say(page, "ขอบคุณค่ะ");
+  await expect(lastJane(page).getByTestId("chat-text")).toContainText("พี่อยู่ตรงนี้นะ", { timeout: 8_000 });
+  await expect(lastJane(page)).toHaveAttribute("data-card", "");
+});

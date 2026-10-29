@@ -15,6 +15,7 @@ import {
   thinkingPhraseAt,
 } from "./chat-thinking";
 import type { ChatLang } from "../llm/chat-lang";
+import { isCurrentGeneration } from "../llm/generation-token";
 import { QUIZ_CHIP, hasRelatedQuiz, quizCopyStatus, startQuiz, type QuizSession } from "../core/quiz";
 import { h } from "./dom";
 import { emptyChatArt, janeImg } from "./jane";
@@ -194,6 +195,7 @@ export async function sendToChat(chat: ChatState, text: string, hooks: ChatHooks
   }
   chat.draft = "";
   push(chat, { from: "user", text: t });
+  const userTurnsAtSend = chat.messages.filter((m) => m.from === "user").length;
   chat.busy = true;
   if (chat.chatFirst && chat.thinking) {
     chat.thinking = false;
@@ -260,6 +262,9 @@ export async function sendToChat(chat: ChatState, text: string, hooks: ChatHooks
   }
   if (!owns()) { chat.busy = false; clearThinkingIfMine(); return; } // erase / quick exit / SOS / openChat bumped the seq: drop, no rerender
   if (!reply) return; // superseded: the newer send owns busy/thinking
+  // A late / superseded generate must not land under a newer user turn.
+  if (chat.messages.filter((m) => m.from === "user").length !== userTurnsAtSend) return;
+  if (reply.groupId != null && !isCurrentGeneration(reply.groupId)) return;
   chat.busy = false;
   clearThinkingIfMine();
   if (reply.kind === "idle") {

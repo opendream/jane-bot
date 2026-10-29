@@ -12,7 +12,7 @@ import { VALID_INTENTS } from "../llm/adapter";
 import { acceptChatReply } from "../llm/chatGuard";
 import { detectChatLang, type ChatLang } from "../llm/chat-lang";
 import { currentGenerationToken, bumpGenerationToken, isCurrentGeneration } from "../llm/generation-token";
-import { combineUnanswered, groupReplyLang, groupTakesNoModelPath, countedGroupMessages } from "./chat-group";
+import { combineUnanswered, countedGroupMessages, groupReplyLang, groupTakesNoModelPath, isAckLine } from "./chat-group";
 import { bankAnswerForLang, cardNoteForLang } from "./card-lang";
 import { acceptReword, type RewordContext } from "../llm/rewordGuard";
 import type { IntentMatcher } from "./matcher";
@@ -509,6 +509,13 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
   if (chatFirst) {
     const clips = groupMessages.map((m) => stripPII(m).slice(0, MODEL_INPUT_CHARS));
     const currentClip = combineUnanswered(clips);
+    const latest = groupMessages[groupMessages.length - 1] ?? input;
+    const latestRetrieved = retrieve(stripPII(latest).slice(0, MODEL_INPUT_CHARS), pool(), null);
+    // Thanks / small talk with no triggers of their own must not inherit the
+    // previous topic's card (grouped unanswered lines, lingering topic, or pick).
+    const ackNoTopic = isAckLine(latest)
+      && !latestRetrieved.confident
+      && latestRetrieved.ranked.every((s) => s.triggerHits === 0);
     const retrieveText = topicText(state.chatFlow.topicUserLines, clips.join(" "));
     const retrieved = retrieve(retrieveText, pool(), state.topic);
     const lockedFrom = (text: string): BankCard | undefined => {
@@ -517,18 +524,24 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     };
     // Card-first locks on the current message. Also lock if the last-3 window's top is a locked id.
     const lockedCard = groupMessages.map(lockedFrom).find(Boolean) ?? lockedFrom(retrieveText);
-    const locked = !!lockedCard;
-    const plan = planTurn({
-      flow: state.chatFlow,
-      crisis: "none",
-      guard: false,
-      human: false,
-      chip: false,
-      showNow: false,
-      locked,
-      rulesConfident: retrieved.confident,
-      directQuestion: groupMessages.some(isDirectFactualQuestion),
-    });
+    const locked = !!lockedCard && !ackNoTopic;
+    const plan = (() => {
+      const p = planTurn({
+        flow: state.chatFlow,
+        crisis: "none",
+        guard: false,
+        human: false,
+        chip: false,
+        showNow: false,
+        locked,
+        rulesConfident: retrieved.confident,
+        directQuestion: groupMessages.some(isDirectFactualQuestion),
+      });
+      if (ackNoTopic && (p.reason === "chat" || p.reason === "locked")) {
+        return { ...p, reason: "chat" as const, callChat: true, callPick: false, close: "never" as const };
+      }
+      return p;
+    })();
 
     if (plan.reason === "post-crisis" || plan.reason === "locked") {
       const chosen = plan.reason === "locked" && lockedCard ? lockedCard : rulesTop(retrieveText).card;
@@ -548,7 +561,7 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     if (countedGroupMessages(groupMessages).length === 0) {
       return { state: { ...state, turns, recentUser }, reply: { kind: "idle", capNotice } };
     }
-    if (groupTakesNoModelPath(groupMessages, allowEnglishChat, !!extraAmbiguous)) {
+    if (!ackNoTopic && groupTakesNoModelPath(groupMessages, allowEnglishChat, !!extraAmbiguous)) {
       const top = rulesTop(retrieveText);
       return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, lang === "en" ? lang : undefined, softCrisis);
     }
@@ -564,8 +577,33 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     const token = deps.generationToken;
     const stale = () => (token != null && !isCurrentGeneration(token)) || !!deps.signal?.aborted;
     const dropStale = () => ({ state, reply: { kind: "idle" as const, capNotice: null } });
+    const topicClip = combineUnanswered(
+      groupMessages.flatMap((m, i) => (isAckLine(m) ? [] : [clips[i]!])),
+    );
+    const ackChatNoCard = (text = ""): { state: DialogState; reply: TurnReply } => {
+      const nextFlow = text && topicClip
+        ? applyChatTurn(state.chatFlow, topicClip, text, false)
+        : state.chatFlow;
+      return {
+        state: { ...state, turns, recentUser, chatFlow: nextFlow, pendingChips: [showCardNowChip(lang)] },
+        reply: {
+          kind: "chat",
+          text,
+          card: null,
+          cardText: null,
+          via: "rules",
+          banner,
+          chips: [showCardNowChip(lang)],
+          offer: "none",
+          offerIntents: [],
+          capNotice,
+          ...(softCrisis ? { softCrisis } : {}),
+        },
+      };
+    };
 
     if (!plan.callChat || !live?.ready() || !live.chatReply) {
+      if (ackNoTopic) return ackChatNoCard();
       const top = rulesTop(retrieveText);
       return verbatimCard(top.card, top.via, tagged ? "rules-not-ready" : undefined, undefined, undefined, null, softCrisis);
     }
@@ -578,6 +616,7 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     let out = await attempt();
     if (stale()) return dropStale();
     if (out == null) {
+      if (ackNoTopic) return ackChatNoCard();
       const top = rulesTop(retrieveText);
       return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, null, softCrisis);
     }
@@ -586,12 +625,14 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
       out = await attempt();
       if (stale()) return dropStale();
       if (out == null) {
+        if (ackNoTopic) return ackChatNoCard();
         const top = rulesTop(retrieveText);
         return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, null, softCrisis);
       }
       acc = acceptChatReply(out, lang);
     }
     if (!acc.ok) {
+      if (ackNoTopic) return ackChatNoCard();
       const top = rulesTop(retrieveText);
       return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, lang === "en" ? lang : undefined, softCrisis);
     }
@@ -653,7 +694,9 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     const chips = shown ? shown.next : [showCardNowChip(lang)];
     const nextFlow = shown
       ? applyClosedCard(state.chatFlow)
-      : applyChatTurn(state.chatFlow, currentClip, chatText, false);
+      : (ackNoTopic && !topicClip)
+        ? state.chatFlow
+        : applyChatTurn(state.chatFlow, (ackNoTopic && topicClip) ? topicClip : currentClip, chatText, false);
 
     const next: DialogState = {
       ...state, turns, recentUser,

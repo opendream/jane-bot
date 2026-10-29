@@ -4,8 +4,23 @@ import {
   countedGroupMessages,
   groupReplyLang,
   groupTakesNoModelPath,
+  isAckLine,
   isEmojiOnly,
 } from "../../src/core/chat-group";
+
+describe("isAckLine", () => {
+  it("treats thanks and short particles as ack, not topic lines", () => {
+    expect(isAckLine("ขอบคุณค่ะ")).toBe(true);
+    expect(isAckLine("ขอบคุณครับ")).toBe(true);
+    expect(isAckLine("thanks")).toBe(true);
+    expect(isAckLine("thank you")).toBe(true);
+    expect(isAckLine("ok")).toBe(true);
+    expect(isAckLine("โอเค")).toBe(true);
+    expect(isAckLine("ถุงยางแตกต้องทำยังไง")).toBe(false);
+    expect(isAckLine("ช่วงนี้กังวลเรื่องแฟน")).toBe(false);
+    expect(isAckLine("แล้วหนูควรพูดยังไงดี")).toBe(false);
+  });
+});
 
 describe("isEmojiOnly", () => {
   it("treats emoji-only lines as emoji and letter lines as not", () => {
