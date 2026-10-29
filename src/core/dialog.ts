@@ -10,7 +10,7 @@ import { checkInput, REFUSAL_CARDS, type GuardReason } from "./guard";
 import { retrieve } from "./retrieve";
 import { VALID_INTENTS } from "../llm/adapter";
 import { acceptChatReply, holdingLineFor } from "../llm/chatGuard";
-import { detectChatLang, type ChatLang } from "../llm/chat-lang";
+import { detectChatLang, modelChatScript, type ChatLang } from "../llm/chat-lang";
 import { bankAnswerForLang, cardNoteForLang } from "./card-lang";
 import { acceptReword, type RewordContext } from "../llm/rewordGuard";
 import type { IntentMatcher } from "./matcher";
@@ -43,7 +43,10 @@ export type { CardPicker, EngineReason, EngineTag } from "./pick-engine";
  * Per-turn chat pipeline (build plan v2 §3). Pure apart from the optional model, which is
  * injected. State is memory-only and never logged.
  *   1. crisis rules (every message, synchronous, BEFORE anything else; never the model or matcher)
- *      pinned detectCrisis first, then an add-only chat-crisis check (never clears a pin)
+ *      pinned detectCrisis first, then an add-only chat-crisis check (never clears a pin).
+ *      Both run on every turn, whatever the letter-script class, on both paths.
+ *      Then the script gate: English → English model chat, clearly Thai → Thai chat,
+ *      mixed/unclear → 0 model calls (fixed card or fallback).
  *   2. input guard (refusals; chat-first banner-level wording comes after this)   3. follow-up chips
  *   4. optional matcher (injected only when the desktop-dev flag is on; abstain → fallback)
  *   5. rules retrieval   6. model pick (only if unsure; every free-text turn when modelPick is on, except locked routes)
@@ -395,11 +398,17 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     }
 
     const lang = detectChatLang(input);
-    // English model chat is gated by ENGLISH_MODEL_CHAT. Crisis already returned
-    // above, so a later English generation cannot skip the extra check.
-    if (lang === "en" && !ENGLISH_MODEL_CHAT) {
+    const script = modelChatScript(input);
+    // Crisis already returned above (pin, then extra check) on every script
+    // class. Model chat is then gated by letter script, not the word list:
+    // clearly Thai (Thai share ≥ 60%) → Thai chat; English (Latin share ≥ 60%)
+    // → English chat while ENGLISH_MODEL_CHAT is true; mixed/unclear (Thai
+    // share 40–60%, <2 letters, no letters) → 0 model calls.
+    // Reply language still uses detectChatLang.
+    const allowModel = script === "th" || (script === "en" && ENGLISH_MODEL_CHAT);
+    if (!allowModel) {
       const top = rulesTop(retrieveText);
-      return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, lang);
+      return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, lang === "en" ? lang : undefined);
     }
 
     const history: { role: "user" | "assistant"; content: string }[] = [];

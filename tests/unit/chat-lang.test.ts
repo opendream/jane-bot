@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { detectChatLang, latinLetterShare, mostlyLatin } from "../../src/llm/chat-lang";
+import {
+  MIN_LETTERS_FOR_SCRIPT,
+  THAI_SHARE_MODEL_CHAT,
+  detectChatLang,
+  latinLetterShare,
+  modelChatScript,
+  mostlyLatin,
+} from "../../src/llm/chat-lang";
 
 describe("detectChatLang (rules, per turn)", () => {
   it("treats Thai as the default", () => {
@@ -40,5 +47,42 @@ describe("detectChatLang (rules, per turn)", () => {
   it("mostlyLatin is the 60% rule without a word minimum", () => {
     expect(mostlyLatin("I'm here.")).toBe(true);
     expect(mostlyLatin("พี่อยู่ตรงนี้นะ")).toBe(false);
+  });
+});
+
+describe("modelChatScript (letter-script gate, not the word list)", () => {
+  it("treats ≥60% Latin letters as English, even with fewer than 2 English-list words", () => {
+    expect(MIN_LETTERS_FOR_SCRIPT).toBe(2);
+    expect(THAI_SHARE_MODEL_CHAT).toBe(0.6);
+    expect(modelChatScript("I'm suicidal")).toBe("en");
+    expect(modelChatScript("Suicidal")).toBe("en");
+    expect(modelChatScript("help")).toBe("en");
+    expect(modelChatScript("HELP")).toBe("en");
+    expect(detectChatLang("I'm suicidal")).toBe("th");
+    expect(detectChatLang("help")).toBe("th");
+  });
+
+  it("treats Thai share ≥60% as clearly Thai, including one English bank word", () => {
+    expect(modelChatScript("กินยาคุมยังไง")).toBe("th");
+    expect(modelChatScript("อยากตรวจ HIV ค่ะ")).toBe("th");
+    expect(modelChatScript("กิน PrEP ยังไง")).toBe("th");
+    expect(latinLetterShare("อยากตรวจ HIV ค่ะ")).toBeLessThan(0.6);
+    expect(latinLetterShare("กิน PrEP ยังไง")).toBeLessThan(0.6);
+  });
+
+  it("treats mixed script (Thai share between 40% and 60%) as mixed", () => {
+    expect(modelChatScript("อยากตาย hi there")).toBe("mixed");
+    expect(modelChatScript("ถูกทำร้าย badly hurt")).toBe("mixed");
+    expect(modelChatScript("cutting เจ็บที่แขน")).toBe("mixed");
+  });
+
+  it("treats no letters, a single letter, emoji, digits, and punctuation as mixed/unclear", () => {
+    expect(modelChatScript("😭")).toBe("mixed");
+    expect(modelChatScript("😭😭😭")).toBe("mixed");
+    expect(modelChatScript("...")).toBe("mixed");
+    expect(modelChatScript("?")).toBe("mixed");
+    expect(modelChatScript("a")).toBe("mixed");
+    expect(modelChatScript("12345")).toBe("mixed");
+    expect(modelChatScript("")).toBe("mixed");
   });
 });
