@@ -264,6 +264,7 @@ describe("startModel test hooks for model-first pick", () => {
     const a = await startModel(() => {}, { search: "?testRuntime=pick-ok&runtime=wasm" });
     expect(a?.runtime).toBe("wasm");
     expect(a?.pickCard).toBeTypeOf("function");
+    expect(a?.chatReply).toBeTypeOf("function");
     expect(a?.warmupRemainingMs).toBeTypeOf("function");
     const id = await a!.pickCard!("ทดสอบ", [{ id: "birth.control.000", title_th: "คุมกำเนิด" }], null, new AbortController().signal);
     expect(id).toContain("birth.control.000");

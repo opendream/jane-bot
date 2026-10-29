@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CHAT_FIRST, MODEL_CARD_PICK, chatFirstEnabled, modelCardPickEnabled, shouldPreloadModel } from "../../src/config";
+import { CHAT_CRISIS_CARD_FIRST, CHAT_FIRST, MODEL_CARD_PICK, chatCrisisEnabled, chatFirstEnabled, modelCardPickEnabled, shouldPreloadModel } from "../../src/config";
 import { WLLAMA_N_CTX, WLLAMA_N_CTX_CHAT_FIRST, wllamaContextLength } from "../../src/llm/wllama-ctx";
 import { draftSummary } from "../../src/core/summary";
 import { SERVICES } from "../../src/core/referral";
@@ -29,6 +29,9 @@ describe("shouldPreloadModel (flag off by default)", () => {
   it("keeps the base trigger: default search still starts the model", () => {
     expect(MODEL_CARD_PICK).toBe(false);
     expect(CHAT_FIRST).toBe(false);
+    expect(CHAT_CRISIS_CARD_FIRST).toBe(false);
+    expect(chatCrisisEnabled(false)).toBe(false);
+    expect(chatCrisisEnabled(true)).toBe(true);
     expect(modelCardPickEnabled("")).toBe(false);
     expect(chatFirstEnabled("")).toBe(false);
     expect(shouldPreloadModel("")).toBe(true);

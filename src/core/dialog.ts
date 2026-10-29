@@ -2,11 +2,12 @@ import type { CrisisCategory, CrisisResult, Intent } from "./types";
 import { type BankCard, type BankTopic, type CardNext, shippable } from "./bank";
 import { AGE_REDIRECT_CARD, AGE_REDIRECT_ID, afterPick, type AgeState } from "./age";
 import { detectCrisis } from "./crisis";
+import { detectChatCrisisForTurn, noteChatCrisisHit } from "./chat-crisis";
+import { CHAT_TIMEOUT_MS, chatCrisisEnabled } from "../config";
 import { normalize, findPhrases } from "./text";
 import { stripPII } from "./summary";
 import { checkInput, REFUSAL_CARDS, type GuardReason } from "./guard";
 import { retrieve } from "./retrieve";
-import { CHAT_TIMEOUT_MS } from "../config";
 import { VALID_INTENTS } from "../llm/adapter";
 import { CHAT_HOLDING_LINE, acceptChatReply } from "../llm/chatGuard";
 import { acceptReword, type RewordContext } from "../llm/rewordGuard";
@@ -40,6 +41,7 @@ export type { CardPicker, EngineReason, EngineTag } from "./pick-engine";
  * Per-turn chat pipeline (build plan v2 §3). Pure apart from the optional model, which is
  * injected. State is memory-only and never logged.
  *   1. crisis rules (every message, synchronous, BEFORE anything else; never the model or matcher)
+ *      pinned detectCrisis first; chat-first then an add-only chat-crisis check (never clears a pin)
  *   2. input guard   3. follow-up chips
  *   4. optional matcher (injected only when the desktop-dev flag is on; abstain → fallback)
  *   5. rules retrieval   6. model pick (only if unsure; every free-text turn when modelPick is on, except locked routes)
@@ -248,7 +250,18 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
   const chatFirst = !!deps.chatFirst;
   const tagged = pickOn || chatFirst;
   const recentUser = [...state.recentUser, input].slice(-2);
-  const crisis = crisisForTurn(input, state.recentUser);
+  const pinned = crisisForTurn(input, state.recentUser);
+  let crisis = pinned;
+  let crisisEngine: EngineTag = "rules-crisis";
+  // Add-only: never run when the pin already overrode, never downgrade banner-vs-override on a pin hit.
+  if (!pinned.crisis && chatCrisisEnabled(chatFirst)) {
+    const extra = detectChatCrisisForTurn(input, state.recentUser);
+    if (extra.crisis) {
+      crisis = { crisis: true, level: "override", categories: extra.categories };
+      crisisEngine = "chat-crisis";
+      noteChatCrisisHit(extra.rules);
+    }
+  }
   if (crisis.crisis) {
     return {
       // Drop the lines that already fired so a later turn cannot re-join them.
@@ -256,7 +269,7 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
         ...state, pendingChips: [], recentUser: [], crisisFired: true, crisisCategories: crisis.categories,
         chatFlow: applyCrisis(state.chatFlow),
       },
-      reply: { kind: "crisis", categories: crisis.categories, ...(tagged ? { engine: "rules-crisis" as const } : {}) },
+      reply: { kind: "crisis", categories: crisis.categories, ...(tagged ? { engine: crisisEngine } : {}) },
     };
   }
   const banner = uniqueCats([

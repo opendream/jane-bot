@@ -60,6 +60,7 @@ describe("model-first thinking copy (Keng, exact Thai)", () => {
     expect(engineAnswerLabel("rules-locked", true)).toBe(RULES_ANSWER_LABEL);
     expect(engineAnswerLabel("rules-not-ready", true)).toBe(RULES_ANSWER_LABEL);
     expect(engineAnswerLabel("rules-crisis", true)).toBe(RULES_ANSWER_LABEL);
+    expect(engineAnswerLabel("chat-crisis", true)).toBe(RULES_ANSWER_LABEL);
     expect(engineAnswerLabel(undefined, true)).toBe(RULES_ANSWER_LABEL);
     expect(RULES_ANSWER_LABEL).not.toMatch(/AI/);
   });

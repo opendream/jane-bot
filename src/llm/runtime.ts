@@ -124,9 +124,20 @@ function readTestHook(deps: StartModelDeps, params: URLSearchParams): RuntimeTes
   return null;
 }
 
+/** E2E/unit stub counters. Never stores user text. */
+function bumpModelCall(kind: "chat" | "pick" | "reword"): void {
+  try {
+    if (typeof window === "undefined") return;
+    const cur = window.__JANE_MODEL_CALLS__ ?? { chat: 0, pick: 0, reword: 0 };
+    cur[kind] += 1;
+    window.__JANE_MODEL_CALLS__ = cur;
+  } catch { /* node unit tests */ }
+}
+
 function mockPickCard(hook: RuntimeTestHook): LLMAdapter["pickCard"] | undefined {
   if (!hook.pick || hook.pick === "not-ready" || hook.pick === "fail") return undefined;
   return async (_text, shortlist, _prev, signal) => {
+    bumpModelCall("pick");
     if (hook.pick === "timeout") {
       await new Promise<void>((_resolve, reject) => {
         const onAbort = () => reject(new Error("aborted"));
@@ -139,8 +150,19 @@ function mockPickCard(hook: RuntimeTestHook): LLMAdapter["pickCard"] | undefined
   };
 }
 
+const MOCK_CHAT_REPLY = "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย";
+
+function mockChatReply(hook: RuntimeTestHook): LLMAdapter["chatReply"] | undefined {
+  if (!hook.pick || hook.pick === "not-ready" || hook.pick === "fail") return undefined;
+  return async () => {
+    bumpModelCall("chat");
+    return MOCK_CHAT_REPLY;
+  };
+}
+
 function hookLoaders(hook: RuntimeTestHook): Pick<StartModelDeps, "gpuInfo" | "installed" | "loadWebLLM" | "loadWllama"> {
   const pickCard = mockPickCard(hook);
+  const chatReply = mockChatReply(hook);
   return {
     gpuInfo: async () => ({ ok: hook.gpu !== false, f16: false }),
     installed: async () => {
@@ -165,6 +187,7 @@ function hookLoaders(hook: RuntimeTestHook): Pick<StartModelDeps, "gpuInfo" | "i
         classify: async () => fail(),
         polishSummary: async () => fail(),
         pickCard,
+        chatReply,
         warmupRemainingMs: () => getWarmupRemainingMs(),
         dispose() { dead = true; },
       };
@@ -190,6 +213,7 @@ function hookLoaders(hook: RuntimeTestHook): Pick<StartModelDeps, "gpuInfo" | "i
         classify: async () => ["other"],
         polishSummary: async () => null,
         pickCard,
+        chatReply,
         warmupRemainingMs: () => {
           if (!readyAt) return getWarmupRemainingMs();
           const left = readyAt - Date.now();
@@ -229,6 +253,9 @@ function watchWebGpu(adapter: LLMAdapter, onFail: () => void): LLMAdapter {
       : undefined,
     rewordCard: adapter.rewordCard
       ? (card, signal) => guard(adapter.rewordCard!(card, signal))
+      : undefined,
+    chatReply: adapter.chatReply
+      ? (text, history, signal) => guard(adapter.chatReply!(text, history, signal))
       : undefined,
     warmupRemainingMs: adapter.warmupRemainingMs ? () => adapter.warmupRemainingMs!() : () => getWarmupRemainingMs(),
     dispose: () => adapter.dispose?.(),

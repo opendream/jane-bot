@@ -107,6 +107,19 @@ export function chatFirstEnabled(search?: string): boolean {
 }
 
 /**
+ * Extra chat-crisis rules (src/core/chat-crisis.ts) on the card-first path.
+ * Off: card-first stays byte-for-byte the production rules-first path.
+ * Flip to true to run the same pre-model check after pinned detectCrisis.
+ * Chat-first (?chatFirst=1) always runs the extra check regardless of this flag.
+ */
+export const CHAT_CRISIS_CARD_FIRST = false;
+
+/** True when the extra pre-model crisis check should run (chat-first, or the card-first switch). */
+export function chatCrisisEnabled(chatFirst: boolean): boolean {
+  return chatFirst || CHAT_CRISIS_CARD_FIRST;
+}
+
+/**
  * Chat reword (plan v2 §4): which runtimes may reword curated cards. The validator shows the exact text on any
  * failure. WASM is off: Qwen3-1.7B on WASM measured median 2.3 s, p90 3.3 s per short rewrite on the studio Mac
  * (22 Oct 2026, n=16), over the 3 s rule, so WASM shows cards verbatim. Card picking stays on for both.

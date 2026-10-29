@@ -37,6 +37,7 @@ export type EngineTag =
   | "rules-fallback"
   | "rules-locked"
   | "rules-crisis"
+  | "chat-crisis"
   | "rules-guard"
   | "rules-chip"
   | "rules-not-ready";

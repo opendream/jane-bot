@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { CHAT_FIRST, chatFirstEnabled } from "../../src/config";
+import { CHAT_CRISIS_CARD_FIRST, CHAT_FIRST, chatFirstEnabled } from "../../src/config";
 import {
   FALLBACK_ID,
   newDialog,
@@ -71,6 +71,7 @@ function shownCard(reply: { kind: string; card?: { id: string; answer_th: string
 describe("production defaults (chat-first flag off)", () => {
   it("CHAT_FIRST is false and the query parser is opt-in", () => {
     expect(CHAT_FIRST).toBe(false);
+    expect(CHAT_CRISIS_CARD_FIRST).toBe(false);
     expect(chatFirstEnabled("")).toBe(false);
     expect(chatFirstEnabled("?chatFirst=0")).toBe(false);
     expect(chatFirstEnabled("?chatFirst=1")).toBe(true);
