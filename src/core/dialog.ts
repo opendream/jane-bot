@@ -141,16 +141,41 @@ function joinedWindow(input: string, prev: string[]): string {
   return prev.length ? [...prev, input].join(" ") : input;
 }
 
-/** Current line, then current + previous user lines (in memory only). */
+/**
+ * Current line, then current + previous user lines (in memory only).
+ * The joined window may raise crisis on this turn when the combined text
+ * matches (split "หนูอยาก" + "ตาย"). A previous turn's banner/hit is not
+ * inherited: later normal turns keep their own result and model call.
+ * Unanswered chat-first lines are all included in the window.
+ */
 function crisisForTurn(input: string, prev: string[]): CrisisResult {
   const cur = detectCrisisRawOrFolded(input);
   if (cur.crisis) return cur;
   if (prev.length) {
     const joined = detectCrisisRawOrFolded(joinedWindow(input, prev));
     if (joined.crisis) return joined;
-    return mergeCrisisResults(cur, joined);
   }
   return cur;
+}
+
+function crisisHitFor(
+  text: string,
+  prev: string[],
+  chatFirst: boolean,
+): { crisis: CrisisResult; engine: EngineTag } {
+  const pinned = crisisForTurn(text, prev);
+  if (pinned.crisis) return { crisis: pinned, engine: "rules-crisis" };
+  if (chatCrisisEnabled(chatFirst)) {
+    const extra = detectChatCrisisForTurn(text, prev);
+    if (extra.crisis) {
+      noteChatCrisisHit(extra.rules);
+      return {
+        crisis: { crisis: true, level: "override", categories: extra.categories },
+        engine: "chat-crisis",
+      };
+    }
+  }
+  return { crisis: pinned, engine: "rules-crisis" };
 }
 
 function crisisForMessages(
@@ -162,20 +187,18 @@ function crisisForMessages(
   let acc: CrisisResult = { crisis: false, level: "none", categories: [] };
   let engine: EngineTag = "rules-crisis";
   for (const m of messages) {
-    const pinned = crisisForTurn(m, prev);
-    let hit = pinned;
-    let hitEngine: EngineTag = "rules-crisis";
-    if (!pinned.crisis && chatCrisisEnabled(chatFirst)) {
-      const extra = detectChatCrisisForTurn(m, prev);
-      if (extra.crisis) {
-        hit = { crisis: true, level: "override", categories: extra.categories };
-        hitEngine = "chat-crisis";
-        noteChatCrisisHit(extra.rules);
-      }
-    }
-    if (hit.crisis) return { crisis: hit, engine: hitEngine };
-    acc = mergeCrisisResults(acc, hit);
+    const hit = crisisHitFor(m, prev, chatFirst);
+    if (hit.crisis.crisis) return hit;
+    acc = mergeCrisisResults(acc, hit.crisis);
+    engine = hit.engine;
     prev = [...prev, m];
+  }
+  // The joined group also goes through the current-turn window (committed
+  // previous lines only for split detection; a previous banner is not inherited).
+  if (messages.length > 1) {
+    const joined = crisisHitFor(messages.join(" "), committed, chatFirst);
+    if (joined.crisis.crisis) return joined;
+    acc = mergeCrisisResults(acc, joined.crisis);
   }
   return { crisis: acc, engine };
 }

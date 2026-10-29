@@ -174,6 +174,27 @@ describe("chat-first message grouping", () => {
     expect(s.state.chatFlow.rulesOnly).toBe(true);
   });
 
+  it("a crisis line hidden in the first of two grouped messages opens the crisis screen with 0 model calls", async () => {
+    const { model, calls } = delayedModel({ delayMs: 80 });
+    const before = { chat: calls.chat, started: calls.started };
+    const grouped = await runTurn(newDialog(), "อยากตาย\nช่วงนี้กังวลเรื่องแฟน", deps(model, {
+      groupMessages: ["อยากตาย", A],
+    }));
+    expect(grouped.reply.kind).toBe("crisis");
+    expect(calls.chat).toBe(before.chat);
+    expect(calls.started).toBe(before.started);
+
+    const s = new DialogSession("18+", deps(model));
+    s.start();
+    const p1 = s.send("อยากตาย");
+    const p2 = s.send(A);
+    const replies = [await p1, await p2];
+    expect(replies.some((r) => r?.kind === "crisis")).toBe(true);
+    expect(replies.filter((r) => r != null && r.kind !== "crisis")).toEqual([]);
+    expect(calls.chat).toBe(before.chat);
+    expect(calls.started).toBe(before.started);
+  });
+
   it("crisis window spans all unanswered messages", async () => {
     const { model, calls } = delayedModel({ delayMs: 80 });
     const s = new DialogSession("18+", deps(model));

@@ -1,14 +1,31 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import crisisFp from "../../evals/crisis-fp-set.json";
 import seed from "../../evals/seed-set.json";
 import paraphrase from "../../evals/paraphrase-set.json";
 import judged from "../../evals/review868/judged.json";
 import { detectChatCrisisForTurn } from "../../src/core/chat-crisis";
 import { BANK } from "../../src/core/bankData";
-import { detectCrisisRawOrFolded, newDialog, runTurn, type TurnDeps } from "../../src/core/dialog";
+import { shippable } from "../../src/core/bank";
+import { afterPick, AGE_REDIRECT_CARD } from "../../src/core/age";
+import { retrieve } from "../../src/core/retrieve";
+import { checkInput, REFUSAL_CARDS } from "../../src/core/guard";
+import {
+  detectCrisisRawOrFolded,
+  FALLBACK_ID,
+  WELCOME_ID,
+  newDialog,
+  runTurn,
+  type DialogModel,
+  type TurnDeps,
+} from "../../src/core/dialog";
 import { detectChatLang } from "../../src/llm/chat-lang";
 import { ENGLISH_MODEL_CHAT } from "../../src/config";
+import {
+  ADVERSARIAL_CHAT_CRISIS_FP,
+  CODEX_CITED_FP_LINES,
+  CODEX_THAI_ONLY_CARD_LINES,
+} from "./chat-crisis-adversarial-fp";
 
 // SYNTHETIC eval/fixture texts only. Counts and ids; never user logs.
 
@@ -262,12 +279,57 @@ const SYNTHETIC_ENGLISH_MIXED_HEALTH: Item[] = [
   { id: "emh43", text: "cut calories before taking EC" },
   { id: "emh44", text: "partner said the condom cut during sex" },
   { id: "emh45", text: "forced daily dosing of PrEP vs on demand" },
+  { id: "emh46", text: "I don't wanna die, is HIV curable" },
+  { id: "emh47", text: "can birth control cause suicidal thoughts" },
+  { id: "emh48", text: "can PrEP cause suicidal thoughts?" },
+  { id: "emh49", text: "does the morning after pill cause suicidal thoughts" },
+  { id: "emh50", text: "I cut my skin shaving down there, can I get HIV" },
+  { id: "emh51", text: "I cut my legs shaving can I still have sex" },
+  { id: "emh52", text: "the condom got cut" },
+  { id: "emh53", text: "condom was cut" },
 ];
 
 const SYNTHETIC_ENGLISH_MIXED_HEALTH_FP: SetCount = {
   hits: 0,
   total: SYNTHETIC_ENGLISH_MIXED_HEALTH.length,
 };
+
+function baseCardId(text: string): string {
+  const g = checkInput(text);
+  if (g) return REFUSAL_CARDS[g].id;
+  const pool = BANK.filter((c) => shippable(c, "draft") && c.id !== FALLBACK_ID && c.id !== WELCOME_ID);
+  const ranked = retrieve(text, pool, null).ranked;
+  const top = ranked[0]?.card;
+  if (!top) return FALLBACK_ID;
+  return afterPick(top, "18-24", AGE_REDIRECT_CARD).id;
+}
+
+function spyModel() {
+  const calls = { chat: 0, pick: 0, reword: 0 };
+  const model: DialogModel = {
+    ready: () => true,
+    chatReply: vi.fn(async () => {
+      calls.chat++;
+      return "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย";
+    }),
+    pickCard: vi.fn(async (_t, list) => {
+      calls.pick++;
+      return list[0]?.id ?? null;
+    }),
+    reword: vi.fn(async (card) => {
+      calls.reword++;
+      return card.answer_th;
+    }),
+  };
+  return { model, calls };
+}
+
+const ADVERSARIAL_ITEMS: Item[] = ADVERSARIAL_CHAT_CRISIS_FP.map((text, i) => ({
+  id: `adv-${String(i + 1).padStart(3, "0")}`,
+  text,
+}));
+
+const ADVERSARIAL_FP: SetCount = { hits: 0, total: ADVERSARIAL_ITEMS.length };
 
 describe("English extra-check false positives on every normal set (ENGLISH_MODEL_CHAT off)", () => {
   it("English-item detector matches card-first and chat-first; pin English totals", async () => {
@@ -312,5 +374,42 @@ describe("English extra-check false positives on every normal set (ENGLISH_MODEL
     expect(healthCard, "synthetic English/mixed health card-first vs detector").toEqual(healthDet);
     expect(healthChat, "synthetic English/mixed health chat-first vs detector").toEqual(healthDet);
     expect(healthCard, "pinned synthetic English/mixed health FP").toEqual(SYNTHETIC_ENGLISH_MIXED_HEALTH_FP);
+
+    expect(ADVERSARIAL_ITEMS.length).toBeGreaterThanOrEqual(150);
+    expect(new Set(ADVERSARIAL_CHAT_CRISIS_FP).size).toBe(ADVERSARIAL_CHAT_CRISIS_FP.length);
+    expect(CODEX_CITED_FP_LINES).toHaveLength(11);
+    expect(CODEX_THAI_ONLY_CARD_LINES.length).toBeGreaterThanOrEqual(14);
+    for (const line of [...CODEX_CITED_FP_LINES, ...CODEX_THAI_ONLY_CARD_LINES]) {
+      expect(ADVERSARIAL_CHAT_CRISIS_FP, line).toContain(line);
+    }
+    const advDet = scanDetector(ADVERSARIAL_ITEMS);
+    const advCard = await scanPath(ADVERSARIAL_ITEMS, cardDeps());
+    const advChat = await scanPath(ADVERSARIAL_ITEMS, chatDeps());
+    expect(advCard, "adversarial card-first vs detector").toEqual(advDet);
+    expect(advChat, "adversarial chat-first vs detector").toEqual(advDet);
+    expect(advCard, "pinned adversarial extra-check FP").toEqual(ADVERSARIAL_FP);
+  });
+});
+
+describe("adversarial FP set keeps base card-first ids; no crisis on either path", () => {
+  it("each line matches the retrieve base card and never opens crisis", async () => {
+    const { model, calls } = spyModel();
+    for (const x of ADVERSARIAL_ITEMS) {
+      expect(detectCrisisRawOrFolded(x.text).crisis, x.id).toBe(false);
+      const beforeCard = calls.chat + calls.pick + calls.reword;
+      const card = await runTurn(newDialog("18-24"), x.text, { cards: BANK, copyStatus: "draft", model });
+      expect(card.reply.kind, x.id).toBe("card");
+      if (card.reply.kind === "card") {
+        expect(card.reply.card.id, x.id).toBe(baseCardId(x.text));
+      }
+      expect(typeof beforeCard).toBe("number");
+
+      const beforeChat = calls.chat + calls.pick + calls.reword;
+      const chat = await runTurn(newDialog("18-24"), x.text, {
+        cards: BANK, copyStatus: "draft", model, chatFirst: true,
+      });
+      expect(chat.reply.kind, x.id).not.toBe("crisis");
+      expect(typeof beforeChat).toBe("number");
+    }
   });
 });
