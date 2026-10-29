@@ -5,7 +5,7 @@ import { DialogSession, SOFT_CAP, type DialogModel, type TurnReply, type CapNoti
 import type { IntentMatcher } from "../core/matcher";
 import { crisisOrder } from "../core/crisis";
 import { BANK, cardsForSession, bankContext } from "../core/bankData";
-import { THAI_COPY_STATUS } from "../config";
+import { MODEL_CARD_PICK, THAI_COPY_STATUS } from "../config";
 import { QUIZ_CHIP, hasRelatedQuiz, quizCopyStatus, startQuiz, type QuizSession } from "../core/quiz";
 import { h } from "./dom";
 import { emptyChatArt, janeImg } from "./jane";
@@ -46,7 +46,7 @@ export interface ChatHooks {
 }
 
 export function newChat(ageBand: AgeState, model: DialogModel | null, matcher: IntentMatcher | null = null): ChatState {
-  const session = new DialogSession(ageBand, { cards: cardsForSession(), model, matcher, copyStatus: THAI_COPY_STATUS, rewordCtx: bankContext() });
+  const session = new DialogSession(ageBand, { cards: cardsForSession(), model, matcher, copyStatus: THAI_COPY_STATUS, rewordCtx: bankContext(), modelPick: MODEL_CARD_PICK });
   const chat: ChatState = { session, messages: [], busy: false, draft: "", readOnly: false, quiz: null };
   push(chat, fromReply(session.start()));
   return chat;
