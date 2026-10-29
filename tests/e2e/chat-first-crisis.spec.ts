@@ -190,3 +190,36 @@ test("?chatFirst=1 ambiguous line never calls the model and the soft button open
   await page.getByTestId("chat-crisis-soft-open").click();
   await expect(page.getByTestId("screen-crisis")).toBeVisible();
 });
+
+test("card-first reflexive self-cut naming the razor stays on the existing crisis screen", async ({ page }) => {
+  await openStubbed(page);
+  await openChat(page);
+  await say(page, "หนู cut ตัวเองด้วยมีดโกนที่ใช้โกนขนทุกคืน");
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  const calls = await modelCalls(page);
+  expect(calls.chat + calls.pick).toBe(0);
+});
+
+test("card-first AMBIGUOUS is not inherited by a later unrelated turn", async ({ page }) => {
+  await openStubbed(page);
+  await openChat(page);
+  await say(page, "หนูไม่ค่อยอยาก die นะ แค่ถามเรื่อง HIV");
+  await expect(page.getByTestId("chat-crisis-soft-line")).toBeVisible();
+  await say(page, "ถุงยางราคาเท่าไหร่");
+  await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
+  await expect(lastJane(page).getByTestId("chat-crisis-soft-line")).toHaveCount(0);
+});
+
+test("?chatFirst=1 later unrelated turn after AMBIGUOUS has no soft line and calls the model", async ({ page }) => {
+  await openChatFirst(page);
+  await openChat(page);
+  await say(page, "หนูไม่ค่อยอยาก die นะ แค่ถามเรื่อง HIV");
+  await expect(page.getByTestId("chat-crisis-soft-line")).toBeVisible();
+  const afterFirst = await modelCalls(page);
+  expect(afterFirst.chat + afterFirst.pick).toBe(0);
+  await say(page, "ถุงยางราคาเท่าไหร่");
+  await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
+  await expect(lastJane(page).getByTestId("chat-crisis-soft-line")).toHaveCount(0);
+  const afterSecond = await modelCalls(page);
+  expect(afterSecond.chat + afterSecond.pick).toBeGreaterThan(afterFirst.chat + afterFirst.pick);
+});

@@ -46,7 +46,8 @@ export type { CardPicker, EngineReason, EngineTag } from "./pick-engine";
  *      pinned detectCrisis first (raw AND NFKC/folded/lowercased; hit on either
  *      is crisis), then an add-only chat-crisis check (never clears a pin):
  *      CLEAR → existing crisis screen; AMBIGUOUS → bank card + DRAFT soft line
- *      (no model); NONE → continue. Both run on every turn, whatever the
+ *      (no model; staff request → referral card + the same soft line);
+ *      NONE → continue. Both run on every turn, whatever the
  *      letter-script class, on both paths. Then the script/allowlist gate:
  *      English → English model chat, clearly Thai → Thai chat,
  *      mixed/unclear → 0 model calls (fixed card or fallback).
@@ -225,7 +226,7 @@ export type Via = "followup" | "rules" | "model" | "rules_top1" | "fallback" | "
 export type TurnReply =
   | { kind: "crisis"; categories: CrisisCategory[]; engine?: EngineTag }
   | { kind: "readonly" }
-  | { kind: "referral"; intents: Intent[]; banner: CrisisCategory[]; capNotice: CapNotice }
+  | { kind: "referral"; intents: Intent[]; banner: CrisisCategory[]; capNotice: CapNotice; softCrisis?: { line: string; categories: CrisisCategory[] } }
   | {
       kind: "card"; card: BankCard; text: string; reworded: boolean; via: Via; banner: CrisisCategory[];
       chips: CardNext[]; offer: "none" | "soft" | "strong"; offerIntents: Intent[]; capNotice: CapNotice; guard?: GuardReason;
@@ -386,7 +387,21 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
   }
 
   // AMBIGUOUS: the turn's bank card plus a DRAFT soft line. Never the model.
+  // A staff request still takes the referral card (as NONE would) plus the soft line.
   if (extraAmbiguous) {
+    const softCrisis = { line: AMBIGUOUS_CRISIS_LINE_TH, categories: extraAmbiguous.categories };
+    if (findPhrases(input, HUMAN_ASK).length) {
+      return {
+        state: { ...state, turns, recentUser, pendingChips: [] },
+        reply: {
+          kind: "referral",
+          intents: asIntents(state.topic, retrieve(input, []).prior.intents),
+          banner,
+          capNotice,
+          softCrisis,
+        },
+      };
+    }
     const top = rulesTop(input);
     return verbatimCard(
       top.card,
@@ -395,7 +410,7 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
       undefined,
       undefined,
       null,
-      { line: AMBIGUOUS_CRISIS_LINE_TH, categories: extraAmbiguous.categories },
+      softCrisis,
     );
   }
 

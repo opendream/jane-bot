@@ -14,18 +14,22 @@
  * will/want to/wanna (never a distance "N kms"), commit suicide, wanna/want
  * to die (not don't/dont/do not/never + up to 2 words + wanna/want to die),
  * end my life, I was raped / he raped me, self-harm / self harm,
- * cut/cutting myself (not the same clause as shaving/wrapper/razor/nails/
- * by accident — มีดโกน is a tool, not an accident cue), i'm/i am suicidal,
- * I have / i'm having suicidal thoughts, I don't/dont/do not want to live
- * (not "live with"; "in fear" / "together" is AMBIGUOUS). Thai mixed: อยาก/
- * คิดจะ + die/kms/unalive unless ไม่/ไม่ค่อย/ไม่เคย/ไม่เคยคิด/ไม่คิดจะ/ไม่ได้/
- * ไม่ได้คิดจะ (optional spaces) governs that phrase; รู้สึก/หนู/ผม suicidal
- * unless a same-clause ทำให้…ไหม / แล้ว…ไหม / ผลข้างเคียง / cause…? /
- * side-effect frame or ไม่ได้รู้สึก; cut ตัวเอง unless the same clause names
- * an accidental cause. Guards only downgrade CLEAR → AMBIGUOUS, never to
- * NONE. Help-seeking tails never weaken a disclosure. Everything else in
- * English goes to the normal card. NFKC + lowercase + Latin fold run before
- * the check (prepCheckText), including English-only lines.
+ * cut/cutting myself (not the same clause as a passive/accidental form —
+ * shaving/wrapper/razor/nails/by accident, โดนมีดบาด, บาดตอนโกน, เผลอบาด;
+ * มีดโกน is a tool, and ที่ใช้โกนขน describing that tool is not an accident),
+ * i'm/i am suicidal, I have / i'm having suicidal thoughts, I don't/dont/do
+ * not want to live (not "live with"; "in fear" / "together" is AMBIGUOUS).
+ * Thai mixed: อยาก/คิดจะ + die/kms/unalive unless ไม่/ไม่ค่อย/ไม่เคย/ไม่เคยคิด/
+ * ไม่คิดจะ/ไม่ได้/ไม่ได้คิดจะ (optional spaces) directly precedes that verb;
+ * ทนไม่ได้/นอนไม่ได้/กินไม่ได้/ไม่ไหว is not negation. รู้สึก/หนู/ผม suicidal
+ * unless the clause asks whether that feeling is a side effect (เป็นผลข้างเคียง
+ * …ไหม, or กิน/ใช้/ฉีด <drug> แล้วรู้สึก X …ไหม/มั้ย, or ทำให้…ได้ไหม) or
+ * ไม่ได้รู้สึก; ไหวไหม/เข้าใจหนูไหม/ควรบอกแม่ไหม are not side-effect questions.
+ * cut ตัวเอง is CLEAR unless the same clause is a passive/accidental form.
+ * Guards only downgrade CLEAR → AMBIGUOUS, never to NONE. Help-seeking tails
+ * never weaken a disclosure. The multi-turn window may only escalate to CLEAR.
+ * Everything else in English goes to the normal card. NFKC + lowercase + Latin
+ * fold run before the check (prepCheckText), including English-only lines.
  *
  * The in-memory reason tag is "chat-crisis" (distinct from "rules-crisis"). It
  * stores rule ids only — never user text — and is compiled out of production.
@@ -91,23 +95,33 @@ export const TH_RULES: ChatCrisisRule[] = [
  * bare suicidal, tenses) is not matched. Precision guards (negation, up to 2
  * intervening English words, same-clause side-effect questions, same-clause
  * accidental cut) only downgrade that phrase CLEAR → AMBIGUOUS — never NONE,
- * never a separate crisis phrase in the message.
+ * never a separate crisis phrase in the message. A guard fires only when the
+ * cue is structurally bound to the crisis term; anything looser stays CLEAR.
  */
 
-/** ไม่ / ไม่ค่อย / ไม่เคย / ไม่เคยคิด / ไม่คิดจะ / ไม่ได้ / ไม่ได้คิดจะ, optional spaces, immediately before อยาก/คิดจะ. */
+/** ไม่ / ไม่ค่อย / ไม่เคย / ไม่เคยคิด / ไม่คิดจะ / ไม่ได้ / ไม่ได้คิดจะ, optional spaces, immediately before อยาก/คิดจะ/รู้สึก. */
 const THAI_NEG_PREFIX = /ไม่(?:\s*ค่อย|\s*เคย(?:\s*คิด)?|\s*ได้(?:\s*คิดจะ)?|\s*คิดจะ)?\s*$/;
+/** Trailing ไม่ได้/ไม่ไหว that completes another verb is not negation of อยาก/รู้สึก/คิด. */
+const THAI_COMPLETING_VERB_NEG = /(?:ทน|นอน|กิน|ทำ|อยู่|ฟัง|พูด|เรียน|เดิน|นั่ง|ยืน|หายใจ|กลั้น|หยุด)ไม่ได้\s*$|ไม่ไหว\s*$/;
 const THAI_INTENT_SUFFIX = /(?:อยาก(?:\s*จะ)?|คิดจะ)\s*$/;
 const EN_DIE_NEG = /(?:don't|dont|do not|never)(?: +\w+){0,2} +$/;
-/** มีดโกน is a self-harm tool: โกน must not match inside it. */
-const ACCIDENTAL_CAUSE = /shaving|\bshave[ds]?\b|(?<!มีด)โกน|wrapper|ซอง|\brazor\b|\bnails?\b|เล็บ|by accident|โดนบาด/;
+/**
+ * Accident downgrade: passive/accidental forms only. Reflexive cut ตัวเอง /
+ * ข้อมือ stays CLEAR when โกน only names the tool (มีดโกน, ที่ใช้โกนขน).
+ */
+const ACCIDENTAL_CAUSE = /shaving|\bshave[ds]?\b|wrapper|ซอง|\brazor\b|\bnails?\b|เล็บ|by accident|โดน(?:มีด)?บาด|บาดตอนโกน|เผลอบาด|ตอนโกน/;
 /** Help-seeking tails never weaken a disclosure (never downgrade CLEAR). */
 const HELP_SEEKING = /มีใครช่วย|ช่วย(?:หนู|ฉัน|ผม|เรา|กู)?ได้ไหม|คุยได้ไหม|ทำไงดี|ทำยังไงดี/;
+/** ไหม/มั้ย that is not asking whether the feeling is a side effect. */
+const NON_SIDE_EFFECT_Q = /ไหวไหม|เข้าใจ(?:หนู|ฉัน|ผม|เรา|กู)?ไหม|บอกแม่ไหม|มีคน(?:เข้าใจ)?|จะไหว/;
+/** กิน/ใช้/ฉีด <medication> แล้ว immediately before the feeling. */
+const DRUG_INTAKE_THEN = /(?:กิน|ใช้|ฉีด)\s*(?:ยา[\wก-๙]*|เพร็พ|prep|pep|iud|ถุงยาง|condom)[ก-๙A-Za-z0-9\s]{0,24}แล้ว\s*(?:หนู|เรา|ฉัน|ผม|กู)?\s*$/i;
 
 function isThaiChar(c: string): boolean {
   return /\p{Script=Thai}/u.test(c);
 }
 
-/** Clause starts: .!?, Thai particles, แล้ว, and spaces between Thai runs. */
+/** Clause starts: .!?, Thai particles, แล้ว, question particles, first-person new statements, and spaces between Thai runs. */
 function clauseStarts(text: string): number[] {
   const starts = new Set<number>([0]);
   for (let i = 0; i < text.length; i++) {
@@ -127,7 +141,24 @@ function clauseStarts(text: string): number[] {
   for (const m of text.matchAll(particle)) {
     starts.add((m.index ?? 0) + m[0].length);
   }
+  // Unspaced Thai: split after a question particle when more Thai follows.
+  const qEnd = /ไหม|มั้ย|หรือเปล่า|ป่ะ/g;
+  for (const m of text.matchAll(qEnd)) {
+    const end = (m.index ?? 0) + m[0].length;
+    const next = text[end];
+    if (next && isThaiChar(next)) starts.add(end);
+  }
+  // First-person pronoun starting a new statement after ผลข้างเคียง (no ไหม).
+  const afterSe = /ผลข้างเคียง(?=หนู|เรา|ฉัน|ผม|กู)/g;
+  for (const m of text.matchAll(afterSe)) {
+    starts.add((m.index ?? 0) + m[0].length);
+  }
   return [...starts].filter((i) => i >= 0 && i <= text.length).sort((a, b) => a - b);
+}
+
+function thaiNegationGoverns(before: string): boolean {
+  if (THAI_COMPLETING_VERB_NEG.test(before)) return false;
+  return THAI_NEG_PREFIX.test(before);
 }
 
 function clauseBounds(text: string, index: number): { start: number; end: number } {
@@ -146,8 +177,8 @@ function clauseBounds(text: string, index: number): { start: number; end: number
 
 function skipThaiNegatedIntent(text: string, m: RegExpMatchArray): boolean {
   const before = text.slice(0, m.index ?? 0);
-  if (THAI_NEG_PREFIX.test(before)) return true;
-  if (THAI_INTENT_SUFFIX.test(before) && THAI_NEG_PREFIX.test(before.replace(THAI_INTENT_SUFFIX, ""))) {
+  if (thaiNegationGoverns(before)) return true;
+  if (THAI_INTENT_SUFFIX.test(before) && thaiNegationGoverns(before.replace(THAI_INTENT_SUFFIX, ""))) {
     return true;
   }
   return false;
@@ -161,8 +192,10 @@ function skipSuicidalSideEffect(text: string, m: RegExpMatchArray): boolean {
   const idx = m.index ?? 0;
   const before = text.slice(0, idx);
   const rest = text.slice(idx);
-  if (/ไม่ได้\s*$/.test(before) && /^รู้สึก/.test(rest)) return true;
-  if (/ไม่ได้\s*รู้สึก\s*$/.test(before)) return true;
+  if (thaiNegationGoverns(before) && /^รู้สึก/.test(rest)) return true;
+  if (/ไม่ได้\s*รู้สึก\s*$/.test(before) && !THAI_COMPLETING_VERB_NEG.test(before.replace(/\s*รู้สึก\s*$/, ""))) {
+    return true;
+  }
   // Help-seeking tails never weaken a disclosure.
   if (HELP_SEEKING.test(rest)) return false;
   const { start, end } = clauseBounds(text, idx);
@@ -170,11 +203,15 @@ function skipSuicidalSideEffect(text: string, m: RegExpMatchArray): boolean {
   const post = text.slice(idx, end);
   const clause = text.slice(start, end);
   if (HELP_SEEKING.test(post) || HELP_SEEKING.test(clause)) return false;
-  if (/ผลข้างเคียง/.test(clause) || /\bside[ -]?effects?\b/.test(clause)) return true;
-  if (/ทำให้/.test(pre) && /(?:ได้)?ไหม/.test(post)) return true;
+  // Tied to the crisis term: "X เป็นผลข้างเคียง(ของ drug)ไหม".
+  if (/เป็นผลข้างเคียง/.test(post) && /ไหม|มั้ย/.test(post)) return true;
+  if (/\bside[ -]?effects?\b/.test(post) && /(?:ไหม|มั้ย|\?)/.test(post)) return true;
+  // ทำให้ … ได้ไหม / ไหม in the same clause, not ไหวไหม / เข้าใจหนูไหม / บอกแม่ไหม.
+  if (/ทำให้/.test(pre) && /(?:ได้)?ไหม|มั้ย/.test(post) && !NON_SIDE_EFFECT_Q.test(post)) return true;
   if (/\bcauses?\b/.test(pre) && /\?/.test(post)) return true;
-  // แล้ว…ไหม question form (แล้ว may sit in the previous clause).
-  if (/แล้ว/.test(before) && /(?:ได้)?ไหม/.test(post)) return true;
+  // Drug-intake immediately before the feeling (แล้ว is part of that frame, not a
+  // clause break) + ไหม/มั้ย asking about the feeling in this clause.
+  if (DRUG_INTAKE_THEN.test(before) && /ไหม|มั้ย/.test(post) && !NON_SIDE_EFFECT_Q.test(post)) return true;
   return false;
 }
 
@@ -278,15 +315,15 @@ function joinedWindow(input: string, prev: string[]): string {
 /**
  * Current line, then current + previous 1–2 user lines (same window as the pinned
  * check), then the context-armed bare follow-up. The cue line alone never fires.
+ * The window may only escalate to CLEAR; AMBIGUOUS is never inherited from prev.
  */
 export function detectChatCrisisForTurn(input: string, prev: string[]): ChatCrisisHit {
   const cur = detectChatCrisis(input);
   if (cur.outcome === "clear") return cur;
   if (prev.length) {
     const joined = detectChatCrisis(joinedWindow(input, prev));
+    // The window may only escalate to CLEAR. AMBIGUOUS is current-turn only.
     if (joined.outcome === "clear") return joined;
-    if (cur.outcome === "ambiguous") return cur;
-    if (joined.outcome === "ambiguous") return joined;
   }
   if (bareFollowupInContext(input, prev)) {
     return { crisis: true, outcome: "clear", categories: ["violence_danger"], rules: [TH_F_ID] };

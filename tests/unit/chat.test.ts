@@ -421,4 +421,15 @@ describe("ambiguous extra-check: card bubble carries the DRAFT soft line", () =>
     await sendToChat(chat, "หนู suicidal", h);
     expect(h.crisisCalls).toBe(1);
   });
+
+  it("AMBIGUOUS plus a staff request keeps the referral message and the DRAFT soft line", async () => {
+    const chat = newChat("18-24", null);
+    const h = hooks();
+    await sendToChat(chat, "หนูไม่ค่อยอยาก die อยากคุยกับเจ้าหน้าที่", h);
+    expect(h.crisisCalls).toBe(0);
+    expect(h.referralIntents).toHaveLength(1);
+    const jane = [...chat.messages].reverse().find((m) => m.from === "jane");
+    expect(jane?.note).toBe("referral");
+    expect(jane?.softCrisis?.line).toBe("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ");
+  });
 });

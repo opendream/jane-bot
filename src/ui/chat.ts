@@ -106,7 +106,18 @@ function fromReply(r: TurnReply, modelPick = false, chatFirst = false): ChatMsg 
   if (r.kind === "chat") {
     return { from: "jane", text: r.text, banner: r.banner, chips: r.card ? [] : r.chips, cap: r.capNotice };
   }
-  if (r.kind === "referral") return { from: "jane", text: "ได้เลย พี่ช่วยหาที่ปรึกษาที่เปิดอยู่ตอนนี้ให้นะ", banner: r.banner, offer: "strong", offerIntents: r.intents, cap: r.capNotice, note: "referral" };
+  if (r.kind === "referral") {
+    return {
+      from: "jane",
+      text: "ได้เลย พี่ช่วยหาที่ปรึกษาที่เปิดอยู่ตอนนี้ให้นะ",
+      banner: r.banner,
+      offer: "strong",
+      offerIntents: r.intents,
+      cap: r.capNotice,
+      note: "referral",
+      softCrisis: r.softCrisis,
+    };
+  }
   if (r.kind === "readonly") return { from: "jane", text: "แชทนี้ยาวมากแล้ว ตอนนี้ส่งข้อความเพิ่มไม่ได้ คุยกับเจ้าหน้าที่ตัวจริง หรือกดลบแชทเพื่อเริ่มใหม่ได้", note: "readonly", offer: "strong", offerIntents: ["other"] };
   return null;
 }
