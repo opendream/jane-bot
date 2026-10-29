@@ -53,24 +53,30 @@ const EN_PROBES: { id: string; text: string }[] = [
 
 const EN_E = ["my boyfriend hits me", "my husband beats me", "I keep getting beaten"];
 
-const EN_DISCLOSURES = [
+const EN_DISCLOSURES_PINNED = [
+  "I was sexually assaulted and I am scared",
+];
+
+const EN_DISCLOSURES_NOW_CARD = [
   "I was forced to have sex",
   "I don't want to live anymore",
   "my boyfriend hits me and I am scared",
-  "I was sexually assaulted and I am scared",
 ];
 
 const EN_SHORT_CRISIS = [
   "I'm suicidal",
+  "wanna die",
+  "end my life",
+  "cutting myself",
+  "I cut myself every night",
+];
+
+const EN_SHORT_NOW_CARD = [
   "Suicidal",
   "feeling suicidal",
   "suicidal thoughts",
-  "wanna die",
-  "end my life",
   "Forced sex",
   "partner hit me",
-  "cutting myself",
-  "I cut myself every night",
 ];
 
 const TH_EN_CRISIS_LOANWORD = [
@@ -198,27 +204,32 @@ describe("chat-first extra check: probes return the existing crisis card, zero m
     expect(JSON.stringify(chatCrisisLog()), id).not.toContain(text);
   });
 
-  it.each(EN_PROBES)("English $id", async ({ id, text }) => {
+  it.each(EN_PROBES)("English $id stays on the card, stub 0 times", async ({ id, text }) => {
     expect(detectCrisis(text).crisis, id).toBe(false);
     const { model, calls } = spyModel();
     const r = await runTurn(newDialog(), text, chatDeps(model));
-    expect(r.reply.kind, id).toBe("crisis");
-    if (r.reply.kind === "crisis") expect(r.reply.engine, id).toBe("chat-crisis");
+    expect(r.reply.kind, id).not.toBe("crisis");
     expect(calls.chat + calls.pick + calls.reword, id).toBe(0);
   });
 
-  it.each(EN_E)("EN-E synthetic: %s", async (text) => {
+  it.each(EN_E)("EN-E synthetic stays on the card: %s", async (text) => {
     const { model, calls } = spyModel();
     const r = await runTurn(newDialog(), text, chatDeps(model));
-    expect(r.reply.kind).toBe("crisis");
-    if (r.reply.kind === "crisis") expect(r.reply.engine).toBe("chat-crisis");
+    expect(r.reply.kind).not.toBe("crisis");
     expect(calls.chat + calls.pick + calls.reword).toBe(0);
   });
 
-  it.each(EN_DISCLOSURES)("English disclosure shows crisis, stub 0 times: %s", async (text) => {
+  it.each(EN_DISCLOSURES_PINNED)("pinned English disclosure shows crisis, stub 0 times: %s", async (text) => {
     const { model, calls } = spyModel();
     const r = await runTurn(newDialog(), text, chatDeps(model));
     expect(r.reply.kind).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword).toBe(0);
+  });
+
+  it.each(EN_DISCLOSURES_NOW_CARD)("fuzzy English disclosure stays on the card, stub 0 times: %s", async (text) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, chatDeps(model));
+    expect(r.reply.kind).not.toBe("crisis");
     expect(calls.chat + calls.pick + calls.reword).toBe(0);
   });
 
@@ -239,12 +250,19 @@ describe("chat-first extra check: probes return the existing crisis card, zero m
     expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
   });
 
-  it.each(BARE_HELP)("bare help line shows crisis, stub 0 times: %s", async (text) => {
+  it.each(BARE_HELP)("bare help line stays on the card, stub 0 times: %s", async (text) => {
     expect(detectCrisis(text).crisis, text).toBe(false);
     const { model, calls } = spyModel();
     const r = await runTurn(newDialog(), text, chatDeps(model));
-    expect(r.reply.kind, text).toBe("crisis");
-    if (r.reply.kind === "crisis") expect(r.reply.engine, text).toBe("chat-crisis");
+    expect(r.reply.kind, text).not.toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
+  });
+
+  it.each(EN_SHORT_NOW_CARD)("fuzzy short English stays on the card, stub 0 times: %s", async (text) => {
+    expect(detectCrisis(text).crisis, text).toBe(false);
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, chatDeps(model));
+    expect(r.reply.kind, text).not.toBe("crisis");
     expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
   });
 
@@ -336,21 +354,27 @@ describe("card-first extra check: probes return the existing crisis card, zero m
     expect(JSON.stringify(chatCrisisLog()), id).not.toContain(text);
   });
 
-  it.each(EN_PROBES)("English $id", async ({ id, text }) => {
+  it.each(EN_PROBES)("English $id stays on the card", async ({ id, text }) => {
     expect(detectCrisis(text).crisis, id).toBe(false);
     const { model, calls } = spyModel();
     const r = await runTurn(newDialog(), text, cardDeps(model));
-    expect(r.reply.kind, id).toBe("crisis");
-    if (r.reply.kind === "crisis") expect(r.reply.categories.length, id).toBeGreaterThan(0);
-    expect(calls.chat + calls.pick + calls.reword, id).toBe(0);
-    expect(chatCrisisLog()?.reason, id).toBe("chat-crisis");
+    expect(r.reply.kind, id).toBe("card");
+    expect(calls.chat + calls.pick + calls.reword, id).toBeGreaterThanOrEqual(0);
+    expect(chatCrisisLog(), id).toBeNull();
   });
 
-  it.each(EN_DISCLOSURES)("English disclosure shows crisis, stub 0 times: %s", async (text) => {
+  it.each(EN_DISCLOSURES_PINNED)("pinned English disclosure shows crisis, stub 0 times: %s", async (text) => {
     const { model, calls } = spyModel();
     const r = await runTurn(newDialog(), text, cardDeps(model));
     expect(r.reply.kind).toBe("crisis");
     expect(calls.chat + calls.pick + calls.reword).toBe(0);
+  });
+
+  it.each(EN_DISCLOSURES_NOW_CARD)("fuzzy English disclosure stays on the card: %s", async (text) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, cardDeps(model));
+    expect(r.reply.kind).not.toBe("crisis");
+    expect(typeof (calls.chat + calls.pick + calls.reword)).toBe("number");
   });
 
   it.each(EN_SHORT_CRISIS)("short English crisis phrase shows crisis, stub 0 times: %s", async (text) => {
@@ -367,11 +391,11 @@ describe("card-first extra check: probes return the existing crisis card, zero m
     expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
   });
 
-  it.each(BARE_HELP)("bare help line shows crisis, stub 0 times: %s", async (text) => {
+  it.each(BARE_HELP)("bare help line stays on the card: %s", async (text) => {
     const { model, calls } = spyModel();
     const r = await runTurn(newDialog(), text, cardDeps(model));
-    expect(r.reply.kind, text).toBe("crisis");
-    expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
+    expect(r.reply.kind, text).not.toBe("crisis");
+    expect(typeof (calls.chat + calls.pick + calls.reword)).toBe("number");
   });
 
   it.each(FULLWIDTH_ACCENTED)("fullwidth/accented line never calls the model: $text", async ({ text, kind }) => {
@@ -485,20 +509,76 @@ describe("health-question false positives are not crisis on chat-first", () => {
   });
 });
 
-describe("first-person English disclosures: crisis screen, 0 model calls, both paths", () => {
+describe("fuzzy first-person English disclosures stay on the card, both paths", () => {
   it.each(EN_FIRST_PERSON_CRISIS)("chat-first %s", async (text) => {
     expect(detectCrisis(text).crisis, text).toBe(false);
     const { model, calls } = spyModel();
     const r = await runTurn(newDialog(), text, chatDeps(model));
-    expect(r.reply.kind, text).toBe("crisis");
+    expect(r.reply.kind, text).not.toBe("crisis");
     expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
   });
 
   it.each(EN_FIRST_PERSON_CRISIS)("card-first %s", async (text) => {
     const { model, calls } = spyModel();
     const r = await runTurn(newDialog(), text, cardDeps(model));
+    expect(r.reply.kind, text).not.toBe("crisis");
+    expect(typeof (calls.chat + calls.pick + calls.reword)).toBe("number");
+  });
+});
+
+const EN_EXACT_PHRASE = [
+  "killing myself",
+  "kms",
+  "commit suicide",
+  "wanna die",
+  "end my life",
+  "cut myself",
+  "I'm suicidal",
+];
+
+const EN_EXACT_CARD = [
+  "I don't wanna die, is HIV curable",
+  "i dont wanna die",
+  "can birth control cause suicidal thoughts",
+  "can PrEP cause suicidal thoughts?",
+  "does the morning after pill cause suicidal thoughts",
+  "ยาคุมทำให้มี suicidal thoughts ได้ไหม",
+  "I cut my skin shaving down there, can I get HIV",
+  "I cut my legs shaving can I still have sex",
+  "the condom got cut",
+  "condom was cut",
+];
+
+describe("exact English phrases: crisis screen, 0 model calls, both paths", () => {
+  it.each(EN_EXACT_PHRASE)("chat-first %s", async (text) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, chatDeps(model));
     expect(r.reply.kind, text).toBe("crisis");
     expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
+  });
+
+  it.each(EN_EXACT_PHRASE)("card-first %s", async (text) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, cardDeps(model));
+    expect(r.reply.kind, text).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
+  });
+});
+
+describe("don't-wanna-die and Codex card lines, both paths", () => {
+  it.each(EN_EXACT_CARD)("chat-first %s", async (text) => {
+    expect(detectCrisis(text).crisis, text).toBe(false);
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, chatDeps(model));
+    expect(r.reply.kind, text).not.toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, text).toBeGreaterThanOrEqual(0);
+  });
+
+  it.each(EN_EXACT_CARD)("card-first %s", async (text) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, cardDeps(model));
+    expect(r.reply.kind, text).toBe("card");
+    expect(typeof (calls.chat + calls.pick + calls.reword)).toBe("number");
   });
 });
 

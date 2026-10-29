@@ -93,18 +93,22 @@ const FP_TH_LOANWORD = [
   "กิน PrEP ยังไง",
 ];
 
-/** #37 round-4 short English disclosures the pin misses. */
-const EN_SHORT_CRISIS: { text: string; cat: "self_harm" | "sexual_violence" | "violence_danger" }[] = [
+/** Short English lines still on the exact-phrase list (pin misses). */
+const EN_SHORT_CRISIS: { text: string; cat: "self_harm" }[] = [
   { text: "I'm suicidal", cat: "self_harm" },
-  { text: "Suicidal", cat: "self_harm" },
-  { text: "feeling suicidal", cat: "self_harm" },
-  { text: "suicidal thoughts", cat: "self_harm" },
   { text: "wanna die", cat: "self_harm" },
   { text: "end my life", cat: "self_harm" },
-  { text: "Forced sex", cat: "sexual_violence" },
-  { text: "partner hit me", cat: "violence_danger" },
   { text: "cutting myself", cat: "self_harm" },
   { text: "I cut myself every night", cat: "self_harm" },
+];
+
+/** Short English that used to fire and now stays on the card. */
+const EN_SHORT_NOW_CARD = [
+  "Suicidal",
+  "feeling suicidal",
+  "suicidal thoughts",
+  "Forced sex",
+  "partner hit me",
 ];
 
 /** Mostly-Thai lines with one English crisis word (Thai letter share ≥ 60%). */
@@ -146,9 +150,9 @@ beforeEach(() => resetChatCrisisLog());
 afterEach(() => resetChatCrisisLog());
 
 describe("named rule lists", () => {
-  it("has 11 Thai rules, 27 English rules, plus the context rule id", () => {
+  it("has 11 Thai rules, a short English list (mixed Thai tokens + exact phrases), plus the context rule id", () => {
     expect(TH_RULES).toHaveLength(11);
-    expect(EN_RULES).toHaveLength(27);
+    expect(EN_RULES).toHaveLength(15);
     expect(TH_F_ID).toBe("TH-F bare follow-up after violence cue");
   });
 });
@@ -163,49 +167,29 @@ describe("Thai synthetic paraphrases (keyed to probe ids)", () => {
   });
 });
 
-describe("English synthetic paraphrases (keyed to probe ids)", () => {
-  it.each(EN_PROBES)("$id matches $rule and is missed by the pin", ({ text, rule, cat }) => {
+describe("English banana paraphrases stay on the card (Thai-only exact list)", () => {
+  it.each(EN_PROBES)("$id does not fire the extra check", ({ text }) => {
     expect(detectCrisis(text).crisis, text).toBe(false);
-    const hit = detectChatCrisis(text);
-    expect(hit.crisis, text).toBe(true);
-    expect(hit.rules, text).toContain(rule);
-    expect(hit.categories, text).toContain(cat);
+    expect(detectChatCrisis(text).crisis, text).toBe(false);
+    expect(detectChatCrisisForTurn(text, []).crisis, text).toBe(false);
   });
 });
 
-describe("EN-E partner/family hits me (synthetic; no English probe)", () => {
+describe("EN-E partner/family hits me stays on the card (Thai-only exact list)", () => {
   it.each(EN_E_SYNTHETIC)("%s", (text) => {
     expect(detectCrisis(text).crisis, text).toBe(false);
-    const hit = detectChatCrisis(text);
-    expect(hit.crisis, text).toBe(true);
-    expect(hit.rules).toContain("EN-E partner/family hits me");
-    expect(hit.categories).toContain("violence_danger");
+    expect(detectChatCrisis(text).crisis, text).toBe(false);
   });
 });
 
-describe("EN-F forced sex and EN-G don't want to live (synthetic disclosures)", () => {
-  it("I was forced to have sex", () => {
-    const text = "I was forced to have sex";
+describe("fuzzy forced-sex / don't-want-to-live English stays on the card", () => {
+  it.each([
+    "I was forced to have sex",
+    "I don't want to live anymore",
+    "I feel like I cannot go on living",
+  ])("%s", (text) => {
     expect(detectCrisis(text).crisis).toBe(false);
-    const hit = detectChatCrisis(text);
-    expect(hit.crisis).toBe(true);
-    expect(hit.rules).toContain("EN-F forced sex");
-    expect(hit.categories).toContain("sexual_violence");
-  });
-  it("I don't want to live anymore", () => {
-    const text = "I don't want to live anymore";
-    expect(detectCrisis(text).crisis).toBe(false);
-    const hit = detectChatCrisis(text);
-    expect(hit.crisis).toBe(true);
-    expect(hit.rules).toContain("EN-G don't want to live");
-    expect(hit.categories).toContain("self_harm");
-  });
-  it("I feel like I cannot go on living", () => {
-    const text = "I feel like I cannot go on living";
-    expect(detectCrisis(text).crisis).toBe(false);
-    const hit = detectChatCrisis(text);
-    expect(hit.crisis).toBe(true);
-    expect(hit.rules).toContain("EN-G don't want to live");
+    expect(detectChatCrisis(text).crisis).toBe(false);
   });
 });
 
@@ -260,13 +244,10 @@ const BARE_HELP = [
   "help 😭",
 ];
 
-describe("EN-K bare help (narrow line; punctuation/emoji allowed)", () => {
+describe("bare help stays on the card (Thai-only exact list)", () => {
   it.each(BARE_HELP)("%s", (text) => {
     expect(detectCrisis(text).crisis, text).toBe(false);
-    const hit = detectChatCrisis(text);
-    expect(hit.crisis, text).toBe(true);
-    expect(hit.rules, text).toContain("EN-K bare help");
-    expect(hit.categories, text).toContain("self_harm");
+    expect(detectChatCrisis(text).crisis, text).toBe(false);
   });
 
   it.each([
@@ -286,6 +267,13 @@ describe("short English crisis phrases the pin misses", () => {
     const hit = detectChatCrisis(text);
     expect(hit.crisis, text).toBe(true);
     expect(hit.categories, text).toContain(cat);
+  });
+});
+
+describe("short English that is no longer on the exact list stays on the card", () => {
+  it.each(EN_SHORT_NOW_CARD)("%s", (text) => {
+    expect(detectCrisis(text).crisis, text).toBe(false);
+    expect(detectChatCrisis(text).crisis, text).toBe(false);
   });
 });
 
@@ -360,12 +348,10 @@ describe("English crisis tokens inside mostly-Thai lines", () => {
   });
 });
 
-describe("first-person English disclosures the pin misses", () => {
-  it.each(EN_FIRST_PERSON_CRISIS)("$text", ({ text, cat }) => {
+describe("fuzzy first-person English disclosures stay on the card (Thai-only exact list)", () => {
+  it.each(EN_FIRST_PERSON_CRISIS)("$text", ({ text }) => {
     expect(detectCrisis(text).crisis, text).toBe(false);
-    const hit = detectChatCrisis(text);
-    expect(hit.crisis, text).toBe(true);
-    expect(hit.categories, text).toContain(cat);
+    expect(detectChatCrisis(text).crisis, text).toBe(false);
   });
 });
 
@@ -408,23 +394,27 @@ describe("precision false positives (adjacent phrases only; Codex round 2)", () 
 });
 
 const PRECISION_TP: { text: string; cat: "self_harm" | "sexual_violence" | "violence_danger" }[] = [
-  { text: "ready to die", cat: "self_harm" },
-  { text: "I want to be dead", cat: "self_harm" },
   { text: "kms", cat: "self_harm" },
   { text: "kms.", cat: "self_harm" },
   { text: "gonna kms", cat: "self_harm" },
   { text: "i want to kms", cat: "self_harm" },
   { text: "i will kms", cat: "self_harm" },
+  { text: "I am going to kms tonight", cat: "self_harm" },
   { text: "อยาก kms", cat: "self_harm" },
   { text: "คิดจะ kms", cat: "self_harm" },
-  { text: "cut my wrist", cat: "self_harm" },
-  { text: "cut my wrists", cat: "self_harm" },
-  { text: "cut my arm", cat: "self_harm" },
   { text: "self-harm", cat: "self_harm" },
   { text: "self harm", cat: "self_harm" },
   { text: "หนู cut แขน", cat: "self_harm" },
   { text: "หนู cut ข้อมือ", cat: "self_harm" },
-  { text: "sexually abused me", cat: "sexual_violence" },
+];
+
+const PRECISION_NOW_CARD = [
+  "ready to die",
+  "I want to be dead",
+  "cut my wrist",
+  "cut my wrists",
+  "cut my arm",
+  "sexually abused me",
 ];
 
 describe("adjacent first-person crisis phrases still hit", () => {
@@ -437,6 +427,13 @@ describe("adjacent first-person crisis phrases still hit", () => {
   it("split อยาก + die still fires on the current turn via the window", () => {
     expect(detectChatCrisis("die ค่ะ").crisis).toBe(false);
     expect(detectChatCrisisForTurn("die ค่ะ", ["หนูอยาก"]).crisis).toBe(true);
+  });
+});
+
+describe("fuzzy English adjacent phrases now stay on the card", () => {
+  it.each(PRECISION_NOW_CARD)("%s", (text) => {
+    expect(detectCrisis(text).crisis, text).toBe(false);
+    expect(detectChatCrisis(text).crisis, text).toBe(false);
   });
 });
 
@@ -456,5 +453,65 @@ describe("card-first switch is on", () => {
     expect(CHAT_CRISIS_CARD_FIRST).toBe(true);
     expect(chatCrisisEnabled(false)).toBe(true);
     expect(chatCrisisEnabled(true)).toBe(true);
+  });
+});
+
+/** Jane is Thai-only. Short exact English phrases on folded lowercase text. */
+const EN_EXACT_PHRASE_TP: { text: string; cat: "self_harm" | "sexual_violence" }[] = [
+  { text: "kill myself", cat: "self_harm" },
+  { text: "killing myself", cat: "self_harm" },
+  { text: "kms", cat: "self_harm" },
+  { text: "kms.", cat: "self_harm" },
+  { text: "gonna kms", cat: "self_harm" },
+  { text: "commit suicide", cat: "self_harm" },
+  { text: "I want to die", cat: "self_harm" },
+  { text: "wanna die", cat: "self_harm" },
+  { text: "I wanna die", cat: "self_harm" },
+  { text: "end my life", cat: "self_harm" },
+  { text: "I was raped", cat: "sexual_violence" },
+  { text: "he raped me", cat: "sexual_violence" },
+  { text: "self harm", cat: "self_harm" },
+  { text: "self-harm", cat: "self_harm" },
+  { text: "cut myself", cat: "self_harm" },
+  { text: "cutting myself", cat: "self_harm" },
+  { text: "I'm suicidal", cat: "self_harm" },
+  { text: "I am suicidal", cat: "self_harm" },
+  { text: "i'm suicidal", cat: "self_harm" },
+  { text: "I am going to kms tonight", cat: "self_harm" },
+];
+
+/** Codex + owner: these must stay on the card (extra check must not fire). */
+const EN_EXACT_PHRASE_FP = [
+  "I don't wanna die, is HIV curable",
+  "i dont wanna die",
+  "I don't wanna die",
+  "can birth control cause suicidal thoughts",
+  "can PrEP cause suicidal thoughts?",
+  "does the morning after pill cause suicidal thoughts",
+  "ยาคุมทำให้มี suicidal thoughts ได้ไหม",
+  "I cut my skin shaving down there, can I get HIV",
+  "I cut my legs shaving can I still have sex",
+  "the condom got cut",
+  "condom was cut",
+  "หนูไม่อยาก die เพราะ HIV ต้องทำยังไง",
+  "ผมไม่อยาก die ครับ ตรวจ HIV ที่ไหน",
+  "ไม่อยาก kms",
+];
+
+describe("exact English crisis phrases (Thai-only short list)", () => {
+  it.each(EN_EXACT_PHRASE_TP)("$text", ({ text, cat }) => {
+    const extra = detectChatCrisis(text);
+    const pinned = detectCrisis(text).crisis;
+    expect(pinned || extra.crisis, text).toBe(true);
+    if (extra.crisis) expect(extra.categories, text).toContain(cat);
+    else expect(detectCrisis(text).categories, text).toContain(cat);
+  });
+});
+
+describe("narrow don't-wanna-die guard and Codex card lines", () => {
+  it.each(EN_EXACT_PHRASE_FP)("%s", (text) => {
+    expect(detectCrisis(text).crisis, text).toBe(false);
+    expect(detectChatCrisis(text).crisis, text).toBe(false);
+    expect(detectChatCrisisForTurn(text, []).crisis, text).toBe(false);
   });
 });

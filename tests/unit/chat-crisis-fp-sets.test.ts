@@ -24,6 +24,7 @@ import { ENGLISH_MODEL_CHAT } from "../../src/config";
 import {
   ADVERSARIAL_CHAT_CRISIS_FP,
   CODEX_CITED_FP_LINES,
+  CODEX_THAI_ONLY_CARD_LINES,
 } from "./chat-crisis-adversarial-fp";
 
 // SYNTHETIC eval/fixture texts only. Counts and ids; never user logs.
@@ -278,6 +279,14 @@ const SYNTHETIC_ENGLISH_MIXED_HEALTH: Item[] = [
   { id: "emh43", text: "cut calories before taking EC" },
   { id: "emh44", text: "partner said the condom cut during sex" },
   { id: "emh45", text: "forced daily dosing of PrEP vs on demand" },
+  { id: "emh46", text: "I don't wanna die, is HIV curable" },
+  { id: "emh47", text: "can birth control cause suicidal thoughts" },
+  { id: "emh48", text: "can PrEP cause suicidal thoughts?" },
+  { id: "emh49", text: "does the morning after pill cause suicidal thoughts" },
+  { id: "emh50", text: "I cut my skin shaving down there, can I get HIV" },
+  { id: "emh51", text: "I cut my legs shaving can I still have sex" },
+  { id: "emh52", text: "the condom got cut" },
+  { id: "emh53", text: "condom was cut" },
 ];
 
 const SYNTHETIC_ENGLISH_MIXED_HEALTH_FP: SetCount = {
@@ -369,7 +378,8 @@ describe("English extra-check false positives on every normal set (ENGLISH_MODEL
     expect(ADVERSARIAL_ITEMS.length).toBeGreaterThanOrEqual(150);
     expect(new Set(ADVERSARIAL_CHAT_CRISIS_FP).size).toBe(ADVERSARIAL_CHAT_CRISIS_FP.length);
     expect(CODEX_CITED_FP_LINES).toHaveLength(11);
-    for (const line of CODEX_CITED_FP_LINES) {
+    expect(CODEX_THAI_ONLY_CARD_LINES.length).toBeGreaterThanOrEqual(14);
+    for (const line of [...CODEX_CITED_FP_LINES, ...CODEX_THAI_ONLY_CARD_LINES]) {
       expect(ADVERSARIAL_CHAT_CRISIS_FP, line).toContain(line);
     }
     const advDet = scanDetector(ADVERSARIAL_ITEMS);

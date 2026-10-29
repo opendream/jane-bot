@@ -21,6 +21,24 @@ export const CODEX_CITED_FP_LINES: readonly string[] = [
   "does HIV die outside the body",
 ];
 
+/** Round-3 / Thai-only scope: negation, side-effect, shaving, condom-cut → card. */
+export const CODEX_THAI_ONLY_CARD_LINES: readonly string[] = [
+  "I don't wanna die, is HIV curable",
+  "i dont wanna die",
+  "I don't wanna die",
+  "can birth control cause suicidal thoughts",
+  "can PrEP cause suicidal thoughts?",
+  "does the morning after pill cause suicidal thoughts",
+  "ยาคุมทำให้มี suicidal thoughts ได้ไหม",
+  "I cut my skin shaving down there, can I get HIV",
+  "I cut my legs shaving can I still have sex",
+  "the condom got cut",
+  "condom was cut",
+  "หนูไม่อยาก die เพราะ HIV ต้องทำยังไง",
+  "ผมไม่อยาก die ครับ ตรวจ HIV ที่ไหน",
+  "ไม่อยาก kms",
+];
+
 /**
  * ≥150 synthetic lines. Pronoun-led Thai questions + English equivalents + mixed
  * health wording + Codex cited lines. Each must keep the card-first bank card
@@ -28,6 +46,7 @@ export const CODEX_CITED_FP_LINES: readonly string[] = [
  */
 export const ADVERSARIAL_CHAT_CRISIS_FP: readonly string[] = [
   ...CODEX_CITED_FP_LINES,
+  ...CODEX_THAI_ONLY_CARD_LINES,
 
   // Thai + die (virus/sperm death, "will I die from HIV" questions)
   "หนูอยากรู้ HIV die ในน้ำไหม",

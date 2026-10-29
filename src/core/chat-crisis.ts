@@ -1,17 +1,22 @@
 /**
  * Pre-model crisis check (chat-first and card-first). Additive to pinned
- * detectCrisis(); never edits crisis.ts. Fullwidth / accented Latin is folded
- * to ASCII (Thai unchanged, including SARA AM) so those crisis words still
- * match. Thai matches run on compact() (NFC, zero-width stripped, spaces
- * removed) because users space Thai unpredictably. English uses lowercased
- * normalize() with curly quotes folded. Named regexes (not word lists) so
- * bystander / definition questions do not fire. Whole-token English crisis
- * words match inside mixed Thai lines only as adjacent first-person crisis
- * phrases (not pronoun-within-N-char windows): อยาก/คิดจะ die|kms|unalive,
- * cut ตัวเอง/แขน/ข้อมือ or cut myself / cut my wrist|arm|…, and
- * (แฟน|พ่อ|แม่|…) abuse (หนู|ฉัน|…). Health questions (HIV die, condom cut,
- * 3 kms, forced me to get tested) do not fire. NFKC + lowercase + Latin fold
- * run before the check (prepCheckText), including English-only lines.
+ * detectCrisis(); never edits crisis.ts. Jane is Thai-only for now: Thai
+ * named rules stay as-is; English is a short list of exact phrases on
+ * folded lowercase text (plus mixed Thai wording + an English token).
+ *
+ * Fullwidth / accented Latin is folded to ASCII (Thai unchanged, including
+ * SARA AM). Thai matches run on compact() (NFC, zero-width stripped, spaces
+ * removed). English uses lowercased normalize() with curly quotes folded.
+ * Mixed Thai-English true positives use Thai wording immediately before the
+ * token: อยาก/คิดจะ die|kms|unalive (not ไม่อยาก), รู้สึก suicidal,
+ * cut ตัวเอง/แขน/ข้อมือ, (แฟน|พ่อ|แม่|…) abuse (หนู|ฉัน|…). Exact English
+ * phrases: kill/killing myself, kms as a bare line or after gonna/going to/
+ * will/want to/wanna (never a distance "N kms"), commit suicide, wanna/want
+ * to die (not don't/dont/do not wanna die),
+ * end my life, I was raped / he raped me, self-harm / self harm,
+ * cut/cutting myself, i'm/i am suicidal. Everything else in English goes
+ * to the normal card. NFKC + lowercase + Latin fold run before the check
+ * (prepCheckText), including English-only lines.
  *
  * The in-memory reason tag is "chat-crisis" (distinct from "rules-crisis"). It
  * stores rule ids only — never user text — and is compiled out of production.
@@ -55,40 +60,28 @@ export const TH_RULES: ChatCrisisRule[] = [
   { id: "TH-G suicide transliteration", cat: "self_harm", lang: "th", re: /ซ(ุย|ูอิ?|ู)ไซด์/ },
 ];
 
-/** English rules run on lowercased normalize() with curly quotes folded. */
+/**
+ * Mixed Thai wording + English token, and a short exact English phrase list.
+ * Jane is Thai-only: fuzzy English (bare die/cut/abuse, forced/forcing,
+ * suicidal thoughts, bare suicidal, tenses) is not matched. อยาก die does
+ * not fire on ไม่อยาก die.
+ */
 export const EN_RULES: ChatCrisisRule[] = [
-  { id: "EN-A1 not believed/dismissed about harassment", cat: "sexual_violence", lang: "en", re: /\b(believe|believes|believing) me about (the )?(sexual )?harass/ },
-  { id: "EN-A2 my concerns about harassment", cat: "sexual_violence", lang: "en", re: /\bmy concerns? about (the )?(sexual )?harass/ },
-  { id: "EN-A3 harassment I experienced / I was harassed", cat: "sexual_violence", lang: "en", re: /\bharassment (that )?i (experienced|went through|faced|suffered)|\bi('m| am| was| have been|'ve been| got| keep getting) (being )?(sexually )?harassed/ },
-  { id: "EN-A4 scared to tell about harassment", cat: "sexual_violence", lang: "en", re: /\b(scared|afraid|frightened|nervous) (to|of) tell(ing)? (someone|anyone|somebody|my \w+|people) about (the |my )?(sexual )?harass/ },
-  { id: "EN-B unwanted touch", cat: "sexual_violence", lang: "en", re: /\btouch(es|ed|ing)? me\b.{0,30}\b(don't|do not|didn't|did not) (like|want)|\btouch(es|ed|ing)? me (inappropriately|without)/ },
-  { id: "EN-C1 self-blame for event", cat: "sexual_violence", lang: "en", re: /\bblam(e|ing) myself for (what happened|it happening)/ },
-  { id: "EN-C2 guilt about not speaking up", cat: "sexual_violence", lang: "en", re: /\bguilty (about|for) not (speaking up|telling)/ },
-  { id: "EN-D fear from behaviour", cat: "violence_danger", lang: "en", re: /\b(scared|afraid|frightened) to (go|be|walk|return)\b.{0,40}\bbecause of (someone|somebody|him|her|them|a person|this person)('s)? (behaviou?r|actions)/ },
-  { id: "EN-E partner/family hits me", cat: "violence_danger", lang: "en", re: /\b(my )?(boyfriend|girlfriend|husband|wife|partner|bf|gf|dad|father|stepdad|mum|mom|mother|brother|sister) (beats|hits|hit|scratches|slaps|uses force on) me\b(?! up)|\bi (got|get|was|am being|keep getting) beaten\b/ },
-  { id: "EN-F forced sex", cat: "sexual_violence", lang: "en", re: /\bi (was|got|have been|'ve been) forced (to have|into) (sex|sexual (intercourse|activity))\b|\bsomeone forced me (to have|into) (sex|sexual)/ },
-  { id: "EN-G don't want to live", cat: "self_harm", lang: "en", re: /\bi (don't|do not) want to (?:be alive|live(?: anymore| any more)?)(?=$|[.!?,])|\bi (?:feel like i )?(can't|cannot|can not) go on living\b/ },
-  { id: "EN-H cutting myself", cat: "self_harm", lang: "en", re: /\bcutting myself\b/ },
-  { id: "EN-I end my life", cat: "self_harm", lang: "en", re: /\bend my life\b(?! insurance)/ },
-  { id: "EN-J bare forced sex", cat: "sexual_violence", lang: "en", re: /^forced sex[.!?]*$/ },
-  // Bare help line only. Punctuation/emoji around the phrase is allowed;
-  // extra Latin words ("help me choose a condom") do not fire.
-  { id: "EN-K bare help", cat: "self_harm", lang: "en", re: /^(?:[^a-z]*)(?:please |pls )?help(?: me)?(?:[^a-z]*)$/ },
-  // Adjacent first-person / intent phrases only. A pronoun anywhere in the
-  // line is not enough (teens start questions with หนู). Health uses of
-  // die/cut/kms/abuse/forced must not fire.
-  { id: "EN-T die", cat: "self_harm", lang: "en", re: /(?:อยากจะ|คิดจะ|อยาก)\s?\bdie\b|\b(?:wanna|want to) die\b|\bwant to be dead\b|\bready to die\b/ },
-  { id: "EN-T kms", cat: "self_harm", lang: "en", re: /^kms[.!?]*$|\bgonna kms\b|\bi want to kms\b|\bi will kms\b|(?:อยากจะ|คิดจะ|อยาก)\s?\bkms\b/ },
-  { id: "EN-T suicidal", cat: "self_harm", lang: "en", re: /^suicidal[.!?]*$|\bi(?:'m| am) suicidal\b|\bfeeling suicidal\b|\bsuicidal thoughts\b|รู้สึก\s?suicidal\b/ },
-  { id: "EN-T abuse", cat: "violence_danger", lang: "en", re: /(?:แฟน|พ่อเลี้ยง|แม่เลี้ยง|พ่อ|แม่|พี่ชาย|พี่สาว|พี่|เขา)\s*abuse[sd]?\s*(?:หนู|ฉัน|ผม|เรา)|\babus(?:es|ed|ing) me\b/ },
-  { id: "EN-T cut", cat: "self_harm", lang: "en", re: /(?:หนู|ฉัน|ผม|เรา|อยาก(?:จะ)?|คิดจะ)\s?\bcut\s?ตัวเอง|\bcut(?:ting)? myself\b|\bcut my (?:wrists?|arms?|legs?|skin|thighs?)\b|\bcut\s?(?:แขน|ข้อมือ)|\bself-harm\b|\bself harm\b/ },
-  { id: "EN-T unalive", cat: "self_harm", lang: "en", re: /(?:อยากจะ|คิดจะ|อยาก)\s?\bunalive\b|\bunalive\s?ตัวเอง|\bunalive myself\b|\b(?:wanna|want to) unalive\b/ },
-  { id: "EN-L hurt/harm myself", cat: "self_harm", lang: "en", re: /\b(?:hurt|harm)(?:ing)? myself\b/ },
-  { id: "EN-M wish I was/were dead", cat: "self_harm", lang: "en", re: /\bi wish i (?:was|were) dead\b/ },
-  { id: "EN-N molested me", cat: "sexual_violence", lang: "en", re: /\b(?:molested|molesting) me\b/ },
-  { id: "EN-O forced/forcing me", cat: "sexual_violence", lang: "en", re: /\bforced me to have sex\b|\bforcing me to have sex\b|\bforced me into sex\b|\bforced me to (?:sleep with|do sexual|touch)\b|\b(?:forced|forcing) me[.!?,]*$/ },
-  { id: "EN-P raped/abused me", cat: "sexual_violence", lang: "en", re: /\b(?:raped|abused) me\b|\bsexually (?:abused|assaulted) me\b/ },
-  { id: "EN-Q kill myself", cat: "self_harm", lang: "en", re: /\bkill myself\b/ },
+  { id: "EN-T die", cat: "self_harm", lang: "en", re: /(?:คิดจะ|(?<!ไม่(?:ได้)?)อยากจะ|(?<!ไม่(?:ได้)?)อยาก)\s?\bdie\b/ },
+  { id: "EN-T kms", cat: "self_harm", lang: "en", re: /(?:คิดจะ|(?<!ไม่(?:ได้)?)อยากจะ|(?<!ไม่(?:ได้)?)อยาก)\s?\bkms\b/ },
+  { id: "EN-T suicidal", cat: "self_harm", lang: "en", re: /รู้สึก\s?suicidal\b/ },
+  { id: "EN-T abuse", cat: "violence_danger", lang: "en", re: /(?:แฟน|พ่อเลี้ยง|แม่เลี้ยง|พ่อ|แม่|พี่ชาย|พี่สาว|พี่|เขา)\s*abuse(?:s|d|ing)?\s*(?:หนู|ฉัน|ผม|เรา)/ },
+  { id: "EN-T cut", cat: "self_harm", lang: "en", re: /(?:หนู|ฉัน|ผม|เรา|อยาก(?:จะ)?|คิดจะ)\s?\bcut\s?ตัวเอง|\bcut\s?(?:แขน|ข้อมือ)/ },
+  { id: "EN-T unalive", cat: "self_harm", lang: "en", re: /(?:คิดจะ|(?<!ไม่(?:ได้)?)อยากจะ|(?<!ไม่(?:ได้)?)อยาก)\s?\bunalive\b|\bunalive\s?ตัวเอง/ },
+  { id: "EN kill myself", cat: "self_harm", lang: "en", re: /\bkill(?:ing)? myself\b/ },
+  { id: "EN kms", cat: "self_harm", lang: "en", re: /^kms[.!?]*$|\b(?:gonna|going to|will|want to|wanna) kms\b/ },
+  { id: "EN commit suicide", cat: "self_harm", lang: "en", re: /\bcommit suicide\b/ },
+  { id: "EN want to die", cat: "self_harm", lang: "en", re: /(?<!\b(?:don't|dont|do not) )\b(?:wanna|want to) die\b/ },
+  { id: "EN end my life", cat: "self_harm", lang: "en", re: /\bend my life\b(?! insurance)/ },
+  { id: "EN raped", cat: "sexual_violence", lang: "en", re: /\bi was raped\b|\bhe raped me\b/ },
+  { id: "EN self-harm", cat: "self_harm", lang: "en", re: /\bself-harm\b|\bself harm\b/ },
+  { id: "EN cut myself", cat: "self_harm", lang: "en", re: /\bcut(?:ting)? myself\b/ },
+  { id: "EN i'm suicidal", cat: "self_harm", lang: "en", re: /\bi(?:'m| am) suicidal\b/ },
 ];
 
 export const TH_F_ID = "TH-F bare follow-up after violence cue";

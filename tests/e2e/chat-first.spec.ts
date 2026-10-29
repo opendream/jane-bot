@@ -86,12 +86,11 @@ test("an English question shows a bank card with the DRAFT note and zero model c
 
 test("English disclosures show the existing crisis screen with zero model calls", async ({ page }) => {
   const lines = [
-    "I was forced to have sex",
-    "I don't want to live anymore",
-    "my boyfriend hits me and I am scared",
+    "I'm suicidal",
+    "wanna die",
+    "end my life",
     "I was sexually assaulted and I am scared",
-    "I want to hurt myself",
-    "I don't want to be alive",
+    "killing myself",
   ];
   for (const line of lines) {
     await openChatFirst(page);
@@ -105,6 +104,20 @@ test("English disclosures show the existing crisis screen with zero model calls"
     expect(after.chat, line).toBe(0);
     expect(after.pick, line).toBe(0);
   }
+});
+
+test("I don't wanna die, is HIV curable stays on the card with zero model calls", async ({ page }) => {
+  await openChatFirst(page);
+  await openChat(page);
+  const before = await modelCalls(page);
+  expect(before.chat).toBe(0);
+  expect(before.pick).toBe(0);
+  await say(page, "I don't wanna die, is HIV curable");
+  await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
+  await expect(lastJane(page)).toBeVisible();
+  const after = await modelCalls(page);
+  expect(after.chat).toBe(0);
+  expect(after.pick).toBe(0);
 });
 
 test("an English crisis-like message makes zero model calls", async ({ page }) => {
