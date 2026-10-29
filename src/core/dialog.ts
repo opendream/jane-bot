@@ -9,7 +9,8 @@ import { stripPII } from "./summary";
 import { checkInput, REFUSAL_CARDS, type GuardReason } from "./guard";
 import { retrieve } from "./retrieve";
 import { VALID_INTENTS } from "../llm/adapter";
-import { acceptChatReply } from "../llm/chatGuard";
+import { acceptGroundedChat, groundingCard } from "../llm/chat-ground";
+import type { ChatGrounding } from "../llm/chat-system";
 import { detectChatLang, type ChatLang } from "../llm/chat-lang";
 import { currentGenerationToken, bumpGenerationToken, isCurrentGeneration } from "../llm/generation-token";
 import { combineUnanswered, groupReplyLang, groupTakesNoModelPath, countedGroupMessages } from "./chat-group";
@@ -50,9 +51,10 @@ export type { CardPicker, EngineReason, EngineTag } from "./pick-engine";
  *      MODEL-FIRST: the same guarded chat path as NONE (guard, one retry) plus
  *      a fixed DRAFT soft line and a button that opens the existing crisis
  *      screen. The bank card is only a fallback (guard fail after retry,
- *      timeout, model not ready, or non-Thai while ENGLISH_MODEL_CHAT is
- *      false). Card-first AMBIGUOUS stays card + DRAFT soft line. Staff
- *      request → referral card + the same soft line. NONE → continue.
+ *      timeout, model not ready, fact-check/trim fail after retry, or
+ *      non-Thai while ENGLISH_MODEL_CHAT is false). Card-first AMBIGUOUS
+ *      stays card + DRAFT soft line. Staff request → referral card + the
+ *      same soft line. NONE → continue.
  *      Both run on every turn, whatever the letter-script class, on both
  *      paths. Then the script/allowlist gate: English → English model chat,
  *      clearly Thai → Thai chat, mixed/unclear → 0 model calls except
@@ -230,8 +232,9 @@ export interface DialogModel {
   /** Reword a card. The model sees only the card (never her text). The result is validated; any failure shows answer_th verbatim. */
   reword?(card: BankCard, signal: AbortSignal): Promise<string | null>;
   /**
-   * Chat-first connective talk. Input is PII-stripped. Output is validated by chatGuard.
-   * History is memory-only (last topic user lines + Jane's last guarded replies).
+   * Chat-first connective talk. Input is PII-stripped. Output is trimmed,
+   * then chatGuard, then the add-only fact check. History is memory-only
+   * (last topic user lines + Jane's last guarded replies).
    */
   chatReply?(
     text: string,
@@ -239,6 +242,7 @@ export interface DialogModel {
     signal: AbortSignal,
     lang?: ChatLang,
     groupId?: number,
+    grounding?: ChatGrounding,
   ): Promise<string | null>;
 }
 
@@ -571,25 +575,30 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     }
     if (stale()) return dropStale();
 
+    const groundCard = groundingCard(retrieved);
+    const cardFacts = groundCard ? bankAnswerForLang(groundCard, lang) : null;
+    const grounding: ChatGrounding = { facts: cardFacts };
+
     deps.onGenerating?.({ groupId: token ?? currentGenerationToken(), lang });
     const timeoutMs = deps.chatTimeoutMs ?? CHAT_FIRST_TIMEOUT_MS;
-    const attempt = () => withTimeout((s) => live.chatReply!(currentClip, history, s, lang, token), timeoutMs, deps.signal);
+    const attempt = (g: ChatGrounding) =>
+      withTimeout((s) => live.chatReply!(currentClip, history, s, lang, token, g), timeoutMs, deps.signal);
 
-    let out = await attempt();
+    let out = await attempt(grounding);
     if (stale()) return dropStale();
     if (out == null) {
       const top = rulesTop(retrieveText);
       return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, null, softCrisis);
     }
-    let acc = acceptChatReply(out, lang);
+    let acc = acceptGroundedChat(out, lang, cardFacts);
     if (!acc.ok) {
-      out = await attempt();
+      out = await attempt({ ...grounding, strict: true });
       if (stale()) return dropStale();
       if (out == null) {
         const top = rulesTop(retrieveText);
         return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, null, softCrisis);
       }
-      acc = acceptChatReply(out, lang);
+      acc = acceptGroundedChat(out, lang, cardFacts);
     }
     if (!acc.ok) {
       const top = rulesTop(retrieveText);

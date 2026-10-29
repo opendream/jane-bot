@@ -101,7 +101,7 @@ describe("production defaults (chat-first flag off)", () => {
     expect(CHAT_SYSTEM).toContain("ห้ามคุยเชิงชู้สาว");
     expect(CHAT_SYSTEM).toContain("สายด่วน");
     expect(CHAT_SYSTEM).toContain(CHAT_LANG_LINE_TH);
-    expect(CHAT_MAX_TOKENS).toBe(60);
+    expect(CHAT_MAX_TOKENS).toBe(80);
     expect(CHAT_SYSTEM_EN_STATUS).toBe("draft");
     expect(chatSystemFor("th")).toBe(CHAT_SYSTEM);
     expect(chatSystemFor("en")).toBe(CHAT_SYSTEM_EN);

@@ -2,6 +2,7 @@ import type { Intent, IntentResult } from "../core/types";
 import { classifyNeed } from "../core/intent";
 import { detectCrisis } from "../core/crisis";
 import type { ChatLang } from "./chat-lang";
+import type { ChatGrounding } from "./chat-system";
 
 /**
  * Interface for an optional in-browser model (WebLLM / wllama). The deterministic rules are always
@@ -24,9 +25,10 @@ export interface LLMAdapter {
   /** Chat: reword one curated card. Output is validated by rewordGuard; failures show the exact text. */
   rewordCard?(card: { answer_th: string; key_facts: string[] }, signal: AbortSignal): Promise<string | null>;
   /**
-   * Chat-first connective talk. Output is validated by chatGuard.
-   * History is PII-stripped, memory-only, and excludes crisis lines.
-   * `groupId` is the generation token; a stale token must return without generating.
+   * Chat-first connective talk. Output is trimmed, then chatGuard, then the
+   * add-only fact check. History is PII-stripped, memory-only, and excludes
+   * crisis lines. `groupId` is the generation token; a stale token must
+   * return without generating. `grounding` is the approved card (or none).
    */
   chatReply?(
     text: string,
@@ -34,6 +36,7 @@ export interface LLMAdapter {
     signal: AbortSignal,
     lang?: ChatLang,
     groupId?: number,
+    grounding?: ChatGrounding,
   ): Promise<string | null>;
   /** Tear down a worker / GPU engine. Used when WebGPU dies and we fall back. */
   dispose?(): void | Promise<void>;

@@ -73,4 +73,11 @@ describe("toDialogModel bridge", () => {
     await m.reword!({ id: "ec.p000", answer_th: "ก", key_facts: ["ข"], triggers: ["ลับ"] } as any, new AbortController().signal);
     expect((rw.mock.calls[0] as unknown[])[0]).toEqual({ answer_th: "ก", key_facts: ["ข"] });
   });
+  it("forwards chat grounding to the adapter", async () => {
+    const chat = vi.fn(async () => "พี่อยู่ตรงนี้นะ");
+    const m = toDialogModel(fake("wasm", { chatReply: chat }))!;
+    const g = { facts: "SYNTHETIC card text", strict: true };
+    await m.chatReply!("สวัสดี", [], new AbortController().signal, "th", 1, g);
+    expect(chat.mock.calls[0][5]).toEqual(g);
+  });
 });
