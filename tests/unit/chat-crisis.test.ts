@@ -376,6 +376,70 @@ describe("health-question false positives (bare die/cut/abuse must not fire)", (
   });
 });
 
+/** Codex round-2 cited false positives: pronoun-window / health-sense English words. */
+const CODEX_PRECISION_FP = [
+  "หนูอยากรู้ว่าเชื้อ HIV die นอกร่างกายไหม",
+  "หนูจะ die ไหมถ้าติด HIV",
+  "Am I going to die from HIV?",
+  "can I cut my pill in half",
+  "ตัวเองต้อง cut ถุงยางก่อนใช้ไหม",
+  "I cut my nails before fingering",
+  "I live 3 kms from the clinic where can I test HIV",
+  "my parents forced me to get tested for HIV",
+  "My doctor forced me to take an HIV test",
+  "I watched a movie about suicide",
+  "does HIV die outside the body",
+  "die outside the body",
+  "going to die from HIV",
+  "จะ die ไหม",
+  "die in water",
+  "die in air",
+  "drug abuse",
+  "substance abuse",
+  "a movie about suicide",
+];
+
+describe("precision false positives (adjacent phrases only; Codex round 2)", () => {
+  it.each(CODEX_PRECISION_FP)("%s", (text) => {
+    expect(detectCrisis(text).crisis, text).toBe(false);
+    expect(detectChatCrisis(text).crisis, text).toBe(false);
+    expect(detectChatCrisisForTurn(text, []).crisis, text).toBe(false);
+  });
+});
+
+const PRECISION_TP: { text: string; cat: "self_harm" | "sexual_violence" | "violence_danger" }[] = [
+  { text: "ready to die", cat: "self_harm" },
+  { text: "I want to be dead", cat: "self_harm" },
+  { text: "kms", cat: "self_harm" },
+  { text: "kms.", cat: "self_harm" },
+  { text: "gonna kms", cat: "self_harm" },
+  { text: "i want to kms", cat: "self_harm" },
+  { text: "i will kms", cat: "self_harm" },
+  { text: "อยาก kms", cat: "self_harm" },
+  { text: "คิดจะ kms", cat: "self_harm" },
+  { text: "cut my wrist", cat: "self_harm" },
+  { text: "cut my wrists", cat: "self_harm" },
+  { text: "cut my arm", cat: "self_harm" },
+  { text: "self-harm", cat: "self_harm" },
+  { text: "self harm", cat: "self_harm" },
+  { text: "หนู cut แขน", cat: "self_harm" },
+  { text: "หนู cut ข้อมือ", cat: "self_harm" },
+  { text: "sexually abused me", cat: "sexual_violence" },
+];
+
+describe("adjacent first-person crisis phrases still hit", () => {
+  it.each(PRECISION_TP)("$text", ({ text, cat }) => {
+    const hit = detectChatCrisis(text);
+    expect(hit.crisis, text).toBe(true);
+    expect(hit.categories, text).toContain(cat);
+  });
+
+  it("split อยาก + die still fires on the current turn via the window", () => {
+    expect(detectChatCrisis("die ค่ะ").crisis).toBe(false);
+    expect(detectChatCrisisForTurn("die ค่ะ", ["หนูอยาก"]).crisis).toBe(true);
+  });
+});
+
 describe("dev/eval in-memory reason tag", () => {
   it("records chat-crisis with rule ids and never stores user text", () => {
     expect(chatCrisisLog()).toBeNull();

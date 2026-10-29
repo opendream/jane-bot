@@ -140,14 +140,18 @@ function joinedWindow(input: string, prev: string[]): string {
   return prev.length ? [...prev.slice(-2), input].join(" ") : input;
 }
 
-/** Current line, then current + previous 1–2 user lines (in memory only). */
+/**
+ * Current line, then current + previous 1–2 user lines (in memory only).
+ * The joined window may raise crisis on this turn when the combined text
+ * matches (split "หนูอยาก" + "ตาย"). A previous turn's banner/hit is not
+ * inherited: later normal turns keep their own result and model call.
+ */
 function crisisForTurn(input: string, prev: string[]): CrisisResult {
   const cur = detectCrisisRawOrFolded(input);
   if (cur.crisis) return cur;
   if (prev.length) {
     const joined = detectCrisisRawOrFolded(joinedWindow(input, prev));
     if (joined.crisis) return joined;
-    return mergeCrisisResults(cur, joined);
   }
   return cur;
 }

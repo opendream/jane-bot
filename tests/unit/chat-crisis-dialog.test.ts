@@ -502,6 +502,110 @@ describe("first-person English disclosures: crisis screen, 0 model calls, both p
   });
 });
 
+describe("Codex precision false positives keep the original card, both paths", () => {
+  const cited: { text: string; id?: string }[] = [
+    { text: "หนูอยากรู้ว่าเชื้อ HIV die นอกร่างกายไหม", id: "disease.hiv.000" },
+    { text: "หนูจะ die ไหมถ้าติด HIV", id: "disease.hiv.000" },
+    { text: "Am I going to die from HIV?" },
+    { text: "can I cut my pill in half" },
+    { text: "ตัวเองต้อง cut ถุงยางก่อนใช้ไหม", id: "condom.000" },
+    { text: "I cut my nails before fingering" },
+    { text: "I live 3 kms from the clinic where can I test HIV" },
+    { text: "my parents forced me to get tested for HIV" },
+    { text: "My doctor forced me to take an HIV test" },
+    { text: "I watched a movie about suicide" },
+  ];
+
+  it.each(cited)("card-first $text", async ({ text, id }) => {
+    expect(detectCrisis(text).crisis, text).toBe(false);
+    const { model, calls } = spyModel();
+    const before = calls.chat + calls.pick + calls.reword;
+    const r = await runTurn(newDialog("18-24"), text, cardDeps(model));
+    expect(r.reply.kind, text).toBe("card");
+    if (r.reply.kind === "card" && id) expect(r.reply.card.id, text).toBe(id);
+    expect(r.reply.kind, text).not.toBe("crisis");
+    expect(typeof before).toBe("number");
+  });
+
+  it.each(cited)("chat-first $text", async ({ text }) => {
+    const { model, calls } = spyModel();
+    const before = calls.chat + calls.pick + calls.reword;
+    const r = await runTurn(newDialog("18-24"), text, chatDeps(model));
+    expect(r.reply.kind, text).not.toBe("crisis");
+    expect(typeof before).toBe("number");
+  });
+});
+
+describe("cross-message window: previous banner must not stick to later normal turns", () => {
+  it("card-first: movie-about-suicide banner is that turn only", async () => {
+    const { model, calls } = spyModel();
+    const before1 = calls.chat + calls.pick + calls.reword;
+    const first = await runTurn(newDialog("18-24"), "I watched a movie about suicide", cardDeps(model));
+    expect(first.reply.kind).not.toBe("crisis");
+    if (first.reply.kind === "card") expect(first.reply.banner).toContain("self_harm");
+    expect(typeof before1).toBe("number");
+
+    const before2 = calls.chat + calls.pick + calls.reword;
+    const second = await runTurn(first.state, "อยากกินยาคุม", cardDeps(model));
+    expect(second.reply.kind).not.toBe("crisis");
+    if (second.reply.kind === "card") expect(second.reply.banner).toEqual([]);
+    expect(typeof before2).toBe("number");
+
+    const before3 = calls.chat + calls.pick + calls.reword;
+    const third = await runTurn(second.state, "เพร็พคืออะไร", cardDeps(model));
+    expect(third.reply.kind).not.toBe("crisis");
+    if (third.reply.kind === "card") expect(third.reply.banner).toEqual([]);
+    expect(typeof before3).toBe("number");
+  });
+
+  it("chat-first: previous movie mention does not remove the later Thai model call", async () => {
+    const { model, calls } = spyModel();
+    const before1 = calls.chat + calls.pick + calls.reword;
+    const first = await runTurn(newDialog("18-24"), "I watched a movie about suicide", chatDeps(model));
+    expect(first.reply.kind).not.toBe("crisis");
+    if (first.reply.kind === "card" || first.reply.kind === "chat") {
+      expect(first.reply.banner).toContain("self_harm");
+    }
+    expect(calls.chat + calls.pick + calls.reword).toBe(before1);
+
+    const before2 = calls.chat + calls.pick + calls.reword;
+    const second = await runTurn(first.state, "ช่วงนี้กังวลเรื่องแฟน", chatDeps(model));
+    expect(second.reply.kind).not.toBe("crisis");
+    if (second.reply.kind === "card" || second.reply.kind === "chat") {
+      expect(second.reply.banner).toEqual([]);
+    }
+    expect(calls.chat + calls.pick + calls.reword).toBeGreaterThan(before2);
+
+    const before3 = calls.chat + calls.pick + calls.reword;
+    const third = await runTurn(second.state, "อยากรู้เรื่องคุมกำเนิด", chatDeps(model));
+    expect(third.reply.kind).not.toBe("crisis");
+    if (third.reply.kind === "card" || third.reply.kind === "chat") {
+      expect(third.reply.banner).toEqual([]);
+    }
+    expect(calls.chat + calls.pick + calls.reword).toBeGreaterThanOrEqual(before3);
+  });
+
+  it("joined window can still raise crisis on the current turn (หนูอยาก + ตาย)", async () => {
+    const { model, calls } = spyModel();
+    const first = await runTurn(newDialog("18-24"), "หนูอยาก", cardDeps(model));
+    expect(first.reply.kind).not.toBe("crisis");
+    const afterCue = calls.chat + calls.pick + calls.reword;
+    const second = await runTurn(first.state, "ตาย", cardDeps(model));
+    expect(second.reply.kind).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword).toBe(afterCue);
+  });
+
+  it("chat-first joined window can still raise crisis on the current turn", async () => {
+    const { model, calls } = spyModel();
+    const first = await runTurn(newDialog("18-24"), "หนูอยาก", chatDeps(model));
+    expect(first.reply.kind).not.toBe("crisis");
+    const afterCue = calls.chat + calls.pick + calls.reword;
+    const second = await runTurn(first.state, "ตาย", chatDeps(model));
+    expect(second.reply.kind).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword).toBe(afterCue);
+  });
+});
+
 describe("English-only fullwidth/accented kill-myself: crisis, 0 model calls", () => {
   it.each(EN_ONLY_FULLWIDTH_ACCENTED)("chat-first %s", async (text) => {
     expect(detectCrisis(text).crisis, text).toBe(false);
