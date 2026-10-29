@@ -1,12 +1,18 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MODEL_CARD_PICK, modelCardPickEnabled, shouldPreloadModel } from "../../src/config";
-import type { LLMAdapter } from "../../src/llm/adapter";
+import { draftSummary } from "../../src/core/summary";
+import { SERVICES } from "../../src/core/referral";
+import { classifyWithFallback, polishWithFallback, type LLMAdapter } from "../../src/llm/adapter";
+import { toDialogModel } from "../../src/llm/dialogModel";
 import type { ModelStatus } from "../../src/llm/runtime";
-import { preloadModel, resetPreloadForTests, startModel } from "../../src/llm/runtime";
+import { modelPillCopy, preloadModel, resetPreloadForTests, startModel } from "../../src/llm/runtime";
 
 afterEach(() => {
   resetPreloadForTests();
 });
+
+const READY_PILL = "🔒 โมเดลในเครื่อง: Qwen3-1.7B · ออฟไลน์";
+const s1663 = SERVICES.find((s) => s.id === "hotline_1663")!;
 
 function fakeWasm(label = "Qwen3-1.7B"): LLMAdapter {
   return {
@@ -19,12 +25,12 @@ function fakeWasm(label = "Qwen3-1.7B"): LLMAdapter {
 }
 
 describe("shouldPreloadModel (flag off by default)", () => {
-  it("does not preload on the default search string", () => {
+  it("keeps the base trigger: default search still starts the model", () => {
     expect(MODEL_CARD_PICK).toBe(false);
     expect(modelCardPickEnabled("")).toBe(false);
-    expect(shouldPreloadModel("")).toBe(false);
+    expect(shouldPreloadModel("")).toBe(true);
+    expect(shouldPreloadModel("?modelPick=0")).toBe(true);
     expect(shouldPreloadModel("?model=off")).toBe(false);
-    expect(shouldPreloadModel("?modelPick=0")).toBe(false);
   });
 
   it("preloads when the flag is on, and still honours filming/runtime hooks", () => {
@@ -37,13 +43,57 @@ describe("shouldPreloadModel (flag off by default)", () => {
 });
 
 describe("preloadModel", () => {
-  it("flag-off never fetches installed models or starts a loader", async () => {
+  it("flag-off with weights loads the model; pill ready; classify, polish and WebGPU reword stay on", async () => {
+    expect(MODEL_CARD_PICK).toBe(false);
+    expect(modelCardPickEnabled("")).toBe(false);
+    const classify = vi.fn(async () => ["contraception"]);
+    const polishSummary = vi.fn(async (d: string) => d.replace("สิ่งที่อยากได้: อยาก", "สิ่งที่อยากได้: ต้องการ"));
+    const rewordCard = vi.fn(async () => "ข้อความทดสอบ");
+    const statuses: ModelStatus[] = [];
+    const a = await preloadModel((s) => statuses.push({ ...s }), {
+      search: "",
+      gpuInfo: async () => ({ ok: true, f16: false }),
+      installed: async () => [{ model: "qwen3-1.7b", variants: ["webgpu_f32", "wasm"] }],
+      loadWebLLM: async (_b, label, onProgress) => {
+        onProgress(1);
+        return {
+          name: `${label} (WebGPU)`,
+          runtime: "webgpu",
+          ready: () => true,
+          classify,
+          polishSummary,
+          rewordCard,
+        };
+      },
+    });
+    expect(a?.runtime).toBe("webgpu");
+    expect(a?.ready()).toBe(true);
+    expect(statuses.at(-1)).toMatchObject({ state: "ready", runtime: "webgpu", label: "Qwen3-1.7B" });
+    expect(modelPillCopy(statuses.at(-1)!).text).toBe(READY_PILL);
+
+    const sorted = await classifyWithFallback("มีเรื่องอยากถาม ไม่รู้จะเริ่มยังไง", a);
+    expect(sorted.source).toBe("model");
+    expect(sorted.intents[0]).toBe("contraception");
+    expect(classify).toHaveBeenCalled();
+
+    const draft = draftSummary({ service: s1663, needText: "อยากได้ข้อมูล", intent: "contraception", ageBand: "unspecified" });
+    const polished = await polishWithFallback(draft, a);
+    expect(polishSummary).toHaveBeenCalled();
+    expect(polished).toContain("ต้องการ");
+
+    const dm = toDialogModel(a);
+    expect(dm?.reword).toBeTypeOf("function");
+    await dm!.reword!({ id: "ec.p000", answer_th: "ก", key_facts: ["ข"] } as any, new AbortController().signal);
+    expect(rewordCard).toHaveBeenCalled();
+  });
+
+  it("?model=off still skips the fetch and worker", async () => {
     const installed = vi.fn(async () => [{ model: "qwen3-1.7b", variants: ["wasm"] }]);
     const loadWllama = vi.fn(async () => fakeWasm());
     const loadWebLLM = vi.fn(async () => fakeWasm());
     const statuses: ModelStatus[] = [];
     const a = await preloadModel((s) => statuses.push({ ...s }), {
-      search: "",
+      search: "?model=off",
       gpuInfo: async () => ({ ok: false, f16: false }),
       installed,
       loadWllama,

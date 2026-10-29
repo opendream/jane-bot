@@ -246,8 +246,9 @@ export function resetPreloadForTests(): void {
 }
 
 /**
- * Flag-on: start the model once at app open. Flag-off: no fetch, no worker.
- * A finished or failed load is never restarted (including after a backgrounded tab).
+ * Start the model once at app open (same trigger as v2/answer-bank-chat).
+ * `?model=off` skips the fetch. A finished or failed load is never restarted
+ * (including after a backgrounded tab). MODEL_CARD_PICK does not gate this.
  */
 export function preloadModel(onStatus: (s: ModelStatus) => void, deps: StartModelDeps = {}): Promise<LLMAdapter | null> {
   const search = deps.search ?? (typeof location !== "undefined" ? location.search : "");

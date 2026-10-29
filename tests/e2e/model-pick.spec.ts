@@ -89,17 +89,16 @@ test("flag-on loading pill uses the readiness line", async ({ page }) => {
   if (state === "loading") await expect(pill(page)).toHaveText(READINESS_LINE);
 });
 
-test("flag-off default starts no model fetch or worker", async ({ page }) => {
-  const urls: string[] = [];
-  const workers: string[] = [];
-  page.on("request", (r) => urls.push(r.url()));
-  page.on("worker", (w) => workers.push(w.url()));
+test("FILMING-CHECKLIST steps 3 and 6: plain / reaches model-ready with a mock worker", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__JANE_RUNTIME_TEST__ = { wasm: "ok", gpu: false };
+  });
   await page.goto("/");
   await page.waitForLoadState("domcontentloaded");
   await expect(page.getByTestId("screen-start")).toBeVisible();
-  await page.waitForTimeout(800);
-  expect(urls.filter((u) => /\/models\//.test(u)), `model fetches: ${urls.filter((u) => /\/models\//.test(u)).join(", ")}`).toEqual([]);
-  expect(workers, `workers: ${workers.join(", ")}`).toEqual([]);
+  await expect(pill(page)).toHaveAttribute("data-state", "ready", { timeout: 10_000 });
+  await expect(pill(page)).toHaveText("🔒 โมเดลในเครื่อง: Qwen3-1.7B · ออฟไลน์");
+  await expect(pill(page)).toHaveAttribute("data-runtime", "wasm");
 });
 
 test("flag-on preload starts on the start screen and does not block onboarding", async ({ page }) => {

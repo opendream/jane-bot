@@ -1,5 +1,5 @@
 import "./styles.css";
-import { PRODUCT_NAME, PRODUCT_NAME_EN, MIN_AGE, THAI_COPY_STATUS, MATCHER, modelCardPickEnabled, shouldPreloadModel } from "./config";
+import { PRODUCT_NAME, PRODUCT_NAME_EN, MIN_AGE, THAI_COPY_STATUS, MATCHER, modelCardPickEnabled } from "./config";
 import { matcherEnabled, readMatcherFlag, type IntentMatcher } from "./core/matcher";
 import markSvg from "./assets/mark.svg?raw";
 import type { CrisisCategory, Intent, IntentResult } from "./core/types";
@@ -424,9 +424,6 @@ function revealQuizArt() {
   if (top < pad) window.scrollBy(0, top - pad);
 }
 
-if (!shouldPreloadModel()) {
-  modelStatus = { state: "off", runtime: "rules", label: "", progress: 0 };
-}
 render();
 preloadJaneArt();
 const applyAdapter = (a: LLMAdapter | null) => {
@@ -446,12 +443,11 @@ async function resolveMatcher(): Promise<IntentMatcher | null> {
   return loadMatcher({ search });
 }
 // Status updates only swap the small indicator, so typing is never interrupted.
-// Flag-on preload starts after the first paint and never blocks onboarding or crisis.
-if (shouldPreloadModel()) {
-  preloadModel((st) => {
-    modelStatus = st;
-    const old = app.querySelector('[data-testid="model-status"]');
-    if (old) old.replaceWith(modelPill());
-  }, { onAdapter: applyAdapter }).then(applyAdapter);
-}
+// Same trigger as v2/answer-bank-chat: start after first paint. Flag-on adds
+// preloadOnce (no retry). MODEL_CARD_PICK only gates pick UI, not this load.
+preloadModel((st) => {
+  modelStatus = st;
+  const old = app.querySelector('[data-testid="model-status"]');
+  if (old) old.replaceWith(modelPill());
+}, { onAdapter: applyAdapter }).then(applyAdapter);
 void resolveMatcher().then(applyMatcher);
