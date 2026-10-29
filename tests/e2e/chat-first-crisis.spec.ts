@@ -30,13 +30,13 @@ async function say(page: Page, text: string) {
 }
 
 async function modelCalls(page: Page) {
-  return page.evaluate(() => window.__JANE_MODEL_CALLS__ ?? { chat: 0, pick: 0, reword: 0 });
+  return page.evaluate(() => window.__JANE_RUNTIME_CALLS__ ?? { chat: 0, pick: 0 });
 }
 
 test("?chatFirst=1 synthetic crisis paraphrase shows the existing crisis card with zero model calls", async ({ page }) => {
   await openChatFirst(page);
   await openChat(page);
-  expect(await modelCalls(page)).toEqual({ chat: 0, pick: 0, reword: 0 });
+  expect(await modelCalls(page)).toEqual({ chat: 0, pick: 0 });
 
   // bt532 paraphrase: first-person harassment, missed by pinned crisis.ts.
   await say(page, "หนูถูกคุกคามที่ทำงาน");
@@ -46,14 +46,14 @@ test("?chatFirst=1 synthetic crisis paraphrase shows the existing crisis card wi
   await expect(page.getByTestId("crisis-female-officer")).toHaveCount(0);
 
   const calls = await modelCalls(page);
-  expect(calls.chat + calls.pick + calls.reword).toBe(0);
+  expect(calls.chat + calls.pick).toBe(0);
   expect(JSON.stringify(calls)).not.toContain("คุกคาม");
 });
 
 test("card-first synthetic crisis paraphrase shows the existing crisis card with zero model calls", async ({ page }) => {
   await openStubbed(page);
   await openChat(page);
-  expect(await modelCalls(page)).toEqual({ chat: 0, pick: 0, reword: 0 });
+  expect(await modelCalls(page)).toEqual({ chat: 0, pick: 0 });
 
   // bt532 paraphrase: first-person harassment, missed by pinned crisis.ts.
   await say(page, "หนูถูกคุกคามที่ทำงาน");
@@ -63,7 +63,7 @@ test("card-first synthetic crisis paraphrase shows the existing crisis card with
   await expect(page.getByTestId("crisis-female-officer")).toHaveCount(0);
 
   const calls = await modelCalls(page);
-  expect(calls.chat + calls.pick + calls.reword).toBe(0);
+  expect(calls.chat + calls.pick).toBe(0);
   expect(JSON.stringify(calls)).not.toContain("คุกคาม");
 });
 

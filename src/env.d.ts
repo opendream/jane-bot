@@ -11,10 +11,10 @@ interface Window {
     webllm?: "warmup-lost" | "generate-lost" | "disposed";
     wasm?: "ok" | "unavailable";
     gpu?: boolean;
-    pick?: "ok" | "timeout" | "not-ready" | "warmup" | "warmup-slow";
+    pick?: "ok" | "timeout" | "not-ready" | "warmup" | "warmup-slow" | "none" | "loading" | "fail";
   };
-  /** TestRuntime mock call counts. Never stores user content. */
-  __JANE_MODEL_CALLS__?: { chat: number; pick: number; reword: number };
+  /** E2E call counts for the stubbed model. Counts only, never user text. */
+  __JANE_RUNTIME_CALLS__?: { chat: number; pick: number };
 }
 declare module "*.css";
 declare module "*.webp" {

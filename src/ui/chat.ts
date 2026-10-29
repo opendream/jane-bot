@@ -35,6 +35,7 @@ export interface ChatMsg {
   note?: "referral" | "readonly";
   engine?: EngineTag;
   engineLabel?: string | null;
+  cardNote?: string | null;
 }
 
 export interface ChatState {
@@ -98,7 +99,7 @@ function fromReply(r: TurnReply, modelPick = false, chatFirst = false): ChatMsg 
   if (r.kind === "card") {
     return { from: "jane", text: r.text, cardId: r.card.id, placeholder: !!r.card.placeholder, reworded: r.reworded, original: r.card.answer_th,
       banner: r.banner, chips: r.chips, offer: r.offer, offerIntents: r.offerIntents, cap: r.capNotice,
-      engine: r.engine, engineLabel: engineAnswerLabel(r.engine, modelPick || chatFirst) };
+      engine: r.engine, engineLabel: engineAnswerLabel(r.engine, modelPick || chatFirst), cardNote: r.cardNote };
   }
   if (r.kind === "chat") {
     return { from: "jane", text: r.text, banner: r.banner, chips: r.card ? [] : r.chips, cap: r.capNotice };
@@ -113,7 +114,7 @@ function fromChatCard(r: Extract<TurnReply, { kind: "chat" }>, modelPick = false
   return {
     from: "jane", text: r.cardText, cardId: r.card.id, placeholder: !!r.card.placeholder, reworded: false, original: r.card.answer_th,
     banner: r.banner, chips: r.chips, offer: r.offer, offerIntents: r.offerIntents, cap: r.capNotice,
-    engine: r.engine, engineLabel: engineAnswerLabel(r.engine, modelPick || chatFirst),
+    engine: r.engine, engineLabel: engineAnswerLabel(r.engine, modelPick || chatFirst), cardNote: r.cardNote,
   };
 }
 
@@ -222,6 +223,7 @@ function bubble(m: ChatMsg, i: number, last: boolean, chat: ChatState, hooks: Ch
     h("div", { class: "msg-body" },
       m.banner?.length ? strip(m.banner) : null,
       m.engineLabel ? h("p", { class: "engine-label", "data-testid": "engine-label" }, m.engineLabel) : null,
+      m.cardNote ? h("p", { class: "note", "data-testid": "card-lang-note" }, m.cardNote) : null,
       h("p", { "data-testid": "chat-text" }, shown),
       m.reworded && h("p", { class: "note", "data-testid": "reword-note" }, "เรียบเรียงโดยโมเดลในเครื่อง ",
         h("button", { class: "link", "data-testid": "show-original", onclick: () => { m.showOriginal = !m.showOriginal; hooks.rerender(); } }, m.showOriginal ? "ดูฉบับเรียบเรียง" : "ดูข้อความต้นฉบับ")),

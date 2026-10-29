@@ -4,7 +4,8 @@ import type { LLMAdapter } from "./adapter";
 import type { Intent } from "../core/types";
 import { cachedBlob } from "./weights-cache";
 import { CLASSIFY_SCHEMA, CLASSIFY_SYSTEM, POLISH_SYSTEM, PICK_SYSTEM, PICK_MAX_TOKENS, REWORD_SYSTEM, REWORD_MAX_TOKENS, cleanPolished, cleanReword, parseIntent, pickSchema, pickUser, rewordUser } from "./prompts";
-import { CHAT_MAX_TOKENS, CHAT_SYSTEM, CHAT_TEMPERATURE, CHAT_TOP_P, cleanChat } from "./chat-system";
+import { CHAT_MAX_TOKENS, CHAT_TEMPERATURE, CHAT_TOP_P, chatSystemFor, cleanChat } from "./chat-system";
+import { detectChatLang } from "./chat-lang";
 import { wllamaContextLength } from "./wllama-ctx";
 import { replaceNeedLine, needLine } from "./summary-lines";
 import { WARMUP_BUDGET_MS } from "./loader-eta";
@@ -69,10 +70,10 @@ export async function loadWllama(
       } as any);
       return cleanReword(String(r.choices?.[0]?.message?.content ?? "")) || null;
     }),
-    chatReply: (text, history, signal) => serial(async () => {
+    chatReply: (text, history, signal, lang) => serial(async () => {
       const r: any = await w.createChatCompletion({
         messages: [
-          { role: "system", content: CHAT_SYSTEM },
+          { role: "system", content: chatSystemFor(lang ?? detectChatLang(text)) },
           ...history.map((h) => ({ role: h.role, content: h.content })),
           { role: "user", content: `${text} /no_think` },
         ],

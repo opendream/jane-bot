@@ -3,13 +3,15 @@ import { type BankCard, type BankTopic, type CardNext, shippable } from "./bank"
 import { AGE_REDIRECT_CARD, AGE_REDIRECT_ID, afterPick, type AgeState } from "./age";
 import { detectCrisis } from "./crisis";
 import { detectChatCrisisForTurn, noteChatCrisisHit } from "./chat-crisis";
-import { CHAT_TIMEOUT_MS, chatCrisisEnabled } from "../config";
+import { CHAT_TIMEOUT_MS, ENGLISH_MODEL_CHAT, chatCrisisEnabled } from "../config";
 import { normalize, findPhrases } from "./text";
 import { stripPII } from "./summary";
 import { checkInput, REFUSAL_CARDS, type GuardReason } from "./guard";
 import { retrieve } from "./retrieve";
 import { VALID_INTENTS } from "../llm/adapter";
-import { CHAT_HOLDING_LINE, acceptChatReply } from "../llm/chatGuard";
+import { acceptChatReply, holdingLineFor } from "../llm/chatGuard";
+import { detectChatLang, type ChatLang } from "../llm/chat-lang";
+import { bankAnswerForLang, cardNoteForLang } from "./card-lang";
 import { acceptReword, type RewordContext } from "../llm/rewordGuard";
 import type { IntentMatcher } from "./matcher";
 import {
@@ -42,7 +44,7 @@ export type { CardPicker, EngineReason, EngineTag } from "./pick-engine";
  * injected. State is memory-only and never logged.
  *   1. crisis rules (every message, synchronous, BEFORE anything else; never the model or matcher)
  *      pinned detectCrisis first, then an add-only chat-crisis check (never clears a pin)
- *   2. input guard   3. follow-up chips
+ *   2. input guard (refusals; chat-first banner-level wording comes after this)   3. follow-up chips
  *   4. optional matcher (injected only when the desktop-dev flag is on; abstain → fallback)
  *   5. rules retrieval   6. model pick (only if unsure; every free-text turn when modelPick is on, except locked routes)
  *   7. post-pick age gate (18+ card → redirect)   8. reword (validated, else verbatim)   9. reply with chips and referral offer
@@ -142,6 +144,7 @@ export interface DialogModel {
     text: string,
     history: { role: "user" | "assistant"; content: string }[],
     signal: AbortSignal,
+    lang?: ChatLang,
   ): Promise<string | null>;
 }
 
@@ -173,7 +176,8 @@ export interface TurnDeps {
   getModel?: () => DialogModel | null;
   /**
    * Chat-first (PR A). Default off: same card-first path as production.
-   * Tests inject true; production reads CHAT_FIRST / ?chatFirst=1.
+   * Tests inject true; the production build reads CHAT_FIRST / ?chatFirst=1
+   * (the query is not dev-only).
    */
   chatFirst?: boolean;
 }
@@ -187,12 +191,12 @@ export type TurnReply =
   | {
       kind: "card"; card: BankCard; text: string; reworded: boolean; via: Via; banner: CrisisCategory[];
       chips: CardNext[]; offer: "none" | "soft" | "strong"; offerIntents: Intent[]; capNotice: CapNotice; guard?: GuardReason;
-      engine?: EngineTag; engineReason?: EngineReason;
+      engine?: EngineTag; engineReason?: EngineReason; cardNote?: string | null;
     }
   | {
       kind: "chat"; text: string; card: BankCard | null; cardText: string | null; via: Via; banner: CrisisCategory[];
       chips: CardNext[]; offer: "none" | "soft" | "strong"; offerIntents: Intent[]; capNotice: CapNotice;
-      engine?: EngineTag; engineReason?: EngineReason; holding?: boolean;
+      engine?: EngineTag; engineReason?: EngineReason; holding?: boolean; cardNote?: string | null;
     };
 export type CapNotice = "soft" | "hard" | null;
 
@@ -312,31 +316,35 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
   };
   const verbatimCard = async (
     picked: BankCard, via: Via, engine?: EngineTag, engineReason?: EngineReason, guard?: GuardReason,
+    overlayLang: ChatLang | null = null,
   ) => {
     const card = afterPick(picked, state.ageBand, redirect);
     const shownVia: Via = card.id === AGE_REDIRECT_ID && picked.id !== AGE_REDIRECT_ID ? "age_redirect" : via;
     let offer = state.crisisFired && card.referral.offer === "none" ? "soft" : card.referral.offer;
     if (chatFirst && card.id === FALLBACK_ID && offer === "none") offer = "soft";
     const offerIntents = offer === "none" ? card.referral.intents : (card.referral.intents.length ? card.referral.intents : asIntents(state.topic, ["other"]));
+    const text = overlayLang ? bankAnswerForLang(card, overlayLang) : card.answer_th;
+    const cardNote = overlayLang ? cardNoteForLang(card, overlayLang) : null;
     const next: DialogState = {
       ...state, turns, recentUser, cardId: card.id,
       topic: card.topic === "general" ? state.topic : card.topic, pendingChips: card.next,
       chatFlow: applyClosedCard(state.chatFlow),
     };
-    return { state: next, reply: { kind: "card" as const, card, text: card.answer_th, reworded: false, via: shownVia, banner, chips: card.next, offer, offerIntents, capNotice, ...(guard ? { guard } : {}), ...(engine ? { engine } : {}), ...(engineReason ? { engineReason } : {}) } };
+    return { state: next, reply: { kind: "card" as const, card, text, reworded: false, via: shownVia, banner, chips: card.next, offer, offerIntents, capNotice, ...(guard ? { guard } : {}), ...(engine ? { engine } : {}), ...(engineReason ? { engineReason } : {}), ...(overlayLang ? { cardNote } : {}) } };
   };
 
-  // Chat-first: banner-level wording is a rules-only turn (no generation).
-  if (chatFirst && crisis.level === "banner") {
-    const top = rulesTop(input);
-    return verbatimCard(top.card, top.via, "rules-fallback");
-  }
-
   // 2. Input guard (image / method refusals). Abuse and complication detection is deferred to #21.
+  // Chat-first keeps this after a real crisis override and before banner-level wording, same order as card-first.
   const g = checkInput(input);
   if (g) {
     if (chatFirst) return verbatimCard(REFUSAL_CARDS[g], "guard", tagged ? "rules-guard" : undefined, undefined, g);
     return reply(REFUSAL_CARDS[g], "guard", g, pickOn ? "rules-guard" : undefined);
+  }
+
+  // Chat-first: banner-level wording is a rules-only turn (no generation). After refusals.
+  if (chatFirst && crisis.level === "banner") {
+    const top = rulesTop(input);
+    return verbatimCard(top.card, top.via, "rules-fallback");
   }
 
   // "Talk to a real person" → referral offer for the current topic.
@@ -350,7 +358,7 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
   if (chatFirst && (isShowCardNow(input) || chip?.card_id === SHOW_CARD_NOW_ID)) {
     const q = state.chatFlow.topicUserLines.length ? state.chatFlow.topicUserLines.join(" ") : input;
     const top = rulesTop(q);
-    return verbatimCard(top.card, top.via, "rules-chip");
+    return verbatimCard(top.card, top.via, "rules-chip", undefined, undefined, detectChatLang(input));
   }
   if (chip && usable(byId.get(chip.card_id))) {
     if (chatFirst) return verbatimCard(byId.get(chip.card_id)!, "followup", tagged ? "rules-chip" : undefined);
@@ -361,8 +369,13 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     const currentClip = stripPII(input).slice(0, MODEL_INPUT_CHARS);
     const retrieveText = topicText(state.chatFlow.topicUserLines, currentClip);
     const retrieved = retrieve(retrieveText, pool(), state.topic);
-    const topCard = retrieved.ranked[0]?.card;
-    const locked = !!(topCard && isLockedRouteId(topCard.id));
+    const lockedFrom = (text: string): BankCard | undefined => {
+      const top = retrieve(text, pool(), state.topic).ranked[0]?.card;
+      return top && isLockedRouteId(top.id) && usable(top) ? top : undefined;
+    };
+    // Card-first locks on the current message. Also lock if the last-3 window's top is a locked id.
+    const lockedCard = lockedFrom(input) ?? lockedFrom(retrieveText);
+    const locked = !!lockedCard;
     const plan = planTurn({
       flow: state.chatFlow,
       crisis: "none",
@@ -376,9 +389,17 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     });
 
     if (plan.reason === "post-crisis" || plan.reason === "locked") {
-      const chosen = plan.reason === "locked" && topCard && usable(topCard) ? topCard : rulesTop(retrieveText).card;
+      const chosen = plan.reason === "locked" && lockedCard ? lockedCard : rulesTop(retrieveText).card;
       const via = plan.reason === "locked" ? "rules" as const : rulesTop(retrieveText).via;
       return verbatimCard(chosen, via, plan.reason === "locked" ? "rules-locked" : undefined);
+    }
+
+    const lang = detectChatLang(input);
+    // English model chat is gated by ENGLISH_MODEL_CHAT. While false, skip
+    // generation and show the rules card (English body or Thai + DRAFT note).
+    if (lang === "en" && !ENGLISH_MODEL_CHAT) {
+      const top = rulesTop(retrieveText);
+      return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, lang);
     }
 
     const history: { role: "user" | "assistant"; content: string }[] = [];
@@ -388,13 +409,12 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
       history.push({ role: "user", content: prevUsers[i] });
       if (prevJane[i]) history.push({ role: "assistant", content: prevJane[i] });
     }
-
-    let chatText = CHAT_HOLDING_LINE;
+    let chatText = holdingLineFor(lang);
     let rejected = true;
     const live = deps.getModel?.() ?? deps.model ?? null;
     if (plan.callChat && live?.ready() && live.chatReply) {
-      const out = await withTimeout((s) => live.chatReply!(currentClip, history, s), CHAT_TIMEOUT_MS, deps.signal);
-      const acc = acceptChatReply(out);
+      const out = await withTimeout((s) => live.chatReply!(currentClip, history, s, lang), CHAT_TIMEOUT_MS, deps.signal);
+      const acc = acceptChatReply(out, lang);
       if (acc.ok) { chatText = acc.text; rejected = false; }
     }
 
@@ -452,7 +472,7 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
       offerIntents = offer === "none" ? shown.referral.intents : (shown.referral.intents.length ? shown.referral.intents : asIntents(shown.topic === "general" ? state.topic : shown.topic, ["other"]));
     }
 
-    const chips = shown ? shown.next : [showCardNowChip()];
+    const chips = shown ? shown.next : [showCardNowChip(lang)];
     const nextFlow = shown
       ? applyClosedCard(state.chatFlow)
       : applyChatTurn(state.chatFlow, currentClip, chatText, rejected);
@@ -470,7 +490,8 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
         kind: "chat",
         text: chatText,
         card: shown,
-        cardText: shown ? shown.answer_th : null,
+        cardText: shown ? bankAnswerForLang(shown, lang) : null,
+        cardNote: shown ? cardNoteForLang(shown, lang) : null,
         via,
         banner,
         chips,

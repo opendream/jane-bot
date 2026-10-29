@@ -1,4 +1,5 @@
 import { MODEL, chatFirstEnabled, shouldPreloadModel } from "../config";
+import { detectChatLang } from "./chat-lang";
 import { wllamaContextLength } from "./wllama-ctx";
 import { MODELS, type ModelSpec, type WebGpuBuild } from "./models";
 import type { LLMAdapter } from "./adapter";
@@ -46,7 +47,7 @@ export type RuntimeTestHook = {
   wasm?: "ok" | "unavailable";
   gpu?: boolean;
   /** Mock card-pick worker (e2e / unit). */
-  pick?: "ok" | "timeout" | "not-ready" | "warmup" | "warmup-slow" | "loading" | "fail";
+  pick?: "ok" | "timeout" | "not-ready" | "warmup" | "warmup-slow" | "loading" | "fail" | "none";
 };
 
 export {
@@ -118,26 +119,25 @@ function readTestHook(deps: StartModelDeps, params: URLSearchParams): RuntimeTes
   if (fromUrl === "pick-warmup-slow") return { wasm: "ok", gpu: false, pick: "warmup-slow" };
   if (fromUrl === "pick-loading") return { wasm: "ok", gpu: false, pick: "loading" };
   if (fromUrl === "pick-fail") return { wasm: "ok", gpu: false, pick: "fail" };
+  if (fromUrl === "chat-ok") return { wasm: "ok", gpu: false, pick: "none" };
   try {
     if (typeof window !== "undefined" && window.__JANE_RUNTIME_TEST__) return window.__JANE_RUNTIME_TEST__;
   } catch { /* node unit tests */ }
   return null;
 }
 
-/** E2E/unit stub counters. Never stores user text. */
-function bumpModelCall(kind: "chat" | "pick" | "reword"): void {
+function noteCall(kind: "chat" | "pick"): void {
   try {
-    if (typeof window === "undefined") return;
-    const cur = window.__JANE_MODEL_CALLS__ ?? { chat: 0, pick: 0, reword: 0 };
-    cur[kind] += 1;
-    window.__JANE_MODEL_CALLS__ = cur;
-  } catch { /* node unit tests */ }
+    const g = globalThis as unknown as { __JANE_RUNTIME_CALLS__?: { chat: number; pick: number } };
+    g.__JANE_RUNTIME_CALLS__ ??= { chat: 0, pick: 0 };
+    g.__JANE_RUNTIME_CALLS__[kind]++;
+  } catch { /* node unit tests without a window */ }
 }
 
 function mockPickCard(hook: RuntimeTestHook): LLMAdapter["pickCard"] | undefined {
   if (!hook.pick || hook.pick === "not-ready" || hook.pick === "fail") return undefined;
   return async (_text, shortlist, _prev, signal) => {
-    bumpModelCall("pick");
+    noteCall("pick");
     if (hook.pick === "timeout") {
       await new Promise<void>((_resolve, reject) => {
         const onAbort = () => reject(new Error("aborted"));
@@ -145,22 +145,28 @@ function mockPickCard(hook: RuntimeTestHook): LLMAdapter["pickCard"] | undefined
         signal?.addEventListener("abort", onAbort, { once: true });
       });
     }
-    const id = shortlist[0]?.id ?? "none";
+    const id = hook.pick === "none" ? "none" : (shortlist[0]?.id ?? "none");
     return JSON.stringify({ id });
   };
 }
 
+/** Synthetic guarded lines for the chat-first e2e stub. Never user text. */
 const MOCK_CHAT_REPLY = "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย";
+const MOCK_CHAT_REPLY_EN = "I'm here. You can tell me more whenever you like.";
 
 function mockChatReply(hook: RuntimeTestHook): LLMAdapter["chatReply"] | undefined {
   if (!hook.pick || hook.pick === "not-ready" || hook.pick === "fail") return undefined;
-  return async () => {
-    bumpModelCall("chat");
-    return MOCK_CHAT_REPLY;
+  return async (text) => {
+    noteCall("chat");
+    return detectChatLang(text) === "en" ? MOCK_CHAT_REPLY_EN : MOCK_CHAT_REPLY;
   };
 }
 
 function hookLoaders(hook: RuntimeTestHook): Pick<StartModelDeps, "gpuInfo" | "installed" | "loadWebLLM" | "loadWllama"> {
+  try {
+    const g = globalThis as unknown as { __JANE_RUNTIME_CALLS__?: { chat: number; pick: number } };
+    g.__JANE_RUNTIME_CALLS__ ??= { chat: 0, pick: 0 };
+  } catch { /* node */ }
   const pickCard = mockPickCard(hook);
   const chatReply = mockChatReply(hook);
   return {
@@ -255,7 +261,7 @@ function watchWebGpu(adapter: LLMAdapter, onFail: () => void): LLMAdapter {
       ? (card, signal) => guard(adapter.rewordCard!(card, signal))
       : undefined,
     chatReply: adapter.chatReply
-      ? (text, history, signal) => guard(adapter.chatReply!(text, history, signal))
+      ? (text, history, signal, lang) => guard(adapter.chatReply!(text, history, signal, lang))
       : undefined,
     warmupRemainingMs: adapter.warmupRemainingMs ? () => adapter.warmupRemainingMs!() : () => getWarmupRemainingMs(),
     dispose: () => adapter.dispose?.(),
