@@ -16,6 +16,7 @@
  */
 
 import type { ChatLang } from "./chat-lang";
+import type { ChatReplyOpts } from "./adapter";
 
 export const CHAT_SYSTEM_STATUS = "draft" as const;
 
@@ -62,6 +63,15 @@ export const CHAT_SYSTEM_EN =
   "Do not roleplay, flirt, or describe sexual scenes. Do not ask for their name, exact age, place, or photos. " +
   "Do not repeat personal information they typed.";
 
+/**
+ * DRAFT. Short AMBIGUOUS-turn add-on. Only concatenated when the extra check
+ * is AMBIGUOUS; keeps the system prompt inside the existing token budget.
+ */
+export const CHAT_SYSTEM_AMBIGUOUS_TH =
+  "น้องอาจทุกข์ อบอุ่น ห้ามบอกวิธีทำร้ายตัวเอง ชวนให้ขอความช่วยเหลือ";
+export const CHAT_SYSTEM_AMBIGUOUS_EN =
+  "They may be unsafe. Be gentle and supportive. Never give methods or amounts. Encourage reaching out.";
+
 /** DRAFT. Appended when a confident approved card is the only allowed source. */
 export const CHAT_GROUND_FACTS_TH =
   "ตอบจากข้อเท็จจริงด้านล่างเท่านั้น ด้วยน้ำเสียงพี่เจนที่อบอุ่น " +
@@ -89,16 +99,20 @@ export const CHAT_GROUND_STRICT_EN =
   "Stricter this time: no numbers, ages, durations, doses, prices, phone numbers, places, " +
   "instructions (heat, wash, take, insert, apply), or parent/guardian/prescription/permission claims that are not in the facts. If not there, say you do not know.";
 
-export function chatSystemFor(lang: ChatLang, grounding?: ChatGrounding): string {
+export function chatSystemFor(lang: ChatLang, opts?: ChatReplyOpts): string {
   const base = lang === "en" ? CHAT_SYSTEM_EN : CHAT_SYSTEM;
-  if (!grounding) return base;
+  const persona = opts?.ambiguous
+    ? `${base} ${lang === "en" ? CHAT_SYSTEM_AMBIGUOUS_EN : CHAT_SYSTEM_AMBIGUOUS_TH}`
+    : base;
+  const g = opts?.grounding;
+  if (!g) return persona;
   const factsIntro = lang === "en" ? CHAT_GROUND_FACTS_EN : CHAT_GROUND_FACTS_TH;
   const none = lang === "en" ? CHAT_GROUND_NONE_EN : CHAT_GROUND_NONE_TH;
   const strict = lang === "en" ? CHAT_GROUND_STRICT_EN : CHAT_GROUND_STRICT_TH;
-  const parts = [base];
-  if (grounding.facts) parts.push(factsIntro, grounding.facts);
+  const parts = [persona];
+  if (g.facts) parts.push(factsIntro, g.facts);
   else parts.push(none);
-  if (grounding.strict) parts.push(strict);
+  if (g.strict) parts.push(strict);
   return parts.join("\n");
 }
 

@@ -284,7 +284,7 @@ function watchWebGpu(adapter: LLMAdapter, onFail: () => void): LLMAdapter {
       ? (card, signal) => guard(adapter.rewordCard!(card, signal))
       : undefined,
     chatReply: adapter.chatReply
-      ? (text, history, signal, lang, groupId) => guard(adapter.chatReply!(text, history, signal, lang, groupId))
+      ? (text, history, signal, lang, groupId, opts) => guard(adapter.chatReply!(text, history, signal, lang, groupId, opts))
       : undefined,
     warmupRemainingMs: adapter.warmupRemainingMs ? () => adapter.warmupRemainingMs!() : () => getWarmupRemainingMs(),
     dispose: () => adapter.dispose?.(),

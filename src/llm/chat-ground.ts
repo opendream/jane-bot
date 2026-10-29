@@ -8,6 +8,7 @@
 import { ageAllowed, type AgeState } from "../core/age";
 import type { BankCard } from "../core/bank";
 import type { Retrieval } from "../core/retrieve";
+import type { ChatReplyOpts } from "./adapter";
 import { acceptChatReply, type ChatGuardReason } from "./chatGuard";
 import { acceptChatFacts, type FactCheckReason } from "./chat-factcheck";
 import type { ChatLang } from "./chat-lang";
@@ -47,10 +48,11 @@ export function acceptGroundedChat(
   raw: string | null | undefined,
   lang: ChatLang,
   cardText: string | null | undefined,
+  opts?: ChatReplyOpts,
 ): GroundedAccept {
   const trimmed = trimToLastCompleteSentence(raw);
   if (!trimmed) return { ok: false, reasons: ["incomplete"] };
-  const guard = acceptChatReply(trimmed, lang);
+  const guard = acceptChatReply(trimmed, lang, opts);
   if (!guard.ok) return guard;
   const facts = acceptChatFacts(trimmed, cardText ?? "");
   if (!facts.ok) return { ok: false, reasons: facts.reasons };

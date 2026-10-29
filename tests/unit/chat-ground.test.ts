@@ -32,7 +32,7 @@ describe("grounded system prompt", () => {
   });
 
   it("injects the approved card as the only allowed source", () => {
-    const prompt = chatSystemFor("th", { facts: leak.answer_th });
+    const prompt = chatSystemFor("th", { grounding: { facts: leak.answer_th } });
     expect(prompt.startsWith(CHAT_SYSTEM)).toBe(true);
     expect(prompt).toContain(CHAT_GROUND_FACTS_TH);
     expect(prompt).toContain(leak.answer_th);
@@ -40,21 +40,21 @@ describe("grounded system prompt", () => {
   });
 
   it("with no card, only a short warm no-fact reply pointing at ขอข้อมูลเลย", () => {
-    const prompt = chatSystemFor("th", { facts: null });
+    const prompt = chatSystemFor("th", { grounding: { facts: null } });
     expect(prompt).toContain(CHAT_GROUND_NONE_TH);
     expect(prompt).toContain("ขอข้อมูลเลย");
     expect(prompt).not.toContain(leak.answer_th);
   });
 
   it("strict retry appends the stricter line", () => {
-    const prompt = chatSystemFor("th", { facts: leak.answer_th, strict: true });
+    const prompt = chatSystemFor("th", { grounding: { facts: leak.answer_th, strict: true } });
     expect(prompt).toContain(CHAT_GROUND_STRICT_TH);
   });
 
   it("prompt templates never invent hotlines, EC prices, OSCC hours, or s.133", () => {
     const blob = [
       CHAT_SYSTEM, CHAT_GROUND_FACTS_TH, CHAT_GROUND_NONE_TH, CHAT_GROUND_STRICT_TH,
-      chatSystemFor("th", { facts: leak.answer_th }),
+      chatSystemFor("th", { grounding: { facts: leak.answer_th } }),
     ].join("\n");
     expect(blob).not.toMatch(/1663|1300|191/);
     expect(blob).not.toMatch(/มาตรา\s*133|ส\.?\s*133/i);

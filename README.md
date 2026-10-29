@@ -30,16 +30,20 @@ Art: 2018 *Sex Safe Safe* vector stars and approved figures in `src/assets/jane/
    `ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ` and a button that opens the existing crisis screen;
    the bank card is only a fallback on guard fail after retry, timeout, model not ready, or
    non-Thai text. Card-first stays card plus that DRAFT line), or **NONE**.
-   Precision guards (never on the pin) only downgrade CLEAR → AMBIGUOUS, never to NONE, and only when the cue is
-   structurally bound to the crisis term: Thai `ไม่` / `ไม่ค่อย` / `ไม่เคย` / `ไม่เคยคิด` / `ไม่คิดจะ` / `ไม่ได้` /
-   `ไม่ได้คิดจะ` with optional spaces immediately before `อยาก`/`คิดจะ`/`รู้สึก` (not `ทนไม่ได้` / `นอนไม่ได้` / `กินไม่ได้` /
-   `ไม่ไหว`); up to two words between don't/dont/do not/never and wanna/want to die; a same-clause question whether the
-   feeling is a side effect (`X เป็นผลข้างเคียง…ไหม`, `กิน/ใช้/ฉีด` drug `แล้วรู้สึก X` …ไหม/มั้ย, or ทำให้…ได้ไหม — not
-   `ไหวไหม` / `เข้าใจหนูไหม` / `ควรบอกแม่ไหม`) or `ไม่ได้รู้สึก`; same-clause passive/accidental cut (shaving, wrapper, razor,
-   nails, by accident, `โดนมีดบาด`, `บาดตอนโกน`, `เผลอบาด`, `ตอนโกน`). `มีดโกน` / `ที่ใช้โกนขน` naming the tool is not an
-   accident. A help-seeking tail never weakens a disclosure. The multi-turn window may only escalate to CLEAR (a previous
-   AMBIGUOUS line is not inherited). A separate first-person disclosure in the same message still opens the crisis screen.
-   Jane is Thai-only for now; English extra-check rules are a short exact-phrase list.
+   Precision guards (never on the pin) only downgrade CLEAR → AMBIGUOUS, never to NONE, and only on a **narrow
+   positive** match of the whole construction (anything else stays CLEAR; no exception allowlists): Thai `ไม่` /
+   `ไม่ค่อย` / `ไม่เคย` / `ไม่คิดจะ` / `ไม่ได้` at clause start or right after `หนู`/`เรา`/`ฉัน`/`ผม`/`กู`/`ดิฉัน`/`เค้า`
+   (optional `ก็`), immediately before `อยาก`/`รู้สึก`/`คิด` + the crisis term — a `ไม่ได้` after any other Thai word is
+   never negation; up to two words between don't/dont/do not/never and wanna/want to die; a same-clause question whether
+   the feeling is an effect of a **closed-list medication or medical product** (`ผลข้างเคียง` / side effect, `<drug>
+   ทำให้รู้สึก X ได้ไหม`, or `กิน`/`ใช้`/`ฉีด` `<drug>` `แล้วรู้สึก X` + clause-final question — a person or place as
+   cause stays CLEAR); same-clause **explicit accidental cut** (`โดน X บาด`, `เผลอทำ X บาด`, `บาดตอนโกน`/`ตอนทำกับข้าว`,
+   accidentally cut / cut myself shaving). Reflexive `cut ตัวเอง` / ข้อมือ / แขน, or any repetition marker (`ทุกคืน` /
+   every night), is CLEAR whatever tool is named; a bare tool noun is never a cue. A help-seeking tail never weakens a
+   disclosure. The multi-turn window may only escalate to CLEAR (a previous AMBIGUOUS line is not inherited). A separate
+   first-person disclosure in the same message still opens the crisis screen. Jane is Thai-only for now; English
+   extra-check rules are a short exact-phrase list. Chat-first AMBIGUOUS sends any Thai-majority mixed line to the model
+   (users code-mix crisis words), with an add-only output check that rejects method/means content and dismissive help.
 
 ## On-device model (optional; the app works without it)
 

@@ -21,9 +21,9 @@ function spyModel(reply: string | string[] = SAFE) {
   let n = 0;
   const model: DialogModel = {
     ready: () => true,
-    chatReply: vi.fn(async (_t, _h, _s, _lang, _gid, grounding) => {
+    chatReply: vi.fn(async (_t, _h, _s, _lang, _gid, opts) => {
       calls.chat++;
-      calls.groundings.push(grounding);
+      calls.groundings.push(opts?.grounding);
       if (list) return list[Math.min(n++, list.length - 1)] ?? SAFE;
       return reply;
     }),

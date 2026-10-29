@@ -1,11 +1,41 @@
 import { describe, expect, it } from "vitest";
 import {
+  ACK_LINE_TH,
+  ACK_LINE_TH_STATUS,
   combineUnanswered,
   countedGroupMessages,
+  dropAckLines,
   groupReplyLang,
   groupTakesNoModelPath,
+  isAckLine,
   isEmojiOnly,
 } from "../../src/core/chat-group";
+
+describe("isAckLine", () => {
+  it("treats thanks and short particles as ack, not topic lines", () => {
+    expect(isAckLine("ขอบคุณค่ะ")).toBe(true);
+    expect(isAckLine("ขอบคุณครับ")).toBe(true);
+    expect(isAckLine("thanks")).toBe(true);
+    expect(isAckLine("thank you")).toBe(true);
+    expect(isAckLine("ok")).toBe(true);
+    expect(isAckLine("โอเค")).toBe(true);
+    expect(isAckLine("ถุงยางแตกต้องทำยังไง")).toBe(false);
+    expect(isAckLine("ช่วงนี้กังวลเรื่องแฟน")).toBe(false);
+    expect(isAckLine("แล้วหนูควรพูดยังไงดี")).toBe(false);
+  });
+
+  it("drops whole-line acks and keeps the remaining topic lines", () => {
+    expect(dropAckLines(["ยาคุมฉุกเฉินกินเมื่อไร", "ขอบคุณค่ะ"])).toEqual(["ยาคุมฉุกเฉินกินเมื่อไร"]);
+    expect(dropAckLines(["thanks", "ok", "thank you"])).toEqual([]);
+    expect(dropAckLines(["ช่วงนี้กังวลเรื่องแฟน"])).toEqual(["ช่วงนี้กังวลเรื่องแฟน"]);
+  });
+
+  it("exports a one-line DRAFT Thai acknowledgement", () => {
+    expect(ACK_LINE_TH_STATUS).toBe("draft");
+    expect(ACK_LINE_TH.includes("\n")).toBe(false);
+    expect(ACK_LINE_TH.length).toBeGreaterThan(0);
+  });
+});
 
 describe("isEmojiOnly", () => {
   it("treats emoji-only lines as emoji and letter lines as not", () => {

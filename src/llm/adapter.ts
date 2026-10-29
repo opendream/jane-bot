@@ -2,7 +2,16 @@ import type { Intent, IntentResult } from "../core/types";
 import { classifyNeed } from "../core/intent";
 import { detectCrisis } from "../core/crisis";
 import type { ChatLang } from "./chat-lang";
-import type { ChatGrounding } from "./chat-system";
+
+/**
+ * Extra chat-turn flags. Stays the 6th `chatReply` argument.
+ * `ambiguous` adds the short AMBIGUOUS system line.
+ * `grounding` is the approved card (or none) for the fact-checked chat path.
+ */
+export type ChatReplyOpts = {
+  ambiguous?: boolean;
+  grounding?: { facts: string | null; strict?: boolean };
+};
 
 /**
  * Interface for an optional in-browser model (WebLLM / wllama). The deterministic rules are always
@@ -28,7 +37,8 @@ export interface LLMAdapter {
    * Chat-first connective talk. Output is trimmed, then chatGuard, then the
    * add-only fact check. History is PII-stripped, memory-only, and excludes
    * crisis lines. `groupId` is the generation token; a stale token must
-   * return without generating. `grounding` is the approved card (or none).
+   * return without generating. `opts` is the 6th argument (AMBIGUOUS flag
+   * plus the approved-card grounding, or none).
    */
   chatReply?(
     text: string,
@@ -36,7 +46,7 @@ export interface LLMAdapter {
     signal: AbortSignal,
     lang?: ChatLang,
     groupId?: number,
-    grounding?: ChatGrounding,
+    opts?: ChatReplyOpts,
   ): Promise<string | null>;
   /** Tear down a worker / GPU engine. Used when WebGPU dies and we fall back. */
   dispose?(): void | Promise<void>;

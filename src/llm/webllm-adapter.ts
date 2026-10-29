@@ -150,7 +150,7 @@ export async function bindWebLLMEngine(
     },
     pickCard: async (text, shortlist, prev) => ask(PICK_SYSTEM, pickUser(text, shortlist, prev), PICK_MAX_TOKENS, pickSchema(shortlist.map((s) => s.id))),
     rewordCard: async (card) => cleanReword(await ask(REWORD_SYSTEM, rewordUser(card), REWORD_MAX_TOKENS)) || null,
-    chatReply: (text, history, signal, lang, groupId, grounding) => chatQueue.run(groupId, signal, async (s) => {
+    chatReply: (text, history, signal, lang, groupId, opts) => chatQueue.run(groupId, signal, async (s) => {
       if (shouldSkipGeneration(groupId, s)) return null;
       if (dead) throw dead;
       const stop = () => {
@@ -161,7 +161,7 @@ export async function bindWebLLMEngine(
       try {
         const r: any = await engine.chat.completions.create({
           messages: [
-            { role: "system", content: chatSystemFor(lang ?? detectChatLang(text), grounding) },
+            { role: "system", content: chatSystemFor(lang ?? detectChatLang(text), opts) },
             ...history.map((h) => ({ role: h.role, content: h.content })),
             { role: "user", content: text },
           ],

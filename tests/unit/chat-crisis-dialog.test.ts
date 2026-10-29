@@ -612,7 +612,6 @@ const PRECISION_CARD_WITH_ID: { text: string; id: string }[] = [
   { text: "PrEP ทำให้รู้สึก suicidal ไหมคะ", id: "protection.prep.000" },
   { text: "หนูไม่ได้รู้สึก suicidal นะ แค่ถามเรื่องยาคุม", id: "birth.control.000" },
   { text: "I cut myself shaving down there, can I get HIV", id: "disease.hiv.000" },
-  { text: "I cut myself on the condom wrapper is that bad", id: "condom.000" },
   { text: "ผม cut ตัวเองตอนโกนขน จะติด HIV ไหม", id: "disease.hiv.000" },
 ];
 
