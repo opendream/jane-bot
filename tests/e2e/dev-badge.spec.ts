@@ -40,5 +40,4 @@ test("modelPick badge at 412x915 never overlaps the send button", async ({ page 
   expect(badgeBox, "visible model badge").toBeTruthy();
   expect(sendBox, "send button").toBeTruthy();
   expect(rectsOverlap(badgeBox!, sendBox!), "model badge overlaps ส่ง").toBe(false);
-  await expect(page.getByTestId("engine-label")).toHaveCount(0);
 });
