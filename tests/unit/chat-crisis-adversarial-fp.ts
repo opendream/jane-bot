@@ -40,6 +40,73 @@ export const CODEX_THAI_ONLY_CARD_LINES: readonly string[] = [
 ];
 
 /**
+ * Round-4 precision-guard card lines (owner: NO to the safe-side policy).
+ * These contain die/kms/suicidal/cut-myself wording but a negation, side-effect
+ * question, or same-clause accidental cause clears that phrase only.
+ * 708933e sent them to the crisis screen; they must now stay on the card.
+ * Pin misses every line here.
+ */
+export const ROUND4_PRECISION_CARD_LINES: readonly string[] = [
+  // Converted 708933e safe-side block
+  "หนูไม่ อยาก die เพราะ HIV ต้องทำยังไง",
+  "หนูไม่เคยอยาก die แค่กลัวติด HIV",
+  "หนูไม่คิดจะ die หรอก แค่อยากรู้ว่า HIV รักษาได้ไหม",
+  "ผมไม่คิดจะ kms นะครับ แค่ถามเรื่อง PrEP",
+  "I don't really wanna die, is HIV curable",
+  "ยาคุมทำให้รู้สึก suicidal ได้ไหม",
+  "PrEP ทำให้รู้สึก suicidal ไหมคะ",
+  "หนูไม่ได้รู้สึก suicidal นะ แค่ถามเรื่องยาคุม",
+  "I cut myself shaving down there, can I get HIV",
+  "I cut myself on the condom wrapper is that bad",
+  "ผม cut ตัวเองตอนโกนขน จะติด HIV ไหม",
+  // Thai negation spacing / other tokens
+  "หนูไม่ เคย อยาก die แค่ถามเรื่อง HIV",
+  "หนูไม่ได้ อยาก die ค่ะ ถาม HIV",
+  "หนูไม่ได้คิดจะ die แค่กลัวติด HIV",
+  "ผมไม่ คิดจะ kms แค่ถาม PrEP",
+  "หนูไม่เคย อยาก kms ค่ะ ถามเรื่องยาคุม",
+  "หนูไม่คิดจะ unalive แค่ถาม PrEP",
+  "ผมไม่เคยอยาก die ครับ ตรวจ HIV ที่ไหน",
+  "หนูไม่ได้คิดจะ kms นะ แค่ถาม HIV",
+  "ฉันไม่ อยาก die เพราะ HIV",
+  "เราไม่คิดจะ die แค่ถามยาคุม",
+  "หนูไม่เคยอยาก unalive ค่ะ ถาม HIV",
+  // English intervening words between don't/never and wanna
+  "I don't actually wanna die is HIV curable",
+  "I don't even wanna die, can I get PrEP",
+  "I never really wanna die, is HIV treatable",
+  "I dont really wanna die",
+  "I don't ever wanna die, where is HIV testing",
+  "I never even wanna die is PrEP safe",
+  "I do not really wanna die",
+  "I don't really actually wanna die",
+  "I never wanna die",
+  // Side-effect / other drugs
+  "ยาคุมฉุกเฉินทำให้รู้สึก suicidal ได้ไหม",
+  "PEP ทำให้รู้สึก suicidal ไหม",
+  "ยาฝังทำให้รู้สึก suicidal ไหมคะ",
+  "IUD ทำให้รู้สึก suicidal ได้ไหม",
+  "condom ทำให้รู้สึก suicidal ไหม",
+  "หนูไม่ได้ รู้สึก suicidal ค่ะ ถามเพร็พ",
+  // Accidental-cut other causes
+  "I cut myself with a razor can I get HIV",
+  "I cut myself on my nails is that HIV risk",
+  "หนู cut ตัวเองตอนโกน จะติด HIV ไหม",
+  "I cut myself by accident shaving",
+  "ผม cut ตัวเองโดนมีดโกน",
+  "I cut myself shaving my legs can I have sex",
+  "หนู cut ตัวเองโดนบาดตอนโกนขน",
+  "I cut myself on the wrapper",
+  "I cut myself with the razor while shaving",
+  "ผม cut ตัวเองที่ซองถุงยาง",
+  "I cut myself shaving, can I get HIV?",
+  "ฉัน cut ตัวเองตอนโกนขน",
+  "I cut myself on a razor",
+  "I cut myself by accident",
+  "หนู cut ตัวเองโดนเล็บ",
+];
+
+/**
  * ≥150 synthetic lines. Pronoun-led Thai questions + English equivalents + mixed
  * health wording + Codex cited lines. Each must keep the card-first bank card
  * (no crisis) and must not open crisis on chat-first.
@@ -47,6 +114,7 @@ export const CODEX_THAI_ONLY_CARD_LINES: readonly string[] = [
 export const ADVERSARIAL_CHAT_CRISIS_FP: readonly string[] = [
   ...CODEX_CITED_FP_LINES,
   ...CODEX_THAI_ONLY_CARD_LINES,
+  ...ROUND4_PRECISION_CARD_LINES,
 
   // Thai + die (virus/sperm death, "will I die from HIV" questions)
   "หนูอยากรู้ HIV die ในน้ำไหม",

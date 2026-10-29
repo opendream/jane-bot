@@ -25,6 +25,7 @@ import {
   ADVERSARIAL_CHAT_CRISIS_FP,
   CODEX_CITED_FP_LINES,
   CODEX_THAI_ONLY_CARD_LINES,
+  ROUND4_PRECISION_CARD_LINES,
 } from "./chat-crisis-adversarial-fp";
 
 // SYNTHETIC eval/fixture texts only. Counts and ids; never user logs.
@@ -379,7 +380,8 @@ describe("English extra-check false positives on every normal set (ENGLISH_MODEL
     expect(new Set(ADVERSARIAL_CHAT_CRISIS_FP).size).toBe(ADVERSARIAL_CHAT_CRISIS_FP.length);
     expect(CODEX_CITED_FP_LINES).toHaveLength(11);
     expect(CODEX_THAI_ONLY_CARD_LINES.length).toBeGreaterThanOrEqual(14);
-    for (const line of [...CODEX_CITED_FP_LINES, ...CODEX_THAI_ONLY_CARD_LINES]) {
+    expect(ROUND4_PRECISION_CARD_LINES.length).toBeGreaterThanOrEqual(41);
+    for (const line of [...CODEX_CITED_FP_LINES, ...CODEX_THAI_ONLY_CARD_LINES, ...ROUND4_PRECISION_CARD_LINES]) {
       expect(ADVERSARIAL_CHAT_CRISIS_FP, line).toContain(line);
     }
     const advDet = scanDetector(ADVERSARIAL_ITEMS);
