@@ -383,11 +383,12 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
 
     const lang = detectChatLang(input);
     const script = modelChatScript(input);
-    // Model chat is gated by letter script, not the English word list.
-    // Only clearly Thai (Thai letter share ≥ 60%) calls the model. English
-    // (Latin share ≥ 60%) is skipped while ENGLISH_MODEL_CHAT is false.
-    // Mixed/unclear (Thai share between 40% and 60%, <2 letters, no letters)
-    // never calls the model. Reply language still uses detectChatLang.
+    // Model chat is gated by remaining Latin letters after stripping the
+    // health-loanword allowlist, not the English word list. Only clearly
+    // Thai (no leftover Latin; Thai share of what remains ≥ 60%) calls the
+    // model. English (Latin share ≥ 60%) is skipped while ENGLISH_MODEL_CHAT
+    // is false. Mixed/unclear never calls the model. Reply language still
+    // uses detectChatLang.
     const allowModel = script === "th" || (script === "en" && ENGLISH_MODEL_CHAT);
     if (!allowModel) {
       const top = rulesTop(retrieveText);
