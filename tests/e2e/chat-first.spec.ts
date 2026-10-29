@@ -4,7 +4,7 @@
  */
 import { test, expect, type Page } from "@playwright/test";
 import { startAs } from "./helpers";
-import { SHOW_CARD_NOW, SHOW_CARD_NOW_EN } from "../../src/core/chat-flow";
+import { SHOW_CARD_NOW } from "../../src/core/chat-flow";
 import { CARD_THAI_NOTE_EN } from "../../src/core/card-lang";
 
 const lastJane = (page: Page) => page.locator('[data-testid="chat-msg"][data-from="jane"]').last();
@@ -70,28 +70,18 @@ test("a crisis message makes zero model calls", async ({ page }) => {
   expect(after.pick).toBe(0);
 });
 
-test("a stubbed English turn replies in English and shows the English chip", async ({ page }) => {
+test("an English question shows a bank card with the DRAFT note and zero model calls", async ({ page }) => {
   await openChatFirst(page);
   await openChat(page);
-  await say(page, "I am worried about my boyfriend");
-  await expect(lastJane(page).getByTestId("chat-text")).toContainText("I'm here");
-  await expect(page.getByRole("button", { name: SHOW_CARD_NOW_EN })).toBeVisible();
-  await expect(page.getByRole("button", { name: SHOW_CARD_NOW })).toHaveCount(0);
-});
-
-test("the English chip shows a Thai-only card with the DRAFT note and no extra model calls", async ({ page }) => {
-  await openChatFirst(page);
-  await openChat(page);
-  await say(page, "I am worried about my boyfriend");
-  await expect(lastJane(page).getByTestId("chat-text")).toContainText("I'm here");
   const before = await modelCalls(page);
-  expect(before.chat).toBeGreaterThan(0);
-  await page.getByRole("button", { name: SHOW_CARD_NOW_EN }).click();
+  expect(before.chat).toBe(0);
+  expect(before.pick).toBe(0);
+  await say(page, "I want to know about birth control");
   await expect(lastJane(page)).toHaveAttribute("data-card", /.+/);
   await expect(lastJane(page).getByTestId("card-lang-note")).toHaveText(CARD_THAI_NOTE_EN);
   const after = await modelCalls(page);
-  expect(after.chat).toBe(before.chat);
-  expect(after.pick).toBe(before.pick);
+  expect(after.chat).toBe(0);
+  expect(after.pick).toBe(0);
 });
 
 test("an English crisis-like message makes zero model calls", async ({ page }) => {

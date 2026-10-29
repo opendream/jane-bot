@@ -242,3 +242,67 @@ describe("chatGuard English path", () => {
     expect(CHAT_HOLDING_LINE_EN.length).toBeLessThanOrEqual(CHAT_MAX_CHARS_EN);
   });
 });
+
+describe("chatGuard round-3 dose / claim / price holes", () => {
+  it.each([
+    "ตรวจเลือดพรุ่งนี้ก็รู้ผลแล้วค่ะ",
+    "กินเม็ดเดียวก่อนนอนนะ",
+    "ถ้ากินทันทีจะไม่ท้องค่ะ",
+    "ราคาประมาณห้าร้อยบาทนะ",
+  ])("rejects the Thai output %s", (line) => {
+    expect(acceptChatReply(line).ok).toBe(false);
+  });
+
+  it.each([
+    "Take two emergency contraceptive pills now.",
+    "You will definitely not get pregnant.",
+    "It costs fifty baht.",
+  ])("rejects the English output %s", (line) => {
+    expect(acceptChatReply(line, "en").ok).toBe(false);
+  });
+
+  it("names the dose / claim / price reasons for the round-3 cases", () => {
+    expect(chatGuardFailures("กินเม็ดเดียวก่อนนอนนะ")).toContain("dose");
+    expect(chatGuardFailures("Take two emergency contraceptive pills now.", "en")).toContain("dose");
+    expect(chatGuardFailures("ตรวจเลือดพรุ่งนี้ก็รู้ผลแล้วค่ะ")).toContain("claim");
+    expect(chatGuardFailures("ถ้ากินทันทีจะไม่ท้องค่ะ")).toContain("claim");
+    expect(chatGuardFailures("You will definitely not get pregnant.", "en")).toContain("claim");
+    expect(chatGuardFailures("ราคาประมาณห้าร้อยบาทนะ")).toContain("price");
+    expect(chatGuardFailures("It costs fifty baht.", "en")).toContain("price");
+  });
+
+  it("still accepts warm Thai replies that are not doses, claims, or prices", () => {
+    const thai = [
+      "คุยเรื่องยาคุมได้เลยนะ พี่ฟังอยู่",
+      "เรื่องยาฉุกเฉินน้องเล่าเพิ่มได้เลย",
+      "วิธีคุมกำเนิดมีหลายแบบเลยนะ",
+      "พี่อยู่ตรงนี้นะ แน่นอนว่าน้องเล่าได้",
+      "อยากรู้เรื่องราคาก็ถามคลินิกได้นะ",
+      "ผลตรวจคุยกับเจ้าหน้าที่ได้นะ พี่ฟังอยู่",
+      "กินข้าวก่อนค่อยเล่าได้เลยนะ",
+      "ท้องหรือเปล่าเล่ามาได้เลย พี่อยู่ตรงนี้",
+      "พรุ่งนี้มาเล่าเพิ่มได้เลยนะ",
+    ];
+    for (const line of thai) {
+      expect(chatGuardFailures(line), line).toEqual([]);
+      expect(acceptChatReply(line).ok, line).toBe(true);
+    }
+  });
+
+  it("still accepts warm English replies that are not doses, claims, or prices", () => {
+    const english = [
+      "You can ask about birth control. I'm here.",
+      "Emergency contraception is okay to ask about.",
+      "You can ask about the pill whenever you like.",
+      "Clinic staff can talk about cost with you.",
+      "Test results are something a nurse can explain.",
+      "Take your time. I'm here.",
+      "Pregnancy questions are okay to ask about.",
+      "I'm here if you want to talk more.",
+    ];
+    for (const line of english) {
+      expect(chatGuardFailures(line, "en"), line).toEqual([]);
+      expect(acceptChatReply(line, "en").ok, line).toBe(true);
+    }
+  });
+});

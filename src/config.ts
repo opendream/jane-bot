@@ -92,6 +92,15 @@ export function pickTimeoutMsFromSearch(search?: string, fallback = 20_000): num
  * the Vite dev server (same pattern as ?modelPick=). Flag-off stays card-first.
  */
 export const CHAT_FIRST = false;
+/**
+ * English model chat is off in this PR. While false, an English chat-first
+ * turn never calls the model: it takes the fixed-card path (rules match,
+ * bank English body when present, otherwise the Thai card plus the DRAFT
+ * "This info card is in Thai." note). English strings, language detection,
+ * and the English output-guard path stay in place so a later
+ * crisis-detection PR can flip this.
+ */
+export const ENGLISH_MODEL_CHAT = false;
 /** User turns in one topic before Jane must close with a card. */
 export const CHAT_MAX_TURNS = 3;
 /** Chat-reply budget (plan §2). Pick still uses PICK_TIMEOUT_MS (8 s). */

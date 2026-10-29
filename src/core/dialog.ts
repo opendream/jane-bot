@@ -6,7 +6,7 @@ import { normalize, findPhrases } from "./text";
 import { stripPII } from "./summary";
 import { checkInput, REFUSAL_CARDS, type GuardReason } from "./guard";
 import { retrieve } from "./retrieve";
-import { CHAT_TIMEOUT_MS } from "../config";
+import { CHAT_TIMEOUT_MS, ENGLISH_MODEL_CHAT } from "../config";
 import { VALID_INTENTS } from "../llm/adapter";
 import { acceptChatReply, holdingLineFor } from "../llm/chatGuard";
 import { detectChatLang, type ChatLang } from "../llm/chat-lang";
@@ -381,6 +381,14 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
       return verbatimCard(chosen, via, plan.reason === "locked" ? "rules-locked" : undefined);
     }
 
+    const lang = detectChatLang(input);
+    // English model chat is gated by ENGLISH_MODEL_CHAT. While false, skip
+    // generation and show the rules card (English body or Thai + DRAFT note).
+    if (lang === "en" && !ENGLISH_MODEL_CHAT) {
+      const top = rulesTop(retrieveText);
+      return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, lang);
+    }
+
     const history: { role: "user" | "assistant"; content: string }[] = [];
     const prevUsers = state.chatFlow.topicUserLines;
     const prevJane = state.chatFlow.janeReplies;
@@ -388,8 +396,6 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
       history.push({ role: "user", content: prevUsers[i] });
       if (prevJane[i]) history.push({ role: "assistant", content: prevJane[i] });
     }
-
-    const lang = detectChatLang(input);
     let chatText = holdingLineFor(lang);
     let rejected = true;
     const live = deps.getModel?.() ?? deps.model ?? null;
