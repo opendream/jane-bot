@@ -59,6 +59,24 @@ export function modelCardPickEnabled(search?: string): boolean {
   return MODEL_CARD_PICK;
 }
 
+/**
+ * Start the on-device model only when the pick flag is on, or when an existing
+ * filming/dev URL override asks for a real runtime. Flag-off default: no download.
+ */
+export function shouldPreloadModel(search?: string): boolean {
+  if (modelCardPickEnabled(search)) return true;
+  try {
+    const raw = search ?? (typeof location !== "undefined" ? location.search : "");
+    const p = new URLSearchParams(raw.startsWith("?") ? raw.slice(1) : raw);
+    if (p.get("testRuntime")) return true;
+    const runtime = (p.get("runtime") ?? "").toLowerCase();
+    if (runtime === "wasm" || runtime === "webgpu") return true;
+    const model = (p.get("model") ?? "").toLowerCase();
+    if (model && model !== "off") return true;
+  } catch { /* node unit tests */ }
+  return false;
+}
+
 export function pickTimeoutMsFromSearch(search?: string, fallback = 20_000): number {
   try {
     const raw = search ?? (typeof location !== "undefined" ? location.search : "");

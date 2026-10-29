@@ -7,7 +7,7 @@ import { crisisOrder } from "../core/crisis";
 import { BANK, cardsForSession, bankContext } from "../core/bankData";
 import { THAI_COPY_STATUS, modelCardPickEnabled, pickTimeoutMsFromSearch } from "../config";
 import { MODEL_PICK_TIMEOUT_MS, type EngineTag } from "../core/pick-engine";
-import { engineAnswerLabel, thinkingHintAt } from "./thinking";
+import { engineAnswerLabel, nextThinkingHintDelay, thinkingHintAt } from "./thinking";
 import { QUIZ_CHIP, hasRelatedQuiz, quizCopyStatus, startQuiz, type QuizSession } from "../core/quiz";
 import { h } from "./dom";
 import { emptyChatArt, janeImg } from "./jane";
@@ -57,6 +57,8 @@ export interface NewChatOpts {
 
 export interface ChatHooks {
   rerender(): void;
+  /** Patch the busy hint in place. Must not recreate the textarea. */
+  updateThinkingHint?(text: string): void;
   /** Crisis override: the app shows the crisis screen (rules only, no model). */
   crisis(categories: CrisisCategory[]): void;
   /** Referral offer accepted (PR5 wires this to the service cards). Banner is the chat's active crisis strip. */
@@ -143,25 +145,33 @@ export async function sendToChat(chat: ChatState, text: string, hooks: ChatHooks
   }
   chat.draft = "";
   push(chat, { from: "user", text: t });
-  chat.busy = true; hooks.rerender();
+  chat.busy = true;
+  if (chat.modelPick) chat.thinkingHint = thinkingHintAt(0);
+  hooks.rerender();
   if (!fromQuiz && chatDelayMs() > 0) await new Promise((r) => setTimeout(r, chatDelayMs()));
   if (!owns()) { chat.busy = false; return; }
-  let hintTimer: ReturnType<typeof setInterval> | undefined;
+  let hintTimer: ReturnType<typeof setTimeout> | undefined;
   if (chat.modelPick) {
     const t0 = Date.now();
-    chat.thinkingHint = thinkingHintAt(0);
-    hooks.rerender();
-    hintTimer = setInterval(() => {
+    const tick = () => {
       if (!owns()) return;
-      chat.thinkingHint = thinkingHintAt(Date.now() - t0);
-      hooks.rerender();
-    }, 250);
+      const elapsed = Date.now() - t0;
+      const text = thinkingHintAt(elapsed);
+      if (text !== chat.thinkingHint) {
+        chat.thinkingHint = text;
+        hooks.updateThinkingHint?.(text);
+      }
+      const wait = nextThinkingHintDelay(elapsed);
+      if (wait != null) hintTimer = setTimeout(tick, wait);
+    };
+    const wait = nextThinkingHintDelay(0);
+    if (wait != null) hintTimer = setTimeout(tick, wait);
   }
   let reply: Awaited<ReturnType<DialogSession["send"]>>;
   try {
     reply = await chat.session.send(t);
   } finally {
-    if (hintTimer) clearInterval(hintTimer);
+    if (hintTimer) clearTimeout(hintTimer);
     chat.thinkingHint = null;
   }
   if (!owns()) { chat.busy = false; return; } // erase / quick exit / SOS / openChat bumped the seq: drop, no rerender
