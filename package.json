@@ -12,7 +12,8 @@
     "e2e": "npm run build && playwright test",
     "test:e2e": "npm run build && playwright test",
     "check:all": "npm run test && npm run e2e",
-    "bank:validate": "vite-node scripts/bank/validate.mjs && node scripts/bank/guard.mjs"
+    "bank:validate": "vite-node scripts/bank/validate.mjs && node scripts/bank/guard.mjs",
+    "eval:model-first": "vite-node scripts/eval/model-first/cli.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",

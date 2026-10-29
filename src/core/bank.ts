@@ -61,11 +61,13 @@ export function checkBankTextLicence(cards: BankCard[]): Issue[] {
     .map((c) => ({ level: "error" as const, card: safeCardId(c?.id), rule: "licence", msg: `licence must be ${BANK_TEXT_LICENCE}` }));
 }
 
-/** Eval question-set JSON files (46-item seed+paraphrase, plus the crisis FP probe). */
+/** Eval question-set JSON files (46-item seed+paraphrase, crisis FP probe, 868-query review pack). */
 export const EVAL_ITEM_FILES = [
   "evals/seed-set.json",
   "evals/paraphrase-set.json",
   "evals/crisis-fp-set.json",
+  "evals/review868/meta.json",
+  "evals/review868/judged.json",
 ] as const;
 
 /** File-level licence on an eval item JSON (mirrors BankFile.licence). Missing / wrong value fails. */
