@@ -462,8 +462,12 @@ describe("chat-first English replies with ENGLISH_MODEL_CHAT on", () => {
   ];
   const enDisclosuresNowCard = [
     "I was forced to have sex",
-    "I don't want to live anymore",
     "my boyfriend hits me and I am scared",
+  ];
+  const enLiveWishCrisis = [
+    "I don't want to live",
+    "I don't want to live anymore",
+    "i dont want to live anymore",
   ];
 
   it("Thai and English non-crisis turns both reach model chat", async () => {
@@ -550,6 +554,13 @@ describe("chat-first English replies with ENGLISH_MODEL_CHAT on", () => {
     const r = await runTurn(newDialog(), line, enChatDeps(model));
     expect(r.reply.kind, line).not.toBe("crisis");
     expect(typeof (calls.chat + calls.pick + calls.reword)).toBe("number");
+  });
+
+  it.each(enLiveWishCrisis)("don't-want-to-live shows crisis, stub 0 times: %s", async (line) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), line, enChatDeps(model));
+    expect(r.reply.kind, line).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, line).toBe(0);
   });
 
   it.each(enProbes)("English probe is not a crisis override: %s", async (line) => {

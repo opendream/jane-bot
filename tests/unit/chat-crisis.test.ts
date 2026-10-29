@@ -13,6 +13,7 @@ import {
 } from "../../src/core/chat-crisis";
 import { detectCrisis } from "../../src/core/crisis";
 import { CHAT_CRISIS_CARD_FIRST, chatCrisisEnabled } from "../../src/config";
+import { ROUND4_PRECISION_CARD_LINES } from "./chat-crisis-adversarial-fp";
 
 // SYNTHETIC paraphrases only. Probe ids in comments; original texts stay off-repo.
 
@@ -152,7 +153,7 @@ afterEach(() => resetChatCrisisLog());
 describe("named rule lists", () => {
   it("has 11 Thai rules, a short English list (mixed Thai tokens + exact phrases), plus the context rule id", () => {
     expect(TH_RULES).toHaveLength(11);
-    expect(EN_RULES).toHaveLength(15);
+    expect(EN_RULES).toHaveLength(16);
     expect(TH_F_ID).toBe("TH-F bare follow-up after violence cue");
   });
 });
@@ -182,10 +183,9 @@ describe("EN-E partner/family hits me stays on the card (Thai-only exact list)",
   });
 });
 
-describe("fuzzy forced-sex / don't-want-to-live English stays on the card", () => {
+describe("fuzzy forced-sex English stays on the card", () => {
   it.each([
     "I was forced to have sex",
-    "I don't want to live anymore",
     "I feel like I cannot go on living",
   ])("%s", (text) => {
     expect(detectCrisis(text).crisis).toBe(false);
@@ -513,5 +513,98 @@ describe("narrow don't-wanna-die guard and Codex card lines", () => {
     expect(detectCrisis(text).crisis, text).toBe(false);
     expect(detectChatCrisis(text).crisis, text).toBe(false);
     expect(detectChatCrisisForTurn(text, []).crisis, text).toBe(false);
+  });
+});
+
+describe("round-4 precision guards stay on the card (pin misses)", () => {
+  it("has the converted safe-side block plus at least 30 variants", () => {
+    expect(ROUND4_PRECISION_CARD_LINES.length).toBeGreaterThanOrEqual(41);
+    expect(ROUND4_PRECISION_CARD_LINES).toContain("หนูไม่ อยาก die เพราะ HIV ต้องทำยังไง");
+    expect(ROUND4_PRECISION_CARD_LINES).toContain("I don't really wanna die, is HIV curable");
+    expect(ROUND4_PRECISION_CARD_LINES).toContain("ยาคุมทำให้รู้สึก suicidal ได้ไหม");
+    expect(ROUND4_PRECISION_CARD_LINES).toContain("I cut myself shaving down there, can I get HIV");
+  });
+
+  it.each(ROUND4_PRECISION_CARD_LINES)("%s", (text) => {
+    expect(detectCrisis(text).crisis, text).toBe(false);
+    expect(detectChatCrisis(text).crisis, text).toBe(false);
+    expect(detectChatCrisisForTurn(text, []).crisis, text).toBe(false);
+  });
+});
+
+/** Pin already overrides these; extra check must not be required. */
+const PINNED_MUST_TRIGGER = [
+  "ไม่อยากอยู่แล้ว",
+  "ไม่อยากมีชีวิตอยู่",
+  "หนูไม่อยาก die แต่ไม่อยากอยู่แล้ว",
+];
+
+/**
+ * First-person disclosures the Thai-only exact list previously sent to the card.
+ * Extra check must fire; pin misses.
+ */
+const ROUND4_MUST_TRIGGER_NEW = [
+  "I don't want to live",
+  "i dont want to live anymore",
+  "หนู suicidal",
+  "ผม suicidal",
+  "I have suicidal thoughts",
+  "i'm having suicidal thoughts",
+  "I dont want to live",
+  "ฉัน suicidal",
+  "เรา suicidal",
+  "I have suicidal thoughts every night",
+  "I'm having suicidal thoughts",
+  "i am having suicidal thoughts",
+  "หนู suicidal ค่ะ",
+  "หนูไม่อยาก die แต่หนู suicidal",
+  "หนู suicidal ตอนนี้",
+  "ผม suicidal ครับ",
+  "I DON'T WANT TO LIVE",
+  "I don't want to live anymore.",
+];
+
+/** Negation/side-effect/accidental-cut must not clear a separate real disclosure. */
+const ROUND4_MUST_TRIGGER_TRICKY = [
+  "หนูไม่ อยาก die แต่หนูอยาก kms",
+  "ยาคุมทำให้หนูอยาก die แล้ว",
+  "I don't really wanna die but I wanna die tonight",
+  "หนูไม่ได้รู้สึก suicidal แต่หนูอยาก die",
+  "I cut myself. I was only shaving later",
+  "I cut myself on purpose",
+  "I've been cutting myself",
+  "I cut myself because I hate myself",
+  "I don't really wanna die but I have suicidal thoughts",
+  "i'm suicidal",
+  "หนูไม่ได้รู้สึก suicidal นะ แต่หนู suicidal",
+  "I don't wanna die. I cut myself on purpose",
+];
+
+describe("pinned crisis.ts still overrides the listed Thai live-wish lines", () => {
+  it.each(PINNED_MUST_TRIGGER)("%s", (text) => {
+    expect(detectCrisis(text).crisis, text).toBe(true);
+    expect(detectCrisis(text).categories, text).toContain("self_harm");
+  });
+});
+
+describe("round-4 first-person disclosures the extra check must catch (pin misses)", () => {
+  it("has at least 15 new must-trigger variants", () => {
+    expect(ROUND4_MUST_TRIGGER_NEW.length).toBeGreaterThanOrEqual(15);
+  });
+
+  it.each(ROUND4_MUST_TRIGGER_NEW)("%s", (text) => {
+    expect(detectCrisis(text).crisis, text).toBe(false);
+    const hit = detectChatCrisis(text);
+    expect(hit.crisis, text).toBe(true);
+    expect(hit.categories, text).toContain("self_harm");
+  });
+});
+
+describe("precision guards never clear a separate real crisis phrase", () => {
+  it.each(ROUND4_MUST_TRIGGER_TRICKY)("%s", (text) => {
+    const pinned = detectCrisis(text).crisis;
+    const extra = detectChatCrisis(text);
+    expect(pinned || extra.crisis, text).toBe(true);
+    if (extra.crisis) expect(extra.categories, text).toContain("self_harm");
   });
 });

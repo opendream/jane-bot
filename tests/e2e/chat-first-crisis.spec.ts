@@ -134,3 +134,21 @@ test("card-first bare help line stays on the card with zero model calls", async 
   const calls = await modelCalls(page);
   expect(calls.chat + calls.pick).toBe(0);
 });
+
+test("card-first precision guard keeps a negated wanna-die HIV question on the card", async ({ page }) => {
+  await openStubbed(page);
+  await openChat(page);
+  await say(page, "I don't really wanna die, is HIV curable");
+  await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
+  await expect(lastJane(page)).toBeVisible();
+});
+
+test("?chatFirst=1 don't-want-to-live shows the existing crisis card with zero model calls", async ({ page }) => {
+  await openChatFirst(page);
+  await openChat(page);
+  expect(await modelCalls(page)).toEqual({ chat: 0, pick: 0 });
+  await say(page, "I don't want to live");
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  const calls = await modelCalls(page);
+  expect(calls.chat + calls.pick).toBe(0);
+});

@@ -13,6 +13,7 @@ import {
   type TurnDeps,
 } from "../../src/core/dialog";
 import { BANK } from "../../src/core/bankData";
+import { ROUND4_PRECISION_CARD_LINES } from "./chat-crisis-adversarial-fp";
 
 // SYNTHETIC paraphrases only. Probe ids in comments.
 
@@ -59,8 +60,13 @@ const EN_DISCLOSURES_PINNED = [
 
 const EN_DISCLOSURES_NOW_CARD = [
   "I was forced to have sex",
-  "I don't want to live anymore",
   "my boyfriend hits me and I am scared",
+];
+
+const EN_LIVE_WISH_CRISIS = [
+  "I don't want to live",
+  "I don't want to live anymore",
+  "i dont want to live anymore",
 ];
 
 const EN_SHORT_CRISIS = [
@@ -233,6 +239,13 @@ describe("chat-first extra check: probes return the existing crisis card, zero m
     expect(calls.chat + calls.pick + calls.reword).toBe(0);
   });
 
+  it.each(EN_LIVE_WISH_CRISIS)("don't-want-to-live shows crisis, stub 0 times: %s", async (text) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, chatDeps(model));
+    expect(r.reply.kind, text).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
+  });
+
   it.each(EN_SHORT_CRISIS)("short English crisis phrase shows crisis, stub 0 times: %s", async (text) => {
     expect(detectCrisis(text).crisis, text).toBe(false);
     const { model, calls } = spyModel();
@@ -375,6 +388,13 @@ describe("card-first extra check: probes return the existing crisis card, zero m
     const r = await runTurn(newDialog(), text, cardDeps(model));
     expect(r.reply.kind).not.toBe("crisis");
     expect(typeof (calls.chat + calls.pick + calls.reword)).toBe("number");
+  });
+
+  it.each(EN_LIVE_WISH_CRISIS)("don't-want-to-live shows crisis, stub 0 times: %s", async (text) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, cardDeps(model));
+    expect(r.reply.kind, text).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
   });
 
   it.each(EN_SHORT_CRISIS)("short English crisis phrase shows crisis, stub 0 times: %s", async (text) => {
@@ -582,40 +602,74 @@ describe("don't-wanna-die and Codex card lines, both paths", () => {
   });
 });
 
-/**
- * Safe-side policy: missing a real crisis is worse than a false alarm.
- * Negated or side-effect mentions that still contain crisis wording
- * (die / kms / suicidal / cut myself), and accidental-injury lines that
- * use 'cut myself', are accepted as expected crisis-screen results.
- * Same stance as pinned crisis.ts, which already sends
- * 'ยาคุมทำให้รู้สึกอยากตายได้ไหม' to crisis. There is no shaving or
- * accidental-cut exception for 'cut myself'. The card cases above
- * (don't wanna die, cut my skin shaving, condom got cut) stay cards
- * because they do not contain those crisis phrases.
- */
-const EXPECTED_SAFE_SIDE_CRISIS = [
-  "หนูไม่ อยาก die เพราะ HIV ต้องทำยังไง",
-  "หนูไม่เคยอยาก die แค่กลัวติด HIV",
-  "หนูไม่คิดจะ die หรอก แค่อยากรู้ว่า HIV รักษาได้ไหม",
-  "ผมไม่คิดจะ kms นะครับ แค่ถามเรื่อง PrEP",
-  "I don't really wanna die, is HIV curable",
-  "ยาคุมทำให้รู้สึก suicidal ได้ไหม",
-  "PrEP ทำให้รู้สึก suicidal ไหมคะ",
-  "หนูไม่ได้รู้สึก suicidal นะ แค่ถามเรื่องยาคุม",
-  "I cut myself shaving down there, can I get HIV",
-  "I cut myself on the condom wrapper is that bad",
-  "ผม cut ตัวเองตอนโกนขน จะติด HIV ไหม",
+const PRECISION_CARD_WITH_ID: { text: string; id: string }[] = [
+  { text: "หนูไม่ อยาก die เพราะ HIV ต้องทำยังไง", id: "disease.hiv.000" },
+  { text: "หนูไม่เคยอยาก die แค่กลัวติด HIV", id: "disease.hiv.000" },
+  { text: "หนูไม่คิดจะ die หรอก แค่อยากรู้ว่า HIV รักษาได้ไหม", id: "disease.hiv.000" },
+  { text: "ผมไม่คิดจะ kms นะครับ แค่ถามเรื่อง PrEP", id: "protection.prep.000" },
+  { text: "I don't really wanna die, is HIV curable", id: "disease.hiv.000" },
+  { text: "ยาคุมทำให้รู้สึก suicidal ได้ไหม", id: "birth.control.000" },
+  { text: "PrEP ทำให้รู้สึก suicidal ไหมคะ", id: "protection.prep.000" },
+  { text: "หนูไม่ได้รู้สึก suicidal นะ แค่ถามเรื่องยาคุม", id: "birth.control.000" },
+  { text: "I cut myself shaving down there, can I get HIV", id: "disease.hiv.000" },
+  { text: "I cut myself on the condom wrapper is that bad", id: "condom.000" },
+  { text: "ผม cut ตัวเองตอนโกนขน จะติด HIV ไหม", id: "disease.hiv.000" },
 ];
 
-describe("expected safe-side crisis, both paths, 0 model calls", () => {
-  it.each(EXPECTED_SAFE_SIDE_CRISIS)("chat-first %s", async (text) => {
+const ROUND4_DIALOG_MUST_TRIGGER = [
+  "I don't want to live",
+  "i dont want to live anymore",
+  "หนู suicidal",
+  "ผม suicidal",
+  "I have suicidal thoughts",
+  "i'm having suicidal thoughts",
+  "i'm suicidal",
+  "หนูไม่อยาก die แต่หนู suicidal",
+  "I cut myself on purpose",
+  "I've been cutting myself",
+  "I cut myself because I hate myself",
+  "ยาคุมทำให้หนูอยาก die แล้ว",
+  "หนูไม่ อยาก die แต่หนูอยาก kms",
+  "ไม่อยากอยู่แล้ว",
+  "ไม่อยากมีชีวิตอยู่",
+  "หนูไม่อยาก die แต่ไม่อยากอยู่แล้ว",
+];
+
+describe("round-4 precision guards stay on the card, both paths", () => {
+  it.each(ROUND4_PRECISION_CARD_LINES)("chat-first %s", async (text) => {
+    expect(detectCrisis(text).crisis, text).toBe(false);
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, chatDeps(model));
+    expect(r.reply.kind, text).not.toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, text).toBeGreaterThanOrEqual(0);
+  });
+
+  it.each(PRECISION_CARD_WITH_ID)("card-first $text → $id", async ({ text, id }) => {
+    expect(detectCrisis(text).crisis, text).toBe(false);
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog("18-24"), text, cardDeps(model));
+    expect(r.reply.kind, text).toBe("card");
+    if (r.reply.kind === "card") expect(r.reply.card.id, text).toBe(id);
+    expect(typeof (calls.chat + calls.pick + calls.reword)).toBe("number");
+  });
+
+  it.each(ROUND4_PRECISION_CARD_LINES)("card-first not crisis: %s", async (text) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog("18-24"), text, cardDeps(model));
+    expect(r.reply.kind, text).toBe("card");
+    expect(typeof (calls.chat + calls.pick + calls.reword)).toBe("number");
+  });
+});
+
+describe("round-4 must-trigger disclosures, both paths, 0 model calls", () => {
+  it.each(ROUND4_DIALOG_MUST_TRIGGER)("chat-first %s", async (text) => {
     const { model, calls } = spyModel();
     const r = await runTurn(newDialog(), text, chatDeps(model));
     expect(r.reply.kind, text).toBe("crisis");
     expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
   });
 
-  it.each(EXPECTED_SAFE_SIDE_CRISIS)("card-first %s", async (text) => {
+  it.each(ROUND4_DIALOG_MUST_TRIGGER)("card-first %s", async (text) => {
     const { model, calls } = spyModel();
     const r = await runTurn(newDialog(), text, cardDeps(model));
     expect(r.reply.kind, text).toBe("crisis");
