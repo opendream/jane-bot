@@ -154,9 +154,9 @@ function mockPickCard(hook: RuntimeTestHook): LLMAdapter["pickCard"] | undefined
   };
 }
 
-/** Synthetic guarded lines for the chat-first e2e stub. Never user text. */
-const MOCK_CHAT_REPLY = "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย";
-const MOCK_CHAT_REPLY_EN = "I'm here. You can tell me more whenever you like.";
+/** Synthetic structured choice for the chat-first e2e stub. Never user text. */
+const MOCK_CHAT_REPLY = '{"o":0,"s":[],"q":0}';
+const MOCK_CHAT_REPLY_EN = '{"o":0,"s":[],"q":0}';
 
 function mockChatDelayMs(hook: RuntimeTestHook): number {
   try {

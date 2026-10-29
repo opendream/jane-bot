@@ -13,9 +13,13 @@ import {
   chatSystemFor,
 } from "../../src/llm/chat-system";
 import { acceptGroundedChat, groundingCard } from "../../src/llm/chat-ground";
+import { DEFAULT_CHAT_CHOICE_JSON, defaultChatReply } from "../../src/llm/chat-choice";
+import { splitCardSentences } from "../../src/llm/chat-sentences";
+import { CHAT_FOLLOWUPS_TH, CHAT_OPENERS_TH } from "../../src/llm/chat-voice";
 
 const pool = BANK.filter((c) => shippable(c, "draft") && c.id !== FALLBACK_ID && c.id !== WELCOME_ID);
 const leak = BANK.find((c) => c.id === "condom.leak.000")!;
+const condom = BANK.find((c) => c.id === "condom.000")!;
 
 describe("grounded system prompt", () => {
   it("keeps the ungrounded persona byte-identical", () => {
@@ -23,27 +27,32 @@ describe("grounded system prompt", () => {
     expect(chatSystemFor("en")).not.toBe(CHAT_SYSTEM);
   });
 
-  it("CHAT_MAX_TOKENS stays 80", () => {
-    expect(CHAT_MAX_TOKENS).toBe(80);
+  it("CHAT_MAX_TOKENS stays 40", () => {
+    expect(CHAT_MAX_TOKENS).toBe(40);
   });
 
   it("ENGLISH_MODEL_CHAT stays false", () => {
     expect(ENGLISH_MODEL_CHAT).toBe(false);
   });
 
-  it("injects the approved card as the only allowed source", () => {
+  it("injects the approved card as numbered sentences, the only allowed source", () => {
     const prompt = chatSystemFor("th", { grounding: { facts: leak.answer_th } });
     expect(prompt.startsWith(CHAT_SYSTEM)).toBe(true);
     expect(prompt).toContain(CHAT_GROUND_FACTS_TH);
-    expect(prompt).toContain(leak.answer_th);
-    expect(prompt).toContain("ยังไม่ทราบ");
+    for (const s of splitCardSentences(leak.answer_th)) {
+      expect(prompt).toContain(s);
+    }
+    expect(prompt).toContain('{"o":N,"s":[...],"q":N}');
+    expect(prompt).toContain(CHAT_OPENERS_TH[0]!);
+    expect(prompt).toContain(CHAT_FOLLOWUPS_TH[0]!);
   });
 
-  it("with no card, only a short warm no-fact reply pointing at ขอข้อมูลเลย", () => {
+  it("with no card, JSON ids only and s must be empty", () => {
     const prompt = chatSystemFor("th", { grounding: { facts: null } });
     expect(prompt).toContain(CHAT_GROUND_NONE_TH);
-    expect(prompt).toContain("ขอข้อมูลเลย");
+    expect(prompt).toContain('"s":[]');
     expect(prompt).not.toContain(leak.answer_th);
+    expect(prompt).not.toMatch(/ขอข้อมูลเลย/);
   });
 
   it("strict retry appends the stricter line", () => {
@@ -90,33 +99,59 @@ describe("groundingCard (rules matcher top card)", () => {
   });
 });
 
-describe("acceptGroundedChat (trim + guard + fact check)", () => {
-  it("trims a mid-word cut-off and keeps the complete sentence", () => {
-    const acc = acceptGroundedChat("พี่อยู่ตรงนี้นะ น้องเล่าเพิ่", "th", leak.answer_th);
-    expect(acc).toEqual({ ok: true, text: "พี่อยู่ตรงนี้นะ" });
+describe("acceptGroundedChat (strict JSON + chatGuard on voice)", () => {
+  it("accepts the default no-sentence choice and renders opener plus follow-up", () => {
+    const acc = acceptGroundedChat(DEFAULT_CHAT_CHOICE_JSON, "th", leak.answer_th);
+    expect(acc).toEqual({ ok: true, text: defaultChatReply("th") });
   });
 
-  it("rejects an incomplete reply", () => {
+  it("copies chosen card sentences verbatim, including digits that live on the card", () => {
+    const sentences = splitCardSentences(condom.answer_th);
+    const acc = acceptGroundedChat('{"o":0,"s":[0],"q":0}', "th", condom.answer_th);
+    expect(acc.ok).toBe(true);
+    if (acc.ok) {
+      expect(acc.text.startsWith(CHAT_OPENERS_TH[0]!)).toBe(true);
+      expect(acc.text.endsWith(CHAT_FOLLOWUPS_TH[0]!)).toBe(true);
+      expect(acc.text).toContain(sentences[0]!);
+      expect(acc.text).toContain("98%");
+    }
+  });
+
+  it("rejects an incomplete free-text reply as invalid", () => {
     const acc = acceptGroundedChat("น้องเล่าเพิ่", "th", leak.answer_th);
     expect(acc.ok).toBe(false);
-    if (!acc.ok) expect(acc.reasons).toContain("incomplete");
+    if (!acc.ok) expect(acc.reasons).toContain("invalid");
   });
 
-  it("rejects a particle-only trim leftover as incomplete", () => {
+  it("rejects a mid-word cut-off as invalid (no trim leftover)", () => {
+    const acc = acceptGroundedChat("พี่อยู่ตรงนี้นะ น้องเล่าเพิ่", "th", leak.answer_th);
+    expect(acc.ok).toBe(false);
+    if (!acc.ok) expect(acc.reasons).toContain("invalid");
+  });
+
+  it("rejects a particle-only leftover as invalid", () => {
     const acc = acceptGroundedChat("ค่ะ เรื่องแฟนนี่พี่เข้าใจ", "th", leak.answer_th);
     expect(acc.ok).toBe(false);
-    if (!acc.ok) expect(acc.reasons).toContain("incomplete");
+    if (!acc.ok) expect(acc.reasons).toContain("invalid");
   });
 
-  it("still applies chatGuard (digits are not loosened even if the card has them)", () => {
-    const acc = acceptGroundedChat("กันท้องได้ 98% เลย", "th", BANK.find((c) => c.id === "condom.000")!.answer_th);
+  it("rejects free-text digits as invalid JSON, not as a loosened guard", () => {
+    const acc = acceptGroundedChat("กันท้องได้ 98% เลย", "th", condom.answer_th);
     expect(acc.ok).toBe(false);
-    if (!acc.ok) expect(acc.reasons).toContain("digits");
+    if (!acc.ok) expect(acc.reasons).toContain("invalid");
   });
 
   it("rejects the heat-a-broken-condom line", () => {
     const acc = acceptGroundedChat("ถุงยางแตกแล้วให้นำไปอุ่นก่อนใช้นะ", "th", leak.answer_th);
     expect(acc.ok).toBe(false);
-    if (!acc.ok) expect(acc.reasons.length).toBeGreaterThan(0);
+    if (!acc.ok) expect(acc.reasons).toEqual(["invalid"]);
+  });
+
+  it("rejects bad JSON, out-of-range ids, duplicate ids, extra keys, and ids with no card", () => {
+    expect(acceptGroundedChat("{", "th", condom.answer_th).ok).toBe(false);
+    expect(acceptGroundedChat('{"o":0,"s":[9],"q":0}', "th", condom.answer_th).ok).toBe(false);
+    expect(acceptGroundedChat('{"o":0,"s":[0,0],"q":0}', "th", condom.answer_th).ok).toBe(false);
+    expect(acceptGroundedChat('{"o":0,"s":[],"q":0,"text":"x"}', "th", condom.answer_th).ok).toBe(false);
+    expect(acceptGroundedChat('{"o":0,"s":[0],"q":0}', "th", "").ok).toBe(false);
   });
 });

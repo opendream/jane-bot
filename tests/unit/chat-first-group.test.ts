@@ -19,8 +19,10 @@ import {
   shouldSkipGeneration,
 } from "../../src/llm/generation-token";
 import { createGenerationQueue } from "../../src/llm/generation-queue";
+import { DEFAULT_CHAT_CHOICE_JSON, defaultChatReply } from "../../src/llm/chat-choice";
 
-const SAFE_CHAT = "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย";
+const SAFE_JSON = DEFAULT_CHAT_CHOICE_JSON;
+const SAFE_CHAT = defaultChatReply("th");
 const BAD_CHAT = "กิน 2 เม็ด แล้วไม่ท้องแน่ https://evil.test";
 const A = "ช่วงนี้กังวลเรื่องแฟน";
 const B = "แฟนไม่ยอมคุยด้วย";
@@ -60,7 +62,7 @@ function delayedModel(opts: { delayMs?: number; serial?: boolean; replies?: Arra
     calls.lastChat = text;
     const next = replies[n++];
     if (next !== undefined) return next;
-    return SAFE_CHAT;
+    return SAFE_JSON;
   };
   const model: DialogModel = {
     ready: () => true,
@@ -269,7 +271,7 @@ describe("chat-first message grouping", () => {
             });
           } catch { return null; }
           if (shouldSkipGeneration(groupId, s)) return null;
-          return SAFE_CHAT;
+          return SAFE_JSON;
         }),
     };
     const s = new DialogSession("18+", deps(model, { chatTimeoutMs: 25 }));
@@ -289,7 +291,7 @@ describe("chat-first message grouping", () => {
 
 describe("chat-first guard retry (no holding bubble)", () => {
   it("fail-then-pass retries once and shows the reply", async () => {
-    const { model, calls } = delayedModel({ delayMs: 0, replies: [BAD_CHAT, SAFE_CHAT] });
+    const { model, calls } = delayedModel({ delayMs: 0, replies: [BAD_CHAT, SAFE_JSON] });
     const before = { chat: calls.chat };
     const r = await runTurn(newDialog(), A, deps(model));
     expect(calls.chat).toBe(before.chat + 2);
@@ -339,7 +341,7 @@ describe("chat-first guard retry (no holding bubble)", () => {
     const calls = { chat: 0 };
     const model: DialogModel = {
       ready: () => false,
-      chatReply: async () => { calls.chat++; return SAFE_CHAT; },
+      chatReply: async () => { calls.chat++; return SAFE_JSON; },
     };
     const before = { chat: calls.chat };
     const r = await runTurn(newDialog(), A, deps(model));

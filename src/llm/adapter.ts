@@ -6,7 +6,7 @@ import type { ChatLang } from "./chat-lang";
 /**
  * Extra chat-turn flags. Stays the 6th `chatReply` argument.
  * `ambiguous` adds the short AMBIGUOUS system line.
- * `grounding` is the approved card (or none) for the fact-checked chat path.
+ * `grounding` is the approved card (or none) for the structured-choice chat path.
  */
 export type ChatReplyOpts = {
   ambiguous?: boolean;
@@ -34,11 +34,12 @@ export interface LLMAdapter {
   /** Chat: reword one curated card. Output is validated by rewordGuard; failures show the exact text. */
   rewordCard?(card: { answer_th: string; key_facts: string[] }, signal: AbortSignal): Promise<string | null>;
   /**
-   * Chat-first connective talk. Output is trimmed, then chatGuard, then the
-   * add-only fact check. History is PII-stripped, memory-only, and excludes
-   * crisis lines. `groupId` is the generation token; a stale token must
-   * return without generating. `opts` is the 6th argument (AMBIGUOUS flag
-   * plus the approved-card grounding, or none).
+   * Chat-first connective talk. Output is a JSON choice (opener / sentence
+   * ids / follow-up), parsed strictly, then chatGuard on the list text.
+   * History is PII-stripped, memory-only, and excludes crisis lines.
+   * `groupId` is the generation token; a stale token must return without
+   * generating. `opts` is the 6th argument (AMBIGUOUS flag plus the
+   * approved-card grounding, or none).
    */
   chatReply?(
     text: string,

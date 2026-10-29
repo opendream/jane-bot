@@ -17,11 +17,12 @@ import { newChat, sendToChat, chatMsgFromReply, type ChatHooks } from "../../src
 import {
   resetGenerationTokenForTests,
 } from "../../src/llm/generation-token";
+import { DEFAULT_CHAT_CHOICE_JSON } from "../../src/llm/chat-choice";
 
 // SYNTHETIC paraphrases only. Never user logs.
 const TH_AMB = "หนูไม่ค่อยอยาก die นะ แค่ถามเรื่อง HIV";
 const THANKS = "ขอบคุณค่ะ";
-const SAFE_CHAT = "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย";
+const SAFE_JSON = DEFAULT_CHAT_CHOICE_JSON;
 const BAD_CHAT = "กิน 2 เม็ด แล้วไม่ท้องแน่ https://evil.test";
 const DRAFT_SOFT = AMBIGUOUS_CRISIS_LINE_TH;
 
@@ -54,7 +55,7 @@ function spyModel(opts?: { chat?: string | null; ready?: boolean; hang?: boolean
         });
       }
       if (opts && "chat" in opts) return opts.chat ?? null;
-      return SAFE_CHAT;
+      return SAFE_JSON;
     }),
     pickCard: vi.fn(async (_t, list) => {
       calls.pick++;

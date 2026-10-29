@@ -194,7 +194,7 @@ test("?chatFirst=1 Thai AMBIGUOUS talks like a NONE turn; the DRAFT line and but
   await openChat(page);
   await say(page, "หนูไม่ค่อยอยาก die นะ แค่ถามเรื่อง HIV");
   await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
-  await expect(lastJane(page).getByTestId("chat-text")).toHaveText("พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย");
+  await expect(lastJane(page).getByTestId("chat-text")).toHaveText("พี่อยู่ตรงนี้นะ น้องอยากเล่าเพิ่มไหม?");
   await expect(page.getByTestId("chat-crisis-soft-line")).toHaveText("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ");
   await expect(page.getByTestId("chat-crisis-soft-open")).toBeVisible();
   await expect(page.getByTestId("chat-thinking")).toHaveCount(0);

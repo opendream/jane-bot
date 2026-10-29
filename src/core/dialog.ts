@@ -51,7 +51,7 @@ export type { CardPicker, EngineReason, EngineTag } from "./pick-engine";
  *      MODEL-FIRST: the same guarded chat path as NONE (guard, one retry) plus
  *      a fixed DRAFT soft line and a button that opens the existing crisis
  *      screen. The bank card is only a fallback (guard fail after retry,
- *      timeout, model not ready, fact-check/trim fail after retry, or
+ *      timeout, model not ready, invalid structured choice after retry, or
  *      non-Thai while ENGLISH_MODEL_CHAT is false). Card-first AMBIGUOUS
  *      stays card + DRAFT soft line. Staff request → referral card + the
  *      same soft line. NONE → continue.
@@ -238,9 +238,9 @@ export interface DialogModel {
   /** Reword a card. The model sees only the card (never her text). The result is validated; any failure shows answer_th verbatim. */
   reword?(card: BankCard, signal: AbortSignal): Promise<string | null>;
   /**
-   * Chat-first connective talk. Input is PII-stripped. Output is trimmed,
-   * then chatGuard, then the add-only fact check. History is memory-only
-   * (last topic user lines + Jane's last guarded replies).
+   * Chat-first connective talk. Input is PII-stripped. Output is a JSON
+   * choice, parsed strictly, then chatGuard on opener + follow-up.
+   * History is memory-only (last topic user lines + Jane's last replies).
    */
   chatReply?(
     text: string,

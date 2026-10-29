@@ -9,13 +9,15 @@ import {
   type TurnDeps,
 } from "../../src/core/dialog";
 import type { ChatGrounding } from "../../src/llm/chat-system";
+import { DEFAULT_CHAT_CHOICE_JSON, defaultChatReply } from "../../src/llm/chat-choice";
 
-const SAFE = "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย";
+const SAFE_JSON = DEFAULT_CHAT_CHOICE_JSON;
+const SAFE = defaultChatReply("th");
 const HEAT = "ถุงยางแตกแล้วให้นำไปอุ่นก่อนใช้นะ";
 const PARENT = "ต้องมีผู้ปกครองไปรับเพร็พด้วยนะ";
 const INCOMPLETE = "น้องเล่าเพิ่";
 
-function spyModel(reply: string | string[] = SAFE) {
+function spyModel(reply: string | string[] = SAFE_JSON) {
   const calls = { chat: 0, pick: 0, groundings: [] as Array<ChatGrounding | undefined> };
   const list = Array.isArray(reply) ? reply : null;
   let n = 0;
@@ -24,7 +26,7 @@ function spyModel(reply: string | string[] = SAFE) {
     chatReply: vi.fn(async (_t, _h, _s, _lang, _gid, opts) => {
       calls.chat++;
       calls.groundings.push(opts?.grounding);
-      if (list) return list[Math.min(n++, list.length - 1)] ?? SAFE;
+      if (list) return list[Math.min(n++, list.length - 1)] ?? SAFE_JSON;
       return reply;
     }),
     pickCard: vi.fn(async () => "none"),
@@ -111,20 +113,19 @@ describe("chat-first grounding in runTurn", () => {
     expect(calls.groundings[0]?.facts).toContain("ข้อความทดสอบสำหรับอายุ 18 ปีขึ้นไปเท่านั้น");
   });
 
-  it("incomplete then a complete line keeps the second reply", async () => {
-    const { model, calls } = spyModel([INCOMPLETE, SAFE]);
+  it("invalid then a valid JSON choice keeps the second reply", async () => {
+    const { model, calls } = spyModel([INCOMPLETE, SAFE_JSON]);
     const r = await runTurn(newDialog(), "ช่วงนี้กังวลเรื่องแฟน", deps(model));
     expect(calls.chat).toBe(2);
     expect(r.reply.kind).toBe("chat");
     if (r.reply.kind === "chat") expect(r.reply.text).toBe(SAFE);
   });
 
-  it("trims a mid-word cut-off without retrying when a complete sentence remains", async () => {
+  it("a mid-word cut-off is invalid, retries once, then shows the card", async () => {
     const { model, calls } = spyModel("พี่อยู่ตรงนี้นะ น้องเล่าเพิ่");
     const r = await runTurn(newDialog(), "ช่วงนี้กังวลเรื่องแฟน", deps(model));
-    expect(calls.chat).toBe(1);
-    expect(r.reply.kind).toBe("chat");
-    if (r.reply.kind === "chat") expect(r.reply.text).toBe("พี่อยู่ตรงนี้นะ");
+    expect(calls.chat).toBe(2);
+    expect(r.reply.kind).toBe("card");
   });
 
   it("CLEAR crisis still makes 0 model calls", async () => {
@@ -145,7 +146,18 @@ describe("chat-first grounding in runTurn", () => {
     }
   });
 
-  it("AMBIGUOUS keeps the DRAFT soft line when fact check falls back to the card", async () => {
+  it("AMBIGUOUS keeps the DRAFT soft line when a retry then succeeds", async () => {
+    const { model, calls } = spyModel([INCOMPLETE, SAFE_JSON]);
+    const r = await runTurn(newDialog(), "หนูไม่ค่อยอยาก die นะ แค่ถามเรื่อง HIV", deps(model));
+    expect(calls.chat).toBe(2);
+    expect(r.reply.kind).toBe("chat");
+    if (r.reply.kind === "chat") {
+      expect(r.reply.softCrisis?.line).toBe(AMBIGUOUS_CRISIS_LINE_TH);
+      expect(r.reply.text).toBe(SAFE);
+    }
+  });
+
+  it("AMBIGUOUS keeps the DRAFT soft line when invalid choice falls back to the card", async () => {
     const { model, calls } = spyModel(HEAT);
     const r = await runTurn(newDialog(), "หนูไม่ค่อยอยาก die นะ ถุงยางแตกทำไงดี", deps(model));
     expect(calls.chat).toBeGreaterThanOrEqual(1);

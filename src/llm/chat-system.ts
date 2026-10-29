@@ -3,7 +3,9 @@
  *
  * Status: DRAFT. Not approved product copy. Do not film or ship as reviewed
  * until Keng signs off. Persona: warm Thai voice. Facts come only from the
- * approved answer-bank card injected below (or no facts, if none matched).
+ * approved answer-bank card as numbered sentences (or no card sentences).
+ * The model returns JSON ids only; the app renders list text + verbatim
+ * card sentences.
  *
  * The reply language is chosen by rules (`detectChatLang`), not by the model.
  * Thai turns keep this Thai persona (language line: ตอบเป็นภาษาไทย). English
@@ -15,15 +17,17 @@
  * (`enable_thinking: false` / `/no_think`), not by asking the model to "think".
  */
 
-import type { ChatLang } from "./chat-lang";
 import type { ChatReplyOpts } from "./adapter";
+import type { ChatLang } from "./chat-lang";
+import { numberedCardSentences } from "./chat-sentences";
+import { followUpsFor, openersFor } from "./chat-voice";
 
 export const CHAT_SYSTEM_STATUS = "draft" as const;
 
 export const CHAT_TEMPERATURE = 0.3;
 export const CHAT_TOP_P = 0.9;
-/** Cap output length. 80 tokens; trim back to the last complete sentence. */
-export const CHAT_MAX_TOKENS = 80;
+/** Cap output length. Structured JSON ids only; 40 is enough. */
+export const CHAT_MAX_TOKENS = 40;
 
 /**
  * Per-turn grounding. `facts` is the approved card's answer text (bank only),
@@ -72,33 +76,40 @@ export const CHAT_SYSTEM_AMBIGUOUS_TH =
 export const CHAT_SYSTEM_AMBIGUOUS_EN =
   "They may be unsafe. Be gentle and supportive. Never give methods or amounts. Encourage reaching out.";
 
-/** DRAFT. Appended when a confident approved card is the only allowed source. */
+/** DRAFT. JSON-only choice when a confident approved card is the only source. */
 export const CHAT_GROUND_FACTS_TH =
-  "ตอบโดยยึดประโยคในข้อเท็จจริงด้านล่างให้ใกล้ต้นฉบับ น้ำเสียงพี่เจน " +
-  "เติมประโยคปลอบใจสั้นได้หนึ่งประโยค " +
-  "ห้ามกลับความหมาย ห้ามสลับหัวข้อ ห้ามเปลี่ยนตัวเลข ห้ามเพิ่มข้อเท็จจริงที่ไม่มีในนี้ " +
-  "ถ้าไม่มีในนี้ให้บอกว่ายังไม่ทราบ จบประโยคด้วยค่ะ นะ ครับ หรือจ้ะ ข้อเท็จจริงที่อนุญาต:";
+  'ตอบเป็น JSON สั้นเท่านั้น รูปแบบ {"o":N,"s":[...],"q":N} ห้ามเขียนข้อความอื่น ' +
+  "o คือรหัสประโยคเปิด s คือรหัสประโยคจากบัตรไม่เกินสามข้อตามลำดับห้ามซ้ำ q คือรหัสคำถามต่อ " +
+  "ห้ามเพิ่มข้อเท็จจริงของตัวเอง ประโยคจากบัตร:";
 
 export const CHAT_GROUND_NONE_TH =
-  "ยังไม่มีบัตรคำตอบที่ตรงพอ ตอบสั้น อบอุ่น ห้ามให้ข้อเท็จจริง ตัวเลข คำสั่ง ราคา สายด่วน ลิงก์ " +
-  "บอกได้ว่ายังตอบเรื่องนี้ไม่ได้ และชวนกดขอข้อมูลเลย จบประโยคด้วยค่ะ นะ ครับ หรือจ้ะ";
+  'ตอบเป็น JSON สั้นเท่านั้น รูปแบบ {"o":N,"s":[],"q":N} ห้ามเขียนข้อความอื่น ' +
+  "ยังไม่มีบัตรที่ตรงพอ s ต้องเป็น [] " +
+  "ห้ามให้ข้อเท็จจริง ตัวเลข คำสั่ง ราคา สายด่วน ลิงก์";
 
 export const CHAT_GROUND_STRICT_TH =
-  "รอบนี้เข้มงวด: พูดประโยคในข้อเท็จจริงด้านบนซ้ำให้ใกล้ต้นฉบับ " +
-  "เติมประโยคปลอบใจสั้นได้หนึ่งประโยค ห้ามกลับไม่หรือห้าม ห้ามเปลี่ยนตัวเลข ห้ามสลับหัวข้อ ถ้าไม่มีให้บอกว่ายังไม่ทราบ";
+  "รอบนี้ต้องเป็น JSON ที่ถูกต้องตามรูปแบบด้านบนเท่านั้น s ต้องเป็นรหัสที่มีในรายการ";
 
 export const CHAT_GROUND_FACTS_EN =
-  "Restate the fact sentences below closely, in P'Jane's warm voice. " +
-  "You may add one short empathy phrase. Do not flip meaning, swap the topic, change numbers, or add facts that are not there. " +
-  "If it is not there, say you do not know. End on a complete sentence. Allowed facts:";
+  'Reply with short JSON only: {"o":N,"s":[...],"q":N}. No other text. ' +
+  "o is the opener id, s is 0 to 3 card sentence ids in order with no duplicates, q is the follow-up id. " +
+  "Do not add your own facts. Allowed card sentences:";
 
 export const CHAT_GROUND_NONE_EN =
-  "No approved card matched well enough. Give a short warm reply with no factual claims. " +
-  "You may say you cannot answer that yet and point them to Just show me the info. End on a complete sentence.";
+  'Reply with short JSON only: {"o":N,"s":[],"q":N}. No other text. ' +
+  "No approved card matched well enough, so s must be []. No factual claims, numbers, instructions, prices, hotlines, or links.";
 
 export const CHAT_GROUND_STRICT_EN =
-  "Stricter this time: restate the fact sentences above closely. You may add one short empathy phrase. " +
-  "Do not flip negators, change numbers, or swap the topic. If not there, say you do not know.";
+  "This retry must be valid JSON in the format above. s may only use ids from the list.";
+
+export const CHAT_GROUND_OPENERS_TH = "ประโยคเปิด (o):";
+export const CHAT_GROUND_FOLLOWUPS_TH = "คำถามต่อ (q):";
+export const CHAT_GROUND_OPENERS_EN = "Openers (o):";
+export const CHAT_GROUND_FOLLOWUPS_EN = "Follow-ups (q):";
+
+function numberedList(title: string, items: readonly string[]): string {
+  return `${title}\n${items.map((s, i) => `${i}. ${s}`).join("\n")}`;
+}
 
 export function chatSystemFor(lang: ChatLang, opts?: ChatReplyOpts): string {
   const base = lang === "en" ? CHAT_SYSTEM_EN : CHAT_SYSTEM;
@@ -110,9 +121,17 @@ export function chatSystemFor(lang: ChatLang, opts?: ChatReplyOpts): string {
   const factsIntro = lang === "en" ? CHAT_GROUND_FACTS_EN : CHAT_GROUND_FACTS_TH;
   const none = lang === "en" ? CHAT_GROUND_NONE_EN : CHAT_GROUND_NONE_TH;
   const strict = lang === "en" ? CHAT_GROUND_STRICT_EN : CHAT_GROUND_STRICT_TH;
+  const openers = numberedList(
+    lang === "en" ? CHAT_GROUND_OPENERS_EN : CHAT_GROUND_OPENERS_TH,
+    openersFor(lang),
+  );
+  const follow = numberedList(
+    lang === "en" ? CHAT_GROUND_FOLLOWUPS_EN : CHAT_GROUND_FOLLOWUPS_TH,
+    followUpsFor(lang),
+  );
   const parts = [persona];
-  if (g.facts) parts.push(factsIntro, g.facts);
-  else parts.push(none);
+  if (g.facts) parts.push(factsIntro, numberedCardSentences(g.facts), openers, follow);
+  else parts.push(none, openers, follow);
   if (g.strict) parts.push(strict);
   return parts.join("\n");
 }

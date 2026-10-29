@@ -16,6 +16,7 @@ import { BANK } from "../../src/core/bankData";
 import { modelChatScript } from "../../src/llm/chat-lang";
 import { acceptChatReply, CHAT_HOLDING_LINE } from "../../src/llm/chatGuard";
 import { CHAT_SYSTEM, CHAT_SYSTEM_AMBIGUOUS_EN, CHAT_SYSTEM_AMBIGUOUS_TH, chatSystemFor } from "../../src/llm/chat-system";
+import { DEFAULT_CHAT_CHOICE_JSON, defaultChatReply } from "../../src/llm/chat-choice";
 import { readFileSync } from "node:fs";
 import {
   ADVERSARIAL_CUE_MIX,
@@ -28,7 +29,8 @@ import {
 // SYNTHETIC paraphrases only. Never user logs.
 
 const DRAFT_SOFT_LINE = "ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ";
-const SAFE_CHAT = "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย";
+const SAFE_JSON = DEFAULT_CHAT_CHOICE_JSON;
+const SAFE_CHAT = defaultChatReply("th");
 const NONE_CONTROL = "ช่วงนี้กังวลเรื่องแฟน";
 const THAI_AMBIGUOUS = "หนูไม่ค่อยอยาก die นะ แค่ถามเรื่อง HIV";
 const GUARD_FAIL_CHAT = "กิน 2 เม็ด แล้วไม่ท้องแน่ https://evil.test";
@@ -65,7 +67,7 @@ function spyModel(opts?: { chat?: string | null; ready?: boolean; hang?: boolean
         });
       }
       if (opts && "chat" in opts) return opts.chat ?? null;
-      return SAFE_CHAT;
+      return SAFE_JSON;
     }),
     pickCard: vi.fn(async (_t, list) => {
       calls.pick++;

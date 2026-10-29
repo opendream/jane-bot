@@ -1,5 +1,5 @@
 /**
- * Measure trim + chatGuard + fact-check fallback rate on a fixture file.
+ * Measure structured-choice + chatGuard fallback rate on a fixture file.
  * No live model. Default fixtures are synthetic (tests/fixtures/chat-ground-measure.ts).
  *
  *   npx vite-node scripts/eval/grounded/measure.ts
@@ -18,5 +18,6 @@ process.stdout.write(`${JSON.stringify({
   accepted: r.accepted,
   fallback: r.fallback,
   fallbackRate: r.fallbackRate,
+  byArm: r.byArm,
   fallbackIds: failed,
 }, null, 2)}\n`);
