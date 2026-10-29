@@ -4,11 +4,12 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { PICK_MAX_TOKENS, PICK_SYSTEM, parsePick, pickSchema, pickUser } from "../../../src/llm/prompts";
+import { PICK_MAX_TOKENS, PICK_SYSTEM, parsePick, pickSchema } from "../../../src/llm/prompts";
+import { evalPickUser, type ShortlistItem } from "./variants";
 
 export interface PickRequest {
   text: string;
-  shortlist: { id: string; title_th: string }[];
+  shortlist: ShortlistItem[];
   previousTitle: string | null;
 }
 
@@ -23,11 +24,12 @@ export interface EvalPicker {
   name: string;
   pick(
     text: string,
-    shortlist: { id: string; title_th: string }[],
+    shortlist: ShortlistItem[],
     prev: string | null,
     signal?: AbortSignal,
   ): Promise<PickResponse>;
   close?(): Promise<void> | void;
+  configure?(opts: { describe?: boolean; fewShot?: boolean }): void;
 }
 
 export type StubMode = "top1" | "always-other" | "forced-index";
@@ -74,21 +76,50 @@ function workerPath(): string {
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), "llama_worker.py");
 }
 
-/** Native llama.cpp (llama-cpp-python) picker. Only constructed when a verified GGUF is on disk. */
-export function llamaPicker(opts: { modelPath?: string; threads?: number } = {}): EvalPicker {
-  const modelPath = opts.modelPath ?? findVerifiedGguf();
-  if (!modelPath) throw new Error("Qwen3-1.7B GGUF is not present locally (see scripts/fetch-weights.mjs --variants wasm)");
+export interface LlamaPickerOpts {
+  modelPath?: string;
+  threads?: number;
+  describe?: boolean;
+  fewShot?: boolean;
+  /** Test-only: replace the python worker argv (no GGUF required). */
+  workerArgv?: string[];
+  workerEnv?: NodeJS.ProcessEnv;
+}
+
+/**
+ * Native llama.cpp (llama-cpp-python) picker. Only constructed when a verified GGUF is on disk,
+ * unless `workerArgv` is set (unit tests).
+ *
+ * Each request carries a monotonic `id`. Abort/timeout clears that waiter so a late worker
+ * line cannot resolve the next pick (PR #33 had this race at pickers.ts pending).
+ */
+export function llamaPicker(opts: LlamaPickerOpts = {}): EvalPicker {
   const threads = opts.threads ?? Math.max(1, Number(process.env.JANE_THREADS) || os.cpus().length);
+  const modelPath = opts.workerArgv ? (opts.modelPath ?? "mock") : (opts.modelPath ?? findVerifiedGguf());
+  if (!opts.workerArgv && !modelPath) {
+    throw new Error("Qwen3-1.7B GGUF is not present locally (see scripts/fetch-weights.mjs --variants wasm)");
+  }
+  const prompt = { describe: !!opts.describe, fewShot: !!opts.fewShot };
+  const argv = opts.workerArgv ?? ["python3", workerPath(), "--model", modelPath!, "--threads", String(threads)];
   let proc: ChildProcessWithoutNullStreams | null = null;
   let buf = "";
+  let seq = 0;
+  let pendingId: number | null = null;
   let pending: ((v: PickResponse) => void) | null = null;
   let pendingErr: ((e: Error) => void) | null = null;
 
+  const clearWaiter = (id: number | null) => {
+    if (id != null && pendingId !== id) return;
+    pendingId = null;
+    pending = null;
+    pendingErr = null;
+  };
+
   const start = () => {
     if (proc) return;
-    proc = spawn("python3", [workerPath(), "--model", modelPath, "--threads", String(threads)], {
+    proc = spawn(argv[0], argv.slice(1), {
       stdio: ["pipe", "pipe", "pipe"],
-      env: { ...process.env, PYTHONUNBUFFERED: "1" },
+      env: { ...process.env, PYTHONUNBUFFERED: "1", ...opts.workerEnv },
     });
     proc.stdout.setEncoding("utf8");
     proc.stderr.setEncoding("utf8");
@@ -102,9 +133,12 @@ export function llamaPicker(opts: { modelPath?: string; threads?: number } = {})
         let parsed: any;
         try { parsed = JSON.parse(line); } catch { continue; }
         if (parsed?.ready) continue;
+        const rid = parsed?.req_id ?? parsed?.id;
+        if (rid != null && pendingId != null && rid !== pendingId) continue; // stale / timed-out request
         const ok = pending;
-        pending = null;
         const err = pendingErr;
+        pendingId = null;
+        pending = null;
         pendingErr = null;
         if (parsed?.error) err?.(new Error(String(parsed.error)));
         else ok?.(parsed as PickResponse);
@@ -113,6 +147,7 @@ export function llamaPicker(opts: { modelPath?: string; threads?: number } = {})
     proc.stderr.on("data", () => { /* llama.cpp logs; do not print user text */ });
     proc.on("exit", (code) => {
       const err = pendingErr;
+      pendingId = null;
       pending = null;
       pendingErr = null;
       err?.(new Error(`llama_worker exited ${code}`));
@@ -121,12 +156,18 @@ export function llamaPicker(opts: { modelPath?: string; threads?: number } = {})
   };
 
   return {
-    name: `llama.cpp:Qwen3-1.7B-Q4_K_M:t${threads}`,
+    name: opts.workerArgv ? `mock-llama-worker:t${threads}` : `llama.cpp:Qwen3-1.7B-Q4_K_M:t${threads}`,
+    configure(next) {
+      if (next.describe !== undefined) prompt.describe = next.describe;
+      if (next.fewShot !== undefined) prompt.fewShot = next.fewShot;
+    },
     async pick(text, shortlist, prev, signal) {
       start();
+      const reqId = ++seq;
       const schema = pickSchema(shortlist.map((s) => s.id));
-      const user = `${pickUser(text, shortlist, prev)} /no_think`;
+      const user = `${evalPickUser(text, shortlist, prev, prompt)} /no_think`;
       const payload = JSON.stringify({
+        req_id: reqId,
         system: PICK_SYSTEM,
         user,
         schema,
@@ -134,8 +175,13 @@ export function llamaPicker(opts: { modelPath?: string; threads?: number } = {})
       });
       const result = await new Promise<PickResponse>((resolve, reject) => {
         if (signal?.aborted) return reject(new Error("aborted"));
-        const onAbort = () => reject(new Error("aborted"));
+        const onAbort = () => {
+          clearWaiter(reqId);
+          signal?.removeEventListener("abort", onAbort);
+          reject(new Error("aborted"));
+        };
         signal?.addEventListener("abort", onAbort, { once: true });
+        pendingId = reqId;
         pending = (v) => { signal?.removeEventListener("abort", onAbort); resolve(v); };
         pendingErr = (e) => { signal?.removeEventListener("abort", onAbort); reject(e); };
         proc!.stdin.write(payload + "\n");
@@ -147,6 +193,9 @@ export function llamaPicker(opts: { modelPath?: string; threads?: number } = {})
       try { proc?.stdin.write(JSON.stringify({ cmd: "quit" }) + "\n"); } catch { /* ignore */ }
       proc?.kill();
       proc = null;
+      pendingId = null;
+      pending = null;
+      pendingErr = null;
     },
   };
 }

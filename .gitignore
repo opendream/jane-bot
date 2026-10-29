@@ -15,3 +15,5 @@ dist-eval/
 jane-df*/
 jane-private/
 *.dfexport.zip
+# Pick-variant inference cache (resume only; never commit)
+evals/model-first/cache/

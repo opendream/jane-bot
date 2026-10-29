@@ -10,6 +10,9 @@ export interface ScoreRow {
   latencyMs?: number | null;
   promptTokens?: number | null;
   agreeRulesTop1?: boolean;
+  modelShown?: boolean;
+  rulesConfident?: boolean;
+  pickTimedOut?: boolean;
 }
 
 export interface ModelFirstMetrics {
@@ -29,6 +32,12 @@ export interface ModelFirstMetrics {
   latencyMsMedian: number | null;
   latencyMsP90: number | null;
   promptTokensMedian: number | null;
+  noneRate: number;
+  nNone: number;
+  nNonLockedFreeText: number;
+  nModelShown: number;
+  modelShownRate: number;
+  nTimeouts: number;
 }
 
 function isCardId(s: string): boolean {
@@ -56,6 +65,10 @@ export function scoreModelFirst(rows: ScoreRow[]): ModelFirstMetrics {
   const lat = scored.map((r) => r.latencyMs).filter((x): x is number => typeof x === "number");
   const tok = scored.map((r) => r.promptTokens).filter((x): x is number => typeof x === "number" && x > 0);
   const agreeN = scored.filter((r) => r.agreeRulesTop1).length;
+  const nNone = scored.filter((r) => r.predicted === "none").length;
+  const lockedVias = new Set(["crisis", "guard", "followup", "referral", "rules_locked"]);
+  const free = scored.filter((r) => !lockedVias.has(r.via));
+  const nModelShown = free.filter((r) => r.via === "model" || r.via === "model_backup" || r.modelShown).length;
   return {
     n,
     accuracy: n ? nCorrect / n : 0,
@@ -73,5 +86,11 @@ export function scoreModelFirst(rows: ScoreRow[]): ModelFirstMetrics {
     latencyMsMedian: pctile(lat, 0.5),
     latencyMsP90: pctile(lat, 0.9),
     promptTokensMedian: pctile(tok, 0.5),
+    noneRate: n ? nNone / n : 0,
+    nNone,
+    nNonLockedFreeText: free.length,
+    nModelShown,
+    modelShownRate: free.length ? nModelShown / free.length : 0,
+    nTimeouts: scored.filter((r) => r.pickTimedOut).length,
   };
 }

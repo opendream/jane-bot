@@ -233,6 +233,17 @@ describe("age gate after a pick", () => {
   });
 });
 
+describe("V0 default still calls the model on a non-locked free-text turn", () => {
+  it("does not take the confident-agree shortcut unless asked", async () => {
+    const picker = countingPicker(stubPicker("always-other"));
+    const out = await evalTurn("เอชไอวีคืออะไร", { cards, picker, k: 5, timeoutMs: timeout });
+    expect(picker.calls).toBe(1);
+    expect(out.via).toBe("model");
+    expect(out.modelShown).toBe(true);
+    expect(out.cardId).toBe(picker.lastShortlist[1]);
+  });
+});
+
 describe("metrics helpers", () => {
   it("accuracy, wrong-card rate, crisis model-call count, fallback and no-candidate rates", () => {
     const rows = [

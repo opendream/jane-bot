@@ -51,6 +51,7 @@ function toRow(item: EvalItem, out: EvalTurnOut): ScoreRow {
     latencyMs: out.latencyMs,
     promptTokens: out.promptTokens,
     agreeRulesTop1: out.agreeRulesTop1,
+    pickTimedOut: out.pickTimedOut,
   };
 }
 

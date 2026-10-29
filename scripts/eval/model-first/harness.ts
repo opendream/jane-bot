@@ -10,6 +10,7 @@ import { findPhrases, normalize } from "../../../src/core/text";
 import { backupShortlist } from "./backup-shortlist";
 import { isLockedCardId } from "./locked";
 import type { EvalPicker } from "./pickers";
+import { HIV_UNDER18_ID, toShortlistItem, type LockPolicy } from "./variants";
 
 export type { EvalPicker } from "./pickers";
 
@@ -51,6 +52,10 @@ export interface EvalTurnOut {
   locked: boolean;
   shortlistIds: string[];
   pickRaw: string | null;
+  rulesConfident: boolean;
+  modelShown: boolean;
+  modelPickId: string | null;
+  pickTimedOut: boolean;
 }
 
 export interface EvalTurnOpts {
@@ -64,6 +69,14 @@ export interface EvalTurnOpts {
   copyStatus?: "draft" | "reviewed";
   previousTitle?: string | null;
   mode?: "model-first" | "rules";
+  /** V1/V3/V4: model still runs; confident rules win on disagreement / none. */
+  confidentAgree?: boolean;
+  /** Include title + first key_fact in the picker shortlist (prompt is eval-only). */
+  describe?: boolean;
+  /** V4: prepend two synthetic Thai pick examples. */
+  fewShot?: boolean;
+  /** Eval-only lock simulation. Default "always" matches PR #33 (never change runtime lock). */
+  lockPolicy?: LockPolicy;
 }
 
 function predictedLabel(out: EvalTurnOut): string {
@@ -93,10 +106,15 @@ function base(partial: Partial<EvalTurnOut> & Pick<EvalTurnOut, "kind" | "via">)
     locked: partial.locked ?? false,
     shortlistIds: partial.shortlistIds ?? [],
     pickRaw: partial.pickRaw ?? null,
+    rulesConfident: partial.rulesConfident ?? false,
+    modelPickId: partial.modelPickId ?? null,
+    pickTimedOut: partial.pickTimedOut ?? false,
+    modelShown: false,
     label: "",
   };
   out.label = predictedLabel(out);
   out.agreeRulesTop1 = !!out.cardId && out.cardId === out.rulesTop1;
+  out.modelShown = out.via === "model" || out.via === "model_backup";
   return out;
 }
 
@@ -111,7 +129,7 @@ async function withTimeout<T>(fn: (s: AbortSignal) => Promise<T>, ms: number, ou
   const t = setTimeout(stop, ms);
   try {
     return await Promise.race([
-      fn(ac.signal),
+      fn(ac.signal).then((v) => v, () => null),
       new Promise<null>((r) => ac.signal.addEventListener("abort", () => r(null))),
     ]);
   } catch {
@@ -161,9 +179,11 @@ export async function evalTurn(text: string, opts: EvalTurnOpts): Promise<EvalTu
   const r = retrieve(text, pool);
   const rulesIds = r.ranked.map((s) => s.card.id);
   const rulesTop1 = rulesIds[0] ?? null;
-  const rulesMeta = { rulesCandidateCount: r.ranked.length, rulesTop1, rulesIds };
+  const rulesMeta = { rulesCandidateCount: r.ranked.length, rulesTop1, rulesIds, rulesConfident: r.confident };
+  const lockPolicy: LockPolicy = opts.lockPolicy ?? "always";
+  const lockThisTurn = !!(rulesTop1 && isLockedCardId(rulesTop1) && (lockPolicy === "always" || r.confident));
 
-  if (rulesTop1 && isLockedCardId(rulesTop1)) {
+  if (lockThisTurn) {
     const aged = applyAge(r.ranked[0].card, age, cards);
     return base({
       kind: "card",
@@ -188,16 +208,46 @@ export async function evalTurn(text: string, opts: EvalTurnOpts): Promise<EvalTu
   }
 
   const picker = opts.picker;
-  const shortlistCards = r.ranked.filter((s) => !isLockedCardId(s.card.id)).slice(0, k).map((s) => s.card);
+  picker?.configure?.({ describe: !!opts.describe, fewShot: !!opts.fewShot });
+  const includeLockedOnShortlist =
+    lockPolicy === "confident-only" && !!rulesTop1 && isLockedCardId(rulesTop1) && !r.confident;
+  const shortlistCards = r.ranked
+    .filter((s) => includeLockedOnShortlist || !isLockedCardId(s.card.id))
+    .slice(0, k)
+    .map((s) => s.card);
 
   const finishModel = async (list: BankCard[], viaOk: EvalVia, backupUsed: boolean, backupIds: string[]) => {
-    const shortlist = list.map((c) => ({ id: c.id, title_th: c.title_th }));
+    const shortlist = list.map(toShortlistItem);
     const clean = stripPII(text).slice(0, MODEL_INPUT_CHARS);
     const picked = picker
       ? await withTimeout((s) => picker.pick(clean, shortlist, opts.previousTitle ?? null, s), timeoutMs)
       : null;
     const modelCalls = picker ? 1 : 0;
-    const id = picked?.id && shortlist.some((s) => s.id === picked.id) ? picked.id : null;
+    const pickTimedOut = !!picker && picked == null;
+    const rawId = picked?.id && shortlist.some((s) => s.id === picked.id) ? picked.id : null;
+    const hivOk = (id: string) => id !== HIV_UNDER18_ID || rulesIds.includes(HIV_UNDER18_ID);
+    const id = rawId && hivOk(rawId) ? rawId : null;
+    const rulesCard = r.ranked[0]?.card;
+    if (opts.confidentAgree && r.confident && rulesCard && id !== rulesCard.id) {
+      const aged = applyAge(rulesCard, age, cards);
+      return base({
+        kind: "card",
+        via: "rules_fallback",
+        cardId: aged.card.id,
+        modelCalls,
+        fallback: true,
+        ageRedirect: aged.redirect,
+        latencyMs: picked?.latencyMs ?? null,
+        promptTokens: picked?.promptTokens ?? null,
+        shortlistIds: shortlist.map((s) => s.id),
+        pickRaw: picked?.raw ?? null,
+        modelPickId: rawId,
+        pickTimedOut,
+        backupUsed,
+        backupIds,
+        ...rulesMeta,
+      });
+    }
     const chosen = id ? byId.get(id) : undefined;
     if (chosen && shippable(chosen, copyStatus)) {
       const aged = applyAge(chosen, age, cards);
@@ -213,6 +263,8 @@ export async function evalTurn(text: string, opts: EvalTurnOpts): Promise<EvalTu
           promptTokens: picked?.promptTokens ?? null,
           shortlistIds: shortlist.map((s) => s.id),
           pickRaw: picked?.raw ?? null,
+          modelPickId: rawId,
+          pickTimedOut,
           backupUsed,
           backupIds,
           ...rulesMeta,
@@ -227,6 +279,8 @@ export async function evalTurn(text: string, opts: EvalTurnOpts): Promise<EvalTu
         promptTokens: picked?.promptTokens ?? null,
         shortlistIds: shortlist.map((s) => s.id),
         pickRaw: picked?.raw ?? null,
+        modelPickId: rawId,
+        pickTimedOut,
         backupUsed,
         backupIds,
         backupHit: backupUsed && backupIds.includes(aged.card.id),
@@ -246,6 +300,8 @@ export async function evalTurn(text: string, opts: EvalTurnOpts): Promise<EvalTu
         promptTokens: picked?.promptTokens ?? null,
         shortlistIds: shortlist.map((s) => s.id),
         pickRaw: picked?.raw ?? null,
+        modelPickId: rawId,
+        pickTimedOut,
         backupUsed,
         backupIds,
         ...rulesMeta,
@@ -262,6 +318,8 @@ export async function evalTurn(text: string, opts: EvalTurnOpts): Promise<EvalTu
       promptTokens: picked?.promptTokens ?? null,
       shortlistIds: shortlist.map((s) => s.id),
       pickRaw: picked?.raw ?? null,
+      modelPickId: rawId,
+      pickTimedOut,
       backupUsed,
       backupIds,
       ...rulesMeta,
