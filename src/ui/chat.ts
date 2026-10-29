@@ -43,6 +43,7 @@ export interface ChatMsg {
   engine?: EngineTag;
   engineLabel?: string | null;
   cardNote?: string | null;
+  softCrisis?: { line: string; categories: CrisisCategory[] };
 }
 
 export interface ChatState {
@@ -116,7 +117,8 @@ function fromReply(r: TurnReply, modelPick = false, chatFirst = false): ChatMsg 
   if (r.kind === "card") {
     return { from: "jane", text: r.text, cardId: r.card.id, placeholder: !!r.card.placeholder, reworded: r.reworded, original: r.card.answer_th,
       banner: r.banner, chips: r.chips, offer: r.offer, offerIntents: r.offerIntents, cap: r.capNotice,
-      engine: r.engine, engineLabel: engineAnswerLabel(r.engine, modelPick || chatFirst), cardNote: r.cardNote };
+      engine: r.engine, engineLabel: engineAnswerLabel(r.engine, modelPick || chatFirst), cardNote: r.cardNote,
+      softCrisis: r.softCrisis };
   }
   if (r.kind === "chat") {
     if (!r.text && !r.card) return null;
@@ -290,6 +292,12 @@ function bubble(m: ChatMsg, i: number, last: boolean, chat: ChatState, hooks: Ch
       m.engineLabel ? h("p", { class: "engine-label", "data-testid": "engine-label" }, m.engineLabel) : null,
       m.cardNote ? h("p", { class: "note", "data-testid": "card-lang-note" }, m.cardNote) : null,
       h("p", { "data-testid": "chat-text" }, shown),
+      m.softCrisis ? h("button", {
+        class: "btn-ghost",
+        type: "button",
+        "data-testid": "chat-crisis-soft-open",
+        onclick: () => hooks.crisis(m.softCrisis!.categories),
+      }, h("span", { "data-testid": "chat-crisis-soft-line" }, m.softCrisis.line)) : null,
       m.reworded && h("p", { class: "note", "data-testid": "reword-note" }, "เรียบเรียงโดยโมเดลในเครื่อง ",
         h("button", { class: "link", "data-testid": "show-original", onclick: () => { m.showOriginal = !m.showOriginal; hooks.rerender(); } }, m.showOriginal ? "ดูฉบับเรียบเรียง" : "ดูข้อความต้นฉบับ")),
       m.cap === "soft" && h("p", { class: "note", "data-testid": "cap-soft" }, `คุยกันมา ${SOFT_CAP} ข้อความแล้ว ลองคุยกับเจ้าหน้าที่ตัวจริง หรือกดลบแชทเพื่อเริ่มใหม่ก็ได้นะ`),

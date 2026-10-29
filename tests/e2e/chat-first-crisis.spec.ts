@@ -152,3 +152,45 @@ test("?chatFirst=1 don't-want-to-live shows the existing crisis card with zero m
   const calls = await modelCalls(page);
   expect(calls.chat + calls.pick).toBe(0);
 });
+
+test("card-first razor self-harm disclosure shows the existing crisis card with zero model calls", async ({ page }) => {
+  await openStubbed(page);
+  await openChat(page);
+  await say(page, "หนู cut ตัวเองด้วยมีดโกนทุกคืน");
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  const calls = await modelCalls(page);
+  expect(calls.chat + calls.pick).toBe(0);
+});
+
+test("card-first ambiguous side-effect question shows the card, DRAFT soft line, and button; button opens existing crisis screen; zero model calls", async ({ page }) => {
+  await openStubbed(page);
+  await openChat(page);
+  await say(page, "ยาคุมทำให้รู้สึก suicidal ได้ไหม");
+  await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
+  await expect(lastJane(page)).toBeVisible();
+  await expect(page.getByTestId("chat-crisis-soft-line")).toHaveText("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ");
+  await expect(page.getByTestId("chat-crisis-soft-open")).toBeVisible();
+  const before = await modelCalls(page);
+  expect(before.chat + before.pick).toBe(0);
+  await page.getByTestId("chat-crisis-soft-open").click();
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  await expect(page.locator('[data-testid^="crisis-"]').first()).toBeVisible();
+  const after = await modelCalls(page);
+  expect(after.chat + after.pick).toBe(0);
+});
+
+test("?chatFirst=1 ambiguous line never calls the model and the soft button opens the existing crisis screen", async ({ page }) => {
+  await openChatFirst(page);
+  await openChat(page);
+  await say(page, "หนูไม่ค่อยอยาก die นะ แค่ถามเรื่อง HIV");
+  await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
+  await expect(page.getByTestId("chat-thinking")).toHaveCount(0);
+  const jane = lastJane(page);
+  await expect(jane).toHaveAttribute("data-card", /.+/);
+  await expect(jane.getByTestId("chat-crisis-soft-line")).toBeVisible();
+  await expect(jane.getByTestId("chat-crisis-soft-open")).toBeVisible();
+  const calls = await modelCalls(page);
+  expect(calls.chat + calls.pick).toBe(0);
+  await jane.getByTestId("chat-crisis-soft-open").click();
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+});

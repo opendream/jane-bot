@@ -517,17 +517,19 @@ describe("narrow don't-wanna-die guard and Codex card lines", () => {
 });
 
 describe("round-4 precision guards stay on the card (pin misses)", () => {
-  it("has the converted safe-side block plus at least 30 variants", () => {
+  it("has the converted block plus at least 30 variants; มีดโกน is not an accident cue", () => {
     expect(ROUND4_PRECISION_CARD_LINES.length).toBeGreaterThanOrEqual(41);
     expect(ROUND4_PRECISION_CARD_LINES).toContain("หนูไม่ อยาก die เพราะ HIV ต้องทำยังไง");
     expect(ROUND4_PRECISION_CARD_LINES).toContain("I don't really wanna die, is HIV curable");
     expect(ROUND4_PRECISION_CARD_LINES).toContain("ยาคุมทำให้รู้สึก suicidal ได้ไหม");
     expect(ROUND4_PRECISION_CARD_LINES).toContain("I cut myself shaving down there, can I get HIV");
+    expect(ROUND4_PRECISION_CARD_LINES).not.toContain("ผม cut ตัวเองโดนมีดโกน");
   });
 
   it.each(ROUND4_PRECISION_CARD_LINES)("%s", (text) => {
     expect(detectCrisis(text).crisis, text).toBe(false);
     expect(detectChatCrisis(text).crisis, text).toBe(false);
+    expect(detectChatCrisis(text).outcome, text).toBe("ambiguous");
     expect(detectChatCrisisForTurn(text, []).crisis, text).toBe(false);
   });
 });

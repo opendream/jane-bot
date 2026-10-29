@@ -4,7 +4,7 @@ import crisisFp from "../../evals/crisis-fp-set.json";
 import seed from "../../evals/seed-set.json";
 import paraphrase from "../../evals/paraphrase-set.json";
 import judged from "../../evals/review868/judged.json";
-import { detectChatCrisisForTurn } from "../../src/core/chat-crisis";
+import { detectChatCrisisForTurn, type ChatCrisisOutcome } from "../../src/core/chat-crisis";
 import { BANK } from "../../src/core/bankData";
 import { shippable } from "../../src/core/bank";
 import { afterPick, AGE_REDIRECT_CARD } from "../../src/core/age";
@@ -23,15 +23,18 @@ import { detectChatLang } from "../../src/llm/chat-lang";
 import { ENGLISH_MODEL_CHAT } from "../../src/config";
 import {
   ADVERSARIAL_CHAT_CRISIS_FP,
+  ADVERSARIAL_CUE_MIX,
   CODEX_CITED_FP_LINES,
   CODEX_THAI_ONLY_CARD_LINES,
   ROUND4_PRECISION_CARD_LINES,
+  ROUND5_AMBIGUOUS_LINES,
 } from "./chat-crisis-adversarial-fp";
 
 // SYNTHETIC eval/fixture texts only. Counts and ids; never user logs.
 
 type Item = { id: string; text: string };
 type SetCount = { hits: number; total: number };
+type OutcomeCount = { clear: number; ambiguous: number; none: number; total: number };
 
 const cardDeps = (): TurnDeps => ({ cards: BANK, copyStatus: "draft" });
 const chatDeps = (): TurnDeps => ({ cards: BANK, copyStatus: "draft", chatFirst: true });
@@ -81,10 +84,30 @@ function normalSets(): { name: string; items: Item[] }[] {
   ];
 }
 
-/** Extra-check FP: pin missed (raw or folded), extra check hit. Ids only — never the text. */
+/** Extra-check FP: pin missed (raw or folded), extra check CLEAR. Ids only — never the text. */
 function extraHit(text: string): boolean {
   if (detectCrisisRawOrFolded(text).crisis) return false;
-  return detectChatCrisisForTurn(text, []).crisis;
+  return detectChatCrisisForTurn(text, []).outcome === "clear";
+}
+
+function extraOutcome(text: string): ChatCrisisOutcome {
+  if (detectCrisisRawOrFolded(text).crisis) return "none";
+  return detectChatCrisisForTurn(text, []).outcome;
+}
+
+/** Overall turn: pin CLEAR, else the extra-check outcome. */
+function turnOutcome(text: string): ChatCrisisOutcome {
+  if (detectCrisisRawOrFolded(text).crisis) return "clear";
+  return detectChatCrisisForTurn(text, []).outcome;
+}
+
+function scanOutcomes(items: Item[]): OutcomeCount {
+  const out: OutcomeCount = { clear: 0, ambiguous: 0, none: 0, total: items.length };
+  for (const x of items) {
+    const o = extraOutcome(x.text);
+    out[o] += 1;
+  }
+  return out;
 }
 
 function scanDetector(items: Item[]): SetCount {
@@ -381,7 +404,8 @@ describe("English extra-check false positives on every normal set (ENGLISH_MODEL
     expect(CODEX_CITED_FP_LINES).toHaveLength(11);
     expect(CODEX_THAI_ONLY_CARD_LINES.length).toBeGreaterThanOrEqual(14);
     expect(ROUND4_PRECISION_CARD_LINES.length).toBeGreaterThanOrEqual(41);
-    for (const line of [...CODEX_CITED_FP_LINES, ...CODEX_THAI_ONLY_CARD_LINES, ...ROUND4_PRECISION_CARD_LINES]) {
+    expect(ROUND5_AMBIGUOUS_LINES.length).toBeGreaterThanOrEqual(8);
+    for (const line of [...CODEX_CITED_FP_LINES, ...CODEX_THAI_ONLY_CARD_LINES, ...ROUND4_PRECISION_CARD_LINES, ...ROUND5_AMBIGUOUS_LINES]) {
       expect(ADVERSARIAL_CHAT_CRISIS_FP, line).toContain(line);
     }
     const advDet = scanDetector(ADVERSARIAL_ITEMS);
@@ -413,5 +437,66 @@ describe("adversarial FP set keeps base card-first ids; no crisis on either path
       expect(chat.reply.kind, x.id).not.toBe("crisis");
       expect(typeof beforeChat).toBe("number");
     }
+  });
+});
+
+const GIT_EXTRA_OUTCOMES: OutcomeCount = { clear: 0, ambiguous: 0, none: 1839, total: 1839 };
+const ADVERSARIAL_EXTRA_OUTCOMES: OutcomeCount = { clear: 0, ambiguous: 65, none: 227, total: 292 };
+const CUE_MIX_OUTCOMES: OutcomeCount = { clear: 30, ambiguous: 8, none: 0, total: 38 };
+
+async function scanPathOutcomes(items: Item[], deps: TurnDeps): Promise<OutcomeCount> {
+  const out: OutcomeCount = { clear: 0, ambiguous: 0, none: 0, total: items.length };
+  for (const x of items) {
+    if (detectCrisisRawOrFolded(x.text).crisis) {
+      out.none += 1;
+      continue;
+    }
+    const r = await runTurn(newDialog(), x.text, deps);
+    if (r.reply.kind === "crisis") out.clear += 1;
+    else if (r.reply.kind === "card" && r.reply.softCrisis) out.ambiguous += 1;
+    else out.none += 1;
+  }
+  return out;
+}
+
+describe("extra-check three-way outcomes on FP corpora (pin-miss only)", () => {
+  it("git normal sets are 0 CLEAR / 0 AMBIGUOUS / all NONE, both paths", async () => {
+    const git = scanOutcomes(normalSets().flatMap((s) => s.items));
+    expect(git, "pinned git extra-check outcomes").toEqual(GIT_EXTRA_OUTCOMES);
+
+    const benign = scanOutcomes(SYNTHETIC_ENGLISH_NORMAL.concat(SYNTHETIC_ENGLISH_HELP_NORMAL));
+    expect(benign).toEqual({
+      clear: 0,
+      ambiguous: 0,
+      none: SYNTHETIC_ENGLISH_NORMAL.length + SYNTHETIC_ENGLISH_HELP_NORMAL.length,
+      total: SYNTHETIC_ENGLISH_NORMAL.length + SYNTHETIC_ENGLISH_HELP_NORMAL.length,
+    });
+
+    const card = await scanPathOutcomes(normalSets().flatMap((s) => s.items), cardDeps());
+    const chat = await scanPathOutcomes(normalSets().flatMap((s) => s.items), chatDeps());
+    expect(card, "git card-first vs detector").toEqual(git);
+    expect(chat, "git chat-first vs detector").toEqual(git);
+  });
+
+  it("adversarial FP set is 0 CLEAR; precision-guard and round-5 remaining FPs are AMBIGUOUS, both paths", async () => {
+    const adv = scanOutcomes(ADVERSARIAL_ITEMS);
+    expect(adv, "pinned adversarial extra-check outcomes").toEqual(ADVERSARIAL_EXTRA_OUTCOMES);
+    expect(ROUND4_PRECISION_CARD_LINES.length).toBe(51);
+    expect(ROUND5_AMBIGUOUS_LINES.length).toBe(8);
+
+    for (const text of [...ROUND4_PRECISION_CARD_LINES, ...ROUND5_AMBIGUOUS_LINES]) {
+      expect(extraOutcome(text), text).toBe("ambiguous");
+    }
+
+    const card = await scanPathOutcomes(ADVERSARIAL_ITEMS, cardDeps());
+    const chat = await scanPathOutcomes(ADVERSARIAL_ITEMS, chatDeps());
+    expect(card, "adversarial card-first vs detector").toEqual(adv);
+    expect(chat, "adversarial chat-first vs detector").toEqual(adv);
+  });
+
+  it("adversarial cue mix has 0 NONE", () => {
+    const mix: OutcomeCount = { clear: 0, ambiguous: 0, none: 0, total: ADVERSARIAL_CUE_MIX.length };
+    for (const text of ADVERSARIAL_CUE_MIX) mix[turnOutcome(text)] += 1;
+    expect(mix, "pinned cue-mix outcomes").toEqual(CUE_MIX_OUTCOMES);
   });
 });

@@ -81,6 +81,29 @@ test("crisis screen has no thinking indicator", async ({ page }) => {
   expect(after.pick).toBe(before.pick);
 });
 
+test("AMBIGUOUS extra-check never shows thinking, never calls the model, and the DRAFT soft line sits on the grouped card", async ({ page }) => {
+  await openChatFirstSlow(page);
+  await openChat(page);
+  const before = await modelCalls(page);
+  expect(before.chat).toBe(0);
+  await say(page, "ยาคุมทำให้รู้สึก suicidal ได้ไหม");
+  await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
+  await expect(page.getByTestId("chat-thinking")).toHaveCount(0);
+  const jane = lastJane(page);
+  await expect(jane).toHaveAttribute("data-card", /.+/);
+  await expect(jane.getByTestId("chat-crisis-soft-line")).toHaveText("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ");
+  await expect(jane.getByTestId("chat-crisis-soft-open")).toBeVisible();
+  const log = page.getByTestId("chat-log");
+  await expect(log.getByTestId("chat-crisis-soft-open")).toBeVisible();
+  await expect(log.getByTestId("chat-thinking")).toHaveCount(0);
+  const after = await modelCalls(page);
+  expect(after.chat).toBe(before.chat);
+  expect(after.pick).toBe(before.pick);
+  await page.getByTestId("chat-crisis-soft-open").click();
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  await expect(page.getByTestId("chat-thinking")).toHaveCount(0);
+});
+
 test("ขอข้อมูลเลย stays available mid-generation and shows a card with no extra model calls", async ({ page }) => {
   await openChatFirstSlow(page);
   await openChat(page);

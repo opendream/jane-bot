@@ -2,7 +2,7 @@ import type { CrisisCategory, CrisisResult, Intent } from "./types";
 import { type BankCard, type BankTopic, type CardNext, shippable } from "./bank";
 import { AGE_REDIRECT_CARD, AGE_REDIRECT_ID, afterPick, type AgeState } from "./age";
 import { detectCrisis } from "./crisis";
-import { detectChatCrisisForTurn, noteChatCrisisHit } from "./chat-crisis";
+import { AMBIGUOUS_CRISIS_LINE_TH, detectChatCrisisForTurn, noteChatCrisisHit, type ChatCrisisHit } from "./chat-crisis";
 import { CHAT_FIRST_TIMEOUT_MS, ENGLISH_MODEL_CHAT, chatCrisisEnabled } from "../config";
 import { normalize, findPhrases, prepCheckText } from "./text";
 import { stripPII } from "./summary";
@@ -45,9 +45,11 @@ export type { CardPicker, EngineReason, EngineTag } from "./pick-engine";
  * injected. State is memory-only and never logged.
  *   1. crisis rules (every message, synchronous, BEFORE anything else; never the model or matcher)
  *      pinned detectCrisis first (raw AND NFKC/folded/lowercased; hit on either
- *      is crisis), then an add-only chat-crisis check (never clears a pin).
- *      Both run on every turn, whatever the letter-script class, on both paths.
- *      Then the script/allowlist gate: English → English model chat, clearly Thai → Thai chat,
+ *      is crisis), then an add-only chat-crisis check (never clears a pin):
+ *      CLEAR → existing crisis screen; AMBIGUOUS → bank card + DRAFT soft line
+ *      (no model); NONE → continue. Both run on every turn, whatever the
+ *      letter-script class, on both paths. Then the script/allowlist gate:
+ *      English → English model chat, clearly Thai → Thai chat,
  *      mixed/unclear → 0 model calls (fixed card or fallback).
  *   2. input guard (refusals; chat-first banner-level wording comes after this)   3. follow-up chips
  *   4. optional matcher (injected only when the desktop-dev flag is on; abstain → fallback)
@@ -162,33 +164,39 @@ function crisisHitFor(
   text: string,
   prev: string[],
   chatFirst: boolean,
-): { crisis: CrisisResult; engine: EngineTag } {
+): { crisis: CrisisResult; engine: EngineTag; extraAmbiguous: ChatCrisisHit | null } {
   const pinned = crisisForTurn(text, prev);
-  if (pinned.crisis) return { crisis: pinned, engine: "rules-crisis" };
+  if (pinned.crisis) return { crisis: pinned, engine: "rules-crisis", extraAmbiguous: null };
   if (chatCrisisEnabled(chatFirst)) {
     const extra = detectChatCrisisForTurn(text, prev);
-    if (extra.crisis) {
+    if (extra.outcome === "clear") {
       noteChatCrisisHit(extra.rules);
       return {
         crisis: { crisis: true, level: "override", categories: extra.categories },
         engine: "chat-crisis",
+        extraAmbiguous: null,
       };
     }
+    if (extra.outcome === "ambiguous") {
+      return { crisis: pinned, engine: "rules-crisis", extraAmbiguous: extra };
+    }
   }
-  return { crisis: pinned, engine: "rules-crisis" };
+  return { crisis: pinned, engine: "rules-crisis", extraAmbiguous: null };
 }
 
 function crisisForMessages(
   messages: string[],
   committed: string[],
   chatFirst: boolean,
-): { crisis: CrisisResult; engine: EngineTag } {
+): { crisis: CrisisResult; engine: EngineTag; extraAmbiguous: ChatCrisisHit | null } {
   let prev = [...committed];
   let acc: CrisisResult = { crisis: false, level: "none", categories: [] };
   let engine: EngineTag = "rules-crisis";
+  let extraAmbiguous: ChatCrisisHit | null = null;
   for (const m of messages) {
     const hit = crisisHitFor(m, prev, chatFirst);
-    if (hit.crisis.crisis) return hit;
+    if (hit.crisis.crisis) return { ...hit, extraAmbiguous: null };
+    if (hit.extraAmbiguous && !extraAmbiguous) extraAmbiguous = hit.extraAmbiguous;
     acc = mergeCrisisResults(acc, hit.crisis);
     engine = hit.engine;
     prev = [...prev, m];
@@ -197,10 +205,11 @@ function crisisForMessages(
   // previous lines only for split detection; a previous banner is not inherited).
   if (messages.length > 1) {
     const joined = crisisHitFor(messages.join(" "), committed, chatFirst);
-    if (joined.crisis.crisis) return joined;
+    if (joined.crisis.crisis) return { ...joined, extraAmbiguous: null };
+    if (joined.extraAmbiguous && !extraAmbiguous) extraAmbiguous = joined.extraAmbiguous;
     acc = mergeCrisisResults(acc, joined.crisis);
   }
-  return { crisis: acc, engine };
+  return { crisis: acc, engine, extraAmbiguous };
 }
 
 export interface ShortlistItem { id: string; title_th: string; key_fact?: string }
@@ -287,6 +296,8 @@ export type TurnReply =
       kind: "card"; card: BankCard; text: string; reworded: boolean; via: Via; banner: CrisisCategory[];
       chips: CardNext[]; offer: "none" | "soft" | "strong"; offerIntents: Intent[]; capNotice: CapNotice; guard?: GuardReason;
       engine?: EngineTag; engineReason?: EngineReason; cardNote?: string | null; groupId?: number;
+      /** AMBIGUOUS extra-check: DRAFT line + button that opens the existing crisis screen. */
+      softCrisis?: { line: string; categories: CrisisCategory[] };
     }
   | {
       kind: "chat"; text: string; card: BankCard | null; cardText: string | null; via: Via; banner: CrisisCategory[];
@@ -350,7 +361,7 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
   const tagged = pickOn || chatFirst;
   const groupMessages = deps.groupMessages ?? [input];
   const recentUser = [...state.recentUser, ...groupMessages].slice(-2);
-  const { crisis, engine: crisisEngine } = crisisForMessages(groupMessages, state.recentUser, chatFirst);
+  const { crisis, engine: crisisEngine, extraAmbiguous } = crisisForMessages(groupMessages, state.recentUser, chatFirst);
   if (crisis.crisis) {
     return {
       // Drop the lines that already fired so a later turn cannot re-join them.
@@ -405,6 +416,7 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
   const verbatimCard = async (
     picked: BankCard, via: Via, engine?: EngineTag, engineReason?: EngineReason, guard?: GuardReason,
     overlayLang: ChatLang | null = null,
+    softCrisis?: { line: string; categories: CrisisCategory[] },
   ) => {
     const card = afterPick(picked, state.ageBand, redirect);
     const shownVia: Via = card.id === AGE_REDIRECT_ID && picked.id !== AGE_REDIRECT_ID ? "age_redirect" : via;
@@ -418,7 +430,7 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
       topic: card.topic === "general" ? state.topic : card.topic, pendingChips: card.next,
       chatFlow: applyClosedCard(state.chatFlow),
     };
-    return { state: next, reply: { kind: "card" as const, card, text, reworded: false, via: shownVia, banner, chips: card.next, offer, offerIntents, capNotice, ...(guard ? { guard } : {}), ...(engine ? { engine } : {}), ...(engineReason ? { engineReason } : {}), ...(overlayLang ? { cardNote } : {}) } };
+    return { state: next, reply: { kind: "card" as const, card, text, reworded: false, via: shownVia, banner, chips: card.next, offer, offerIntents, capNotice, ...(guard ? { guard } : {}), ...(engine ? { engine } : {}), ...(engineReason ? { engineReason } : {}), ...(overlayLang ? { cardNote } : {}), ...(softCrisis ? { softCrisis } : {}) } };
   };
 
   // 2. Input guard (image / method refusals). Abuse and complication detection is deferred to #21.
@@ -427,6 +439,20 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
   if (g) {
     if (chatFirst) return verbatimCard(REFUSAL_CARDS[g], "guard", tagged ? "rules-guard" : undefined, undefined, g);
     return reply(REFUSAL_CARDS[g], "guard", g, pickOn ? "rules-guard" : undefined);
+  }
+
+  // AMBIGUOUS: the turn's bank card plus a DRAFT soft line. Never the model.
+  if (extraAmbiguous) {
+    const top = rulesTop(input);
+    return verbatimCard(
+      top.card,
+      top.via,
+      tagged ? "rules-fallback" : undefined,
+      undefined,
+      undefined,
+      null,
+      { line: AMBIGUOUS_CRISIS_LINE_TH, categories: extraAmbiguous.categories },
+    );
   }
 
   // Chat-first: banner-level wording is a rules-only turn (no generation). After refusals.
