@@ -16,7 +16,7 @@ import { toDialogModel } from "./llm/dialogModel";
 import { shouldApplyAsyncResult, newNeedGate, beginNeed, bumpNeed, needBusy, endNeed } from "./core/dialog";
 import { h } from "./ui/dom";
 import { applyThinkingHint } from "./ui/thinking";
-import { newChat, chatView, beginQuiz, type ChatState } from "./ui/chat";
+import { newChat, chatView, beginQuiz, type ChatState, type NewChatOpts } from "./ui/chat";
 import { ART_CREDIT, janeImg, preloadJaneArt, welcomeStars } from "./ui/jane";
 import { QUIZ_MENU, pickQuizItems, quizCopyStatus } from "./core/quiz";
 
@@ -62,6 +62,9 @@ let matcher: IntentMatcher | null = null;
 let modelStatus: ModelStatus = { state: "loading", runtime: "rules", label: "", progress: 0 };
 let polishNote = false; // summary line was reworded by the model
 const need = newNeedGate(); // classify generation; busy is owned by the in-flight seq only
+/** Dev-test only: extra chat opts (turn log, arm-mode modelPick) and wipe hook. Production never sets these. */
+let extraChatOpts: NewChatOpts = {};
+let onWipe: (() => void) | undefined;
 
 const app = document.getElementById("app")!;
 document.title = `${PRODUCT_NAME} · ${PRODUCT_NAME_EN} (เดโม)`;
@@ -89,6 +92,7 @@ function dropInflightChat() {
 
 function eraseAll(to: Screen = "start") {
   dropInflightChat();
+  onWipe?.();
   state = { ...fresh(), screen: to };
   render();
 }
@@ -96,6 +100,7 @@ function eraseAll(to: Screen = "start") {
 function quickExit() {
   // Wipe memory, drop history entry text, show a neutral page. No navigation, no request.
   dropInflightChat();
+  onWipe?.();
   state = { ...fresh(), screen: "neutral" };
   try { history.replaceState(null, "", location.pathname); } catch { /* ignore */ }
   document.title = "บันทึก";
@@ -199,6 +204,7 @@ function openChat() {
   if (!state.chat) {
     state.chat = newChat(state.ageBand, toDialogModel(model), matcher, {
       warmupRemainingMs: getWarmupRemainingMs,
+      ...extraChatOpts,
     });
   }
   go({ screen: "chat" });
@@ -442,12 +448,27 @@ async function resolveMatcher(): Promise<IntentMatcher | null> {
   const { loadMatcher } = await import("./matcher/load");
   return loadMatcher({ search });
 }
-// Status updates only swap the small indicator, so typing is never interrupted.
-// Same trigger as v2/answer-bank-chat: start after first paint. Flag-on adds
-// preloadOnce (no retry). MODEL_CARD_PICK only gates pick UI, not this load.
-preloadModel((st) => {
+function applyModelStatus(st: ModelStatus) {
   modelStatus = st;
   const old = app.querySelector('[data-testid="model-status"]');
   if (old) old.replaceWith(modelPill());
-}, { onAdapter: applyAdapter }).then(applyAdapter);
+}
+// Status updates only swap the small indicator, so typing is never interrupted.
+// Same trigger as v2/answer-bank-chat: start after first paint. Flag-on adds
+// preloadOnce (no retry). MODEL_CARD_PICK only gates pick UI, not this load.
+// The dev-test build skips the default preload so arms load on demand (no ?arm= → nothing).
+if (__JANE_DEVTEST__) {
+  void import("./dev/devtest").then((m) => {
+    void m.bootDevtest({
+      onStatus: applyModelStatus,
+      onAdapter: applyAdapter,
+      abortSession: dropInflightChat,
+      getAdapter: () => model,
+      setOnWipe: (fn) => { onWipe = fn; },
+      setChatOpts: (opts) => { extraChatOpts = { ...extraChatOpts, ...opts }; },
+    });
+  });
+} else {
+  preloadModel(applyModelStatus, { onAdapter: applyAdapter }).then(applyAdapter);
+}
 void resolveMatcher().then(applyMatcher);

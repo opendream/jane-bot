@@ -46,6 +46,7 @@ export interface ChatState {
   quiz: QuizSession | null;
   modelPick: boolean;
   thinkingHint: string | null;
+  onTurn?: (info: { input: string; reply: TurnReply; ms: number }) => void;
 }
 
 export interface NewChatOpts {
@@ -53,6 +54,8 @@ export interface NewChatOpts {
   warmupRemainingMs?: () => number | null;
   pickTimeoutMs?: number;
   search?: string;
+  /** Dev-test turn log only. Production never passes this. */
+  onTurn?: (info: { input: string; reply: TurnReply; ms: number }) => void;
 }
 
 export interface ChatHooks {
@@ -79,7 +82,7 @@ export function newChat(ageBand: AgeState, model: DialogModel | null, matcher: I
     warmupRemainingMs: opts.warmupRemainingMs,
     pickTimeoutMs: opts.pickTimeoutMs ?? (modelPick ? pickTimeoutMsFromSearch(opts.search, MODEL_PICK_TIMEOUT_MS) : undefined),
   });
-  const chat: ChatState = { session, messages: [], busy: false, draft: "", readOnly: false, quiz: null, modelPick, thinkingHint: null };
+  const chat: ChatState = { session, messages: [], busy: false, draft: "", readOnly: false, quiz: null, modelPick, thinkingHint: null, onTurn: opts.onTurn };
   push(chat, fromReply(session.start(), modelPick));
   return chat;
 }
@@ -138,8 +141,13 @@ export async function sendToChat(chat: ChatState, text: string, hooks: ChatHooks
     hooks.rerender();
     if (!fromQuiz && chatDelayMs() > 0) await new Promise((r) => setTimeout(r, chatDelayMs()));
     if (!owns()) return;
+    const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
     const reply = await chat.session.send(t);
     if (!owns()) return;
+    if (reply) {
+      const ms = (typeof performance !== "undefined" ? performance.now() : Date.now()) - t0;
+      chat.onTurn?.({ input: t, reply, ms });
+    }
     if (reply?.kind === "crisis") hooks.crisis(reply.categories);
     return;
   }
@@ -168,6 +176,7 @@ export async function sendToChat(chat: ChatState, text: string, hooks: ChatHooks
     if (wait != null) hintTimer = setTimeout(tick, wait);
   }
   let reply: Awaited<ReturnType<DialogSession["send"]>>;
+  const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
   try {
     reply = await chat.session.send(t);
   } finally {
@@ -177,6 +186,8 @@ export async function sendToChat(chat: ChatState, text: string, hooks: ChatHooks
   if (!owns()) { chat.busy = false; return; } // erase / quick exit / SOS / openChat bumped the seq: drop, no rerender
   chat.busy = false;
   if (!reply) return; // superseded by a newer message
+  const ms = (typeof performance !== "undefined" ? performance.now() : Date.now()) - t0;
+  chat.onTurn?.({ input: t, reply, ms });
   if (reply.kind === "crisis") { hooks.crisis(reply.categories); return; }
   if (reply.kind === "readonly" || (reply.kind === "card" && reply.capNotice === "hard")) {
     chat.readOnly = true;

@@ -1,5 +1,8 @@
 node_modules/
 dist/
+dist-devtest/
+*.gguf
+tmp/
 .cache/
 test-results/
 playwright-report/

@@ -1,0 +1,92 @@
+/* Dev-test switcher only. This file is imported from src/dev and is dropped in the production build. */
+.jane-devtest {
+  position: fixed;
+  right: 8px;
+  bottom: 8px;
+  z-index: 80;
+  max-width: min(92vw, 360px);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.jane-devtest-badge {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: #1b1b1b;
+  color: #ffe08a;
+  border: 1px solid #6b4d00;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font: inherit;
+  font-weight: 700;
+  min-height: 44px;
+}
+.jane-devtest-panel {
+  margin-top: 6px;
+  background: #fff;
+  color: #222;
+  border: 1px solid #c5dff0;
+  border-radius: 12px;
+  padding: 10px;
+  max-height: 60vh;
+  overflow: auto;
+}
+.jane-devtest-panel h2 {
+  font-size: 14px;
+  margin: 0 0 8px;
+}
+.jane-devtest-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 8px;
+  display: grid;
+  gap: 6px;
+}
+.jane-devtest-list button {
+  width: 100%;
+  text-align: left;
+  min-height: 44px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid #c5dff0;
+  background: #f7fbff;
+  font: inherit;
+}
+.jane-devtest-list button[data-active="true"] {
+  border-color: #1b7a3a;
+  background: #e5f4ea;
+}
+.jane-devtest-list button:disabled {
+  opacity: 0.55;
+  background: #eee;
+}
+.jane-devtest-banner {
+  background: #fff4d6;
+  color: #6b4d00;
+  border-radius: 8px;
+  padding: 6px 8px;
+  margin: 8px 0;
+  font-weight: 700;
+}
+.jane-devtest-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.jane-devtest-row button {
+  flex: 1;
+  min-height: 40px;
+  font: inherit;
+}
+.jane-devtest label {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 6px 0;
+}
+.jane-devtest select {
+  width: 100%;
+  font: inherit;
+  min-height: 40px;
+}

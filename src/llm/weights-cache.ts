@@ -9,9 +9,13 @@ export function modelUrl(path: string): string {
 }
 
 /** Returns the cached file, downloading it once from the local server if needed. */
-export async function cachedBlob(path: string, onProgress?: (loaded: number, total: number) => void): Promise<Blob> {
+export async function cachedBlob(
+  path: string,
+  onProgress?: (loaded: number, total: number) => void,
+  cacheName: string = WEIGHTS_CACHE,
+): Promise<Blob> {
   const url = modelUrl(path);
-  const cache = await caches.open(WEIGHTS_CACHE);
+  const cache = await caches.open(cacheName);
   const hit = await cache.match(url);
   if (hit) return hit.blob();
   const res = await fetch(url);
@@ -31,4 +35,17 @@ export async function cachedBlob(path: string, onProgress?: (loaded: number, tot
   const stored = await cache.match(url);
   if (!stored) throw new Error("cache write failed");
   return stored.blob();
+}
+
+/** Drop every entry except `keep` paths. Used by the dev-test switcher to hold at most one arm. */
+export async function keepOnlyCachedPaths(keep: string[], cacheName: string): Promise<void> {
+  const cache = await caches.open(cacheName);
+  const allow = new Set(keep.map(modelUrl));
+  const keys = await cache.keys();
+  await Promise.all(keys.filter((req) => !allow.has(req.url)).map((req) => cache.delete(req)));
+}
+
+/** Delete one named Cache Storage (dev-test "Clear model cache"). */
+export async function deleteNamedCache(cacheName: string): Promise<void> {
+  await caches.delete(cacheName);
 }

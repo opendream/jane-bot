@@ -29,15 +29,24 @@ export interface ModelStatus {
 
 interface Installed { model: string; variants: string[] }
 
+/** WASM-only arm passed by the dev-test switcher. Production never sets this. */
+export interface ArmLoadSpec {
+  files: string | string[];
+  label: string;
+  cacheName?: string;
+}
+
 export interface StartModelDeps {
   search?: string;
   gpuInfo?: () => Promise<{ ok: boolean; f16: boolean }>;
   installed?: () => Promise<Installed[]>;
   loadWebLLM?: (build: WebGpuBuild, label: string, onProgress: (p: number) => void, opts?: { onDead?: (err: Error) => void; onWarmup?: (ms: number) => void }) => Promise<LLMAdapter>;
-  loadWllama?: (file: string, label: string, onProgress: (p: number) => void, opts?: { onWarmup?: (ms: number) => void }) => Promise<LLMAdapter>;
+  loadWllama?: (file: string | string[], label: string, onProgress: (p: number) => void, opts?: { onWarmup?: (ms: number) => void; cacheName?: string }) => Promise<LLMAdapter>;
   storage?: StorageLike;
   onAdapter?: (a: LLMAdapter | null) => void;
   testRuntime?: string | null;
+  /** When set, skip WebGPU / installed.json and load these GGUF files on WASM. */
+  arm?: ArmLoadSpec | null;
 }
 
 export type RuntimeTestHook = {
@@ -294,6 +303,29 @@ export async function startModel(onStatus: (s: ModelStatus) => void, deps: Start
     onStatus({ state, runtime: "rules", label: "", progress: 0 });
     onAdapter?.(null);
   };
+  const ready = (a: LLMAdapter) => {
+    markLoaderReady();
+    const wrapped = withLoaderEta(a);
+    const runtime: Runtime = wrapped.runtime ?? (isWebGpuAdapter(wrapped) ? "webgpu" : "wasm");
+    onStatus({ state: "ready", runtime, label: wrapped.name.replace(/ \((WebGPU|WASM)\)$/, ""), progress: 1 });
+    onAdapter?.(wrapped);
+    return wrapped;
+  };
+  if (deps.arm) {
+    const arm = deps.arm;
+    try {
+      const load = loadWllamaFn ?? (await import("./wllama-adapter")).loadWllama;
+      onStatus({ state: "loading", runtime: "wasm", label: arm.label, progress: 0 });
+      const a = await load(arm.files, arm.label, (p) => onStatus({ state: "loading", runtime: "wasm", label: arm.label, progress: p }), {
+        onWarmup: (ms) => beginWarmup(ms),
+        cacheName: arm.cacheName,
+      });
+      return ready(a);
+    } catch {
+      rules("failed");
+      return null;
+    }
+  }
   if (key === "off" || !(key in MODELS)) { rules("off"); return null; }
   const spec = MODELS[key as ModelSpec["key"]];
   const inst = await installedFn();
@@ -333,14 +365,6 @@ export async function startModel(onStatus: (s: ModelStatus) => void, deps: Start
   }
 
   const wasmStep = plan.find((s) => s.runtime === "wasm");
-  const ready = (a: LLMAdapter) => {
-    markLoaderReady();
-    const wrapped = withLoaderEta(a);
-    const runtime: Runtime = wrapped.runtime ?? (isWebGpuAdapter(wrapped) ? "webgpu" : "wasm");
-    onStatus({ state: "ready", runtime, label: wrapped.name.replace(/ \((WebGPU|WASM)\)$/, ""), progress: 1 });
-    onAdapter?.(wrapped);
-    return wrapped;
-  };
 
   let recovering = false;
   const recoverFromGpu = (dead: LLMAdapter) => {

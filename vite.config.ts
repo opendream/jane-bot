@@ -19,13 +19,24 @@ function localModels(): Plugin {
 }
 
 // Local only: bind to 127.0.0.1, no proxies, no external assets.
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   base: "./",
   plugins: [localModels()],
+  define: {
+    // Compile-time gate: true only for `vite build --mode devtest` (and `vite --mode devtest`).
+    // Production `vite build` replaces this with false so Rollup drops the src/dev import.
+    __JANE_DEVTEST__: JSON.stringify(mode === "devtest"),
+  },
   server: { host: "127.0.0.1", port: 5173, strictPort: true, headers: ISOLATION },
   preview: { host: "127.0.0.1", port: 4173, strictPort: true, headers: ISOLATION },
   worker: { format: "es" },
-  build: { target: "es2022", assetsInlineLimit: 0, sourcemap: false, chunkSizeWarningLimit: 8000 },
+  build: {
+    target: "es2022",
+    assetsInlineLimit: 0,
+    sourcemap: false,
+    chunkSizeWarningLimit: 8000,
+    outDir: mode === "devtest" ? "dist-devtest" : "dist",
+  },
   optimizeDeps: { exclude: ["@wllama/wllama"] },
   test: { include: ["tests/unit/**/*.test.ts"], environment: "node" },
-} as any);
+}) as any);
