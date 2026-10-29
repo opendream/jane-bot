@@ -1,5 +1,6 @@
 import type { CardNext } from "./bank";
 import { CHAT_MAX_TURNS } from "../config";
+import type { ChatLang } from "../llm/chat-lang";
 import { normalize } from "./text";
 
 /**
@@ -8,6 +9,9 @@ import { normalize } from "./text";
  */
 
 export const SHOW_CARD_NOW = "ขอข้อมูลเลย";
+/** DRAFT. Keng review required before this string is treated as product copy. Same behaviour as ขอข้อมูลเลย. */
+export const SHOW_CARD_NOW_EN = "Just show me the info";
+export const SHOW_CARD_NOW_EN_STATUS = "draft" as const;
 export const SHOW_CARD_NOW_ID = "chat.show_now";
 
 export type ChatPhase = "chat" | "after";
@@ -61,12 +65,14 @@ export function newChatFlow(): ChatFlowState {
   return { phase: "after", topicTurns: 0, rulesOnly: false, rejectCount: 0, topicUserLines: [], janeReplies: [] };
 }
 
-export function showCardNowChip(): CardNext {
-  return { label_th: SHOW_CARD_NOW, card_id: SHOW_CARD_NOW_ID };
+export function showCardNowChip(lang: ChatLang = "th"): CardNext {
+  return { label_th: lang === "en" ? SHOW_CARD_NOW_EN : SHOW_CARD_NOW, card_id: SHOW_CARD_NOW_ID };
 }
 
 export function isShowCardNow(input: string): boolean {
-  return normalize(input).replace(/\s+/g, "") === normalize(SHOW_CARD_NOW).replace(/\s+/g, "");
+  const said = normalize(input).replace(/\s+/g, "");
+  return said === normalize(SHOW_CARD_NOW).replace(/\s+/g, "")
+    || said === normalize(SHOW_CARD_NOW_EN).replace(/\s+/g, "");
 }
 
 /** Thai / English question shape: a mark, or a common question ending. */

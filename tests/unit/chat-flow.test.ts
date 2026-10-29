@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { CHAT_MAX_TURNS } from "../../src/config";
 import {
   SHOW_CARD_NOW,
+  SHOW_CARD_NOW_EN,
+  SHOW_CARD_NOW_EN_STATUS,
   applyChatTurn,
   applyClosedCard,
   applyCrisis,
@@ -58,6 +60,7 @@ describe("chat-first state machine", () => {
 
   it("the ขอข้อมูลเลย chip is recognised and is rules-only", () => {
     expect(showCardNowChip().label_th).toBe(SHOW_CARD_NOW);
+    expect(showCardNowChip("th").label_th).toBe(SHOW_CARD_NOW);
     expect(isShowCardNow("ขอข้อมูลเลย")).toBe(true);
     expect(isShowCardNow("ขอ ข้อมูล เลย")).toBe(true);
     const t = planTurn({
@@ -66,6 +69,14 @@ describe("chat-first state machine", () => {
       locked: false, rulesConfident: false, directQuestion: false,
     });
     expect(t).toMatchObject({ reason: "show-now", callChat: false, callPick: false, close: "always" });
+  });
+
+  it("the English Just show me the info chip is the same chip with DRAFT copy", () => {
+    expect(SHOW_CARD_NOW_EN_STATUS).toBe("draft");
+    expect(showCardNowChip("en").label_th).toBe(SHOW_CARD_NOW_EN);
+    expect(showCardNowChip("en").card_id).toBe(showCardNowChip("th").card_id);
+    expect(isShowCardNow(SHOW_CARD_NOW_EN)).toBe(true);
+    expect(isShowCardNow("Just  show me the info")).toBe(true);
   });
 
   it("after a crisis hit the rest of the session is rules-only", () => {
