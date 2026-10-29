@@ -3,9 +3,9 @@
  *
  * Status: DRAFT. Not approved product copy. Do not film or ship as reviewed
  * until Keng signs off. Persona: warm Thai voice. Facts come only from the
- * approved answer-bank card as numbered sentences (or no card sentences).
- * The model returns JSON ids only; the app renders list text + verbatim
- * card sentences.
+ * approved answer-bank card as the whole answer_th (or no card text).
+ * The model returns JSON ids only; the app renders list text + either
+ * nothing or the card's answer_th verbatim.
  *
  * The reply language is chosen by rules (`detectChatLang`), not by the model.
  * Thai turns keep this Thai persona (language line: ตอบเป็นภาษาไทย). English
@@ -19,7 +19,6 @@
 
 import type { ChatReplyOpts } from "./adapter";
 import type { ChatLang } from "./chat-lang";
-import { numberedCardSentences } from "./chat-sentences";
 import { followUpsFor, openersFor } from "./chat-voice";
 
 export const CHAT_SYSTEM_STATUS = "draft" as const;
@@ -78,29 +77,29 @@ export const CHAT_SYSTEM_AMBIGUOUS_EN =
 
 /** DRAFT. JSON-only choice when a confident approved card is the only source. */
 export const CHAT_GROUND_FACTS_TH =
-  'ตอบเป็น JSON สั้นเท่านั้น รูปแบบ {"o":N,"s":[...],"q":N} ห้ามเขียนข้อความอื่น ' +
-  "o คือรหัสประโยคเปิด s คือรหัสประโยคจากบัตรไม่เกินสามข้อตามลำดับห้ามซ้ำ q คือรหัสคำถามต่อ " +
-  "ห้ามเพิ่มข้อเท็จจริงของตัวเอง ประโยคจากบัตร:";
+  'ตอบเป็น JSON สั้นเท่านั้น รูปแบบ {"o":N,"c":0|1,"q":N} ห้ามเขียนข้อความอื่น ' +
+  "o คือรหัสประโยคเปิด c=1 คือใส่ข้อความบัตรทั้งใบตามลำดับ c=0 คือไม่ใส่ q คือรหัสคำถามต่อ " +
+  "ห้ามเพิ่มข้อเท็จจริงของตัวเอง ข้อความบัตร:";
 
 export const CHAT_GROUND_NONE_TH =
-  'ตอบเป็น JSON สั้นเท่านั้น รูปแบบ {"o":N,"s":[],"q":N} ห้ามเขียนข้อความอื่น ' +
-  "ยังไม่มีบัตรที่ตรงพอ s ต้องเป็น [] " +
+  'ตอบเป็น JSON สั้นเท่านั้น รูปแบบ {"o":N,"c":0,"q":N} ห้ามเขียนข้อความอื่น ' +
+  "ยังไม่มีบัตรที่ตรงพอ c ต้องเป็น 0 " +
   "ห้ามให้ข้อเท็จจริง ตัวเลข คำสั่ง ราคา สายด่วน ลิงก์";
 
 export const CHAT_GROUND_STRICT_TH =
-  "รอบนี้ต้องเป็น JSON ที่ถูกต้องตามรูปแบบด้านบนเท่านั้น s ต้องเป็นรหัสที่มีในรายการ";
+  "รอบนี้ต้องเป็น JSON ที่ถูกต้องตามรูปแบบด้านบนเท่านั้น c เป็น 1 ได้เฉพาะเมื่อมีข้อความบัตร";
 
 export const CHAT_GROUND_FACTS_EN =
-  'Reply with short JSON only: {"o":N,"s":[...],"q":N}. No other text. ' +
-  "o is the opener id, s is 0 to 3 card sentence ids in order with no duplicates, q is the follow-up id. " +
-  "Do not add your own facts. Allowed card sentences:";
+  'Reply with short JSON only: {"o":N,"c":0|1,"q":N}. No other text. ' +
+  "o is the opener id, c=1 includes the whole card text in card order, c=0 includes none, q is the follow-up id. " +
+  "Do not add your own facts. Card text:";
 
 export const CHAT_GROUND_NONE_EN =
-  'Reply with short JSON only: {"o":N,"s":[],"q":N}. No other text. ' +
-  "No approved card matched well enough, so s must be []. No factual claims, numbers, instructions, prices, hotlines, or links.";
+  'Reply with short JSON only: {"o":N,"c":0,"q":N}. No other text. ' +
+  "No approved card matched well enough, so c must be 0. No factual claims, numbers, instructions, prices, hotlines, or links.";
 
 export const CHAT_GROUND_STRICT_EN =
-  "This retry must be valid JSON in the format above. s may only use ids from the list.";
+  "This retry must be valid JSON in the format above. c may be 1 only when card text is listed.";
 
 export const CHAT_GROUND_OPENERS_TH = "ประโยคเปิด (o):";
 export const CHAT_GROUND_FOLLOWUPS_TH = "คำถามต่อ (q):";
@@ -130,7 +129,7 @@ export function chatSystemFor(lang: ChatLang, opts?: ChatReplyOpts): string {
     followUpsFor(lang),
   );
   const parts = [persona];
-  if (g.facts) parts.push(factsIntro, numberedCardSentences(g.facts), openers, follow);
+  if (g.facts) parts.push(factsIntro, g.facts, openers, follow);
   else parts.push(none, openers, follow);
   if (g.strict) parts.push(strict);
   return parts.join("\n");

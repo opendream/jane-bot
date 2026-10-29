@@ -276,9 +276,9 @@ describe("startModel test hooks for model-first pick", () => {
     expect(a?.chatReply).toBeTypeOf("function");
     expect(a?.pickCard).toBeTypeOf("function");
     const line = await a!.chatReply!("ช่วงนี้กังวลเรื่องแฟน", [], new AbortController().signal);
-    expect(line).toBe('{"o":0,"s":[],"q":0}');
+    expect(line).toBe('{"o":0,"c":0,"q":0}');
     const en = await a!.chatReply!("I am worried about my boyfriend", [], new AbortController().signal);
-    expect(en).toBe('{"o":0,"s":[],"q":0}');
+    expect(en).toBe('{"o":0,"c":0,"q":0}');
     const id = await a!.pickCard!("ช่วงนี้กังวลเรื่องแฟน", [{ id: "birth.control.000", title_th: "คุมกำเนิด" }], null, new AbortController().signal);
     expect(id).toContain("none");
   });

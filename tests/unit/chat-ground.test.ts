@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ENGLISH_MODEL_CHAT } from "../../src/config";
 import { BANK, BANK_FIXTURES } from "../../src/core/bankData";
-import { retrieve } from "../../src/core/retrieve";
+import { retrieve, type Retrieval } from "../../src/core/retrieve";
 import { FALLBACK_ID, WELCOME_ID } from "../../src/core/dialog";
 import { shippable } from "../../src/core/bank";
 import {
@@ -13,8 +13,7 @@ import {
   chatSystemFor,
 } from "../../src/llm/chat-system";
 import { acceptGroundedChat, groundingCard } from "../../src/llm/chat-ground";
-import { DEFAULT_CHAT_CHOICE_JSON, defaultChatReply } from "../../src/llm/chat-choice";
-import { splitCardSentences } from "../../src/llm/chat-sentences";
+import { DEFAULT_CHAT_CHOICE_JSON, defaultChatReply, formatChatReply } from "../../src/llm/chat-choice";
 import { CHAT_FOLLOWUPS_TH, CHAT_OPENERS_TH } from "../../src/llm/chat-voice";
 
 const pool = BANK.filter((c) => shippable(c, "draft") && c.id !== FALLBACK_ID && c.id !== WELCOME_ID);
@@ -35,22 +34,21 @@ describe("grounded system prompt", () => {
     expect(ENGLISH_MODEL_CHAT).toBe(false);
   });
 
-  it("injects the approved card as numbered sentences, the only allowed source", () => {
+  it("injects the approved card as the whole answer_th, the only allowed source", () => {
     const prompt = chatSystemFor("th", { grounding: { facts: leak.answer_th } });
     expect(prompt.startsWith(CHAT_SYSTEM)).toBe(true);
     expect(prompt).toContain(CHAT_GROUND_FACTS_TH);
-    for (const s of splitCardSentences(leak.answer_th)) {
-      expect(prompt).toContain(s);
-    }
-    expect(prompt).toContain('{"o":N,"s":[...],"q":N}');
+    expect(prompt).toContain(leak.answer_th);
+    expect(prompt).toContain('{"o":N,"c":0|1,"q":N}');
+    expect(prompt).not.toContain('"s":');
     expect(prompt).toContain(CHAT_OPENERS_TH[0]!);
     expect(prompt).toContain(CHAT_FOLLOWUPS_TH[0]!);
   });
 
-  it("with no card, JSON ids only and s must be empty", () => {
+  it("with no card, JSON ids only and c must be 0", () => {
     const prompt = chatSystemFor("th", { grounding: { facts: null } });
     expect(prompt).toContain(CHAT_GROUND_NONE_TH);
-    expect(prompt).toContain('"s":[]');
+    expect(prompt).toContain('"c":0');
     expect(prompt).not.toContain(leak.answer_th);
     expect(prompt).not.toMatch(/ขอข้อมูลเลย/);
   });
@@ -97,22 +95,30 @@ describe("groundingCard (rules matcher top card)", () => {
     expect(groundingCard(r, "25+")?.id).toBe("other.adult_only.000");
     expect(groundingCard(r, "18+")?.id).toBe("other.adult_only.000");
   });
+
+  it("does not return a locked card even if retrieval is confident", () => {
+    const card = BANK.find((c) => c.id === "ec.timing.b001")!;
+    const retrieved: Retrieval = {
+      confident: true,
+      ranked: [{ card, score: 10, triggerHits: 2 }],
+      prior: { intents: ["emergency_contraception"], scores: {}, source: "rules" },
+    };
+    expect(groundingCard(retrieved)).toBeNull();
+  });
 });
 
 describe("acceptGroundedChat (strict JSON + chatGuard on voice)", () => {
-  it("accepts the default no-sentence choice and renders opener plus follow-up", () => {
+  it("accepts the default no-card choice and renders opener plus follow-up", () => {
     const acc = acceptGroundedChat(DEFAULT_CHAT_CHOICE_JSON, "th", leak.answer_th);
     expect(acc).toEqual({ ok: true, text: defaultChatReply("th") });
   });
 
-  it("copies chosen card sentences verbatim, including digits that live on the card", () => {
-    const sentences = splitCardSentences(condom.answer_th);
-    const acc = acceptGroundedChat('{"o":0,"s":[0],"q":0}', "th", condom.answer_th);
+  it("c=1 copies the exact full answer_th, including digits that live on the card", () => {
+    const acc = acceptGroundedChat('{"o":0,"c":1,"q":0}', "th", condom.answer_th);
     expect(acc.ok).toBe(true);
     if (acc.ok) {
-      expect(acc.text.startsWith(CHAT_OPENERS_TH[0]!)).toBe(true);
-      expect(acc.text.endsWith(CHAT_FOLLOWUPS_TH[0]!)).toBe(true);
-      expect(acc.text).toContain(sentences[0]!);
+      expect(acc.text).toBe(formatChatReply(CHAT_OPENERS_TH[0]!, condom.answer_th, CHAT_FOLLOWUPS_TH[0]!));
+      expect(acc.text).toContain(condom.answer_th);
       expect(acc.text).toContain("98%");
     }
   });
@@ -147,11 +153,12 @@ describe("acceptGroundedChat (strict JSON + chatGuard on voice)", () => {
     if (!acc.ok) expect(acc.reasons).toEqual(["invalid"]);
   });
 
-  it("rejects bad JSON, out-of-range ids, duplicate ids, extra keys, and ids with no card", () => {
+  it("rejects bad JSON, extra keys, subset ids, c=1 with no card, and truncated output", () => {
     expect(acceptGroundedChat("{", "th", condom.answer_th).ok).toBe(false);
-    expect(acceptGroundedChat('{"o":0,"s":[9],"q":0}', "th", condom.answer_th).ok).toBe(false);
-    expect(acceptGroundedChat('{"o":0,"s":[0,0],"q":0}', "th", condom.answer_th).ok).toBe(false);
-    expect(acceptGroundedChat('{"o":0,"s":[],"q":0,"text":"x"}', "th", condom.answer_th).ok).toBe(false);
-    expect(acceptGroundedChat('{"o":0,"s":[0],"q":0}', "th", "").ok).toBe(false);
+    expect(acceptGroundedChat('{"o":0,"c":2,"q":0}', "th", condom.answer_th).ok).toBe(false);
+    expect(acceptGroundedChat('{"o":0,"s":[2],"q":0}', "th", condom.answer_th).ok).toBe(false);
+    expect(acceptGroundedChat('{"o":0,"c":0,"q":0,"text":"x"}', "th", condom.answer_th).ok).toBe(false);
+    expect(acceptGroundedChat('{"o":0,"c":1,"q":0}', "th", "").ok).toBe(false);
+    expect(acceptGroundedChat('{"o":0,"c":1', "th", condom.answer_th).ok).toBe(false);
   });
 });

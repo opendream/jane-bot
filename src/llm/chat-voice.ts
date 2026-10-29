@@ -12,7 +12,6 @@ export const CHAT_VOICE_STATUS = "draft" as const;
 export const CHAT_OPENERS_TH: readonly string[] = [
   "พี่อยู่ตรงนี้นะ",
   "พี่เข้าใจ",
-  "ไม่ต้องกังวล",
   "ขอบคุณที่ถามมา",
   "เรื่องนี้พี่เข้าใจ",
   "ทางนี้พี่เข้าใจ",

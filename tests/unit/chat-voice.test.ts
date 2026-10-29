@@ -15,6 +15,15 @@ const FORBIDDEN = [
   "pill", "dose", "condom",
 ];
 
+/** Reassurance, minimising, or a verdict about risk. Openers must stay acknowledgement / thanks. */
+const REASSURANCE = [
+  "กังวล", "เซฟ", "ปลอดภัย", "ไม่เป็นไร", "ไม่เสี่ยง",
+  "ไม่ต้องห่วง", "สบายใจ", "ไม่ต้องกลัว", "มั่นใจได้",
+  "worry", "worried", "don't worry", "dont worry",
+  "safe", "it's okay", "it's ok", "no risk", "risk-free",
+  "you'll be fine", "no need to worry",
+];
+
 describe("DRAFT opener and follow-up lists", () => {
   it("is marked DRAFT and holds whole phrases, not free-text slots", () => {
     expect(CHAT_VOICE_STATUS).toBe("draft");
@@ -48,5 +57,16 @@ describe("DRAFT opener and follow-up lists", () => {
         expect(lower.includes(w.toLowerCase()), `${p} / ${w}`).toBe(false);
       }
     }
+  });
+
+  it("no opener or follow-up contains a reassurance, minimising, or risk-verdict word", () => {
+    const phrases = [...CHAT_OPENERS_TH, ...CHAT_FOLLOWUPS_TH, ...CHAT_OPENERS_EN, ...CHAT_FOLLOWUPS_EN];
+    for (const p of phrases) {
+      const lower = p.toLowerCase();
+      for (const w of REASSURANCE) {
+        expect(lower.includes(w.toLowerCase()), `${p} / ${w}`).toBe(false);
+      }
+    }
+    expect(CHAT_OPENERS_TH).not.toContain("ไม่ต้องกังวล");
   });
 });

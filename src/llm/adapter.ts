@@ -34,8 +34,8 @@ export interface LLMAdapter {
   /** Chat: reword one curated card. Output is validated by rewordGuard; failures show the exact text. */
   rewordCard?(card: { answer_th: string; key_facts: string[] }, signal: AbortSignal): Promise<string | null>;
   /**
-   * Chat-first connective talk. Output is a JSON choice (opener / sentence
-   * ids / follow-up), parsed strictly, then chatGuard on the list text.
+   * Chat-first connective talk. Output is a JSON choice (opener / whole-card
+   * flag / follow-up), parsed strictly, then chatGuard on the list text.
    * History is PII-stripped, memory-only, and excludes crisis lines.
    * `groupId` is the generation token; a stale token must return without
    * generating. `opts` is the 6th argument (AMBIGUOUS flag plus the

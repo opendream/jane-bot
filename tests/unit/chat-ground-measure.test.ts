@@ -26,15 +26,18 @@ describe("grounded fixture-set measurement (no live model)", () => {
 
     const byId = new Map(r.rows.map((row) => [row.id, row]));
     expect(byId.get("keep-warm")?.accepted).toBe(true);
-    expect(byId.get("keep-condom-s0")?.accepted).toBe(true);
-    expect(byId.get("keep-leak-s0")?.accepted).toBe(true);
+    expect(byId.get("keep-condom-card")?.accepted).toBe(true);
+    expect(byId.get("keep-leak-card")?.accepted).toBe(true);
+    expect(byId.get("keep-ornot-card")?.accepted).toBe(true);
     expect(byId.get("keep-no-card")?.accepted).toBe(true);
     expect(byId.get("fb-heat-condom")?.accepted).toBe(false);
     expect(byId.get("fb-parent-prep")?.accepted).toBe(false);
     expect(byId.get("fb-incomplete")?.accepted).toBe(false);
     expect(byId.get("fb-bad-json")?.accepted).toBe(false);
-    expect(byId.get("fb-out-of-range")?.accepted).toBe(false);
-    expect(byId.get("fb-duplicate-ids")?.accepted).toBe(false);
-    expect(byId.get("fb-no-card-sentence")?.accepted).toBe(false);
+    expect(byId.get("fb-c-out-of-range")?.accepted).toBe(false);
+    expect(byId.get("fb-old-subset-s")?.accepted).toBe(false);
+    expect(byId.get("fb-no-card-c1")?.accepted).toBe(false);
+    expect(byId.get("fb-ornot-s2")?.accepted).toBe(false);
+    expect(byId.get("fb-ornot-s13")?.accepted).toBe(false);
   });
 });

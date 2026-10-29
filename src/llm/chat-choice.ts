@@ -1,7 +1,7 @@
 /**
- * Strict structured chat choice: opener id, ordered card-sentence ids, follow-up id.
- * The app renders list text + verbatim card sentences. The model never writes
- * factual words. Never logs text.
+ * Strict structured chat choice: opener id, whole-card flag, follow-up id.
+ * The app renders list text plus either nothing or the matched card's
+ * answer_th verbatim. The model never writes factual words. Never logs text.
  */
 
 import type { ChatLang } from "./chat-lang";
@@ -9,14 +9,15 @@ import { followUpsFor, openersFor } from "./chat-voice";
 
 export interface ChatChoice {
   o: number;
-  s: number[];
+  c: 0 | 1;
   q: number;
 }
 
 export interface ChatChoiceBounds {
   openerCount: number;
   followUpCount: number;
-  sentenceCount: number;
+  /** False when there is no card, the card is locked, or ageAllowed blocks it. */
+  hasCard: boolean;
 }
 
 export type ParseChatChoice =
@@ -24,15 +25,15 @@ export type ParseChatChoice =
   | { ok: false };
 
 export function encodeChatChoice(choice: ChatChoice): string {
-  return JSON.stringify({ o: choice.o, s: choice.s, q: choice.q });
+  return JSON.stringify({ o: choice.o, c: choice.c, q: choice.q });
 }
 
 export function formatChatReply(
   opener: string,
-  sentences: readonly string[],
+  cardText: string,
   followUp: string,
 ): string {
-  return [opener, ...sentences, followUp].filter((p) => p.length > 0).join(" ");
+  return [opener, cardText, followUp].filter((p) => p.length > 0).join(" ");
 }
 
 function extractObject(raw: string | null | undefined): string | null {
@@ -63,40 +64,32 @@ export function parseChatChoice(
   if (obj == null || typeof obj !== "object" || Array.isArray(obj)) return { ok: false };
   const rec = obj as Record<string, unknown>;
   const keys = Object.keys(rec).sort();
-  if (keys.length !== 3 || keys[0] !== "o" || keys[1] !== "q" || keys[2] !== "s") return { ok: false };
+  if (keys.length !== 3 || keys[0] !== "c" || keys[1] !== "o" || keys[2] !== "q") return { ok: false };
   const o = rec.o;
   const q = rec.q;
-  const s = rec.s;
+  const c = rec.c;
   if (!isInt(o) || o < 0 || o >= bounds.openerCount) return { ok: false };
   if (!isInt(q) || q < 0 || q >= bounds.followUpCount) return { ok: false };
-  if (!Array.isArray(s) || s.length > 3) return { ok: false };
-  if (bounds.sentenceCount <= 0 && s.length > 0) return { ok: false };
-  const seen = new Set<number>();
-  const ids: number[] = [];
-  for (const id of s) {
-    if (!isInt(id) || id < 0 || id >= bounds.sentenceCount) return { ok: false };
-    if (seen.has(id)) return { ok: false };
-    seen.add(id);
-    ids.push(id);
-  }
-  return { ok: true, choice: { o, s: ids, q } };
+  if (!isInt(c) || (c !== 0 && c !== 1)) return { ok: false };
+  if (c === 1 && !bounds.hasCard) return { ok: false };
+  return { ok: true, choice: { o, c, q } };
 }
 
 export function renderChatChoice(
   choice: ChatChoice,
   lang: ChatLang,
-  sentences: readonly string[],
+  cardText: string,
 ): string {
   const opener = openersFor(lang)[choice.o] ?? "";
   const follow = followUpsFor(lang)[choice.q] ?? "";
-  const picked = choice.s.map((i) => sentences[i] ?? "").filter((p) => p.length > 0);
-  return formatChatReply(opener, picked, follow);
+  const body = choice.c === 1 ? cardText : "";
+  return formatChatReply(opener, body, follow);
 }
 
-/** Default stub / no-card choice: opener 0, no sentences, follow-up 0. */
-export const DEFAULT_CHAT_CHOICE: ChatChoice = { o: 0, s: [], q: 0 };
+/** Default stub / no-card choice: opener 0, no card, follow-up 0. */
+export const DEFAULT_CHAT_CHOICE: ChatChoice = { o: 0, c: 0, q: 0 };
 export const DEFAULT_CHAT_CHOICE_JSON = encodeChatChoice(DEFAULT_CHAT_CHOICE);
 
 export function defaultChatReply(lang: ChatLang): string {
-  return renderChatChoice(DEFAULT_CHAT_CHOICE, lang, []);
+  return renderChatChoice(DEFAULT_CHAT_CHOICE, lang, "");
 }

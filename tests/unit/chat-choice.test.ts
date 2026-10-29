@@ -5,8 +5,8 @@ import {
   formatChatReply,
   parseChatChoice,
   renderChatChoice,
+  type ChatChoiceBounds,
 } from "../../src/llm/chat-choice";
-import { splitCardSentences } from "../../src/llm/chat-sentences";
 import {
   CHAT_FOLLOWUPS_EN,
   CHAT_FOLLOWUPS_TH,
@@ -25,6 +25,7 @@ const PREP = byId("protection.prep.000");
 const CONDOM = byId("condom.000");
 const BIRTH = byId("birth.control.000");
 const HIV = byId("disease.hiv.000");
+const ORNOT = byId("pregnancy.ornot.000");
 
 const CODEX_R1 = [
   "ถุงยางแตกแล้วให้นำไปอุ่นก่อนใช้นะ",
@@ -59,152 +60,162 @@ const CODEX_R3 = [
   "ถุงยางไม่เวิร์กสุดแล้ว ณ เวลานี้",
 ] as const;
 
-function allowedParts(lang: "th" | "en", cardText: string): Set<string> {
-  const openers = lang === "en" ? CHAT_OPENERS_EN : CHAT_OPENERS_TH;
-  const follow = lang === "en" ? CHAT_FOLLOWUPS_EN : CHAT_FOLLOWUPS_TH;
-  const sentences = splitCardSentences(cardText);
-  return new Set([...openers, ...follow, ...sentences]);
+const ORNOT_SAFE_ALONE = "แบบนี้ถือว่าเซฟประมาณนึงแล้ว ยังไม่ต้องกังวลมากนะ";
+const ORNOT_RISK_ALONE = "แบบนี้ถือว่ามีความเสี่ยงหมดเลย";
+const ORNOT_INTACT = "ลองย้อนนึกดูก่อน ถ้าใช้ถุงยางโดยที่ถุงไม่แตก ไม่รั่ว หรือกินยาคุมครบตามจำนวนไม่มีตกหล่น";
+
+function bounds(hasCard: boolean): ChatChoiceBounds {
+  return {
+    openerCount: CHAT_OPENERS_TH.length,
+    followUpCount: CHAT_FOLLOWUPS_TH.length,
+    hasCard,
+  };
 }
 
-function composedFromAllowed(text: string, lang: "th" | "en", cardText: string): boolean {
-  const openers = lang === "en" ? CHAT_OPENERS_EN : CHAT_OPENERS_TH;
-  const follow = lang === "en" ? CHAT_FOLLOWUPS_EN : CHAT_FOLLOWUPS_TH;
-  const sentences = splitCardSentences(cardText);
-  for (let o = 0; o < openers.length; o++) {
-    for (let q = 0; q < follow.length; q++) {
-      const empty = formatChatReply(openers[o]!, [], follow[q]!);
-      if (text === empty) return true;
-      const n = sentences.length;
-      for (let a = 0; a < n; a++) {
-        if (text === formatChatReply(openers[o]!, [sentences[a]!], follow[q]!)) return true;
-        for (let b = 0; b < n; b++) {
-          if (a === b) continue;
-          if (text === formatChatReply(openers[o]!, [sentences[a]!, sentences[b]!], follow[q]!)) return true;
-          for (let c = 0; c < n; c++) {
-            if (c === a || c === b) continue;
-            if (text === formatChatReply(openers[o]!, [sentences[a]!, sentences[b]!, sentences[c]!], follow[q]!)) return true;
-          }
-        }
-      }
-    }
-  }
-  return false;
+function cardBodyOf(text: string, opener: string, follow: string): string | null {
+  const none = formatChatReply(opener, "", follow);
+  if (text === none) return "";
+  const prefix = `${opener} `;
+  const suffix = ` ${follow}`;
+  if (!text.startsWith(prefix) || !text.endsWith(suffix)) return null;
+  return text.slice(prefix.length, text.length - suffix.length);
 }
 
-describe("parseChatChoice (strict)", () => {
-  it("accepts a short JSON object with o, s, q", () => {
-    const r = parseChatChoice('{"o":0,"s":[],"q":1}', { openerCount: 6, followUpCount: 5, sentenceCount: 2 });
-    expect(r).toEqual({ ok: true, choice: { o: 0, s: [], q: 1 } });
+function isWholeCardOrNone(text: string, opener: string, follow: string, answer: string): boolean {
+  const body = cardBodyOf(text, opener, follow);
+  return body === "" || body === answer;
+}
+
+describe("parseChatChoice (strict whole-card flag)", () => {
+  it("accepts a short JSON object with o, c, q", () => {
+    const r = parseChatChoice('{"o":0,"c":0,"q":1}', bounds(true));
+    expect(r).toEqual({ ok: true, choice: { o: 0, c: 0, q: 1 } });
   });
 
-  it("accepts 0–3 unique in-range sentence ids in the model's order", () => {
-    const r = parseChatChoice('{"o":1,"s":[2,0],"q":0}', { openerCount: 6, followUpCount: 5, sentenceCount: 3 });
-    expect(r.ok).toBe(true);
-    if (r.ok) expect(r.choice.s).toEqual([2, 0]);
+  it("accepts c=1 only when a card is present", () => {
+    const r = parseChatChoice('{"o":1,"c":1,"q":0}', bounds(true));
+    expect(r).toEqual({ ok: true, choice: { o: 1, c: 1, q: 0 } });
   });
 
-  it("rejects bad JSON", () => {
-    expect(parseChatChoice("not json", { openerCount: 6, followUpCount: 5, sentenceCount: 2 }).ok).toBe(false);
-    expect(parseChatChoice("{", { openerCount: 6, followUpCount: 5, sentenceCount: 2 }).ok).toBe(false);
-    expect(parseChatChoice("", { openerCount: 6, followUpCount: 5, sentenceCount: 2 }).ok).toBe(false);
-    expect(parseChatChoice("null", { openerCount: 6, followUpCount: 5, sentenceCount: 2 }).ok).toBe(false);
-    expect(parseChatChoice("[]", { openerCount: 6, followUpCount: 5, sentenceCount: 2 }).ok).toBe(false);
+  it("rejects the old subset-selection shape", () => {
+    expect(parseChatChoice('{"o":0,"s":[2],"q":0}', bounds(true)).ok).toBe(false);
+    expect(parseChatChoice('{"o":0,"s":[1,3],"q":0}', bounds(true)).ok).toBe(false);
+    expect(parseChatChoice('{"o":0,"s":[],"q":0}', bounds(true)).ok).toBe(false);
+    expect(parseChatChoice('{"o":1,"s":[2,0],"q":0}', bounds(true)).ok).toBe(false);
   });
 
-  it("rejects extra keys, missing keys, and non-integers", () => {
-    const b = { openerCount: 6, followUpCount: 5, sentenceCount: 2 };
-    expect(parseChatChoice('{"o":0,"s":[],"q":0,"text":"เพร็พลดความเสี่ยงได้ค่ะ"}', b).ok).toBe(false);
+  it("rejects bad JSON, truncated output, and trailing text", () => {
+    expect(parseChatChoice("not json", bounds(true)).ok).toBe(false);
+    expect(parseChatChoice("{", bounds(true)).ok).toBe(false);
+    expect(parseChatChoice('{"o":0,"c":1', bounds(true)).ok).toBe(false);
+    expect(parseChatChoice("", bounds(true)).ok).toBe(false);
+    expect(parseChatChoice("null", bounds(true)).ok).toBe(false);
+    expect(parseChatChoice("[]", bounds(true)).ok).toBe(false);
+    expect(parseChatChoice('{"o":0,"c":0,"q":0} extra', bounds(false)).ok).toBe(false);
+  });
+
+  it("rejects extra keys, missing keys, and wrong types", () => {
+    const b = bounds(true);
+    expect(parseChatChoice('{"o":0,"c":0,"q":0,"text":"เพร็พลดความเสี่ยงได้ค่ะ"}', b).ok).toBe(false);
+    expect(parseChatChoice('{"o":0,"c":0,"q":0,"s":[]}', b).ok).toBe(false);
     expect(parseChatChoice('{"o":0,"q":0}', b).ok).toBe(false);
-    expect(parseChatChoice('{"o":0.5,"s":[],"q":0}', b).ok).toBe(false);
-    expect(parseChatChoice('{"o":"0","s":[],"q":0}', b).ok).toBe(false);
+    expect(parseChatChoice('{"o":0.5,"c":0,"q":0}', b).ok).toBe(false);
+    expect(parseChatChoice('{"o":"0","c":0,"q":0}', b).ok).toBe(false);
+    expect(parseChatChoice('{"o":0,"c":true,"q":0}', b).ok).toBe(false);
+    expect(parseChatChoice('{"o":0,"c":"1","q":0}', b).ok).toBe(false);
+    expect(parseChatChoice('{"o":0,"c":1.5,"q":0}', b).ok).toBe(false);
   });
 
-  it("rejects out-of-range ids", () => {
-    const b = { openerCount: 6, followUpCount: 5, sentenceCount: 2 };
-    expect(parseChatChoice('{"o":9,"s":[],"q":0}', b).ok).toBe(false);
-    expect(parseChatChoice('{"o":0,"s":[],"q":9}', b).ok).toBe(false);
-    expect(parseChatChoice('{"o":0,"s":[2],"q":0}', b).ok).toBe(false);
-    expect(parseChatChoice('{"o":-1,"s":[],"q":0}', b).ok).toBe(false);
+  it("rejects out-of-range ids and c other than 0 or 1", () => {
+    const b = bounds(true);
+    expect(parseChatChoice('{"o":9,"c":0,"q":0}', b).ok).toBe(false);
+    expect(parseChatChoice('{"o":0,"c":0,"q":9}', b).ok).toBe(false);
+    expect(parseChatChoice('{"o":0,"c":2,"q":0}', b).ok).toBe(false);
+    expect(parseChatChoice('{"o":0,"c":-1,"q":0}', b).ok).toBe(false);
+    expect(parseChatChoice('{"o":-1,"c":0,"q":0}', b).ok).toBe(false);
   });
 
-  it("rejects duplicate sentence ids and more than 3 sentences", () => {
-    const b = { openerCount: 6, followUpCount: 5, sentenceCount: 5 };
-    expect(parseChatChoice('{"o":0,"s":[0,0],"q":0}', b).ok).toBe(false);
-    expect(parseChatChoice('{"o":0,"s":[0,1,2,3],"q":0}', b).ok).toBe(false);
-  });
-
-  it("rejects sentence ids when there is no card", () => {
-    expect(parseChatChoice('{"o":0,"s":[0],"q":0}', { openerCount: 6, followUpCount: 5, sentenceCount: 0 }).ok).toBe(false);
-    expect(parseChatChoice('{"o":0,"s":[],"q":0}', { openerCount: 6, followUpCount: 5, sentenceCount: 0 }).ok).toBe(true);
-  });
-
-  it("does not accept a fenced object with trailing junk outside the fence", () => {
-    expect(parseChatChoice('{"o":0,"s":[],"q":0} extra', { openerCount: 6, followUpCount: 5, sentenceCount: 0 }).ok).toBe(false);
+  it("rejects c=1 when there is no card", () => {
+    expect(parseChatChoice('{"o":0,"c":1,"q":0}', bounds(false)).ok).toBe(false);
+    expect(parseChatChoice('{"o":0,"c":0,"q":0}', bounds(false)).ok).toBe(true);
   });
 });
 
-describe("renderChatChoice (verbatim card sentences)", () => {
-  it("renders opener, then chosen card sentences in order, then the follow-up", () => {
-    const sentences = splitCardSentences(CONDOM.answer_th);
-    const text = renderChatChoice({ o: 0, s: [0], q: 0 }, "th", sentences);
-    expect(text.startsWith(CHAT_OPENERS_TH[0]!)).toBe(true);
-    expect(text.endsWith(CHAT_FOLLOWUPS_TH[0]!)).toBe(true);
-    expect(text).toContain(sentences[0]!);
-    expect(text).toBe(formatChatReply(CHAT_OPENERS_TH[0]!, [sentences[0]!], CHAT_FOLLOWUPS_TH[0]!));
+describe("renderChatChoice (whole card or none)", () => {
+  it("c=1 renders opener, then the exact full answer_th, then the follow-up", () => {
+    const text = renderChatChoice({ o: 0, c: 1, q: 0 }, "th", CONDOM.answer_th);
+    expect(text).toBe(formatChatReply(CHAT_OPENERS_TH[0]!, CONDOM.answer_th, CHAT_FOLLOWUPS_TH[0]!));
+    expect(cardBodyOf(text, CHAT_OPENERS_TH[0]!, CHAT_FOLLOWUPS_TH[0]!)).toBe(CONDOM.answer_th);
   });
 
-  it("with no card sentences, renders opener plus follow-up only", () => {
-    const text = renderChatChoice({ o: 0, s: [], q: 1 }, "th", []);
-    expect(text).toBe(formatChatReply(CHAT_OPENERS_TH[0]!, [], CHAT_FOLLOWUPS_TH[1]!));
-    expect(text).not.toContain("ถุงยาง");
+  it("c=0 renders opener plus follow-up only", () => {
+    const text = renderChatChoice({ o: 0, c: 0, q: 1 }, "th", CONDOM.answer_th);
+    expect(text).toBe(formatChatReply(CHAT_OPENERS_TH[0]!, "", CHAT_FOLLOWUPS_TH[1]!));
+    expect(text).not.toContain(CONDOM.answer_th);
+    expect(cardBodyOf(text, CHAT_OPENERS_TH[0]!, CHAT_FOLLOWUPS_TH[1]!)).toBe("");
   });
 
-  it("ids from another card never copy that card's text — they index this card only", () => {
-    const leakS = splitCardSentences(CONDOM_LEAK.answer_th);
-    const prepS = splitCardSentences(PREP.answer_th);
-    expect(leakS[0]).not.toBe(prepS[0]);
-    const text = renderChatChoice({ o: 0, s: [0], q: 0 }, "th", leakS);
-    expect(text).toContain(leakS[0]!);
-    expect(text).not.toContain(prepS[0]!);
-    const tooFar = parseChatChoice(encodeChatChoice({ o: 0, s: [prepS.length + 5], q: 0 }), {
-      openerCount: CHAT_OPENERS_TH.length,
-      followUpCount: CHAT_FOLLOWUPS_TH.length,
-      sentenceCount: leakS.length,
-    });
-    expect(tooFar.ok).toBe(false);
+  it("c=1 copies this card only — never another card's text", () => {
+    const text = renderChatChoice({ o: 0, c: 1, q: 0 }, "th", CONDOM_LEAK.answer_th);
+    expect(text).toContain(CONDOM_LEAK.answer_th);
+    expect(text).not.toContain(PREP.answer_th);
+  });
+});
+
+describe("Codex pregnancy.ornot.000 subset examples cannot happen", () => {
+  it("old s=[2] and s=[1,3] JSON is unparseable", () => {
+    expect(parseChatChoice('{"o":0,"s":[2],"q":0}', bounds(true)).ok).toBe(false);
+    expect(parseChatChoice('{"o":0,"s":[1,3],"q":0}', bounds(true)).ok).toBe(false);
+  });
+
+  it("no accepted render is the เซฟ line alone or intact-condom plus ความเสี่ยง", () => {
+    for (let o = 0; o < CHAT_OPENERS_TH.length; o++) {
+      for (let q = 0; q < CHAT_FOLLOWUPS_TH.length; q++) {
+        const opener = CHAT_OPENERS_TH[o]!;
+        const follow = CHAT_FOLLOWUPS_TH[q]!;
+        const none = renderChatChoice({ o, c: 0, q }, "th", ORNOT.answer_th);
+        const whole = renderChatChoice({ o, c: 1, q }, "th", ORNOT.answer_th);
+        expect(none).not.toContain(ORNOT_SAFE_ALONE);
+        expect(none).not.toContain(ORNOT_RISK_ALONE);
+        expect(whole).toBe(formatChatReply(opener, ORNOT.answer_th, follow));
+        expect(whole).toContain(ORNOT_SAFE_ALONE);
+        expect(whole).toContain(ORNOT_INTACT);
+        expect(whole).toContain(ORNOT_RISK_ALONE);
+        expect(whole).not.toBe(formatChatReply(opener, ORNOT_SAFE_ALONE, follow));
+        expect(whole).not.toBe(formatChatReply(opener, `${ORNOT_INTACT} ${ORNOT_RISK_ALONE}`, follow));
+        expect(isWholeCardOrNone(none, opener, follow, ORNOT.answer_th)).toBe(true);
+        expect(isWholeCardOrNone(whole, opener, follow, ORNOT.answer_th)).toBe(true);
+      }
+    }
   });
 });
 
 describe("Codex round-1 / round-2 / round-3 examples are impossible", () => {
-  const bounds = {
-    openerCount: CHAT_OPENERS_TH.length,
-    followUpCount: CHAT_FOLLOWUPS_TH.length,
-    sentenceCount: splitCardSentences(PREP.answer_th).length,
-  };
+  const b = bounds(true);
 
   it.each([...CODEX_R1])("round 1 %s is not a valid choice", (line) => {
-    expect(parseChatChoice(line, bounds).ok).toBe(false);
+    expect(parseChatChoice(line, b).ok).toBe(false);
   });
 
   it.each([...CODEX_R2])("round 2 %s is not a valid choice", (line) => {
-    expect(parseChatChoice(line, { ...bounds, sentenceCount: splitCardSentences(HIV.answer_th).length }).ok).toBe(false);
+    expect(parseChatChoice(line, b).ok).toBe(false);
   });
 
   it.each([...CODEX_R3])("round 3 %s is not a valid choice", (line) => {
-    expect(parseChatChoice(line, { ...bounds, sentenceCount: splitCardSentences(CONDOM.answer_th).length }).ok).toBe(false);
+    expect(parseChatChoice(line, b).ok).toBe(false);
   });
 
   it("no accepted render of those lines can appear as a factual sentence", () => {
     const plants = [...CODEX_R1, ...CODEX_R2, ...CODEX_R3];
     for (const card of [CONDOM, CONDOM_LEAK, PREP, BIRTH, HIV]) {
-      const sentences = splitCardSentences(card.answer_th);
-      const allowed = allowedParts("th", card.answer_th);
       for (const plant of plants) {
-        expect(allowed.has(plant), `${card.id} ${plant}`).toBe(false);
+        expect(plant === card.answer_th, `${card.id} ${plant}`).toBe(false);
         for (let o = 0; o < CHAT_OPENERS_TH.length; o++) {
           for (let q = 0; q < Math.min(2, CHAT_FOLLOWUPS_TH.length); q++) {
-            const text = renderChatChoice({ o, s: sentences.length ? [0] : [], q }, "th", sentences);
-            expect(text === plant).toBe(false);
+            const none = renderChatChoice({ o, c: 0, q }, "th", card.answer_th);
+            const whole = renderChatChoice({ o, c: 1, q }, "th", card.answer_th);
+            expect(none === plant).toBe(false);
+            expect(whole === plant).toBe(false);
           }
         }
       }
@@ -212,7 +223,7 @@ describe("Codex round-1 / round-2 / round-3 examples are impossible", () => {
   });
 });
 
-describe("property: every rendered sentence is a list item or a verbatim card sentence", () => {
+describe("property: rendered text is opener, then nothing or the exact full answer_th, then follow-up", () => {
   function mulberry32(seed: number) {
     return () => {
       let t = (seed += 0x6d2b79f5);
@@ -222,9 +233,9 @@ describe("property: every rendered sentence is a list item or a verbatim card se
     };
   }
 
-  it("random model outputs either fail parse or render only from lists + this card", () => {
+  it("random model outputs either fail parse or render whole card or none", () => {
     const rng = mulberry32(42);
-    const cards = [CONDOM, CONDOM_LEAK, PREP, BIRTH, HIV, byId("general.fallback.000")];
+    const cards = [CONDOM, CONDOM_LEAK, PREP, BIRTH, HIV, ORNOT, byId("general.fallback.000")];
     const garbage = [
       "",
       "{",
@@ -232,59 +243,73 @@ describe("property: every rendered sentence is a list item or a verbatim card se
       "hello",
       '{"o":0}',
       '{"o":0,"s":[0,0],"q":0}',
-      '{"o":99,"s":[],"q":0}',
-      '{"o":0,"s":[0],"q":0,"x":1}',
+      '{"o":0,"s":[2],"q":0}',
+      '{"o":0,"s":[1,3],"q":0}',
+      '{"o":99,"c":0,"q":0}',
+      '{"o":0,"c":1,"q":0,"x":1}',
+      '{"o":0,"c":2,"q":0}',
       ...CODEX_R1,
       ...CODEX_R2,
       ...CODEX_R3,
     ];
     for (const card of cards) {
-      const sentences = splitCardSentences(card.answer_th);
-      const bounds = {
-        openerCount: CHAT_OPENERS_TH.length,
-        followUpCount: CHAT_FOLLOWUPS_TH.length,
-        sentenceCount: sentences.length,
-      };
+      const b = bounds(true);
       for (const g of garbage) {
-        const parsed = parseChatChoice(g, bounds);
+        const parsed = parseChatChoice(g, b);
         if (parsed.ok) {
-          const text = renderChatChoice(parsed.choice, "th", sentences);
-          expect(composedFromAllowed(text, "th", card.answer_th), g).toBe(true);
+          const text = renderChatChoice(parsed.choice, "th", card.answer_th);
+          expect(
+            isWholeCardOrNone(text, CHAT_OPENERS_TH[parsed.choice.o]!, CHAT_FOLLOWUPS_TH[parsed.choice.q]!, card.answer_th),
+            g,
+          ).toBe(true);
         }
       }
       for (let i = 0; i < 80; i++) {
         const o = Math.floor(rng() * 12);
         const q = Math.floor(rng() * 12);
-        const n = Math.floor(rng() * 5);
-        const s: number[] = [];
-        for (let k = 0; k < n; k++) s.push(Math.floor(rng() * 8) - 1);
-        const raw = JSON.stringify({ o, s, q });
-        const parsed = parseChatChoice(raw, bounds);
+        const c = Math.floor(rng() * 4) - 1;
+        const withS = rng() < 0.25;
+        const raw = withS
+          ? JSON.stringify({ o, s: [Math.floor(rng() * 5), Math.floor(rng() * 5)], q })
+          : JSON.stringify({ o, c, q });
+        const parsed = parseChatChoice(raw, b);
         if (!parsed.ok) continue;
-        const text = renderChatChoice(parsed.choice, "th", sentences);
-        expect(composedFromAllowed(text, "th", card.answer_th), raw).toBe(true);
-        expect(text.startsWith(CHAT_OPENERS_TH[parsed.choice.o]!)).toBe(true);
-        expect(text.endsWith(CHAT_FOLLOWUPS_TH[parsed.choice.q]!)).toBe(true);
-        for (const id of parsed.choice.s) {
-          expect(text).toContain(sentences[id]!);
+        const text = renderChatChoice(parsed.choice, "th", card.answer_th);
+        const opener = CHAT_OPENERS_TH[parsed.choice.o]!;
+        const follow = CHAT_FOLLOWUPS_TH[parsed.choice.q]!;
+        expect(isWholeCardOrNone(text, opener, follow, card.answer_th), raw).toBe(true);
+        expect(text.startsWith(opener)).toBe(true);
+        expect(text.endsWith(follow)).toBe(true);
+        if (parsed.choice.c === 0) {
+          expect(text).toBe(formatChatReply(opener, "", follow));
+          expect(text).not.toContain(card.answer_th);
+        } else {
+          expect(parsed.choice.c).toBe(1);
+          expect(text).toBe(formatChatReply(opener, card.answer_th, follow));
+          expect(cardBodyOf(text, opener, follow)).toBe(card.answer_th);
         }
       }
     }
   });
 
-  it("every valid choice renders opener + verbatim sentences + follow-up", () => {
-    const sentences = splitCardSentences(CONDOM.answer_th);
+  it("every valid choice is opener + nothing or exact answer_th + follow-up", () => {
     for (let o = 0; o < CHAT_OPENERS_TH.length; o++) {
       for (let q = 0; q < CHAT_FOLLOWUPS_TH.length; q++) {
-        const none = renderChatChoice({ o, s: [], q }, "th", sentences);
-        expect(none).toBe(formatChatReply(CHAT_OPENERS_TH[o]!, [], CHAT_FOLLOWUPS_TH[q]!));
-        if (sentences.length) {
-          const one = renderChatChoice({ o, s: [0], q }, "th", sentences);
-          expect(one).toBe(formatChatReply(CHAT_OPENERS_TH[o]!, [sentences[0]!], CHAT_FOLLOWUPS_TH[q]!));
-        }
+        const none = renderChatChoice({ o, c: 0, q }, "th", CONDOM.answer_th);
+        expect(none).toBe(formatChatReply(CHAT_OPENERS_TH[o]!, "", CHAT_FOLLOWUPS_TH[q]!));
+        const whole = renderChatChoice({ o, c: 1, q }, "th", CONDOM.answer_th);
+        expect(whole).toBe(formatChatReply(CHAT_OPENERS_TH[o]!, CONDOM.answer_th, CHAT_FOLLOWUPS_TH[q]!));
       }
     }
-    const en = renderChatChoice({ o: 0, s: [], q: 0 }, "en", []);
-    expect(en).toBe(formatChatReply(CHAT_OPENERS_EN[0]!, [], CHAT_FOLLOWUPS_EN[0]!));
+    const en = renderChatChoice({ o: 0, c: 0, q: 0 }, "en", "");
+    expect(en).toBe(formatChatReply(CHAT_OPENERS_EN[0]!, "", CHAT_FOLLOWUPS_EN[0]!));
+  });
+
+  it("encodeChatChoice round-trips o, c, q and never emits s", () => {
+    const json = encodeChatChoice({ o: 2, c: 1, q: 1 });
+    expect(json).toBe('{"o":2,"c":1,"q":1}');
+    expect(json).not.toContain('"s"');
+    const parsed = parseChatChoice(json, bounds(true));
+    expect(parsed).toEqual({ ok: true, choice: { o: 2, c: 1, q: 1 } });
   });
 });
