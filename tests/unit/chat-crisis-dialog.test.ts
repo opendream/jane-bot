@@ -53,6 +53,13 @@ const EN_PROBES: { id: string; text: string }[] = [
 
 const EN_E = ["my boyfriend hits me", "my husband beats me", "I keep getting beaten"];
 
+const EN_DISCLOSURES = [
+  "I was forced to have sex",
+  "I don't want to live anymore",
+  "my boyfriend hits me and I am scared",
+  "I was sexually assaulted and I am scared",
+];
+
 const FP = [
   "อยากกินยาคุม",
   "ยาคุมฉุกเฉินกินเมื่อไร",
@@ -145,6 +152,13 @@ describe("chat-first extra check: probes return the existing crisis card, zero m
     expect(calls.chat + calls.pick + calls.reword).toBe(0);
   });
 
+  it.each(EN_DISCLOSURES)("English disclosure shows crisis, stub 0 times: %s", async (text) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, chatDeps(model));
+    expect(r.reply.kind).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword).toBe(0);
+  });
+
   it("de88: prior violence cue then a bare follow-up, zero model calls on the crisis turn", async () => {
     const { model, calls } = spyModel();
     const { st, replies } = await talk(["แฟนทำร้าย", "ต้องทำไงดี"], chatDeps(model));
@@ -205,6 +219,13 @@ describe("card-first extra check: probes return the existing crisis card, zero m
     if (r.reply.kind === "crisis") expect(r.reply.categories.length, id).toBeGreaterThan(0);
     expect(calls.chat + calls.pick + calls.reword, id).toBe(0);
     expect(chatCrisisLog()?.reason, id).toBe("chat-crisis");
+  });
+
+  it.each(EN_DISCLOSURES)("English disclosure shows crisis, stub 0 times: %s", async (text) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, cardDeps(model));
+    expect(r.reply.kind).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword).toBe(0);
   });
 
   it("de88: prior violence cue then a bare follow-up, zero model calls on the crisis turn", async () => {

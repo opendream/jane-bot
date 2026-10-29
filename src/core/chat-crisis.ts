@@ -57,6 +57,8 @@ export const EN_RULES: ChatCrisisRule[] = [
   { id: "EN-C2 guilt about not speaking up", cat: "sexual_violence", lang: "en", re: /\bguilty (about|for) not (speaking up|telling)/ },
   { id: "EN-D fear from behaviour", cat: "violence_danger", lang: "en", re: /\b(scared|afraid|frightened) to (go|be|walk|return)\b.{0,40}\bbecause of (someone|somebody|him|her|them|a person|this person)('s)? (behaviou?r|actions)/ },
   { id: "EN-E partner/family hits me", cat: "violence_danger", lang: "en", re: /\b(my )?(boyfriend|girlfriend|husband|wife|partner|bf|gf|dad|father|stepdad|mum|mom|mother|brother|sister) (beats|hits|scratches|slaps|uses force on) me\b|\bi (got|get|was|am being|keep getting) beaten\b/ },
+  { id: "EN-F forced sex", cat: "sexual_violence", lang: "en", re: /\bi (was|got|have been|'ve been) forced (to have|into) (sex|sexual (intercourse|activity))\b|\bsomeone forced me (to have|into) (sex|sexual)/ },
+  { id: "EN-G don't want to live", cat: "self_harm", lang: "en", re: /\bi (don't|do not) want to live(?: anymore| any more)?(?=$|[.!?,])|\bi (?:feel like i )?(can't|cannot|can not) go on living\b/ },
 ];
 
 export const TH_F_ID = "TH-F bare follow-up after violence cue";

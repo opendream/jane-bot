@@ -8,6 +8,8 @@ import { detectChatCrisisForTurn } from "../../src/core/chat-crisis";
 import { detectCrisis } from "../../src/core/crisis";
 import { BANK } from "../../src/core/bankData";
 import { newDialog, runTurn, type TurnDeps } from "../../src/core/dialog";
+import { detectChatLang } from "../../src/llm/chat-lang";
+import { ENGLISH_MODEL_CHAT } from "../../src/config";
 
 // SYNTHETIC eval/fixture texts only. Counts and ids; never user logs.
 
@@ -103,6 +105,29 @@ async function scanAllPath(deps: TurnDeps): Promise<Record<string, SetCount> & {
   return { ...out, all: { hits, total } };
 }
 
+function englishItems(items: Item[]): Item[] {
+  return items.filter((x) => detectChatLang(x.text) === "en");
+}
+
+function scanEnglishDetector(): Record<string, SetCount> {
+  const out: Record<string, SetCount> = {};
+  for (const s of normalSets()) out[s.name] = scanDetector(englishItems(s.items));
+  return out;
+}
+
+async function scanEnglishPath(deps: TurnDeps): Promise<Record<string, SetCount> & { all: SetCount }> {
+  const out: Record<string, SetCount> = {};
+  let hits = 0;
+  let total = 0;
+  for (const s of normalSets()) {
+    const c = await scanPath(englishItems(s.items), deps);
+    out[s.name] = c;
+    hits += c.hits;
+    total += c.total;
+  }
+  return { ...out, all: { hits, total } };
+}
+
 /**
  * Pinned after enabling the extra check on card-first. Increase = regression.
  * Detector and both runTurn paths must stay in lockstep (same extra check).
@@ -138,5 +163,70 @@ describe("extra-check false positives on every normal set, both paths", () => {
     expect(card, "card-first vs detector").toEqual(detWithAll);
     expect(chat, "chat-first vs detector").toEqual(detWithAll);
     expect(card, "pinned card-first normal-set FP counts").toEqual(CARD_FIRST_NORMAL_FP);
+  });
+});
+
+/**
+ * Extra-check FPs among items detectChatLang classifies as English.
+ * ENGLISH_MODEL_CHAT is on, so these would otherwise reach model chat.
+ * The git normal sets are Thai SRH evals: 0 items pass detectChatLang.
+ * Increase = regression. Detector and both runTurn paths must stay in lockstep.
+ */
+const ENGLISH_NORMAL_FP: Record<string, SetCount> & { all: SetCount } = {
+  "crisis-fp-harmless": { hits: 0, total: 0 },
+  "crisis-fp-heldout-harmless": { hits: 0, total: 0 },
+  "seed-normal": { hits: 0, total: 0 },
+  paraphrase: { hits: 0, total: 0 },
+  "review868-judged-non-crisis": { hits: 0, total: 0 },
+  "review868-queries-non-pinned": { hits: 0, total: 0 },
+  "retrieve-c450": { hits: 0, total: 0 },
+  "retrieve-e948": { hits: 0, total: 0 },
+  "retrieve-476b992": { hits: 0, total: 0 },
+  "retrieve-routing-extra": { hits: 0, total: 0 },
+  "retrieve-prep-price": { hits: 0, total: 0 },
+  "retrieve-cross-topic-negatives": { hits: 0, total: 0 },
+  all: { hits: 0, total: 0 },
+};
+
+/** SYNTHETIC English SRH questions (ids only in assertions). Git evals have none. */
+const SYNTHETIC_ENGLISH_NORMAL: Item[] = [
+  { id: "en-n01", text: "how does contraception work" },
+  { id: "en-n02", text: "when should I take emergency contraception" },
+  { id: "en-n03", text: "the condom broke what now" },
+  { id: "en-n04", text: "where can I get an HIV test" },
+  { id: "en-n05", text: "what is PrEP" },
+  { id: "en-n06", text: "my period is late" },
+  { id: "en-n07", text: "how do I talk about the relationship" },
+  { id: "en-n08", text: "I want to know about birth control" },
+  { id: "en-n09", text: "I don't want to live with my parents" },
+  { id: "en-n10", text: "what is forced sex" },
+];
+
+const SYNTHETIC_ENGLISH_NORMAL_FP: SetCount = { hits: 0, total: 10 };
+
+describe("English extra-check false positives on every normal set (ENGLISH_MODEL_CHAT on)", () => {
+  it("English-item detector matches card-first and chat-first; pin English totals", async () => {
+    expect(ENGLISH_MODEL_CHAT).toBe(true);
+    const detector = scanEnglishDetector();
+    const card = await scanEnglishPath(cardDeps());
+    const chat = await scanEnglishPath(chatDeps());
+    const detWithAll = {
+      ...detector,
+      all: Object.values(detector).reduce(
+        (a, c) => ({ hits: a.hits + c.hits, total: a.total + c.total }),
+        { hits: 0, total: 0 },
+      ),
+    };
+    expect(card, "English card-first vs detector").toEqual(detWithAll);
+    expect(chat, "English chat-first vs detector").toEqual(detWithAll);
+    expect(card, "pinned English normal-set FP counts").toEqual(ENGLISH_NORMAL_FP);
+
+    expect(englishItems(SYNTHETIC_ENGLISH_NORMAL)).toHaveLength(SYNTHETIC_ENGLISH_NORMAL.length);
+    const synDet = scanDetector(SYNTHETIC_ENGLISH_NORMAL);
+    const synCard = await scanPath(SYNTHETIC_ENGLISH_NORMAL, cardDeps());
+    const synChat = await scanPath(SYNTHETIC_ENGLISH_NORMAL, chatDeps());
+    expect(synCard, "synthetic English card-first vs detector").toEqual(synDet);
+    expect(synChat, "synthetic English chat-first vs detector").toEqual(synDet);
+    expect(synCard, "pinned synthetic English-normal FP").toEqual(SYNTHETIC_ENGLISH_NORMAL_FP);
   });
 });

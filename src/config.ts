@@ -93,14 +93,11 @@ export function pickTimeoutMsFromSearch(search?: string, fallback = 20_000): num
  */
 export const CHAT_FIRST = false;
 /**
- * English model chat is off in this PR. While false, an English chat-first
- * turn never calls the model: it takes the fixed-card path (rules match,
- * bank English body when present, otherwise the Thai card plus the DRAFT
- * "This info card is in Thai." note). English strings, language detection,
- * and the English output-guard path stay in place so a later
- * crisis-detection PR can flip this.
+ * English model chat is on. Crisis still runs first (pinned detectCrisis,
+ * then the add-only chat-crisis check) so English crisis wording never
+ * reaches the model. Non-crisis English chat-first turns may call chatReply.
  */
-export const ENGLISH_MODEL_CHAT = false;
+export const ENGLISH_MODEL_CHAT = true;
 /** User turns in one topic before Jane must close with a card. */
 export const CHAT_MAX_TURNS = 3;
 /** Chat-reply budget (plan §2). Pick still uses PICK_TIMEOUT_MS (8 s). */

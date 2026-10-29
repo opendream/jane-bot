@@ -77,6 +77,9 @@ const FP_NORMAL_EN = [
   "what is PrEP",
   "my period is late",
   "how do I talk about the relationship",
+  "I want to know about birth control",
+  "I don't want to live with my parents",
+  "what is forced sex",
 ];
 
 const FP_SHORT_PV_HARASS = [
@@ -108,9 +111,9 @@ beforeEach(() => resetChatCrisisLog());
 afterEach(() => resetChatCrisisLog());
 
 describe("named rule lists", () => {
-  it("has 10 Thai rules, 9 English rules, plus the context rule id", () => {
+  it("has 10 Thai rules, 11 English rules, plus the context rule id", () => {
     expect(TH_RULES).toHaveLength(10);
-    expect(EN_RULES).toHaveLength(9);
+    expect(EN_RULES).toHaveLength(11);
     expect(TH_F_ID).toBe("TH-F bare follow-up after violence cue");
   });
 });
@@ -142,6 +145,32 @@ describe("EN-E partner/family hits me (synthetic; no English probe)", () => {
     expect(hit.crisis, text).toBe(true);
     expect(hit.rules).toContain("EN-E partner/family hits me");
     expect(hit.categories).toContain("violence_danger");
+  });
+});
+
+describe("EN-F forced sex and EN-G don't want to live (synthetic disclosures)", () => {
+  it("I was forced to have sex", () => {
+    const text = "I was forced to have sex";
+    expect(detectCrisis(text).crisis).toBe(false);
+    const hit = detectChatCrisis(text);
+    expect(hit.crisis).toBe(true);
+    expect(hit.rules).toContain("EN-F forced sex");
+    expect(hit.categories).toContain("sexual_violence");
+  });
+  it("I don't want to live anymore", () => {
+    const text = "I don't want to live anymore";
+    expect(detectCrisis(text).crisis).toBe(false);
+    const hit = detectChatCrisis(text);
+    expect(hit.crisis).toBe(true);
+    expect(hit.rules).toContain("EN-G don't want to live");
+    expect(hit.categories).toContain("self_harm");
+  });
+  it("I feel like I cannot go on living", () => {
+    const text = "I feel like I cannot go on living";
+    expect(detectCrisis(text).crisis).toBe(false);
+    const hit = detectChatCrisis(text);
+    expect(hit.crisis).toBe(true);
+    expect(hit.rules).toContain("EN-G don't want to live");
   });
 });
 

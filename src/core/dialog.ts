@@ -395,8 +395,8 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     }
 
     const lang = detectChatLang(input);
-    // English model chat is gated by ENGLISH_MODEL_CHAT. While false, skip
-    // generation and show the rules card (English body or Thai + DRAFT note).
+    // English model chat is gated by ENGLISH_MODEL_CHAT. Crisis already returned
+    // above, so a later English generation cannot skip the extra check.
     if (lang === "en" && !ENGLISH_MODEL_CHAT) {
       const top = rulesTop(retrieveText);
       return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, lang);
