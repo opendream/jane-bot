@@ -76,3 +76,23 @@ test("?chatFirst=1 a normal SRH question still reaches the stubbed model (contro
   const calls = await modelCalls(page);
   expect(calls.chat).toBeGreaterThan(0);
 });
+
+test("?chatFirst=1 mostly-Thai English crisis word shows the existing crisis card with zero model calls", async ({ page }) => {
+  await openChatFirst(page);
+  await openChat(page);
+  expect(await modelCalls(page)).toEqual({ chat: 0, pick: 0 });
+  await say(page, "หนูอยาก die ค่ะ");
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  const calls = await modelCalls(page);
+  expect(calls.chat + calls.pick).toBe(0);
+});
+
+test("card-first mostly-Thai English crisis word shows the existing crisis card with zero model calls", async ({ page }) => {
+  await openStubbed(page);
+  await openChat(page);
+  expect(await modelCalls(page)).toEqual({ chat: 0, pick: 0 });
+  await say(page, "หนูรู้สึก suicidal มาหลายวันแล้ว");
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  const calls = await modelCalls(page);
+  expect(calls.chat + calls.pick).toBe(0);
+});

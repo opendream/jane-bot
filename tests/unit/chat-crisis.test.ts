@@ -80,6 +80,41 @@ const FP_NORMAL_EN = [
   "I want to know about birth control",
   "I don't want to live with my parents",
   "what is forced sex",
+  "help",
+  "HELP",
+];
+
+/** Thai + SRH loanwords must not fire on English crisis-token word boundaries. */
+const FP_TH_LOANWORD = [
+  "ตรวจ HIV",
+  "กิน PrEP",
+  "ใช้ condom ยังไง",
+  "อยากตรวจ HIV ค่ะ",
+  "กิน PrEP ยังไง",
+];
+
+/** #37 round-4 short English disclosures the pin misses. */
+const EN_SHORT_CRISIS: { text: string; cat: "self_harm" | "sexual_violence" | "violence_danger" }[] = [
+  { text: "I'm suicidal", cat: "self_harm" },
+  { text: "Suicidal", cat: "self_harm" },
+  { text: "feeling suicidal", cat: "self_harm" },
+  { text: "suicidal thoughts", cat: "self_harm" },
+  { text: "wanna die", cat: "self_harm" },
+  { text: "end my life", cat: "self_harm" },
+  { text: "Forced sex", cat: "sexual_violence" },
+  { text: "partner hit me", cat: "violence_danger" },
+  { text: "cutting myself", cat: "self_harm" },
+  { text: "I cut myself every night", cat: "self_harm" },
+];
+
+/** Mostly-Thai lines with one English crisis word (Thai letter share ≥ 60%). */
+const TH_EN_CRISIS_LOANWORD: { text: string; token: string; cat: "self_harm" | "violence_danger" }[] = [
+  { text: "หนูอยาก die ค่ะ", token: "die", cat: "self_harm" },
+  { text: "หนูคิดจะ kms คืนนี้", token: "kms", cat: "self_harm" },
+  { text: "หนูรู้สึก suicidal มาหลายวันแล้ว", token: "suicidal", cat: "self_harm" },
+  { text: "แฟน abuse หนูทุกวัน", token: "abuse", cat: "violence_danger" },
+  { text: "หนู cut ตัวเองทุกคืนค่ะ", token: "cut", cat: "self_harm" },
+  { text: "อยาก unalive ตัวเองค่ะ", token: "unalive", cat: "self_harm" },
 ];
 
 const FP_SHORT_PV_HARASS = [
@@ -111,9 +146,9 @@ beforeEach(() => resetChatCrisisLog());
 afterEach(() => resetChatCrisisLog());
 
 describe("named rule lists", () => {
-  it("has 10 Thai rules, 11 English rules, plus the context rule id", () => {
+  it("has 10 Thai rules, 20 English rules, plus the context rule id", () => {
     expect(TH_RULES).toHaveLength(10);
-    expect(EN_RULES).toHaveLength(11);
+    expect(EN_RULES).toHaveLength(20);
     expect(TH_F_ID).toBe("TH-F bare follow-up after violence cue");
   });
 });
@@ -201,12 +236,35 @@ describe("false positives: normal SRH, short IPV/harassment, ตี idioms", () 
   it.each(FP_NORMAL_EN)("English SRH %s", (text) => {
     expect(detectChatCrisis(text).crisis, text).toBe(false);
   });
+  it.each(FP_TH_LOANWORD)("Thai+loanword word-boundary skip %s", (text) => {
+    expect(detectChatCrisis(text).crisis, text).toBe(false);
+    expect(detectChatCrisisForTurn(text, []).crisis, text).toBe(false);
+  });
   it.each(FP_SHORT_PV_HARASS)("short IPV/harassment stays on its card: %s", (text) => {
     expect(detectChatCrisis(text).crisis, text).toBe(false);
   });
   it.each(FP_TI_IDIOMS)("ตี/ซ้อม idiom %s", (text) => {
     expect(detectChatCrisis(text).crisis, text).toBe(false);
     expect(detectChatCrisisForTurn("ต้องทำไงดี", [text]).crisis, text).toBe(false);
+  });
+});
+
+describe("short English crisis phrases the pin misses", () => {
+  it.each(EN_SHORT_CRISIS)("$text", ({ text, cat }) => {
+    expect(detectCrisis(text).crisis, text).toBe(false);
+    const hit = detectChatCrisis(text);
+    expect(hit.crisis, text).toBe(true);
+    expect(hit.categories, text).toContain(cat);
+  });
+});
+
+describe("English crisis tokens inside mostly-Thai lines", () => {
+  it.each(TH_EN_CRISIS_LOANWORD)("$text ($token)", ({ text, token, cat }) => {
+    expect(detectCrisis(text).crisis, text).toBe(false);
+    const hit = detectChatCrisis(text);
+    expect(hit.crisis, text).toBe(true);
+    expect(hit.categories, text).toContain(cat);
+    expect(hit.rules.join(" "), text).toMatch(new RegExp(`\\b${token}\\b`, "i"));
   });
 });
 

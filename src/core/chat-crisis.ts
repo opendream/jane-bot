@@ -3,7 +3,8 @@
  * detectCrisis(); never edits crisis.ts. Thai matches run on compact() (NFC, zero-width stripped, spaces removed)
  * because users space Thai unpredictably. English uses lowercased normalize() with
  * curly quotes folded. Named regexes (not word lists) so bystander / definition
- * questions do not fire.
+ * questions do not fire. Whole-token English crisis words also match inside
+ * mixed Thai lines; word boundaries keep HIV / PrEP / condom from firing.
  *
  * The in-memory reason tag is "chat-crisis" (distinct from "rules-crisis"). It
  * stores rule ids only — never user text — and is compiled out of production.
@@ -56,9 +57,20 @@ export const EN_RULES: ChatCrisisRule[] = [
   { id: "EN-C1 self-blame for event", cat: "sexual_violence", lang: "en", re: /\bblam(e|ing) myself for (what happened|it happening)/ },
   { id: "EN-C2 guilt about not speaking up", cat: "sexual_violence", lang: "en", re: /\bguilty (about|for) not (speaking up|telling)/ },
   { id: "EN-D fear from behaviour", cat: "violence_danger", lang: "en", re: /\b(scared|afraid|frightened) to (go|be|walk|return)\b.{0,40}\bbecause of (someone|somebody|him|her|them|a person|this person)('s)? (behaviou?r|actions)/ },
-  { id: "EN-E partner/family hits me", cat: "violence_danger", lang: "en", re: /\b(my )?(boyfriend|girlfriend|husband|wife|partner|bf|gf|dad|father|stepdad|mum|mom|mother|brother|sister) (beats|hits|scratches|slaps|uses force on) me\b|\bi (got|get|was|am being|keep getting) beaten\b/ },
+  { id: "EN-E partner/family hits me", cat: "violence_danger", lang: "en", re: /\b(my )?(boyfriend|girlfriend|husband|wife|partner|bf|gf|dad|father|stepdad|mum|mom|mother|brother|sister) (beats|hits|hit|scratches|slaps|uses force on) me\b(?! up)|\bi (got|get|was|am being|keep getting) beaten\b/ },
   { id: "EN-F forced sex", cat: "sexual_violence", lang: "en", re: /\bi (was|got|have been|'ve been) forced (to have|into) (sex|sexual (intercourse|activity))\b|\bsomeone forced me (to have|into) (sex|sexual)/ },
   { id: "EN-G don't want to live", cat: "self_harm", lang: "en", re: /\bi (don't|do not) want to live(?: anymore| any more)?(?=$|[.!?,])|\bi (?:feel like i )?(can't|cannot|can not) go on living\b/ },
+  { id: "EN-H cutting myself", cat: "self_harm", lang: "en", re: /\bcutting myself\b/ },
+  { id: "EN-I end my life", cat: "self_harm", lang: "en", re: /\bend my life\b(?! insurance)/ },
+  { id: "EN-J bare forced sex", cat: "sexual_violence", lang: "en", re: /^forced sex[.!?]*$/ },
+  // Whole-token English crisis words. Also match inside mixed Thai lines
+  // (word boundaries keep HIV / PrEP / condom from firing).
+  { id: "EN-T die", cat: "self_harm", lang: "en", re: /\bdie\b/ },
+  { id: "EN-T kms", cat: "self_harm", lang: "en", re: /\bkms\b/ },
+  { id: "EN-T suicidal", cat: "self_harm", lang: "en", re: /\bsuicidal\b/ },
+  { id: "EN-T abuse", cat: "violence_danger", lang: "en", re: /\babuse\b/ },
+  { id: "EN-T cut", cat: "self_harm", lang: "en", re: /\bcut\b/ },
+  { id: "EN-T unalive", cat: "self_harm", lang: "en", re: /\bunalive\b/ },
 ];
 
 export const TH_F_ID = "TH-F bare follow-up after violence cue";

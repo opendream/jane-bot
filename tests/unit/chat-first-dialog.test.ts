@@ -12,7 +12,7 @@ import {
 } from "../../src/core/dialog";
 import { SHOW_CARD_NOW, SHOW_CARD_NOW_EN } from "../../src/core/chat-flow";
 import { CHAT_HOLDING_LINE, CHAT_HOLDING_LINE_EN } from "../../src/llm/chatGuard";
-import { detectChatLang } from "../../src/llm/chat-lang";
+import { detectChatLang, modelChatScript } from "../../src/llm/chat-lang";
 import {
   CHAT_LANG_LINE_EN,
   CHAT_LANG_LINE_TH,
@@ -507,6 +507,76 @@ describe("chat-first English replies with ENGLISH_MODEL_CHAT on", () => {
     expect(r.reply.kind).toBe("chat");
     expect(calls.chat).toBe(1);
     expect(calls.pick + calls.reword).toBe(0);
+  });
+
+  const shortEnCrisis = [
+    "I'm suicidal",
+    "Suicidal",
+    "feeling suicidal",
+    "suicidal thoughts",
+    "wanna die",
+    "end my life",
+    "Forced sex",
+    "partner hit me",
+    "cutting myself",
+    "I cut myself every night",
+    "kill myself",
+    "he raped me",
+    "i want to kill myself",
+  ];
+
+  it.each(shortEnCrisis)("short English crisis phrase shows the crisis screen, stub 0 times: %s", async (line) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), line, deps(model));
+    expect(r.reply.kind, line).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, line).toBe(0);
+  });
+
+  const thEnCrisisLoanword = [
+    "หนูอยาก die ค่ะ",
+    "หนูคิดจะ kms คืนนี้",
+    "หนูรู้สึก suicidal มาหลายวันแล้ว",
+    "แฟน abuse หนูทุกวัน",
+    "หนู cut ตัวเองทุกคืนค่ะ",
+    "อยาก unalive ตัวเองค่ะ",
+  ];
+
+  it.each(thEnCrisisLoanword)("mostly-Thai English crisis word shows the crisis screen before Thai chat: %s", async (line) => {
+    expect(modelChatScript(line), line).toBe("th");
+    expect(detectCrisis(line).crisis, line).toBe(false);
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), line, deps(model));
+    expect(r.reply.kind, line).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, line).toBe(0);
+  });
+
+  it.each(["help", "HELP"])("short English help is not a crisis screen and reaches model chat: %s", async (line) => {
+    expect(modelChatScript(line)).toBe("en");
+    expect(detectCrisis(line).crisis).toBe(false);
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), line, deps(model));
+    expect(r.reply.kind, line).not.toBe("crisis");
+    expect(calls.chat, line).toBe(1);
+  });
+
+  it("short mixed loanword lines are a card with 0 model calls, not Thai chat", async () => {
+    for (const line of ["ตรวจ HIV", "ใช้ condom ยังไง"]) {
+      expect(modelChatScript(line), line).toBe("mixed");
+      const { model, calls } = spyModel();
+      const r = await runTurn(newDialog(), line, deps(model));
+      expect(r.reply.kind, line).not.toBe("crisis");
+      expect(r.reply.kind, line).not.toBe("chat");
+      expect(calls.chat + calls.pick + calls.reword, line).toBe(0);
+    }
+  });
+
+  it("short Latin-majority loanword กิน PrEP reaches English model chat (not Thai chat)", async () => {
+    expect(modelChatScript("กิน PrEP")).toBe("en");
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), "กิน PrEP", deps(model));
+    expect(r.reply.kind).not.toBe("crisis");
+    expect(r.reply.kind).toBe("chat");
+    expect(calls.chat).toBe(1);
   });
 
   it("refusals and talk-to-a-person stay unchanged on an English turn", async () => {

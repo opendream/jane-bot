@@ -60,6 +60,30 @@ const EN_DISCLOSURES = [
   "I was sexually assaulted and I am scared",
 ];
 
+const EN_SHORT_CRISIS = [
+  "I'm suicidal",
+  "Suicidal",
+  "feeling suicidal",
+  "suicidal thoughts",
+  "wanna die",
+  "end my life",
+  "Forced sex",
+  "partner hit me",
+  "cutting myself",
+  "I cut myself every night",
+];
+
+const TH_EN_CRISIS_LOANWORD = [
+  "หนูอยาก die ค่ะ",
+  "หนูคิดจะ kms คืนนี้",
+  "หนูรู้สึก suicidal มาหลายวันแล้ว",
+  "แฟน abuse หนูทุกวัน",
+  "หนู cut ตัวเองทุกคืนค่ะ",
+  "อยาก unalive ตัวเองค่ะ",
+];
+
+const PINNED_EN_SHORT = ["kill myself", "he raped me", "i want to kill myself"];
+
 const FP = [
   "อยากกินยาคุม",
   "ยาคุมฉุกเฉินกินเมื่อไร",
@@ -159,6 +183,32 @@ describe("chat-first extra check: probes return the existing crisis card, zero m
     expect(calls.chat + calls.pick + calls.reword).toBe(0);
   });
 
+  it.each(EN_SHORT_CRISIS)("short English crisis phrase shows crisis, stub 0 times: %s", async (text) => {
+    expect(detectCrisis(text).crisis, text).toBe(false);
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, chatDeps(model));
+    expect(r.reply.kind, text).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
+  });
+
+  it.each(TH_EN_CRISIS_LOANWORD)("Thai+English crisis loanword shows crisis, stub 0 times: %s", async (text) => {
+    expect(detectCrisis(text).crisis, text).toBe(false);
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, chatDeps(model));
+    expect(r.reply.kind, text).toBe("crisis");
+    if (r.reply.kind === "crisis") expect(r.reply.engine, text).toBe("chat-crisis");
+    expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
+  });
+
+  it.each(PINNED_EN_SHORT)("pinned short English still crisis, stub 0 times: %s", async (text) => {
+    expect(detectCrisis(text).crisis, text).toBe(true);
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, chatDeps(model));
+    expect(r.reply.kind, text).toBe("crisis");
+    if (r.reply.kind === "crisis") expect(r.reply.engine, text).toBe("rules-crisis");
+    expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
+  });
+
   it("de88: prior violence cue then a bare follow-up, zero model calls on the crisis turn", async () => {
     const { model, calls } = spyModel();
     const { st, replies } = await talk(["แฟนทำร้าย", "ต้องทำไงดี"], chatDeps(model));
@@ -226,6 +276,20 @@ describe("card-first extra check: probes return the existing crisis card, zero m
     const r = await runTurn(newDialog(), text, cardDeps(model));
     expect(r.reply.kind).toBe("crisis");
     expect(calls.chat + calls.pick + calls.reword).toBe(0);
+  });
+
+  it.each(EN_SHORT_CRISIS)("short English crisis phrase shows crisis, stub 0 times: %s", async (text) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, cardDeps(model));
+    expect(r.reply.kind, text).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
+  });
+
+  it.each(TH_EN_CRISIS_LOANWORD)("Thai+English crisis loanword shows crisis, stub 0 times: %s", async (text) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, cardDeps(model));
+    expect(r.reply.kind, text).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
   });
 
   it("de88: prior violence cue then a bare follow-up, zero model calls on the crisis turn", async () => {
