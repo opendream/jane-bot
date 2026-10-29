@@ -9,15 +9,23 @@ import { WARMUP_BUDGET_MS } from "./loader-eta";
 
 /** llama.cpp compiled to WASM, CPU only (n_gpu_layers 0). Works with no GPU at all. */
 export async function loadWllama(
-  file: string,
+  file: string | string[],
   label: string,
   onProgress: (p: number) => void,
-  opts?: { onWarmup?: (budgetMs: number) => void },
+  opts?: { onWarmup?: (budgetMs: number) => void; cacheName?: string },
 ): Promise<LLMAdapter & { classifyRaw(text: string, signal?: AbortSignal): Promise<string> }> {
-  const blob = await cachedBlob(file, (l, t) => onProgress(t ? (0.9 * l) / t : 0));
+  const paths = Array.isArray(file) ? file : [file];
+  const blobs: Blob[] = [];
+  for (let i = 0; i < paths.length; i++) {
+    const blob = await cachedBlob(paths[i], (loaded, total) => {
+      const part = total ? loaded / total : 1;
+      onProgress((0.9 * (i + part)) / paths.length);
+    }, opts?.cacheName);
+    blobs.push(blob);
+  }
   onProgress(0.92);
   const w = new Wllama({ default: wasmUrl }, { suppressNativeLog: true, logger: { debug() {}, log() {}, warn() {}, error() {} } as any });
-  await w.loadModel([blob], { n_ctx: 1024, n_gpu_layers: 0, n_threads: Math.max(1, Math.min(8, navigator.hardwareConcurrency || 4)) });
+  await w.loadModel(blobs, { n_ctx: 1024, n_gpu_layers: 0, n_threads: Math.max(1, Math.min(8, navigator.hardwareConcurrency || 4)) });
   onProgress(0.96);
   opts?.onWarmup?.(WARMUP_BUDGET_MS);
   let busy: Promise<unknown> = Promise.resolve();
@@ -34,11 +42,12 @@ export async function loadWllama(
   // would otherwise hit the 8 s classify timeout on her first message.
   await classifyRaw("สวัสดี").catch(() => "");
   onProgress(1);
+  let alive = true;
   return {
     name: `${label} (WASM)`,
     runtime: "wasm" as const,
     classifyRaw,
-    ready: () => true,
+    ready: () => alive,
     classify: async (text, signal) => parseIntent(await classifyRaw(text, signal)) as Intent[] | null,
     polishSummary: (draft, signal) => serial(async () => {
       const line = needLine(draft);
@@ -66,5 +75,10 @@ export async function loadWllama(
       } as any);
       return cleanReword(String(r.choices?.[0]?.message?.content ?? "")) || null;
     }),
+    async dispose() {
+      if (!alive) return;
+      alive = false;
+      try { await w.exit(); } catch { /* already torn down */ }
+    },
   };
 }

@@ -1,5 +1,8 @@
 /// <reference types="vite/client" />
 
+/** True only in `vite build --mode devtest`. Production builds replace this with false. */
+declare const __JANE_DEVTEST__: boolean;
+
 interface Window {
   /** E2E / unit test hook only. Never stores user content. */
   __JANE_RUNTIME_TEST__?: {
