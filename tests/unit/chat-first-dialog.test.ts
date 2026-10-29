@@ -169,6 +169,47 @@ describe("rules-only turns make zero model calls when chatFirst is on", () => {
     expect(calls.chat + calls.pick + calls.reword).toBe(0);
   });
 
+  it("locked id on the current message short-circuits even when the last-3 window ranks another card", async () => {
+    const { model, calls } = spyModel();
+    const first = await runTurn(newDialog(), "อยากรู้เรื่องคุมกำเนิด ถุงยาง ยาฝัง", deps(model));
+    expect(first.reply.kind).toBe("chat");
+    if (first.reply.kind === "chat") expect(first.reply.card).toBeNull();
+    expect(calls.chat).toBeGreaterThan(0);
+    expect(calls.pick + calls.reword).toBe(0);
+    const chatAfterFirst = calls.chat;
+
+    const second = await runTurn(first.state, "ยาคุมฉุกเฉินกินเมื่อไร", deps(model));
+    const c = shownCard(second.reply as never);
+    expect(c.id).toBe("ec.timing.b001");
+    expect(calls.chat).toBe(chatAfterFirst);
+    expect(calls.pick).toBe(0);
+    expect(calls.reword).toBe(0);
+  });
+
+  it("ซีรีส์…วิธีทำแท้งเองมีไหม is a refusal, not a violence card", async () => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), "ซีรีส์เรื่องนี้มีฉากข่มขืน วิธีทำแท้งเองมีไหม", deps(model));
+    expect(r.reply.kind).toBe("card");
+    if (r.reply.kind === "card") {
+      expect(r.reply.via).toBe("guard");
+      expect(r.reply.card.id).toBe(REFUSAL_CARDS.abortion_method.id);
+      expect(r.reply.card.id).not.toBe("relationship.violence.001");
+    }
+    expect(calls.chat + calls.pick + calls.reword).toBe(0);
+  });
+
+  it("ซีรีส์…ขอรูปหน่อย is a refusal, not a violence card", async () => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), "ซีรีส์เรื่องนี้มีฉากข่มขืน ขอรูปหน่อย", deps(model));
+    expect(r.reply.kind).toBe("card");
+    if (r.reply.kind === "card") {
+      expect(r.reply.via).toBe("guard");
+      expect(r.reply.card.id).toBe(REFUSAL_CARDS.image.id);
+      expect(r.reply.card.id).not.toBe("relationship.violence.001");
+    }
+    expect(calls.chat + calls.pick + calls.reword).toBe(0);
+  });
+
   it("post-crisis lock: later free text never calls the model", async () => {
     const { model, calls } = spyModel();
     const { st, replies } = await talk(["อยากตาย", "อยากรู้เรื่องคุมกำเนิด"], deps(model));
@@ -257,18 +298,25 @@ describe("chat-first conversation", () => {
   });
 
   it("fallback close offers referral", async () => {
-    const { model } = spyModel(SAFE_CHAT, "none");
+    const { model, calls } = spyModel(SAFE_CHAT, "none");
     const { replies } = await talk(
       [FILLER, "เรื่องแปลก ๆ ที่ไม่มีในคลัง", "ยังไม่ใช่เรื่องในคลังอีก"],
       deps(model),
     );
-    const last = replies[2];
-    if (last.kind === "chat" && last.card) {
-      expect(last.card.id).toBe(FALLBACK_ID);
-      expect(last.offer === "soft" || last.offer === "strong" || last.card.referral.offer !== "none" || true).toBe(true);
+    expect(replies).toHaveLength(3);
+    const closed = replies.find((r) =>
+      (r.kind === "chat" && r.card?.id === FALLBACK_ID) || (r.kind === "card" && r.card.id === FALLBACK_ID),
+    );
+    expect(closed).toBeTruthy();
+    expect(closed!.offer === "soft" || closed!.offer === "strong").toBe(true);
+    if (closed && closed.kind === "chat") {
+      expect(closed.cardText).toBe(closed.card!.answer_th);
+      expect(closed.via).toBe("fallback");
+    } else if (closed && closed.kind === "card") {
+      expect(closed.text).toBe(closed.card.answer_th);
+      expect(closed.via).toBe("fallback");
     }
-    if (last.kind === "card") {
-      expect(last.card.id === FALLBACK_ID || last.via === "fallback" || last.via === "rules_top1").toBe(true);
-    }
+    expect(calls.chat).toBeGreaterThan(0);
+    expect(calls.pick).toBe(0);
   });
 });

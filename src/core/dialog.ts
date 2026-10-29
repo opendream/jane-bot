@@ -40,7 +40,7 @@ export type { CardPicker, EngineReason, EngineTag } from "./pick-engine";
  * Per-turn chat pipeline (build plan v2 §3). Pure apart from the optional model, which is
  * injected. State is memory-only and never logged.
  *   1. crisis rules (every message, synchronous, BEFORE anything else; never the model or matcher)
- *   2. input guard   3. follow-up chips
+ *   2. input guard (refusals; chat-first banner-level wording comes after this)   3. follow-up chips
  *   4. optional matcher (injected only when the desktop-dev flag is on; abstain → fallback)
  *   5. rules retrieval   6. model pick (only if unsure; every free-text turn when modelPick is on, except locked routes)
  *   7. post-pick age gate (18+ card → redirect)   8. reword (validated, else verbatim)   9. reply with chips and referral offer
@@ -171,7 +171,8 @@ export interface TurnDeps {
   getModel?: () => DialogModel | null;
   /**
    * Chat-first (PR A). Default off: same card-first path as production.
-   * Tests inject true; production reads CHAT_FIRST / ?chatFirst=1.
+   * Tests inject true; the production build reads CHAT_FIRST / ?chatFirst=1
+   * (the query is not dev-only).
    */
   chatFirst?: boolean;
 }
@@ -313,17 +314,18 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     return { state: next, reply: { kind: "card" as const, card, text: card.answer_th, reworded: false, via: shownVia, banner, chips: card.next, offer, offerIntents, capNotice, ...(guard ? { guard } : {}), ...(engine ? { engine } : {}), ...(engineReason ? { engineReason } : {}) } };
   };
 
-  // Chat-first: banner-level wording is a rules-only turn (no generation).
-  if (chatFirst && crisis.level === "banner") {
-    const top = rulesTop(input);
-    return verbatimCard(top.card, top.via, "rules-fallback");
-  }
-
   // 2. Input guard (image / method refusals). Abuse and complication detection is deferred to #21.
+  // Chat-first keeps this after a real crisis override and before banner-level wording, same order as card-first.
   const g = checkInput(input);
   if (g) {
     if (chatFirst) return verbatimCard(REFUSAL_CARDS[g], "guard", tagged ? "rules-guard" : undefined, undefined, g);
     return reply(REFUSAL_CARDS[g], "guard", g, pickOn ? "rules-guard" : undefined);
+  }
+
+  // Chat-first: banner-level wording is a rules-only turn (no generation). After refusals.
+  if (chatFirst && crisis.level === "banner") {
+    const top = rulesTop(input);
+    return verbatimCard(top.card, top.via, "rules-fallback");
   }
 
   // "Talk to a real person" → referral offer for the current topic.
@@ -348,8 +350,13 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     const currentClip = stripPII(input).slice(0, MODEL_INPUT_CHARS);
     const retrieveText = topicText(state.chatFlow.topicUserLines, currentClip);
     const retrieved = retrieve(retrieveText, pool(), state.topic);
-    const topCard = retrieved.ranked[0]?.card;
-    const locked = !!(topCard && isLockedRouteId(topCard.id));
+    const lockedFrom = (text: string): BankCard | undefined => {
+      const top = retrieve(text, pool(), state.topic).ranked[0]?.card;
+      return top && isLockedRouteId(top.id) && usable(top) ? top : undefined;
+    };
+    // Card-first locks on the current message. Also lock if the last-3 window's top is a locked id.
+    const lockedCard = lockedFrom(input) ?? lockedFrom(retrieveText);
+    const locked = !!lockedCard;
     const plan = planTurn({
       flow: state.chatFlow,
       crisis: "none",
@@ -363,7 +370,7 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     });
 
     if (plan.reason === "post-crisis" || plan.reason === "locked") {
-      const chosen = plan.reason === "locked" && topCard && usable(topCard) ? topCard : rulesTop(retrieveText).card;
+      const chosen = plan.reason === "locked" && lockedCard ? lockedCard : rulesTop(retrieveText).card;
       const via = plan.reason === "locked" ? "rules" as const : rulesTop(retrieveText).via;
       return verbatimCard(chosen, via, plan.reason === "locked" ? "rules-locked" : undefined);
     }

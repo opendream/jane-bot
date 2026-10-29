@@ -269,6 +269,17 @@ describe("startModel test hooks for model-first pick", () => {
     expect(id).toContain("birth.control.000");
   });
 
+  it("chat-ok exposes a guarded chatReply and pickCard that returns none", async () => {
+    const a = await startModel(() => {}, { search: "?testRuntime=chat-ok&runtime=wasm" });
+    expect(a?.runtime).toBe("wasm");
+    expect(a?.chatReply).toBeTypeOf("function");
+    expect(a?.pickCard).toBeTypeOf("function");
+    const line = await a!.chatReply!("ช่วงนี้กังวลเรื่องแฟน", [], new AbortController().signal);
+    expect(line).toBe("พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย");
+    const id = await a!.pickCard!("ช่วงนี้กังวลเรื่องแฟน", [{ id: "birth.control.000", title_th: "คุมกำเนิด" }], null, new AbortController().signal);
+    expect(id).toContain("none");
+  });
+
   it("pick-warmup remaining is ≤ 5 s and not-ready; pick-warmup-slow remaining is > 5 s", async () => {
     const warm = await startModel(() => {}, { search: "?testRuntime=pick-warmup&runtime=wasm" });
     const left = warm?.warmupRemainingMs?.() ?? 0;

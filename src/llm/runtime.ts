@@ -46,7 +46,7 @@ export type RuntimeTestHook = {
   wasm?: "ok" | "unavailable";
   gpu?: boolean;
   /** Mock card-pick worker (e2e / unit). */
-  pick?: "ok" | "timeout" | "not-ready" | "warmup" | "warmup-slow" | "loading" | "fail";
+  pick?: "ok" | "timeout" | "not-ready" | "warmup" | "warmup-slow" | "loading" | "fail" | "none";
 };
 
 export {
@@ -118,15 +118,25 @@ function readTestHook(deps: StartModelDeps, params: URLSearchParams): RuntimeTes
   if (fromUrl === "pick-warmup-slow") return { wasm: "ok", gpu: false, pick: "warmup-slow" };
   if (fromUrl === "pick-loading") return { wasm: "ok", gpu: false, pick: "loading" };
   if (fromUrl === "pick-fail") return { wasm: "ok", gpu: false, pick: "fail" };
+  if (fromUrl === "chat-ok") return { wasm: "ok", gpu: false, pick: "none" };
   try {
     if (typeof window !== "undefined" && window.__JANE_RUNTIME_TEST__) return window.__JANE_RUNTIME_TEST__;
   } catch { /* node unit tests */ }
   return null;
 }
 
+function noteCall(kind: "chat" | "pick"): void {
+  try {
+    const g = globalThis as unknown as { __JANE_RUNTIME_CALLS__?: { chat: number; pick: number } };
+    g.__JANE_RUNTIME_CALLS__ ??= { chat: 0, pick: 0 };
+    g.__JANE_RUNTIME_CALLS__[kind]++;
+  } catch { /* node unit tests without a window */ }
+}
+
 function mockPickCard(hook: RuntimeTestHook): LLMAdapter["pickCard"] | undefined {
   if (!hook.pick || hook.pick === "not-ready" || hook.pick === "fail") return undefined;
   return async (_text, shortlist, _prev, signal) => {
+    noteCall("pick");
     if (hook.pick === "timeout") {
       await new Promise<void>((_resolve, reject) => {
         const onAbort = () => reject(new Error("aborted"));
@@ -134,13 +144,29 @@ function mockPickCard(hook: RuntimeTestHook): LLMAdapter["pickCard"] | undefined
         signal?.addEventListener("abort", onAbort, { once: true });
       });
     }
-    const id = shortlist[0]?.id ?? "none";
+    const id = hook.pick === "none" ? "none" : (shortlist[0]?.id ?? "none");
     return JSON.stringify({ id });
   };
 }
 
+/** Synthetic guarded line for the chat-first e2e stub. Never user text. */
+const MOCK_CHAT_REPLY = "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย";
+
+function mockChatReply(hook: RuntimeTestHook): LLMAdapter["chatReply"] | undefined {
+  if (!hook.pick || hook.pick === "not-ready" || hook.pick === "fail") return undefined;
+  return async () => {
+    noteCall("chat");
+    return MOCK_CHAT_REPLY;
+  };
+}
+
 function hookLoaders(hook: RuntimeTestHook): Pick<StartModelDeps, "gpuInfo" | "installed" | "loadWebLLM" | "loadWllama"> {
+  try {
+    const g = globalThis as unknown as { __JANE_RUNTIME_CALLS__?: { chat: number; pick: number } };
+    g.__JANE_RUNTIME_CALLS__ ??= { chat: 0, pick: 0 };
+  } catch { /* node */ }
   const pickCard = mockPickCard(hook);
+  const chatReply = mockChatReply(hook);
   return {
     gpuInfo: async () => ({ ok: hook.gpu !== false, f16: false }),
     installed: async () => {
@@ -165,6 +191,7 @@ function hookLoaders(hook: RuntimeTestHook): Pick<StartModelDeps, "gpuInfo" | "i
         classify: async () => fail(),
         polishSummary: async () => fail(),
         pickCard,
+        chatReply,
         warmupRemainingMs: () => getWarmupRemainingMs(),
         dispose() { dead = true; },
       };
@@ -190,6 +217,7 @@ function hookLoaders(hook: RuntimeTestHook): Pick<StartModelDeps, "gpuInfo" | "i
         classify: async () => ["other"],
         polishSummary: async () => null,
         pickCard,
+        chatReply,
         warmupRemainingMs: () => {
           if (!readyAt) return getWarmupRemainingMs();
           const left = readyAt - Date.now();
@@ -229,6 +257,9 @@ function watchWebGpu(adapter: LLMAdapter, onFail: () => void): LLMAdapter {
       : undefined,
     rewordCard: adapter.rewordCard
       ? (card, signal) => guard(adapter.rewordCard!(card, signal))
+      : undefined,
+    chatReply: adapter.chatReply
+      ? (text, history, signal) => guard(adapter.chatReply!(text, history, signal))
       : undefined,
     warmupRemainingMs: adapter.warmupRemainingMs ? () => adapter.warmupRemainingMs!() : () => getWarmupRemainingMs(),
     dispose: () => adapter.dispose?.(),

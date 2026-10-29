@@ -30,28 +30,87 @@ describe("chatGuard (generated Jane replies)", () => {
     expect(chatGuardFailures("ส่งมาที่ name@example.com นะ")).toContain("email");
   });
 
-  it("rejects phone-like text even when described as a call", () => {
-    const fails = chatGuardFailures("โทรหาพี่ที่ ศูนย์แปดหนึ่งสองสามสี่ห้าหกเจ็ดแปด");
-    // spelled-out phones may miss the phone regex; digits are the hard gate.
+  it("rejects a digit phone number", () => {
     expect(chatGuardFailures("โทร 0812345678 ได้เลย")).toContain("digits");
-    expect(fails.length >= 0).toBe(true);
+    expect(acceptChatReply("โทร 0812345678 ได้เลย").ok).toBe(false);
   });
 
-  it("rejects dose words (เม็ด / มก. / ยา + name)", () => {
+  it("accepts a warm line that only mentions a call in words, with no digits", () => {
+    expect(chatGuardFailures("ถ้าไม่ปลอดภัย โทรหาสายด่วนได้นะ พี่อยู่ตรงนี้")).toEqual([]);
+    expect(acceptChatReply("ถ้าไม่ปลอดภัย โทรหาสายด่วนได้นะ พี่อยู่ตรงนี้")).toEqual({
+      ok: true, text: "ถ้าไม่ปลอดภัย โทรหาสายด่วนได้นะ พี่อยู่ตรงนี้",
+    });
+  });
+
+  it("does not treat a newline, double space, or space-before-bang as PII", () => {
+    expect(chatGuardFailures("พี่อยู่ตรงนี้นะ\nน้องเล่าเพิ่มได้เลย")).toEqual([]);
+    expect(chatGuardFailures("พี่อยู่ตรงนี้นะ  น้องเล่าเพิ่มได้เลย")).toEqual([]);
+    expect(chatGuardFailures("พี่อยู่ตรงนี้นะ !")).toEqual([]);
+    expect(acceptChatReply("พี่อยู่ตรงนี้นะ\nน้องเล่าเพิ่มได้เลย").ok).toBe(true);
+  });
+
+  it("still rejects a PII echo that stripPII would actually change", () => {
+    expect(chatGuardFailures("แอดไลน์ @user_alpha ได้เลย")).toContain("handle");
+    const pii = chatGuardFailures("ส่งมาที่ name@example.com นะ");
+    expect(pii).toContain("email");
+  });
+
+  it("accepts a warm reply that names ยาคุม or ยาฉุกเฉิน without dosing", () => {
+    expect(chatGuardFailures("คุยเรื่องยาคุมได้เลยนะ พี่ฟังอยู่")).toEqual([]);
+    expect(chatGuardFailures("เรื่องยาฉุกเฉินน้องเล่าเพิ่มได้เลย")).toEqual([]);
+    expect(acceptChatReply("คุยเรื่องยาคุมได้เลยนะ พี่ฟังอยู่").ok).toBe(true);
+    expect(acceptChatReply("เรื่องยาฉุกเฉินน้องเล่าเพิ่มได้เลย").ok).toBe(true);
+  });
+
+  it("does not treat มก inside คุมกำเนิด as a dose unit", () => {
+    expect(chatGuardFailures("วิธีคุมกำเนิดมีหลายแบบเลยนะ")).toEqual([]);
+    expect(acceptChatReply("วิธีคุมกำเนิดมีหลายแบบเลยนะ")).toEqual({
+      ok: true, text: "วิธีคุมกำเนิดมีหลายแบบเลยนะ",
+    });
+    expect(chatGuardFailures("กินกี่โมงดีนะ พี่ฟังอยู่")).toEqual([]);
+  });
+
+  it("rejects dose and timing patterns, not bare topic nouns", () => {
     expect(chatGuardFailures("กินสองเม็ดก่อนนอนนะ")).toContain("dose");
     expect(chatGuardFailures("ขนาดประมาณสองมก. พอ")).toContain("dose");
-    expect(chatGuardFailures("ใช้ยาคุมตามที่กล่องบอก")).toContain("dose");
+    expect(chatGuardFailures("กินกี่เม็ดก่อนนอนนะ")).toContain("dose");
+    expect(chatGuardFailures("กินภายในหลังมีเพศสัมพันธ์นะ")).toContain("dose");
+    expect(chatGuardFailures("กินวันละหลังอาหารนะ")).toContain("dose");
+    expect(chatGuardFailures("กินครั้งละหลังอาหารนะ")).toContain("dose");
+    expect(chatGuardFailures("ใช้ยาคุมตามที่กล่องบอก")).not.toContain("dose");
   });
 
-  it("rejects medical-claim phrases", () => {
+  it("rejects Thai number words used as a quantity or time next to a unit", () => {
+    expect(chatGuardFailures("กินวันละสองครั้งหลังอาหารนะ")).toContain("dose");
+    expect(chatGuardFailures("กินภายในสามวันหลังมีเพศสัมพันธ์นะ")).toContain("dose");
+    expect(acceptChatReply("กินวันละสองครั้งหลังอาหารนะ").ok).toBe(false);
+    expect(acceptChatReply("กินภายในสามวันหลังมีเพศสัมพันธ์นะ").ok).toBe(false);
+  });
+
+  it("does not reject Thai number syllables inside ordinary words, or สองคน without a time unit", () => {
+    expect(chatGuardFailures("ห้ามกดดันตัวเองนะ พี่อยู่ตรงนี้")).toEqual([]);
+    expect(chatGuardFailures("มีเก้าอี้ให้นั่งนะ พี่ฟังอยู่")).toEqual([]);
+    expect(chatGuardFailures("สิบปากว่าไม่เท่าตาเห็นนะ พี่ฟังอยู่")).toEqual([]);
+    expect(chatGuardFailures("มีสองคนที่น้องห่วงนะ พี่ฟังอยู่")).toEqual([]);
+    expect(acceptChatReply("ห้ามกดดันตัวเองนะ พี่อยู่ตรงนี้").ok).toBe(true);
+  });
+
+  it("rejects medical-claim patterns, not a bare แน่นอน", () => {
     expect(chatGuardFailures("ทำแบบนี้แล้วไม่ท้องแน่")).toContain("claim");
-    expect(chatGuardFailures("พี่รับรองว่าปลอดภัยแน่นอน")).toContain("claim");
+    expect(chatGuardFailures("ทำแบบนี้แล้วไม่ติดแน่")).toContain("claim");
+    expect(chatGuardFailures("พี่รับรองว่าปลอดภัยนะ")).toContain("claim");
+    expect(chatGuardFailures("กินแล้วหายขาดเลยนะ")).toContain("claim");
+    expect(chatGuardFailures("ปลอดภัย 100 นะ")).toContain("claim");
+    expect(chatGuardFailures("พี่อยู่ตรงนี้นะ แน่นอนว่าน้องเล่าได้")).toEqual([]);
+    expect(acceptChatReply("พี่อยู่ตรงนี้นะ แน่นอนว่าน้องเล่าได้").ok).toBe(true);
   });
 
   it("rejects roleplay / explicit / image terms from the input guard lists", () => {
     expect(chatGuardFailures("เราสวมบทบาทเป็นแฟนกันก็ได้นะ")).toContain("roleplay");
     expect(chatGuardFailures("พี่คุยเสียวด้วยก็ได้นะ")).toContain("explicit");
     expect(chatGuardFailures("ส่งรูปมาให้พี่ดูก่อน")).toContain("image");
+    expect(chatGuardFailures("คุยเรื่องแฟนได้เลยนะ พี่ฟังอยู่")).toEqual([]);
+    expect(chatGuardFailures("พี่ติดตามเรื่องนี้ได้นะ")).toEqual([]);
   });
 
   it("rejects crisis wording in the model output", () => {

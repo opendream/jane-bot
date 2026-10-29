@@ -88,7 +88,8 @@ export function pickTimeoutMsFromSearch(search?: string, fallback = 20_000): num
 /**
  * Chat-first (PR A): Jane talks, then hands over a reviewed bank card at the end of the topic.
  * Off by default so production stays card-first until Keng flips this.
- * Dev/filming override: ?chatFirst=1 (same pattern as ?modelPick=).
+ * Filming/demo override: ?chatFirst=1 works on the production build as well as
+ * the Vite dev server (same pattern as ?modelPick=). Flag-off stays card-first.
  */
 export const CHAT_FIRST = false;
 /** User turns in one topic before Jane must close with a card. */
@@ -96,6 +97,7 @@ export const CHAT_MAX_TURNS = 3;
 /** Chat-reply budget (plan §2). Pick still uses PICK_TIMEOUT_MS (8 s). */
 export const CHAT_TIMEOUT_MS = 12_000;
 
+/** Honours ?chatFirst=1 on production builds too (not a Vite-dev-only flag). */
 export function chatFirstEnabled(search?: string): boolean {
   try {
     const raw = search ?? (typeof location !== "undefined" ? location.search : "");
