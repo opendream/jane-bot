@@ -24,12 +24,16 @@ Art: 2018 *Sex Safe Safe* vector stars and approved figures in `src/assets/jane/
    being forced → crisis, 191 then 1300), S5 mental health (1323 first; suicidal wording → crisis override).
 7. Crisis detection has two levels: **override** (full crisis screen) and **banner** (topic/fiction/news or resolved mild
    wording: normal flow plus a crisis strip with the numbers). False-positive probe: `evals/crisis-fp-set.json` → `evals/crisis-scorecard.md`.
-   Chat then runs an add-only extra check (`src/core/chat-crisis.ts`) after pinned `crisis.ts`. Precision guards on the extra
-   check (never on the pin) clear only that phrase: Thai `ไม่` / `ไม่เคย` / `ไม่คิดจะ` / `ไม่ได้` / `ไม่ได้คิดจะ` with optional
-   spaces before `อยาก`/`คิดจะ` + die/kms/unalive; up to two words between don't/dont/do not/never and wanna/want to die;
-   a ทำให้…ไหม / cause…? / side-effect frame or `ไม่ได้รู้สึก` around suicidal; same-clause accidental cut (shaving, wrapper,
-   razor, nails, by accident / โกน, ซอง, มีดโกน, เล็บ, โดนบาด). A separate first-person disclosure in the same message still
-   opens the crisis screen. Jane is Thai-only for now; English extra-check rules are a short exact-phrase list.
+   Chat then runs an add-only extra check (`src/core/chat-crisis.ts`) after pinned `crisis.ts`. The extra check has three
+   outcomes: **CLEAR** (full crisis screen, no model), **AMBIGUOUS** (the turn's bank card plus a DRAFT Thai line
+   `ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ` and a button that opens the existing crisis screen; no model), or **NONE**.
+   Precision guards (never on the pin) only downgrade CLEAR → AMBIGUOUS, never to NONE: Thai `ไม่` / `ไม่ค่อย` / `ไม่เคย` /
+   `ไม่เคยคิด` / `ไม่คิดจะ` / `ไม่ได้` / `ไม่ได้คิดจะ` with optional spaces before `อยาก`/`คิดจะ` + die/kms/unalive; up to two
+   words between don't/dont/do not/never and wanna/want to die; a same-clause ทำให้…ไหม / แล้ว…ไหม / ผลข้างเคียง / cause…? /
+   side-effect frame or `ไม่ได้รู้สึก` around suicidal; same-clause accidental cut (shaving, wrapper, razor, nails, by accident
+   / โกน not inside มีดโกน, ซอง, เล็บ, โดนบาด). มีดโกน is a self-harm tool, not an accident cue. A help-seeking tail never
+   weakens a disclosure. A separate first-person disclosure in the same message still opens the crisis screen. Jane is
+   Thai-only for now; English extra-check rules are a short exact-phrase list.
 
 ## On-device model (optional; the app works without it)
 

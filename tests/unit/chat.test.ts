@@ -402,3 +402,23 @@ describe("model-first chat labels (flag off by default)", () => {
     expect(fb?.engineLabel).toBe(RULES_ANSWER_LABEL);
   });
 });
+
+describe("ambiguous extra-check: card bubble carries the DRAFT soft line", () => {
+  it("does not open the crisis screen until the soft button is used", async () => {
+    const chat = newChat("18-24", null);
+    const h = hooks();
+    await sendToChat(chat, "ยาคุมทำให้รู้สึก suicidal ได้ไหม", h);
+    expect(h.crisisCalls).toBe(0);
+    const jane = [...chat.messages].reverse().find((m) => m.from === "jane");
+    expect(jane?.softCrisis?.line).toBe("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ");
+    expect(jane?.softCrisis?.categories).toContain("self_harm");
+    expect(jane?.cardId).toBeTruthy();
+  });
+
+  it("CLEAR extra-check still opens the crisis screen immediately", async () => {
+    const chat = newChat("18-24", null);
+    const h = hooks();
+    await sendToChat(chat, "หนู suicidal", h);
+    expect(h.crisisCalls).toBe(1);
+  });
+});
