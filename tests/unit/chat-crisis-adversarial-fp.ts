@@ -21,7 +21,7 @@ export const CODEX_CITED_FP_LINES: readonly string[] = [
   "does HIV die outside the body",
 ];
 
-/** Round-3 / Thai-only scope: negation, side-effect, shaving, condom-cut → card. */
+/** Round-3 / Thai-only scope: card lines that do not contain die/kms/suicidal/cut myself as crisis phrases (e.g. don't wanna die, cut my skin shaving, condom got cut). */
 export const CODEX_THAI_ONLY_CARD_LINES: readonly string[] = [
   "I don't wanna die, is HIV curable",
   "i dont wanna die",
