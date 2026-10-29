@@ -13,6 +13,8 @@ import {
   type TurnDeps,
 } from "../../src/core/dialog";
 import { BANK } from "../../src/core/bankData";
+import { modelChatScript } from "../../src/llm/chat-lang";
+import { CHAT_HOLDING_LINE } from "../../src/llm/chatGuard";
 import {
   ADVERSARIAL_CUE_MIX,
   ROUND4_PRECISION_CARD_LINES,
@@ -23,6 +25,10 @@ import {
 // SYNTHETIC paraphrases only. Never user logs.
 
 const DRAFT_SOFT_LINE = "ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ";
+const SAFE_CHAT = "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย";
+const NONE_CONTROL = "ช่วงนี้กังวลเรื่องแฟน";
+const THAI_AMBIGUOUS = "หนูไม่ค่อยอยาก die นะ แค่ถามเรื่อง HIV";
+const GUARD_FAIL_CHAT = "กิน 2 เม็ด แล้วไม่ท้องแน่ https://evil.test";
 
 const EXISTING_MUST_TRIGGER = [
   "I don't want to live",
@@ -42,13 +48,21 @@ function extraOutcome(text: string) {
   return detectChatCrisis(text).outcome;
 }
 
-function spyModel() {
+function spyModel(opts?: { chat?: string | null; ready?: boolean; hang?: boolean }) {
   const calls = { chat: 0, pick: 0, reword: 0 };
   const model: DialogModel = {
-    ready: () => true,
-    chatReply: vi.fn(async () => {
+    ready: () => opts?.ready !== false,
+    chatReply: vi.fn(async (_t, _h, signal) => {
       calls.chat++;
-      return "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย";
+      if (opts?.hang) {
+        await new Promise<void>((_, reject) => {
+          const onAbort = () => reject(new Error("aborted"));
+          if (signal?.aborted) return onAbort();
+          signal?.addEventListener("abort", onAbort, { once: true });
+        });
+      }
+      if (opts && "chat" in opts) return opts.chat ?? null;
+      return SAFE_CHAT;
     }),
     pickCard: vi.fn(async (_t, list) => {
       calls.pick++;
@@ -60,6 +74,10 @@ function spyModel() {
     }),
   };
   return { model, calls };
+}
+
+function softOf(reply: { kind: string; softCrisis?: { line: string; categories: string[] } }) {
+  return "softCrisis" in reply ? reply.softCrisis : undefined;
 }
 
 const chatDeps = (model: DialogModel): TurnDeps => ({
@@ -173,7 +191,7 @@ describe("CLEAR turns: crisis screen, 0 model calls, both paths", () => {
   });
 });
 
-describe("AMBIGUOUS turns: card + DRAFT soft line, 0 model calls, both paths", () => {
+describe("AMBIGUOUS turns: model-first on chat-first; card + DRAFT soft line on card-first", () => {
   const sample = [
     ...ROUND5_AMBIGUOUS_LINES,
     "ยาคุมทำให้รู้สึก suicidal ได้ไหม",
@@ -181,8 +199,46 @@ describe("AMBIGUOUS turns: card + DRAFT soft line, 0 model calls, both paths", (
     "I cut myself shaving down there, can I get HIV",
     "หนูไม่เคยอยาก die แค่กลัวติด HIV",
   ];
+  const thaiLike = sample.filter((text) => modelChatScript(text) !== "en");
+  const english = sample.filter((text) => modelChatScript(text) === "en");
 
-  it.each(sample)("chat-first %s", async (text) => {
+  it("chat-first Thai AMBIGUOUS makes the same model calls as a NONE turn and shows the model reply plus the DRAFT line", async () => {
+    const noneSpy = spyModel();
+    const none = await runTurn(newDialog("18-24"), NONE_CONTROL, chatDeps(noneSpy.model));
+    expect(none.reply.kind).toBe("chat");
+    if (none.reply.kind === "chat") {
+      expect(none.reply.text).toBe(SAFE_CHAT);
+      expect(none.reply.softCrisis).toBeUndefined();
+    }
+
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog("18-24"), THAI_AMBIGUOUS, chatDeps(model));
+    expect(r.reply.kind).toBe("chat");
+    if (r.reply.kind === "chat") {
+      expect(r.reply.text).toBe(SAFE_CHAT);
+      expect(r.reply.softCrisis?.line).toBe(DRAFT_SOFT_LINE);
+      expect(r.reply.softCrisis?.categories.length).toBeGreaterThan(0);
+      expect(r.reply.holding).toBe(false);
+    }
+    expect(calls.chat).toBe(noneSpy.calls.chat);
+    expect(calls.pick).toBe(noneSpy.calls.pick);
+    expect(calls.reword).toBe(noneSpy.calls.reword);
+  });
+
+  it.each(thaiLike)("chat-first Thai/mixed %s talks, then the DRAFT soft line", async (text) => {
+    const noneSpy = spyModel();
+    await runTurn(newDialog("18-24"), NONE_CONTROL, chatDeps(noneSpy.model));
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog("18-24"), text, chatDeps(model));
+    expect(r.reply.kind, text).not.toBe("crisis");
+    expect(softOf(r.reply)?.line, text).toBe(DRAFT_SOFT_LINE);
+    expect(softOf(r.reply)?.categories.length, text).toBeGreaterThan(0);
+    expect(calls.chat, text).toBe(noneSpy.calls.chat);
+    expect(calls.pick + calls.reword, text).toBe(noneSpy.calls.pick + noneSpy.calls.reword);
+    if (r.reply.kind === "chat") expect(r.reply.text, text).toBe(SAFE_CHAT);
+  });
+
+  it.each(english)("chat-first English %s is card + DRAFT line, 0 model calls", async (text) => {
     const { model, calls } = spyModel();
     const r = await runTurn(newDialog("18-24"), text, chatDeps(model));
     expect(r.reply.kind, text).toBe("card");
@@ -210,6 +266,55 @@ describe("AMBIGUOUS turns: card + DRAFT soft line, 0 model calls, both paths", (
     expect(r.reply.kind).toBe("card");
     if (r.reply.kind === "card") expect(r.reply.softCrisis).toBeUndefined();
     expect(typeof (calls.chat + calls.pick + calls.reword)).toBe("number");
+  });
+
+  it("chat-first Thai AMBIGUOUS: guard fail after one retry falls back to the card plus the soft line", async () => {
+    const noneSpy = spyModel({ chat: GUARD_FAIL_CHAT });
+    const none = await runTurn(newDialog("18-24"), NONE_CONTROL, chatDeps(noneSpy.model));
+    expect(none.reply.kind).toBe("chat");
+    if (none.reply.kind === "chat") {
+      expect(none.reply.text).toBe(CHAT_HOLDING_LINE);
+      expect(none.reply.holding).toBe(true);
+    }
+    expect(noneSpy.calls.chat).toBe(2);
+
+    const { model, calls } = spyModel({ chat: GUARD_FAIL_CHAT });
+    const r = await runTurn(newDialog("18-24"), THAI_AMBIGUOUS, chatDeps(model));
+    expect(calls.chat).toBe(noneSpy.calls.chat);
+    expect(r.reply.kind).toBe("card");
+    if (r.reply.kind === "card") {
+      expect(r.reply.softCrisis?.line).toBe(DRAFT_SOFT_LINE);
+      expect(r.reply.text).not.toBe(GUARD_FAIL_CHAT);
+      expect(r.reply.text).not.toBe(CHAT_HOLDING_LINE);
+    }
+  });
+
+  it("chat-first Thai AMBIGUOUS: timeout falls back to the card plus the soft line", async () => {
+    const noneSpy = spyModel({ hang: true });
+    const none = await runTurn(newDialog("18-24"), NONE_CONTROL, { ...chatDeps(noneSpy.model), chatTimeoutMs: 20 });
+    expect(none.reply.kind).toBe("chat");
+    if (none.reply.kind === "chat") expect(none.reply.holding).toBe(true);
+    expect(noneSpy.calls.chat).toBe(1);
+
+    const { model, calls } = spyModel({ hang: true });
+    const r = await runTurn(newDialog("18-24"), THAI_AMBIGUOUS, { ...chatDeps(model), chatTimeoutMs: 20 });
+    expect(calls.chat).toBe(noneSpy.calls.chat);
+    expect(r.reply.kind).toBe("card");
+    if (r.reply.kind === "card") expect(r.reply.softCrisis?.line).toBe(DRAFT_SOFT_LINE);
+  });
+
+  it("chat-first Thai AMBIGUOUS: model not ready falls back to the card plus the soft line", async () => {
+    const noneSpy = spyModel({ ready: false });
+    const none = await runTurn(newDialog("18-24"), NONE_CONTROL, chatDeps(noneSpy.model));
+    expect(none.reply.kind).toBe("chat");
+    if (none.reply.kind === "chat") expect(none.reply.holding).toBe(true);
+    expect(noneSpy.calls.chat).toBe(0);
+
+    const { model, calls } = spyModel({ ready: false });
+    const r = await runTurn(newDialog("18-24"), THAI_AMBIGUOUS, chatDeps(model));
+    expect(calls.chat).toBe(0);
+    expect(r.reply.kind).toBe("card");
+    if (r.reply.kind === "card") expect(r.reply.softCrisis?.line).toBe(DRAFT_SOFT_LINE);
   });
 });
 
@@ -342,22 +447,22 @@ describe("AMBIGUOUS is current-turn only; the window may only escalate to CLEAR"
   it("chat-first: later unrelated turns have no soft line and call the model", async () => {
     const { model, calls } = spyModel();
     const a = await runTurn(newDialog("18-24"), first, chatDeps(model));
-    expect(a.reply.kind).toBe("card");
-    if (a.reply.kind === "card") expect(a.reply.softCrisis?.line).toBe(DRAFT_SOFT_LINE);
-    expect(calls.chat + calls.pick + calls.reword).toBe(0);
+    expect(a.reply.kind).toBe("chat");
+    if (a.reply.kind === "chat") expect(a.reply.softCrisis?.line).toBe(DRAFT_SOFT_LINE);
+    expect(calls.chat).toBeGreaterThan(0);
 
     const afterFirst = calls.chat + calls.pick + calls.reword;
     const b = await runTurn(a.state, second, chatDeps(model));
     expect(b.reply.kind).not.toBe("crisis");
     if (b.reply.kind === "card") expect(b.reply.softCrisis).toBeUndefined();
-    if (b.reply.kind === "chat") expect(b.reply).not.toHaveProperty("softCrisis");
+    if (b.reply.kind === "chat") expect(b.reply.softCrisis).toBeUndefined();
     expect(calls.chat + calls.pick + calls.reword).toBeGreaterThan(afterFirst);
 
     const afterSecond = calls.chat + calls.pick + calls.reword;
     const c = await runTurn(b.state, third, chatDeps(model));
     expect(c.reply.kind).not.toBe("crisis");
     if (c.reply.kind === "card") expect(c.reply.softCrisis).toBeUndefined();
-    if (c.reply.kind === "chat") expect(c.reply).not.toHaveProperty("softCrisis");
+    if (c.reply.kind === "chat") expect(c.reply.softCrisis).toBeUndefined();
     expect(calls.chat + calls.pick + calls.reword).toBeGreaterThan(afterSecond);
   });
 });

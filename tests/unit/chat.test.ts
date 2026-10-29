@@ -415,6 +415,22 @@ describe("ambiguous extra-check: card bubble carries the DRAFT soft line", () =>
     expect(jane?.cardId).toBeTruthy();
   });
 
+  it("chat-first Thai AMBIGUOUS renders the model reply plus the DRAFT soft line", async () => {
+    const model: DialogModel = {
+      ready: () => true,
+      chatReply: vi.fn(async () => "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย"),
+    };
+    const chat = newChat("18-24", model, null, { chatFirst: true });
+    const h = hooks();
+    await sendToChat(chat, "หนูไม่ค่อยอยาก die นะ แค่ถามเรื่อง HIV", h);
+    expect(h.crisisCalls).toBe(0);
+    expect(model.chatReply).toHaveBeenCalledTimes(1);
+    const jane = [...chat.messages].reverse().find((m) => m.from === "jane");
+    expect(jane?.text).toBe("พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย");
+    expect(jane?.softCrisis?.line).toBe("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ");
+    expect(jane?.softCrisis?.categories).toContain("self_harm");
+  });
+
   it("CLEAR extra-check still opens the crisis screen immediately", async () => {
     const chat = newChat("18-24", null);
     const h = hooks();

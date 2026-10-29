@@ -25,8 +25,11 @@ Art: 2018 *Sex Safe Safe* vector stars and approved figures in `src/assets/jane/
 7. Crisis detection has two levels: **override** (full crisis screen) and **banner** (topic/fiction/news or resolved mild
    wording: normal flow plus a crisis strip with the numbers). False-positive probe: `evals/crisis-fp-set.json` → `evals/crisis-scorecard.md`.
    Chat then runs an add-only extra check (`src/core/chat-crisis.ts`) after pinned `crisis.ts`. The extra check has three
-   outcomes: **CLEAR** (full crisis screen, no model), **AMBIGUOUS** (the turn's bank card plus a DRAFT Thai line
-   `ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ` and a button that opens the existing crisis screen; no model), or **NONE**.
+   outcomes: **CLEAR** (full crisis screen, no model), **AMBIGUOUS** (chat-first is model-first: the same
+   guarded model reply as a NONE turn — guard, one retry — plus a fixed DRAFT Thai line
+   `ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ` and a button that opens the existing crisis screen;
+   the bank card is only a fallback on guard fail after retry, timeout, model not ready, or
+   non-Thai text. Card-first stays card plus that DRAFT line), or **NONE**.
    Precision guards (never on the pin) only downgrade CLEAR → AMBIGUOUS, never to NONE, and only when the cue is
    structurally bound to the crisis term: Thai `ไม่` / `ไม่ค่อย` / `ไม่เคย` / `ไม่เคยคิด` / `ไม่คิดจะ` / `ไม่ได้` /
    `ไม่ได้คิดจะ` with optional spaces immediately before `อยาก`/`คิดจะ`/`รู้สึก` (not `ทนไม่ได้` / `นอนไม่ได้` / `กินไม่ได้` /

@@ -104,7 +104,7 @@ function fromReply(r: TurnReply, modelPick = false, chatFirst = false): ChatMsg 
       softCrisis: r.softCrisis };
   }
   if (r.kind === "chat") {
-    return { from: "jane", text: r.text, banner: r.banner, chips: r.card ? [] : r.chips, cap: r.capNotice };
+    return { from: "jane", text: r.text, banner: r.banner, chips: r.card ? [] : r.chips, cap: r.capNotice, softCrisis: r.softCrisis };
   }
   if (r.kind === "referral") {
     return {

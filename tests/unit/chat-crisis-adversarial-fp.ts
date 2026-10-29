@@ -42,7 +42,8 @@ export const CODEX_THAI_ONLY_CARD_LINES: readonly string[] = [
 /**
  * Round-4 precision-guard lines. A crisis word sits with a negation, side-effect
  * question, or same-clause accidental cause: extra check outcome is AMBIGUOUS
- * (card + DRAFT soft line; never the model; never NONE). Pin misses every line.
+ * (never NONE; never the crisis screen). Chat-first talks first; card-first
+ * stays on the bank card plus the DRAFT soft line. Pin misses every line.
  * มีดโกน is a self-harm tool, not an accident cue — those lines are CLEAR.
  */
 export const ROUND4_PRECISION_CARD_LINES: readonly string[] = [
@@ -123,8 +124,8 @@ export const ROUND5_MUST_TRIGGER_CLEAR: readonly string[] = [
 ];
 
 /**
- * Codex remaining false positives: crisis word + cue → AMBIGUOUS (card + DRAFT
- * soft line), never CLEAR, never NONE. Pin misses.
+ * Codex remaining false positives: crisis word + cue → AMBIGUOUS (never CLEAR,
+ * never NONE; chat-first talks first plus the DRAFT soft line). Pin misses.
  */
 export const ROUND5_AMBIGUOUS_LINES: readonly string[] = [
   "หนูไม่ค่อยอยาก die นะ แค่ถามเรื่อง HIV",
@@ -141,7 +142,7 @@ export const ROUND5_AMBIGUOUS_LINES: readonly string[] = [
  * ≥150 synthetic lines. Pronoun-led Thai questions + English equivalents + mixed
  * health wording + Codex cited lines. Each must keep the card-first bank card
  * (no crisis) and must not open crisis on chat-first. Precision-guard and
- * round-5 remaining FPs are AMBIGUOUS (card + soft line), not NONE.
+ * round-5 remaining FPs are AMBIGUOUS (not NONE).
  */
 export const ADVERSARIAL_CHAT_CRISIS_FP: readonly string[] = [
   ...CODEX_CITED_FP_LINES,
