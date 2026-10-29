@@ -441,8 +441,8 @@ describe("adversarial FP set keeps base card-first ids; no crisis on either path
 });
 
 const GIT_EXTRA_OUTCOMES: OutcomeCount = { clear: 0, ambiguous: 0, none: 1839, total: 1839 };
-const ADVERSARIAL_EXTRA_OUTCOMES: OutcomeCount = { clear: 0, ambiguous: 65, none: 227, total: 292 };
-const CUE_MIX_OUTCOMES: OutcomeCount = { clear: 30, ambiguous: 8, none: 0, total: 38 };
+const ADVERSARIAL_EXTRA_OUTCOMES: OutcomeCount = { clear: 0, ambiguous: 58, none: 227, total: 285 };
+const CUE_MIX_OUTCOMES: OutcomeCount = { clear: 51, ambiguous: 8, none: 0, total: 59 };
 
 async function scanPathOutcomes(items: Item[], deps: TurnDeps): Promise<OutcomeCount> {
   const out: OutcomeCount = { clear: 0, ambiguous: 0, none: 0, total: items.length };
@@ -482,7 +482,7 @@ describe("extra-check three-way outcomes on FP corpora (pin-miss only)", () => {
   it("adversarial FP set is 0 CLEAR; precision-guard and round-5 remaining FPs are AMBIGUOUS, both paths", async () => {
     const adv = scanOutcomes(ADVERSARIAL_ITEMS);
     expect(adv, "pinned adversarial extra-check outcomes").toEqual(ADVERSARIAL_EXTRA_OUTCOMES);
-    expect(ROUND4_PRECISION_CARD_LINES.length).toBe(51);
+    expect(ROUND4_PRECISION_CARD_LINES.length).toBe(44);
     expect(ROUND5_AMBIGUOUS_LINES.length).toBe(8);
 
     for (const text of [...ROUND4_PRECISION_CARD_LINES, ...ROUND5_AMBIGUOUS_LINES]) {

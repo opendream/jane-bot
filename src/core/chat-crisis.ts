@@ -14,22 +14,29 @@
  * will/want to/wanna (never a distance "N kms"), commit suicide, wanna/want
  * to die (not don't/dont/do not/never + up to 2 words + wanna/want to die),
  * end my life, I was raped / he raped me, self-harm / self harm,
- * cut/cutting myself (not the same clause as a passive/accidental form —
- * shaving/wrapper/razor/nails/by accident, โดนมีดบาด, บาดตอนโกน, เผลอบาด;
- * มีดโกน is a tool, and ที่ใช้โกนขน describing that tool is not an accident),
+ * cut/cutting myself (CLEAR unless the same clause is an explicit accidental
+ * construction: accidentally cut / cut myself shaving / by accident; a bare
+ * tool noun is never a cue; repetition ทุกคืน/every night stays CLEAR),
  * i'm/i am suicidal, I have / i'm having suicidal thoughts, I don't/dont/do
  * not want to live (not "live with"; "in fear" / "together" is AMBIGUOUS).
- * Thai mixed: อยาก/คิดจะ + die/kms/unalive unless ไม่/ไม่ค่อย/ไม่เคย/ไม่เคยคิด/
- * ไม่คิดจะ/ไม่ได้/ไม่ได้คิดจะ (optional spaces) directly precedes that verb;
- * ทนไม่ได้/นอนไม่ได้/กินไม่ได้/ไม่ไหว is not negation. รู้สึก/หนู/ผม suicidal
- * unless the clause asks whether that feeling is a side effect (เป็นผลข้างเคียง
- * …ไหม, or กิน/ใช้/ฉีด <drug> แล้วรู้สึก X …ไหม/มั้ย, or ทำให้…ได้ไหม) or
- * ไม่ได้รู้สึก; ไหวไหม/เข้าใจหนูไหม/ควรบอกแม่ไหม are not side-effect questions.
- * cut ตัวเอง is CLEAR unless the same clause is a passive/accidental form.
- * Guards only downgrade CLEAR → AMBIGUOUS, never to NONE. Help-seeking tails
- * never weaken a disclosure. The multi-turn window may only escalate to CLEAR.
- * Everything else in English goes to the normal card. NFKC + lowercase + Latin
- * fold run before the check (prepCheckText), including English-only lines.
+ * Thai mixed: อยาก/คิดจะ + die/kms/unalive unless a NARROW predicate-start
+ * negation (ไม่/ไม่ค่อย/ไม่เคย/ไม่คิดจะ/ไม่ได้ at clause start or right after
+ * หนู/เรา/ฉัน/ผม/กู/ดิฉัน/เค้า, optional ก็) immediately precedes อยาก/รู้สึก/คิด
+ * + the crisis term. A ไม่ได้ that follows any other Thai word is never
+ * negation. รู้สึก/หนู/ผม suicidal unless the CAUSE is a closed-list medication
+ * or medical product AND the question is about that feeling as an effect
+ * (ผลข้างเคียง/side effect, '<drug> ทำให้รู้สึก X ได้ไหม', or กิน/ใช้/ฉีด <drug>
+ * แล้วรู้สึก X + clause-final question). A person or place as cause stays CLEAR.
+ * cut ตัวเอง / ข้อมือ / แขน with the speaker as subject, or any repetition
+ * marker (ทุกคืน/ทุกวัน/บ่อย/อีกแล้ว/every night), is CLEAR whatever tool is
+ * named. Downgrade only for an explicit accidental construction (โดน X บาด,
+ * เผลอทำ X บาด, บาดตอนโกน/ตอนทำกับข้าว, accidentally cut / cut myself shaving).
+ * A bare tool noun is never a cue. Guards only downgrade CLEAR → AMBIGUOUS,
+ * never to NONE, and only on a narrow positive match of the whole construction.
+ * Everything else stays CLEAR. Help-seeking tails never weaken a disclosure.
+ * The multi-turn window may only escalate to CLEAR. Everything else in English
+ * goes to the normal card. NFKC + lowercase + Latin fold run before the check
+ * (prepCheckText), including English-only lines.
  *
  * The in-memory reason tag is "chat-crisis" (distinct from "rules-crisis"). It
  * stores rule ids only — never user text — and is compiled out of production.
@@ -96,27 +103,48 @@ export const TH_RULES: ChatCrisisRule[] = [
  * bare suicidal, tenses) is not matched. Precision guards (negation, up to 2
  * intervening English words, same-clause side-effect questions, same-clause
  * accidental cut) only downgrade that phrase CLEAR → AMBIGUOUS — never NONE,
- * never a separate crisis phrase in the message. A guard fires only when the
- * cue is structurally bound to the crisis term; anything looser stays CLEAR.
+ * never a separate crisis phrase in the message. A guard fires only on a
+ * NARROW POSITIVE match of the whole downgrade construction; anything else
+ * stays CLEAR. No exception allowlists.
  */
 
-/** ไม่ / ไม่ค่อย / ไม่เคย / ไม่เคยคิด / ไม่คิดจะ / ไม่ได้ / ไม่ได้คิดจะ, optional spaces, immediately before อยาก/คิดจะ/รู้สึก. */
-const THAI_NEG_PREFIX = /ไม่(?:\s*ค่อย|\s*เคย(?:\s*คิด)?|\s*ได้(?:\s*คิดจะ)?|\s*คิดจะ)?\s*$/;
-/** Trailing ไม่ได้/ไม่ไหว that completes another verb is not negation of อยาก/รู้สึก/คิด. */
-const THAI_COMPLETING_VERB_NEG = /(?:ทน|นอน|กิน|ทำ|อยู่|ฟัง|พูด|เรียน|เดิน|นั่ง|ยืน|หายใจ|กลั้น|หยุด)ไม่ได้\s*$|ไม่ไหว\s*$/;
-const THAI_INTENT_SUFFIX = /(?:อยาก(?:\s*จะ)?|คิดจะ)\s*$/;
+/** First-person pronouns that may sit immediately before a predicate-start ไม่. */
+const NEG_ME_TH = "(?:หนู|เรา|ฉัน|ผม|กู|ดิฉัน|เค้า)";
+/**
+ * ไม่ / ไม่ค่อย / ไม่เคย / ไม่เคยคิด / ไม่คิดจะ / ไม่ได้ / ไม่ได้คิดจะ at the
+ * predicate start: clause start, or right after a first-person pronoun
+ * (optional ก็). Must sit at the end of `before` (immediately before อยาก/
+ * รู้สึก/คิด + the crisis term). A ไม่ได้ after any other Thai word is not this.
+ */
+const PREDICATE_START_NEG = new RegExp(
+  `(?:^|(?:${NEG_ME_TH})\\s*(?:ก็\\s*)?)ไม่(?:\\s*ค่อย|\\s*เคย(?:\\s*คิด)?|\\s*ได้(?:\\s*คิดจะ)?|\\s*คิดจะ)?\\s*$`,
+);
+const THAI_INTENT_SUFFIX = /(?:อยาก(?:\s*จะ)?|คิดจะ|รู้สึก)\s*$/;
 const EN_DIE_NEG = /(?:don't|dont|do not|never)(?: +\w+){0,2} +$/;
 /**
- * Accident downgrade: passive/accidental forms only. Reflexive cut ตัวเอง /
- * ข้อมือ stays CLEAR when โกน only names the tool (มีดโกน, ที่ใช้โกนขน).
+ * Explicit accidental constructions only. Reflexive cut ตัวเอง / ข้อมือ / แขน
+ * and any repetition marker stay CLEAR; a bare tool noun is never a cue.
  */
-const ACCIDENTAL_CAUSE = /shaving|\bshave[ds]?\b|wrapper|ซอง|\brazor\b|\bnails?\b|เล็บ|by accident|โดน(?:มีด)?บาด|บาดตอนโกน|เผลอบาด|ตอนโกน/;
+const CUT_REPEAT = /ทุกคืน|ทุกวัน|บ่อย|อีกแล้ว|\bevery\s+(?:night|day)\b|\boften\b/i;
+const EXPLICIT_ACCIDENT =
+  /โดน.{0,16}บาด|เผลอ(?:ทำ.{0,16})?บาด|บาดตอนโกน|ตอนโกน|ตอนทำกับข้าว|accidentally\s+cut(?:ting)?(?:\s+myself)?|\bcut(?:ting)? myself\b[\s\S]{0,40}\bshav(?:e|ing|ed)\b|\bshav(?:e|ing|ed)\b[\s\S]{0,40}\bcut(?:ting)? myself\b|by accident/i;
 /** Help-seeking tails never weaken a disclosure (never downgrade CLEAR). */
 const HELP_SEEKING = /มีใครช่วย|ช่วย(?:หนู|ฉัน|ผม|เรา|กู)?ได้ไหม|คุยได้ไหม|ทำไงดี|ทำยังไงดี/;
-/** ไหม/มั้ย that is not asking whether the feeling is a side effect. */
-const NON_SIDE_EFFECT_Q = /ไหวไหม|เข้าใจ(?:หนู|ฉัน|ผม|เรา|กู)?ไหม|บอกแม่ไหม|มีคน(?:เข้าใจ)?|จะไหว/;
+/**
+ * Closed medication / medical-product list (cause of a side-effect question).
+ * Generic ยา only counts with an intake verb. Longest first.
+ */
+const DRUG_TH = "(?:ยาคุมฉุกเฉิน|ยาคุม|ยาต้านไวรัส|ยาฝัง(?:คุมกำเนิด)?|ยาฉีด(?:คุมกำเนิด)?|ฮอร์โมน|วัคซีน|เพร็พ|ถุงยาง)";
+const DRUG_EN =
+  "(?:birth\\s+control|morning[-\\s]?after(?:\\s+pill)?|emergency\\s+contraception|\\bprep\\b|\\bpep\\b|\\barv\\b|\\biud\\b|\\bcondoms?\\b|\\bvaccines?\\b|\\bhormones?\\b)";
+const DRUG_NAME = new RegExp(`${DRUG_TH}|${DRUG_EN}`, "i");
+const DRUG_INTAKE = /(?:กิน|ใช้|ฉีด)\s*ยา/;
 /** กิน/ใช้/ฉีด <medication> แล้ว immediately before the feeling. */
-const DRUG_INTAKE_THEN = /(?:กิน|ใช้|ฉีด)\s*(?:ยา[\wก-๙]*|เพร็พ|prep|pep|iud|ถุงยาง|condom)[ก-๙A-Za-z0-9\s]{0,24}แล้ว\s*(?:หนู|เรา|ฉัน|ผม|กู)?\s*$/i;
+const DRUG_INTAKE_THEN = new RegExp(
+  `(?:กิน|ใช้|ฉีด)\\s*(?:${DRUG_TH}|${DRUG_EN}|ยา[\\wก-๙]*)[ก-๙A-Za-z0-9\\s]{0,24}แล้ว\\s*(?:หนู|เรา|ฉัน|ผม|กู)?\\s*$`,
+  "i",
+);
+const CLAUSE_FINAL_Q = /(?:ได้)?ไหม|มั้ย|\?/;
 
 function isThaiChar(c: string): boolean {
   return /\p{Script=Thai}/u.test(c);
@@ -158,8 +186,7 @@ function clauseStarts(text: string): number[] {
 }
 
 function thaiNegationGoverns(before: string): boolean {
-  if (THAI_COMPLETING_VERB_NEG.test(before)) return false;
-  return THAI_NEG_PREFIX.test(before);
+  return PREDICATE_START_NEG.test(before);
 }
 
 function clauseBounds(text: string, index: number): { start: number; end: number } {
@@ -193,26 +220,28 @@ function skipSuicidalSideEffect(text: string, m: RegExpMatchArray): boolean {
   const idx = m.index ?? 0;
   const before = text.slice(0, idx);
   const rest = text.slice(idx);
+  const { start, end } = clauseBounds(text, idx);
   if (thaiNegationGoverns(before) && /^รู้สึก/.test(rest)) return true;
-  if (/ไม่ได้\s*รู้สึก\s*$/.test(before) && !THAI_COMPLETING_VERB_NEG.test(before.replace(/\s*รู้สึก\s*$/, ""))) {
+  if (thaiNegationGoverns(before.replace(/\s*รู้สึก\s*$/, "")) && (/^รู้สึก/.test(rest) || /รู้สึก\s*$/.test(before))) {
     return true;
   }
   // Help-seeking tails never weaken a disclosure.
   if (HELP_SEEKING.test(rest)) return false;
-  const { start, end } = clauseBounds(text, idx);
   const pre = text.slice(start, idx);
   const post = text.slice(idx, end);
   const clause = text.slice(start, end);
   if (HELP_SEEKING.test(post) || HELP_SEEKING.test(clause)) return false;
-  // Tied to the crisis term: "X เป็นผลข้างเคียง(ของ drug)ไหม".
-  if (/เป็นผลข้างเคียง/.test(post) && /ไหม|มั้ย/.test(post)) return true;
-  if (/\bside[ -]?effects?\b/.test(post) && /(?:ไหม|มั้ย|\?)/.test(post)) return true;
-  // ทำให้ … ได้ไหม / ไหม in the same clause, not ไหวไหม / เข้าใจหนูไหม / บอกแม่ไหม.
-  if (/ทำให้/.test(pre) && /(?:ได้)?ไหม|มั้ย/.test(post) && !NON_SIDE_EFFECT_Q.test(post)) return true;
-  if (/\bcauses?\b/.test(pre) && /\?/.test(post)) return true;
-  // Drug-intake immediately before the feeling (แล้ว is part of that frame, not a
-  // clause break) + ไหม/มั้ย asking about the feeling in this clause.
-  if (DRUG_INTAKE_THEN.test(before) && /ไหม|มั้ย/.test(post) && !NON_SIDE_EFFECT_Q.test(post)) return true;
+  const madeAt = pre.search(/ทำให้/);
+  const cause = madeAt >= 0 ? pre.slice(0, madeAt) : "";
+  const drugCause = (s: string) => DRUG_NAME.test(s) || DRUG_INTAKE.test(s);
+  // Tied to the crisis term: drug + "เป็นผลข้างเคียง / side effect" + question.
+  if (drugCause(clause) && /เป็นผลข้างเคียง|ผลข้างเคียง/.test(post) && CLAUSE_FINAL_Q.test(post)) return true;
+  if (drugCause(clause) && /\bside[ -]?effects?\b/.test(post) && CLAUSE_FINAL_Q.test(post)) return true;
+  // <drug> ทำให้รู้สึก X ได้ไหม — person/place as cause stays CLEAR.
+  if (madeAt >= 0 && drugCause(cause) && /รู้สึก/.test(pre + rest.slice(0, 12)) && CLAUSE_FINAL_Q.test(post)) return true;
+  if (drugCause(pre) && /\bcauses?\b/.test(pre) && /\?/.test(post)) return true;
+  // กิน/ใช้/ฉีด <drug> แล้วรู้สึก X + clause-final question.
+  if (DRUG_INTAKE_THEN.test(before) && CLAUSE_FINAL_Q.test(post)) return true;
   return false;
 }
 
@@ -225,7 +254,10 @@ function skipDontWantToLive(text: string, m: RegExpMatchArray): boolean {
 
 function skipAccidentalCut(text: string, m: RegExpMatchArray): boolean {
   const { start, end } = clauseBounds(text, m.index ?? 0);
-  return ACCIDENTAL_CAUSE.test(text.slice(start, end));
+  const clause = text.slice(start, end);
+  // Reflexive self-cut or any repetition marker is always CLEAR, whatever tool.
+  if (CUT_REPEAT.test(clause)) return false;
+  return EXPLICIT_ACCIDENT.test(clause);
 }
 
 function classifyRule(rule: ChatCrisisRule, text: string): ChatCrisisOutcome {

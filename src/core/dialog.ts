@@ -8,7 +8,7 @@ import { normalize, findPhrases, prepCheckText } from "./text";
 import { stripPII } from "./summary";
 import { checkInput, REFUSAL_CARDS, type GuardReason } from "./guard";
 import { retrieve } from "./retrieve";
-import { VALID_INTENTS } from "../llm/adapter";
+import { VALID_INTENTS, type ChatReplyOpts } from "../llm/adapter";
 import { acceptChatReply, holdingLineFor } from "../llm/chatGuard";
 import { detectChatLang, modelChatScript, type ChatLang } from "../llm/chat-lang";
 import { bankAnswerForLang, cardNoteForLang } from "./card-lang";
@@ -55,7 +55,8 @@ export type { CardPicker, EngineReason, EngineTag } from "./pick-engine";
  *      Both run on every turn, whatever the letter-script class, on both
  *      paths. Then the script/allowlist gate: English → English model chat,
  *      clearly Thai → Thai chat, mixed/unclear → 0 model calls except
- *      chat-first AMBIGUOUS (Thai-majority mixed still takes Thai chat).
+ *      chat-first AMBIGUOUS (any Thai-majority mixed line still takes Thai
+ *      chat, including leftover crisis-token Latin and other code-mix).
  *   2. input guard (refusals; chat-first banner-level wording comes after this)   3. follow-up chips
  *   4. optional matcher (injected only when the desktop-dev flag is on; abstain → fallback)
  *   5. rules retrieval   6. model pick (only if unsure; every free-text turn when modelPick is on, except locked routes)
@@ -184,6 +185,7 @@ export interface DialogModel {
     history: { role: "user" | "assistant"; content: string }[],
     signal: AbortSignal,
     lang?: ChatLang,
+    opts?: ChatReplyOpts,
   ): Promise<string | null>;
 }
 
@@ -346,7 +348,10 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
   const redirect = byId.get(AGE_REDIRECT_ID) ?? AGE_REDIRECT_CARD;
   const render = deps.render ?? ((c: BankCard, sig: AbortSignal) => modelReword(c, deps, sig));
 
-  const reply = async (picked: BankCard, via: Via, guard?: GuardReason, engine?: EngineTag, engineReason?: EngineReason) => {
+  const reply = async (
+    picked: BankCard, via: Via, guard?: GuardReason, engine?: EngineTag, engineReason?: EngineReason,
+    softCrisis?: { line: string; categories: CrisisCategory[] },
+  ) => {
     const card = afterPick(picked, state.ageBand, redirect);
     const shownVia: Via = card.id === AGE_REDIRECT_ID && picked.id !== AGE_REDIRECT_ID ? "age_redirect" : via;
     const r = card.reword ? await render(card, deps.signal ?? new AbortController().signal) : { text: card.answer_th, reworded: false };
@@ -356,7 +361,7 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
       ...state, turns, recentUser, cardId: card.id,
       topic: card.topic === "general" ? state.topic : card.topic, pendingChips: card.next,
     };
-    return { state: next, reply: { kind: "card" as const, card, text: r.text, reworded: r.reworded, via: shownVia, banner, chips: card.next, offer, offerIntents, capNotice, ...(guard ? { guard } : {}), ...(engine ? { engine } : {}), ...(engineReason ? { engineReason } : {}) } };
+    return { state: next, reply: { kind: "card" as const, card, text: r.text, reworded: r.reworded, via: shownVia, banner, chips: card.next, offer, offerIntents, capNotice, ...(guard ? { guard } : {}), ...(engine ? { engine } : {}), ...(engineReason ? { engineReason } : {}), ...(softCrisis ? { softCrisis } : {}) } };
   };
 
   const pool = () => deps.cards.filter((c) => usable(c) && c.id !== FALLBACK_ID && c.id !== WELCOME_ID);
@@ -387,17 +392,19 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     return { state: next, reply: { kind: "card" as const, card, text, reworded: false, via: shownVia, banner, chips: card.next, offer, offerIntents, capNotice, ...(guard ? { guard } : {}), ...(engine ? { engine } : {}), ...(engineReason ? { engineReason } : {}), ...(overlayLang ? { cardNote } : {}), ...(softCrisis ? { softCrisis } : {}) } };
   };
 
+  // Build the AMBIGUOUS soft line before any early return so refusals, locked
+  // cards, and staff-request referral all carry it on both paths.
+  const softCrisis = extraAmbiguous
+    ? { line: AMBIGUOUS_CRISIS_LINE_TH, categories: extraAmbiguous.categories }
+    : undefined;
+
   // 2. Input guard (image / method refusals). Abuse and complication detection is deferred to #21.
   // Chat-first keeps this after a real crisis override and before banner-level wording, same order as card-first.
   const g = checkInput(input);
   if (g) {
-    if (chatFirst) return verbatimCard(REFUSAL_CARDS[g], "guard", tagged ? "rules-guard" : undefined, undefined, g);
-    return reply(REFUSAL_CARDS[g], "guard", g, pickOn ? "rules-guard" : undefined);
+    if (chatFirst) return verbatimCard(REFUSAL_CARDS[g], "guard", tagged ? "rules-guard" : undefined, undefined, g, null, softCrisis);
+    return reply(REFUSAL_CARDS[g], "guard", g, pickOn ? "rules-guard" : undefined, undefined, softCrisis);
   }
-
-  const softCrisis = extraAmbiguous
-    ? { line: AMBIGUOUS_CRISIS_LINE_TH, categories: extraAmbiguous.categories }
-    : undefined;
 
   // AMBIGUOUS + staff request: referral card plus the DRAFT soft line. Never the model.
   if (extraAmbiguous && findPhrases(input, HUMAN_ASK).length) {
@@ -491,8 +498,9 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     // mixed/unclear never calls the model except chat-first AMBIGUOUS.
     // Reply language still uses detectChatLang.
     const allowEnglishChat = deps.englishModelChat ?? ENGLISH_MODEL_CHAT;
-    // Chat-first AMBIGUOUS is model-first: leftover crisis-token Latin (mixed)
-    // still takes Thai chat. English script stays off the model while
+    // Chat-first AMBIGUOUS is model-first: any Thai-majority mixed line
+    // (code-mix, leftover crisis-token Latin, or other English words) still
+    // takes Thai chat. English script stays off the model while
     // ENGLISH_MODEL_CHAT is false (card + DRAFT soft line).
     const allowModel = script === "th"
       || (script === "en" && allowEnglishChat)
@@ -514,13 +522,14 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     const live = deps.getModel?.() ?? deps.model ?? null;
     if (plan.callChat && live?.ready() && live.chatReply) {
       const budget = deps.chatTimeoutMs ?? CHAT_TIMEOUT_MS;
-      const generate = () => withTimeout((s) => live.chatReply!(currentClip, history, s, lang), budget, deps.signal);
+      const chatOpts: ChatReplyOpts | undefined = extraAmbiguous ? { ambiguous: true } : undefined;
+      const generate = () => withTimeout((s) => live.chatReply!(currentClip, history, s, lang, chatOpts), budget, deps.signal);
       let out = await generate();
-      let acc = acceptChatReply(out, lang);
+      let acc = acceptChatReply(out, lang, chatOpts);
       // One retry on a guard fail. Timeout / abort (null) does not retry.
       if (!acc.ok && out != null && !deps.signal?.aborted) {
         out = await generate();
-        acc = acceptChatReply(out, lang);
+        acc = acceptChatReply(out, lang, chatOpts);
       }
       if (acc.ok) { chatText = acc.text; rejected = false; }
     }

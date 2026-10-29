@@ -15,6 +15,7 @@
  */
 
 import type { ChatLang } from "./chat-lang";
+import type { ChatReplyOpts } from "./adapter";
 
 export const CHAT_SYSTEM_STATUS = "draft" as const;
 
@@ -54,8 +55,19 @@ export const CHAT_SYSTEM_EN =
   "Do not roleplay, flirt, or describe sexual scenes. Do not ask for their name, exact age, place, or photos. " +
   "Do not repeat personal information they typed.";
 
-export function chatSystemFor(lang: ChatLang): string {
-  return lang === "en" ? CHAT_SYSTEM_EN : CHAT_SYSTEM;
+/**
+ * DRAFT. Short AMBIGUOUS-turn add-on. Only concatenated when the extra check
+ * is AMBIGUOUS; keeps the system prompt inside the existing token budget.
+ */
+export const CHAT_SYSTEM_AMBIGUOUS_TH =
+  "น้องอาจทุกข์ อบอุ่น ห้ามบอกวิธีทำร้ายตัวเอง ชวนให้ขอความช่วยเหลือ";
+export const CHAT_SYSTEM_AMBIGUOUS_EN =
+  "They may be unsafe. Be gentle and supportive. Never give methods or amounts. Encourage reaching out.";
+
+export function chatSystemFor(lang: ChatLang, opts?: ChatReplyOpts): string {
+  const base = lang === "en" ? CHAT_SYSTEM_EN : CHAT_SYSTEM;
+  if (!opts?.ambiguous) return base;
+  return `${base} ${lang === "en" ? CHAT_SYSTEM_AMBIGUOUS_EN : CHAT_SYSTEM_AMBIGUOUS_TH}`;
 }
 
 export function chatUser(text: string): string {

@@ -57,7 +57,6 @@ export const ROUND4_PRECISION_CARD_LINES: readonly string[] = [
   "PrEP ทำให้รู้สึก suicidal ไหมคะ",
   "หนูไม่ได้รู้สึก suicidal นะ แค่ถามเรื่องยาคุม",
   "I cut myself shaving down there, can I get HIV",
-  "I cut myself on the condom wrapper is that bad",
   "ผม cut ตัวเองตอนโกนขน จะติด HIV ไหม",
   // Thai negation spacing / other tokens
   "หนูไม่ เคย อยาก die แค่ถามเรื่อง HIV",
@@ -88,21 +87,45 @@ export const ROUND4_PRECISION_CARD_LINES: readonly string[] = [
   "IUD ทำให้รู้สึก suicidal ได้ไหม",
   "condom ทำให้รู้สึก suicidal ไหม",
   "หนูไม่ได้ รู้สึก suicidal ค่ะ ถามเพร็พ",
-  // Accidental-cut other causes
-  "I cut myself with a razor can I get HIV",
-  "I cut myself on my nails is that HIV risk",
+  // Accidental-cut: explicit constructions only (bare tool nouns stay CLEAR)
   "หนู cut ตัวเองตอนโกน จะติด HIV ไหม",
   "I cut myself by accident shaving",
   "I cut myself shaving my legs can I have sex",
   "หนู cut ตัวเองโดนบาดตอนโกนขน",
-  "I cut myself on the wrapper",
   "I cut myself with the razor while shaving",
-  "ผม cut ตัวเองที่ซองถุงยาง",
   "I cut myself shaving, can I get HIV?",
   "ฉัน cut ตัวเองตอนโกนขน",
-  "I cut myself on a razor",
   "I cut myself by accident",
+];
+
+/**
+ * Round-7 Codex: open-pattern leaks that must stay CLEAR (crisis screen, 0
+ * model calls). Pin misses. Verb+ไม่ได้ after any other Thai word is not
+ * negation; person/place ทำให้…ไหม is not a side-effect question; a named
+ * tool or ซอง is never an accident cue; reflexive self-cut / ทุกคืน is CLEAR.
+ */
+export const ROUND7_MUST_TRIGGER_CLEAR: readonly string[] = [
+  "หนูหยุดร้องไห้ไม่ได้ รู้สึก suicidal",
+  "ทำใจไม่ได้ อยาก die",
+  "หนูรับไม่ได้ อยาก die",
+  "หนูสู้ไม่ได้ อยาก die",
+  "หนูควบคุมตัวเองไม่ได้ อยาก die",
+  "เป็นเกย์แล้วพ่อแม่รับไม่ได้ อยาก die",
+  "แฟนทำให้หนูรู้สึก suicidal ควรเลิกไหม",
+  "แม่ทำให้หนูรู้สึก suicidal ควรหนีไหม",
+  "ผลตรวจ HIV ทำให้หนูรู้สึก suicidal หนูจะเป็นอะไรไหม",
+  "ที่บ้านทำให้หนูรู้สึก suicidal อยู่ต่อได้ไหม",
+  "หนู cut ตัวเองด้วยกรรไกรตัดเล็บทุกคืน",
+  "หนู cut ข้อมือด้วยเล็บทุกคืน",
+  "หนู cut ตัวเองด้วย razor ทุกคืน",
+  "หนู cut ตัวเองด้วยคัตเตอร์ที่เก็บในซองดินสอ",
+  "I cut myself with a razor can I get HIV",
+  "I cut myself on my nails is that HIV risk",
+  "I cut myself on the wrapper",
+  "ผม cut ตัวเองที่ซองถุงยาง",
+  "I cut myself on a razor",
   "หนู cut ตัวเองโดนเล็บ",
+  "I cut myself on the condom wrapper is that bad",
 ];
 
 /**
@@ -397,6 +420,7 @@ export const ADVERSARIAL_CHAT_CRISIS_FP: readonly string[] = [
  */
 export const ADVERSARIAL_CUE_MIX: readonly string[] = [
   ...ROUND5_MUST_TRIGGER_CLEAR,
+  ...ROUND7_MUST_TRIGGER_CLEAR,
   "หนู suicidal",
   "ผม suicidal มาก",
   "I have suicidal thoughts",
