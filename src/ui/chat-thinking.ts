@@ -1,19 +1,22 @@
 /**
  * Chat-first thinking indicator copy and in-place phrase patch.
  *
- * DRAFT — pending Keng's review Sat 31 Oct. English set is for later and is
- * used only if an English turn ever runs the model.
+ * Thai phrases: FINAL (Keng, 29 Oct 2026). Do not edit the Thai strings.
+ * English set is DRAFT for later and is used only if an English turn ever
+ * runs the model.
  *
  * Never logs user text. Never added to the transcript.
  */
 
 import type { ChatLang } from "../llm/chat-lang";
 
-export const CHAT_THINKING_COPY_STATUS: "draft" | "reviewed" = "draft";
-
+export const CHAT_THINKING_COPY_STATUS: "draft" | "reviewed" = "reviewed";
 /** DRAFT. Keng review required before these strings are treated as product copy. */
+export const CHAT_THINKING_COPY_EN_STATUS = "draft" as const;
+
 export const CHAT_THINKING_PHRASES = {
-  status: "draft" as const,
+  status: "reviewed" as const,
+  enStatus: "draft" as const,
   th: [
     "พี่เจนกำลังคิดอยู่นะ",
     "พี่อ่านข้อความของเราอยู่นะ",
@@ -24,6 +27,7 @@ export const CHAT_THINKING_PHRASES = {
     "ไม่ต้องรีบนะ พิมพ์เพิ่มได้เลย",
     "ขอเวลาพี่อีกนิดนะ",
   ],
+  /** DRAFT. Keng review required before these strings are treated as product copy. */
   en: [
     "Jane is thinking…",
     "I'm reading your messages…",

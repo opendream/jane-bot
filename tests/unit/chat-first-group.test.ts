@@ -359,7 +359,8 @@ describe("chat-first thinking indicator", () => {
     await waitUntil(() => chat.thinking);
     expect(chat.thinking).toBe(true);
     expect(chat.thinkingPhrase).toBe(thinkingPhraseAt("th", 0));
-    expect(CHAT_THINKING_PHRASES.status).toBe("draft");
+    expect(CHAT_THINKING_PHRASES.status).toBe("reviewed");
+    expect(CHAT_THINKING_PHRASES.enStatus).toBe("draft");
     await pending;
     expect(chat.thinking).toBe(false);
     expect(chat.messages.some((m) => m.text === thinkingPhraseAt("th", 0))).toBe(false);

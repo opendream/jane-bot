@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  CHAT_THINKING_COPY_EN_STATUS,
   CHAT_THINKING_COPY_STATUS,
   CHAT_THINKING_PHRASES,
   CHAT_THINKING_ROTATE_MS,
@@ -9,10 +10,12 @@ import {
   thinkingPhraseAt,
 } from "../../src/ui/chat-thinking";
 
-describe("chat-first thinking copy (DRAFT, pending Keng review Sat 31 Oct)", () => {
-  it("exports one DRAFT constant with the approved Thai and English phrases", () => {
-    expect(CHAT_THINKING_COPY_STATUS).toBe("draft");
-    expect(CHAT_THINKING_PHRASES.status).toBe("draft");
+describe("chat-first thinking copy (Thai FINAL, English DRAFT)", () => {
+  it("exports the FINAL Thai phrases and keeps English DRAFT", () => {
+    expect(CHAT_THINKING_COPY_STATUS).toBe("reviewed");
+    expect(CHAT_THINKING_COPY_EN_STATUS).toBe("draft");
+    expect(CHAT_THINKING_PHRASES.status).toBe("reviewed");
+    expect(CHAT_THINKING_PHRASES.enStatus).toBe("draft");
     expect(CHAT_THINKING_PHRASES.th).toEqual([
       "พี่เจนกำลังคิดอยู่นะ",
       "พี่อ่านข้อความของเราอยู่นะ",
@@ -23,6 +26,7 @@ describe("chat-first thinking copy (DRAFT, pending Keng review Sat 31 Oct)", () 
       "ไม่ต้องรีบนะ พิมพ์เพิ่มได้เลย",
       "ขอเวลาพี่อีกนิดนะ",
     ]);
+    expect(CHAT_THINKING_PHRASES.th).toHaveLength(8);
     expect(CHAT_THINKING_PHRASES.en).toEqual([
       "Jane is thinking…",
       "I'm reading your messages…",
@@ -39,7 +43,7 @@ describe("chat-first thinking copy (DRAFT, pending Keng review Sat 31 Oct)", () 
     expect(CHAT_THINKING_ROTATE_MS).toBeLessThanOrEqual(3000);
   });
 
-  it("thinkingPhraseAt wraps around the DRAFT set", () => {
+  it("thinkingPhraseAt wraps around the phrase set", () => {
     expect(thinkingPhraseAt("th", 0)).toBe("พี่เจนกำลังคิดอยู่นะ");
     expect(thinkingPhraseAt("th", 8)).toBe("พี่เจนกำลังคิดอยู่นะ");
     expect(thinkingPhraseAt("en", 0)).toBe("Jane is thinking…");
