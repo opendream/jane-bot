@@ -189,27 +189,25 @@ test("card-first vague distress shows the card, DRAFT soft line, and button; but
   expect(after.chat + after.pick).toBe(0);
 });
 
-test("?chatFirst=1 Thai AMBIGUOUS talks like a NONE turn; the DRAFT line and button open the existing crisis screen", async ({ page }) => {
+test("?chatFirst=1 Thai AMBIGUOUS shows the card plus the DRAFT line, 0 model calls; the button opens the existing crisis screen", async ({ page }) => {
   await openChatFirst(page);
   await openChat(page);
   await say(page, "ช่วงนี้กังวลเรื่องแฟน");
   await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
   const afterNone = await modelCalls(page);
   expect(afterNone.chat).toBeGreaterThan(0);
-  const noneChat = afterNone.chat;
-  const nonePick = afterNone.pick;
 
   await page.reload();
   await openChatFirst(page);
   await openChat(page);
   await say(page, "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง");
   await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
-  await expect(lastJane(page).getByTestId("chat-text")).toHaveText("พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย");
+  await expect(lastJane(page)).toBeVisible();
+  await expect(lastJane(page).getByTestId("chat-text")).not.toHaveText("พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย");
   await expect(page.getByTestId("chat-crisis-soft-line")).toHaveText("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ");
   await expect(page.getByTestId("chat-crisis-soft-open")).toBeVisible();
   const afterAmb = await modelCalls(page);
-  expect(afterAmb.chat).toBe(noneChat);
-  expect(afterAmb.pick).toBe(nonePick);
+  expect(afterAmb.chat + afterAmb.pick).toBe(0);
   await page.getByTestId("chat-crisis-soft-open").click();
   await expect(page.getByTestId("screen-crisis")).toBeVisible();
   await expect(page.locator('[data-testid^="crisis-"]').first()).toBeVisible();
@@ -272,7 +270,7 @@ test("?chatFirst=1 later unrelated turn after AMBIGUOUS has no soft line and cal
   await say(page, "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง");
   await expect(page.getByTestId("chat-crisis-soft-line")).toBeVisible();
   const afterFirst = await modelCalls(page);
-  expect(afterFirst.chat).toBeGreaterThan(0);
+  expect(afterFirst.chat + afterFirst.pick).toBe(0);
   await say(page, "ถุงยางราคาเท่าไหร่");
   await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
   await expect(lastJane(page).getByTestId("chat-crisis-soft-line")).toHaveCount(0);

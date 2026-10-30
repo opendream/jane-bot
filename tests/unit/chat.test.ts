@@ -415,7 +415,7 @@ describe("ambiguous extra-check: card bubble carries the DRAFT soft line", () =>
     expect(jane?.cardId).toBeTruthy();
   });
 
-  it("chat-first Thai AMBIGUOUS renders the model reply plus the DRAFT soft line", async () => {
+  it("chat-first Thai AMBIGUOUS renders the bank card plus the DRAFT soft line and never calls the model", async () => {
     const model: DialogModel = {
       ready: () => true,
       chatReply: vi.fn(async () => "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย"),
@@ -424,9 +424,10 @@ describe("ambiguous extra-check: card bubble carries the DRAFT soft line", () =>
     const h = hooks();
     await sendToChat(chat, "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง", h);
     expect(h.crisisCalls).toBe(0);
-    expect(model.chatReply).toHaveBeenCalledTimes(1);
+    expect(model.chatReply).not.toHaveBeenCalled();
     const jane = [...chat.messages].reverse().find((m) => m.from === "jane");
-    expect(jane?.text).toBe("พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย");
+    expect(jane?.text).not.toBe("พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย");
+    expect(jane?.cardId).toBeTruthy();
     expect(jane?.softCrisis?.line).toBe("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ");
     expect(jane?.softCrisis?.categories).toContain("self_harm");
   });

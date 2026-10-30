@@ -110,12 +110,12 @@ export async function bindWebLLMEngine(
     },
     pickCard: async (text, shortlist, prev) => ask(PICK_SYSTEM, pickUser(text, shortlist, prev), PICK_MAX_TOKENS, pickSchema(shortlist.map((s) => s.id))),
     rewordCard: async (card) => cleanReword(await ask(REWORD_SYSTEM, rewordUser(card), REWORD_MAX_TOKENS)) || null,
-    chatReply: async (text, history, _signal, lang, opts) => {
+    chatReply: async (text, history, _signal, lang) => {
       if (dead) throw dead;
       try {
         const r: any = await engine.chat.completions.create({
           messages: [
-            { role: "system", content: chatSystemFor(lang ?? detectChatLang(text), opts) },
+            { role: "system", content: chatSystemFor(lang ?? detectChatLang(text)) },
             ...history.map((h) => ({ role: h.role, content: h.content })),
             { role: "user", content: text },
           ],

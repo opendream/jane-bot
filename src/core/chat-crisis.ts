@@ -57,7 +57,7 @@ export interface ChatCrisisHit {
 /**
  * DRAFT. Keng review Sat 31 Oct 2026 before this is treated as product copy.
  * Shown on every AMBIGUOUS turn with a button that opens the existing crisis screen.
- * Chat-first talks first (same guarded path as NONE); this line is fixed UI, not generated.
+ * No generation on AMBIGUOUS turns; the model is not called. This line is fixed UI.
  */
 export const AMBIGUOUS_CRISIS_LINE_TH = "ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ";
 export const AMBIGUOUS_CRISIS_LINE_STATUS = "draft" as const;

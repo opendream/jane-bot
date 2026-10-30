@@ -70,10 +70,10 @@ export async function loadWllama(
       } as any);
       return cleanReword(String(r.choices?.[0]?.message?.content ?? "")) || null;
     }),
-    chatReply: (text, history, signal, lang, opts) => serial(async () => {
+    chatReply: (text, history, signal, lang) => serial(async () => {
       const r: any = await w.createChatCompletion({
         messages: [
-          { role: "system", content: chatSystemFor(lang ?? detectChatLang(text), opts) },
+          { role: "system", content: chatSystemFor(lang ?? detectChatLang(text)) },
           ...history.map((h) => ({ role: h.role, content: h.content })),
           { role: "user", content: `${text} /no_think` },
         ],

@@ -3,8 +3,6 @@ import { GUARD_RULES, type GuardReason } from "../core/guard";
 import { stripPII } from "../core/summary";
 import { findPhrases } from "../core/text";
 import { type ChatLang, mostlyLatin } from "./chat-lang";
-import { ambiguousChatGuardFailures } from "./ambiguousChatGuard";
-import type { ChatReplyOpts } from "./adapter";
 
 /**
  * Output guard for free-generated Jane chat (PR A). Pinned `src/core/guard.ts` is imported
@@ -42,8 +40,7 @@ export type ChatGuardReason =
   | "pii"
   | "think"
   | "length"
-  | "script"
-  | "ambiguous_unsafe";
+  | "script";
 
 /**
  * Dose/timing *patterns* — compound phrases, not units.
@@ -192,7 +189,6 @@ function englishPrice(raw: string): boolean {
 export function chatGuardFailures(
   text: string | null | undefined,
   lang: ChatLang = "th",
-  opts?: ChatReplyOpts,
 ): ChatGuardReason[] {
   const fails: ChatGuardReason[] = [];
   const raw = text == null ? "" : nfc(String(text));
@@ -214,16 +210,14 @@ export function chatGuardFailures(
   if (/<\/?think>|\/no_think|<\|im_(start|end)\|>/i.test(raw)) fails.push("think");
   if (raw.length > (lang === "en" ? CHAT_MAX_CHARS_EN : CHAT_MAX_CHARS)) fails.push("length");
   if (lang === "en" ? !mostlyLatin(raw) : !mostlyThai(raw)) fails.push("script");
-  if (opts?.ambiguous) fails.push(...ambiguousChatGuardFailures(raw));
   return fails;
 }
 
 export function acceptChatReply(
   text: string | null | undefined,
   lang: ChatLang = "th",
-  opts?: ChatReplyOpts,
 ): { ok: true; text: string } | { ok: false; reasons: ChatGuardReason[] } {
-  const reasons = chatGuardFailures(text, lang, opts);
+  const reasons = chatGuardFailures(text, lang);
   if (reasons.length) return { ok: false, reasons };
   return { ok: true, text: nfc(String(text)).trim() };
 }

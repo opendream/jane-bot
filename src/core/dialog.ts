@@ -8,7 +8,7 @@ import { normalize, findPhrases, prepCheckText } from "./text";
 import { stripPII } from "./summary";
 import { checkInput, REFUSAL_CARDS, type GuardReason } from "./guard";
 import { retrieve } from "./retrieve";
-import { VALID_INTENTS, type ChatReplyOpts } from "../llm/adapter";
+import { VALID_INTENTS } from "../llm/adapter";
 import { acceptChatReply, holdingLineFor } from "../llm/chatGuard";
 import { detectChatLang, modelChatScript, type ChatLang } from "../llm/chat-lang";
 import { bankAnswerForLang, cardNoteForLang } from "./card-lang";
@@ -45,18 +45,14 @@ export type { CardPicker, EngineReason, EngineTag } from "./pick-engine";
  *   1. crisis rules (every message, synchronous, BEFORE anything else; never the model or matcher)
  *      pinned detectCrisis first (raw AND NFKC/folded/lowercased; hit on either
  *      is crisis), then an add-only chat-crisis check (never clears a pin):
- *      CLEAR → existing crisis screen (no model); AMBIGUOUS on chat-first is
- *      MODEL-FIRST: the same guarded chat path as NONE (guard, one retry) plus
- *      a fixed DRAFT soft line and a button that opens the existing crisis
- *      screen. The bank card is only a fallback (guard fail after retry,
- *      timeout, model not ready, or non-Thai while ENGLISH_MODEL_CHAT is
- *      false). Card-first AMBIGUOUS stays card + DRAFT soft line. Staff
- *      request → referral card + the same soft line. NONE → continue.
- *      Both run on every turn, whatever the letter-script class, on both
- *      paths. Then the script/allowlist gate: English → English model chat,
- *      clearly Thai → Thai chat, mixed/unclear → 0 model calls except
- *      chat-first AMBIGUOUS (any Thai-majority mixed line still takes Thai
- *      chat, including leftover crisis-token Latin and other code-mix).
+ *      CLEAR → existing crisis screen (no model); AMBIGUOUS (both paths) →
+ *      the turn's bank card plus a fixed DRAFT soft line and a button that
+ *      opens the existing crisis screen. Never the model; model output is
+ *      discarded if a caller still injects one. Staff request → referral
+ *      card + the same soft line. NONE → continue. Both run on every turn,
+ *      whatever the letter-script class, on both paths. Then the
+ *      script/allowlist gate: English → English model chat, clearly Thai →
+ *      Thai chat, mixed/unclear → 0 model calls.
  *   2. input guard (refusals; chat-first banner-level wording comes after this)   3. follow-up chips
  *   4. optional matcher (injected only when the desktop-dev flag is on; abstain → fallback)
  *   5. rules retrieval   6. model pick (only if unsure; every free-text turn when modelPick is on, except locked routes)
@@ -185,7 +181,6 @@ export interface DialogModel {
     history: { role: "user" | "assistant"; content: string }[],
     signal: AbortSignal,
     lang?: ChatLang,
-    opts?: ChatReplyOpts,
   ): Promise<string | null>;
 }
 
@@ -247,7 +242,7 @@ export type TurnReply =
       kind: "chat"; text: string; card: BankCard | null; cardText: string | null; via: Via; banner: CrisisCategory[];
       chips: CardNext[]; offer: "none" | "soft" | "strong"; offerIntents: Intent[]; capNotice: CapNotice;
       engine?: EngineTag; engineReason?: EngineReason; holding?: boolean; cardNote?: string | null;
-      /** AMBIGUOUS extra-check: DRAFT line + button on the model reply. */
+      /** AMBIGUOUS extra-check: DRAFT line + button that opens the existing crisis screen. */
       softCrisis?: { line: string; categories: CrisisCategory[] };
     };
 export type CapNotice = "soft" | "hard" | null;
@@ -420,16 +415,18 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     };
   }
 
-  // Card-first AMBIGUOUS: the turn's bank card plus a DRAFT soft line. Never the model.
-  if (extraAmbiguous && !chatFirst) {
+  // AMBIGUOUS: the turn's bank card plus a DRAFT soft line. Never the model,
+  // chat-first or card-first. English chat-first still uses the English overlay.
+  if (extraAmbiguous) {
     const top = rulesTop(input);
+    const overlayLang = chatFirst && detectChatLang(input) === "en" ? "en" as const : null;
     return verbatimCard(
       top.card,
       top.via,
       tagged ? "rules-fallback" : undefined,
       undefined,
       undefined,
-      null,
+      overlayLang,
       softCrisis,
     );
   }
@@ -495,16 +492,12 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     // (no leftover Latin; Thai share of what remains ≥ 60%) → Thai chat;
     // English (Latin share ≥ 60%) → English chat only while ENGLISH_MODEL_CHAT
     // is true (off on this branch; tests may set deps.englishModelChat);
-    // mixed/unclear never calls the model except chat-first AMBIGUOUS.
-    // Reply language still uses detectChatLang.
+    // mixed/unclear never calls the model.
+    // Reply language still uses detectChatLang. AMBIGUOUS already returned
+    // above (card + DRAFT soft line, 0 model calls).
     const allowEnglishChat = deps.englishModelChat ?? ENGLISH_MODEL_CHAT;
-    // Chat-first AMBIGUOUS is model-first: any Thai-majority mixed line
-    // (code-mix, leftover crisis-token Latin, or other English words) still
-    // takes Thai chat. English script stays off the model while
-    // ENGLISH_MODEL_CHAT is false (card + DRAFT soft line).
     const allowModel = script === "th"
-      || (script === "en" && allowEnglishChat)
-      || (!!extraAmbiguous && script === "mixed");
+      || (script === "en" && allowEnglishChat);
     if (!allowModel) {
       const top = rulesTop(retrieveText);
       return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, lang === "en" ? lang : undefined, softCrisis);
@@ -522,30 +515,15 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     const live = deps.getModel?.() ?? deps.model ?? null;
     if (plan.callChat && live?.ready() && live.chatReply) {
       const budget = deps.chatTimeoutMs ?? CHAT_TIMEOUT_MS;
-      const chatOpts: ChatReplyOpts | undefined = extraAmbiguous ? { ambiguous: true } : undefined;
-      const generate = () => withTimeout((s) => live.chatReply!(currentClip, history, s, lang, chatOpts), budget, deps.signal);
+      const generate = () => withTimeout((s) => live.chatReply!(currentClip, history, s, lang), budget, deps.signal);
       let out = await generate();
-      let acc = acceptChatReply(out, lang, chatOpts);
+      let acc = acceptChatReply(out, lang);
       // One retry on a guard fail. Timeout / abort (null) does not retry.
       if (!acc.ok && out != null && !deps.signal?.aborted) {
         out = await generate();
-        acc = acceptChatReply(out, lang, chatOpts);
+        acc = acceptChatReply(out, lang);
       }
       if (acc.ok) { chatText = acc.text; rejected = false; }
-    }
-
-    // AMBIGUOUS fallback: bank card + DRAFT soft line. Never the holding line.
-    if (extraAmbiguous && rejected) {
-      const top = rulesTop(retrieveText);
-      return verbatimCard(
-        top.card,
-        top.via,
-        tagged ? "rules-fallback" : undefined,
-        undefined,
-        undefined,
-        lang === "en" ? lang : null,
-        softCrisis,
-      );
     }
 
     let card: BankCard | null = null;

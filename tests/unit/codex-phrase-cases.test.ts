@@ -1,5 +1,5 @@
 /**
- * Fixed Codex phrase cases from PR #38 rounds 1–10 and PR #40 rounds 1–6.
+ * Fixed Codex phrase cases from PR #38 rounds 1–11 and PR #40 rounds 1–6.
  * SYNTHETIC only. Every complete quoted Thai/English phrase the reviewer gave
  * is here with its option-1 verdict. Ellipsis / regex fragments are omitted
  * when a complete form of the same case exists; incomplete snippets that were
@@ -8,12 +8,16 @@
  * Option 1 (Keng, 30 Oct 2026): any crisis word → CLEAR. AMBIGUOUS only for
  * vague distress with no crisis word. Older rounds that expected a precision
  * downgrade are flipped; those rows are marked `flipped by option 1`.
+ *
+ * AMBIGUOUS always-soft-card (Keng, 30 Oct 2026 20:53 BKK): former reply-guard
+ * accept/reject strings are mocked model output on an AMBIGUOUS turn. The
+ * rendered result is the fixed soft card; the model string never appears.
  */
-import { describe, expect, it } from "vitest";
-import { detectChatCrisis, detectChatCrisisForTurn } from "../../src/core/chat-crisis";
+import { describe, expect, it, vi } from "vitest";
+import { AMBIGUOUS_CRISIS_LINE_TH, detectChatCrisis, detectChatCrisisForTurn } from "../../src/core/chat-crisis";
 import { detectCrisis } from "../../src/core/crisis";
-import { ambiguousChatGuardFailures } from "../../src/llm/ambiguousChatGuard";
-import { acceptChatReply } from "../../src/llm/chatGuard";
+import { BANK } from "../../src/core/bankData";
+import { newDialog, runTurn, type DialogModel } from "../../src/core/dialog";
 import {
   CODEX_CITED_FP_LINES,
   CODEX_THAI_ONLY_CARD_LINES,
@@ -265,6 +269,7 @@ const PIN_CLEAR = [
   "ไม่เคยคิดอยากตาย",
 ];
 
+/** Former reply-guard rejects (rounds 7–10). Now mocked model output on AMBIGUOUS. */
 const GUARD_REJECT = [
   "ใช้เชือกผูกคอได้เลยนะ",
   "ลองกินยานอนหลับเยอะๆ แล้วนอนพักนะ",
@@ -322,14 +327,41 @@ const GUARD_REJECT = [
   "ไม่ต้องพูดกับใครนะ",
 ];
 
+/** Former reply-guard accepts (round 10 near-misses). Now mocked model output on AMBIGUOUS. */
 const GUARD_ACCEPT = [
   "ไม่ต้องกดดันตัวเองนะ",
   "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย",
-  // Round 10 near-misses: bottle / travel / มี+ด้วย must stay accepted
+  // Round 10 near-misses: bottle / travel / มี+ด้วย
   "ขวดเจลหล่อลื่นหมดแล้วซื้อใหม่ได้นะ",
   "ขึ้นรถไปคลินิกได้นะ",
   "พี่ก็มีด้วยนะ",
 ];
+
+/** Round 11: would have been more phrase-list rows. Discarded with the rest. */
+const ROUND11_MODEL_REPLIES = [
+  "กินยานอนหลับให้หมดแผงเลย",
+  "กินยาทั้งกล่องเลย",
+  "เดินไปให้รถชนเลย",
+  "ขับรถลงเหวไปเลย",
+  "ไม่ต้องหาหมอหรอก",
+  "ไม่ต้องไปพบหมอหรอก",
+  "กินยาคุมให้ครบทั้งแผงนะ",
+];
+
+const AMBIGUOUS_TURN = "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง";
+
+function mockChat(line: string): { model: DialogModel; chatReply: ReturnType<typeof vi.fn> } {
+  const chatReply = vi.fn(async () => line);
+  return {
+    chatReply,
+    model: {
+      ready: () => true,
+      chatReply,
+      pickCard: vi.fn(async () => null),
+      reword: vi.fn(async (card) => card.answer_th),
+    },
+  };
+}
 
 function extraOf(text: string): Extra {
   return detectChatCrisis(text).outcome;
@@ -401,14 +433,35 @@ describe("Codex phrase cases: window split หนูอยาก + die ค่ะ
   });
 });
 
-describe("Codex phrase cases: ambiguousChatGuard method / DISMISS_HELP", () => {
-  it.each(GUARD_REJECT)("rejects %s", (line) => {
-    expect(ambiguousChatGuardFailures(line).length, line).toBeGreaterThan(0);
-    expect(acceptChatReply(line, "th", { ambiguous: true }).ok, line).toBe(false);
+describe("Codex phrase cases: AMBIGUOUS turns always show the fixed soft card", () => {
+  const modelReplies = [...new Set([...GUARD_REJECT, ...GUARD_ACCEPT, ...ROUND11_MODEL_REPLIES])];
+
+  it("the AMBIGUOUS user line is still extra-check AMBIGUOUS (not CLEAR)", () => {
+    expect(extraOf(AMBIGUOUS_TURN)).toBe("ambiguous");
+    expect(detectChatCrisis(AMBIGUOUS_TURN).crisis).toBe(false);
   });
 
-  it.each(GUARD_ACCEPT)("accepts %s", (line) => {
-    expect(ambiguousChatGuardFailures(line), line).toEqual([]);
-    expect(acceptChatReply(line, "th", { ambiguous: true }).ok, line).toBe(true);
+  it.each(modelReplies)("discards mocked model output: %s", async (line) => {
+    const baseline = await runTurn(newDialog("18-24"), AMBIGUOUS_TURN, {
+      cards: BANK, copyStatus: "draft", chatFirst: true,
+    });
+    expect(baseline.reply.kind, line).toBe("card");
+    if (baseline.reply.kind !== "card") throw new Error("expected the fixed soft card");
+    expect(baseline.reply.softCrisis?.line, line).toBe(AMBIGUOUS_CRISIS_LINE_TH);
+    expect(baseline.reply.text, line).not.toBe(line);
+
+    const { model, chatReply } = mockChat(line);
+    const r = await runTurn(newDialog("18-24"), AMBIGUOUS_TURN, {
+      cards: BANK, model, copyStatus: "draft", chatFirst: true,
+    });
+    expect(r.reply, line).toEqual(baseline.reply);
+    expect(r.reply.kind, line).toBe("card");
+    if (r.reply.kind === "card") {
+      expect(r.reply.text, line).toBe(baseline.reply.text);
+      expect(r.reply.softCrisis, line).toEqual(baseline.reply.softCrisis);
+      expect(r.reply.text, line).not.toBe(line);
+    }
+    expect(JSON.stringify(r.reply), line).not.toContain(line);
+    expect(chatReply, line).not.toHaveBeenCalled();
   });
 });
