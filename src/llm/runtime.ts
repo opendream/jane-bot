@@ -71,6 +71,9 @@ const DISPOSED_MSG = "The current Object has already been disposed";
  * Console warning when the requested on-device model cannot load.
  * Local 0.6B fine-tune is never fetched; the operator places the GGUF.
  */
+/** Installed 1.7B is the load fallback when the default fine-tuned 0.6B GGUF is missing. */
+export const FT_MISSING_FALLBACK_KEY = "qwen3-1.7b" as const;
+
 export function missingLocalModelWarning(key: string): string {
   if (key === "qwen3-0.6b-ft") {
     return (
@@ -80,6 +83,14 @@ export function missingLocalModelWarning(key: string): string {
     );
   }
   return `[jane] Model ${key} is not available on this machine. Using rules-only.`;
+}
+
+export function missingFtFallbackWarning(): string {
+  return (
+    `[jane] Default model qwen3-0.6b-ft GGUF is missing. ` +
+    `Place models/${FT_GGUF_FILE} (sha256 ${FT_GGUF_SHA256}, ${FT_GGUF_BYTES} bytes). ` +
+    `Weights stay local-only (no URL, never downloaded). Falling back to ${FT_MISSING_FALLBACK_KEY}.`
+  );
 }
 
 /** Honest Thai + English copy for the header pill. Rules-only text is the existing label. */
@@ -377,9 +388,15 @@ export async function startModel(onStatus: (s: ModelStatus) => void, deps: Start
   const warnUnavailable = (why: string) => {
     console.warn(`${missingLocalModelWarning(String(key))} (${why})`);
   };
-  const spec = MODELS[key as ModelSpec["key"]];
+  let spec = MODELS[key as ModelSpec["key"]];
   const inst = await installedFn();
   const has = (m: string, v: string) => inst.some((i) => i.model === m && i.variants.includes(v));
+  const hasAny = (m: string) => inst.some((i) => i.model === m && i.variants.length > 0);
+  // Default ft 0.6B missing: use 1.7B when that file is present; else rules-only below.
+  if (key === "qwen3-0.6b-ft" && !has("qwen3-0.6b-ft", "wasm") && hasAny(FT_MISSING_FALLBACK_KEY)) {
+    console.warn(missingFtFallbackWarning());
+    spec = MODELS[FT_MISSING_FALLBACK_KEY];
+  }
   const wSpec = spec.wasm ? spec : spec.wasmFallback ? MODELS[spec.wasmFallback] : null;
 
   type Step = { runtime: "webgpu" | "wasm"; run: () => Promise<LLMAdapter> };

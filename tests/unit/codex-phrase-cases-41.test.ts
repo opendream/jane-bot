@@ -45,6 +45,8 @@ import {
   V40_FOLLOWUP_MAX_TH,
   V40_OPENER_MAX_TH,
 } from "../../src/llm/chat-voice";
+import { newChat, sendToChat, type ChatHooks } from "../../src/ui/chat";
+import type { LLMAdapter } from "../../src/llm/adapter";
 const GUARD_VOICE_STRINGS: readonly { old: string; neu: string }[] = [
   { old: "เรื่องนี้พี่ช่วยไม่ได้", neu: "เรื่องนี้เราช่วยไม่ได้ค่ะ" },
   { old: "พี่คุยแบบสวมบทบาทไม่ได้นะ แต่ถ้ามีคำถามเรื่องสุขภาพหรือความสัมพันธ์ ถามพี่ได้เลย", neu: "เราคุยแบบสวมบทบาทไม่ได้นะคะ แต่ถ้ามีคำถามเรื่องสุขภาพหรือความสัมพันธ์ ถามเราได้เลยค่ะ" },
@@ -69,6 +71,30 @@ function gitBlobSha(rel: string): string {
 
 function deps(model: DialogModel, extra: Partial<TurnDeps> = {}): TurnDeps {
   return { cards: BANK, model, copyStatus: "reviewed", chatFirst: true, ...extra };
+}
+
+const FT_LABEL = "Qwen3-0.6B (Jane fine-tuned)";
+const SEVENTEEN_LABEL = "Qwen3-1.7B";
+const SEVENTEEN_FILE = MODELS["qwen3-1.7b"].wasm!.file;
+
+function fakeWasm(label: string): LLMAdapter {
+  return {
+    name: `${label} (WASM)`,
+    runtime: "wasm",
+    ready: () => true,
+    classify: async () => ["other"],
+    polishSummary: async () => null,
+  };
+}
+
+function chatHooks(): ChatHooks {
+  return { rerender: () => {}, crisis: () => {} };
+}
+
+function janeThisTurn(messages: { from: string; text: string; cardId?: string }[], userText: string) {
+  const i = messages.findIndex((m) => m.from === "user" && m.text === userText);
+  if (i < 0) throw new Error(`missing user turn: ${userText}`);
+  return messages.slice(i + 1).filter((m) => m.from === "jane");
 }
 
 afterEach(() => {
@@ -144,10 +170,15 @@ describe("PR #41 round-1 concrete inputs", () => {
     expect(r.reply.kind).toBe("chat");
     if (r.reply.kind !== "chat") return;
     expect(r.reply.card?.id).toBe(LEAK.id);
-    expect(r.reply.text).toBe(formatChatReply(CHAT_OPENERS_TH[0]!, LEAK.answer_th, CHAT_FOLLOWUPS_TH[0]!));
-    expect(r.reply.text).toContain(LEAK.answer_th);
+    expect(r.reply.cardText).toBe(LEAK.answer_th);
+    // Same card as the closer: answer lives on the card bubble (round-3 de-dupe).
+    expect(r.reply.text).not.toContain(LEAK.answer_th);
+    // Without a closing-card text, showCardBubble only drives the follow-up swap.
     const quoted = renderChatChoiceForTurn({ o: 0, c: 1, q: 0 }, "th", LEAK.answer_th, true);
     expect(quoted).toContain(LEAK.answer_th);
+    // A different quoted card stays in the chat bubble when a closer also shows.
+    const other = renderChatChoiceForTurn({ o: 0, c: 1, q: 0 }, "th", LEAK.answer_th, true, "บัตรปิดคนละใบ");
+    expect(other).toContain(LEAK.answer_th);
   });
 
   it("4 QUESTION: remaining < 8 s skips model card pick; 45 s whole-turn budget; no holding line", async () => {
@@ -243,5 +274,98 @@ describe("PR #41 round-1 concrete inputs", () => {
   it("stack: this branch is not independent of #38/#39 (base is feat/chat-grounded-replies)", () => {
     const names = execSync("git log --oneline -20", { encoding: "utf8" });
     expect(names).toMatch(/#38|#39|chat-crisis|chat-thinking|grounded/);
+  });
+});
+
+describe("PR #41 round-3 Codex MEDIUM findings", () => {
+  it("fallback: ft 0.6B present loads qwen3-0.6b-ft (mocked install, no real weights)", async () => {
+    const files: string[] = [];
+    const statuses: ModelStatus[] = [];
+    const a = await startModel((s) => statuses.push({ ...s }), {
+      search: "",
+      gpuInfo: async () => ({ ok: false, f16: false }),
+      installed: async () => [{ model: "qwen3-0.6b-ft", variants: ["wasm"] }],
+      loadWllama: async (file, label, onP) => {
+        files.push(file);
+        onP(1);
+        return fakeWasm(label);
+      },
+    });
+    expect(a?.runtime).toBe("wasm");
+    expect(files).toEqual([FT_GGUF_FILE]);
+    expect(statuses.at(-1)).toMatchObject({ state: "ready", runtime: "wasm", label: FT_LABEL });
+    expect(modelPillCopy(statuses.at(-1)!).text).not.toBe(RULES_PILL);
+  });
+
+  it("fallback: ft 0.6B missing + 1.7B present loads qwen3-1.7b (mocked install, no real weights)", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const files: string[] = [];
+    const statuses: ModelStatus[] = [];
+    const loadWllama = vi.fn(async (file: string, label: string, onP: (n: number) => void) => {
+      files.push(file);
+      onP(1);
+      return fakeWasm(label);
+    });
+    const a = await startModel((s) => statuses.push({ ...s }), {
+      search: "",
+      gpuInfo: async () => ({ ok: false, f16: false }),
+      installed: async () => [{ model: "qwen3-1.7b", variants: ["wasm"] }],
+      loadWllama,
+    });
+    expect(warn.mock.calls.map((c) => c.map(String).join(" ")).join("\n")).toContain("Falling back to qwen3-1.7b");
+    warn.mockRestore();
+    expect(a).not.toBeNull();
+    expect(a?.runtime).toBe("wasm");
+    expect(files).toEqual([SEVENTEEN_FILE]);
+    expect(statuses.at(-1)).toMatchObject({ state: "ready", runtime: "wasm", label: SEVENTEEN_LABEL });
+    expect(modelPillCopy(statuses.at(-1)!).text).toContain(SEVENTEEN_LABEL);
+    expect(modelPillCopy(statuses.at(-1)!).text).not.toBe(RULES_PILL);
+  });
+
+  it("fallback: ft 0.6B and 1.7B both missing stays rules-only with warn + failed pill", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const loadWllama = vi.fn();
+    const statuses: ModelStatus[] = [];
+    const a = await startModel((s) => statuses.push({ ...s }), {
+      search: "",
+      gpuInfo: async () => ({ ok: false, f16: false }),
+      installed: async () => [],
+      loadWllama,
+    });
+    expect(a).toBeNull();
+    expect(loadWllama).not.toHaveBeenCalled();
+    const last = statuses.at(-1)!;
+    expect(last.state).toBe("failed");
+    expect(last.runtime).toBe("rules");
+    expect(modelPillCopy(last).text).toBe(RULES_PILL);
+    expect(warn.mock.calls.map((c) => c.map(String).join(" ")).join("\n")).toContain(missingLocalModelWarning("qwen3-0.6b-ft"));
+    warn.mockRestore();
+  });
+
+  it("duplicate: c=1 quoting the same card as the closer shows the answer once", async () => {
+    const model: DialogModel = {
+      ready: () => true,
+      chatReply: async () => '{"o":0,"c":1,"q":0}',
+      pickCard: async () => "none",
+    };
+    const r = await runTurn(newDialog("18-24"), SHOW_CARD_Q, deps(model));
+    expect(r.reply.kind).toBe("chat");
+    if (r.reply.kind !== "chat") return;
+    expect(r.reply.card?.id).toBe(LEAK.id);
+    expect(r.reply.cardText).toBe(LEAK.answer_th);
+    expect(r.reply.text).toBe(formatChatReply(CHAT_OPENERS_TH[0]!, "", CHAT_FOLLOWUPS_TH[0]!));
+    expect(r.reply.text).not.toContain(LEAK.answer_th);
+
+    const same = renderChatChoiceForTurn({ o: 0, c: 1, q: 0 }, "th", LEAK.answer_th, true, LEAK.answer_th);
+    expect(same).toBe(formatChatReply(CHAT_OPENERS_TH[0]!, "", CHAT_FOLLOWUPS_TH[0]!));
+    expect(same).not.toContain(LEAK.answer_th);
+
+    const chat = newChat("18-24", model, null, { chatFirst: true });
+    await sendToChat(chat, SHOW_CARD_Q, chatHooks());
+    const jane = janeThisTurn(chat.messages, SHOW_CARD_Q);
+    const hits = jane.filter((m) => m.text.includes(LEAK.answer_th));
+    expect(hits).toHaveLength(1);
+    expect(hits[0]!.cardId).toBe(LEAK.id);
+    expect(jane.find((m) => !m.cardId)?.text).not.toContain(LEAK.answer_th);
   });
 });

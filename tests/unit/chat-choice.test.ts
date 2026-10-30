@@ -176,6 +176,12 @@ describe("renderChatChoice (whole card or none)", () => {
     expect(text).toContain(CONDOM.answer_th);
   });
 
+  it("when the closer is the same card, c=1 omits the quote so the answer shows once", () => {
+    const text = renderChatChoiceForTurn({ o: 0, c: 1, q: 0 }, "th", CONDOM.answer_th, true, CONDOM.answer_th);
+    expect(text).toBe(formatChatReply(CHAT_OPENERS_TH[0]!, "", CHAT_FOLLOWUPS_TH[0]!));
+    expect(text).not.toContain(CONDOM.answer_th);
+  });
+
   it("c=1 with no card bubble still includes the exact full answer_th", () => {
     const text = renderChatChoiceForTurn({ o: 0, c: 1, q: 0 }, "th", CONDOM.answer_th, false);
     expect(text).toBe(formatChatReply(CHAT_OPENERS_TH[0]!, CONDOM.answer_th, CHAT_FOLLOWUPS_TH[0]!));
