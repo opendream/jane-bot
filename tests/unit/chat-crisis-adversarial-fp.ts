@@ -21,7 +21,7 @@ export const CODEX_CITED_FP_LINES: readonly string[] = [
   "does HIV die outside the body",
 ];
 
-/** Round-3 / Thai-only scope: card lines that do not contain die/kms/suicidal/cut myself as crisis phrases (e.g. don't wanna die, cut my skin shaving, condom got cut). */
+/** Round-3 / Thai-only scope. Under option 1 the wanna-die / ไม่อยาก die rows are CLEAR; the rest stay NONE. */
 export const CODEX_THAI_ONLY_CARD_LINES: readonly string[] = [
   "I don't wanna die, is HIV curable",
   "i dont wanna die",
@@ -40,11 +40,9 @@ export const CODEX_THAI_ONLY_CARD_LINES: readonly string[] = [
 ];
 
 /**
- * Round-4 precision-guard lines. A crisis word sits with a negation, side-effect
- * question, or same-clause accidental cause: extra check outcome is AMBIGUOUS
- * (never NONE; never the crisis screen). Chat-first talks first; card-first
- * stays on the bank card plus the DRAFT soft line. Pin misses every line.
- * มีดโกน is a self-harm tool, not an accident cue — those lines are CLEAR.
+ * Round-4 crisis-word lines that used to be precision-guard AMBIGUOUS.
+ * Option 1: any crisis word is CLEAR (full crisis screen, 0 model calls).
+ * Pin misses every line. มีดโกน is a self-harm tool, not an accident cue.
  */
 export const ROUND4_PRECISION_CARD_LINES: readonly string[] = [
   // Converted 708933e safe-side block
@@ -147,8 +145,8 @@ export const ROUND5_MUST_TRIGGER_CLEAR: readonly string[] = [
 ];
 
 /**
- * Codex remaining false positives: crisis word + cue → AMBIGUOUS (never CLEAR,
- * never NONE; chat-first talks first plus the DRAFT soft line). Pin misses.
+ * Round-5 crisis-word + cue lines that used to be AMBIGUOUS.
+ * Option 1: any crisis word is CLEAR. Pin misses.
  */
 export const ROUND5_AMBIGUOUS_LINES: readonly string[] = [
   "หนูไม่ค่อยอยาก die นะ แค่ถามเรื่อง HIV",
@@ -163,9 +161,9 @@ export const ROUND5_AMBIGUOUS_LINES: readonly string[] = [
 
 /**
  * ≥150 synthetic lines. Pronoun-led Thai questions + English equivalents + mixed
- * health wording + Codex cited lines. Each must keep the card-first bank card
- * (no crisis) and must not open crisis on chat-first. Precision-guard and
- * round-5 remaining FPs are AMBIGUOUS (not NONE).
+ * health wording + Codex cited lines. Health-sense lines stay NONE. Crisis-word
+ * lines in ROUND4_PRECISION_CARD_LINES / ROUND5_AMBIGUOUS_LINES / negated
+ * wanna-die forms are CLEAR under option 1.
  */
 export const ADVERSARIAL_CHAT_CRISIS_FP: readonly string[] = [
   ...CODEX_CITED_FP_LINES,
@@ -416,7 +414,7 @@ export const ADVERSARIAL_CHAT_CRISIS_FP: readonly string[] = [
 
 /**
  * Real disclosures mixed with razor/shaving, side-effect, help-seeking, and
- * negation cue words. None of these may be NONE (CLEAR or AMBIGUOUS only).
+ * negation cue words. None of these may be NONE (option 1: crisis word → CLEAR).
  */
 export const ADVERSARIAL_CUE_MIX: readonly string[] = [
   ...ROUND5_MUST_TRIGGER_CLEAR,

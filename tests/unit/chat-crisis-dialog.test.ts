@@ -556,9 +556,12 @@ const EN_EXACT_PHRASE = [
   "I'm suicidal",
 ];
 
-const EN_EXACT_CARD = [
+const EN_EXACT_NOW_CLEAR = [
   "I don't wanna die, is HIV curable",
   "i dont wanna die",
+];
+
+const EN_EXACT_CARD = [
   "can birth control cause suicidal thoughts",
   "can PrEP cause suicidal thoughts?",
   "does the morning after pill cause suicidal thoughts",
@@ -585,7 +588,24 @@ describe("exact English phrases: crisis screen, 0 model calls, both paths", () =
   });
 });
 
-describe("don't-wanna-die and Codex card lines, both paths", () => {
+describe("option 1: don't-wanna-die is CLEAR, both paths, 0 model calls", () => {
+  it.each(EN_EXACT_NOW_CLEAR)("chat-first %s", async (text) => {
+    expect(detectCrisis(text).crisis, text).toBe(false);
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, chatDeps(model));
+    expect(r.reply.kind, text).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
+  });
+
+  it.each(EN_EXACT_NOW_CLEAR)("card-first %s", async (text) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, cardDeps(model));
+    expect(r.reply.kind, text).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
+  });
+});
+
+describe("health-sense Codex card lines, both paths", () => {
   it.each(EN_EXACT_CARD)("chat-first %s", async (text) => {
     expect(detectCrisis(text).crisis, text).toBe(false);
     const { model, calls } = spyModel();
@@ -634,29 +654,28 @@ const ROUND4_DIALOG_MUST_TRIGGER = [
   "หนูไม่อยาก die แต่ไม่อยากอยู่แล้ว",
 ];
 
-describe("round-4 precision guards stay on the card, both paths", () => {
+describe("round-4 crisis-word lines are CLEAR under option 1, both paths, 0 model calls", () => {
   it.each(ROUND4_PRECISION_CARD_LINES)("chat-first %s", async (text) => {
     expect(detectCrisis(text).crisis, text).toBe(false);
     const { model, calls } = spyModel();
     const r = await runTurn(newDialog(), text, chatDeps(model));
-    expect(r.reply.kind, text).not.toBe("crisis");
-    expect(calls.chat + calls.pick + calls.reword, text).toBeGreaterThanOrEqual(0);
+    expect(r.reply.kind, text).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
   });
 
-  it.each(PRECISION_CARD_WITH_ID)("card-first $text → $id", async ({ text, id }) => {
+  it.each(PRECISION_CARD_WITH_ID)("card-first $text is crisis (was $id)", async ({ text }) => {
     expect(detectCrisis(text).crisis, text).toBe(false);
     const { model, calls } = spyModel();
     const r = await runTurn(newDialog("18-24"), text, cardDeps(model));
-    expect(r.reply.kind, text).toBe("card");
-    if (r.reply.kind === "card") expect(r.reply.card.id, text).toBe(id);
-    expect(typeof (calls.chat + calls.pick + calls.reword)).toBe("number");
+    expect(r.reply.kind, text).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
   });
 
-  it.each(ROUND4_PRECISION_CARD_LINES)("card-first not crisis: %s", async (text) => {
+  it.each(ROUND4_PRECISION_CARD_LINES)("card-first crisis: %s", async (text) => {
     const { model, calls } = spyModel();
     const r = await runTurn(newDialog("18-24"), text, cardDeps(model));
-    expect(r.reply.kind, text).toBe("card");
-    expect(typeof (calls.chat + calls.pick + calls.reword)).toBe("number");
+    expect(r.reply.kind, text).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
   });
 });
 

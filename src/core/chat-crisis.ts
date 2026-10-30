@@ -8,35 +8,23 @@
  * SARA AM). Thai matches run on compact() (NFC, zero-width stripped, spaces
  * removed). English uses lowercased normalize() with curly quotes folded.
  * Mixed Thai-English true positives use Thai wording immediately before the
- * token: อยาก/คิดจะ die|kms|unalive (not ไม่อยาก), รู้สึก suicidal,
- * cut ตัวเอง/แขน/ข้อมือ, (แฟน|พ่อ|แม่|…) abuse (หนู|ฉัน|…). Exact English
- * phrases: kill/killing myself, kms as a bare line or after gonna/going to/
- * will/want to/wanna (never a distance "N kms"), commit suicide, wanna/want
- * to die (not don't/dont/do not/never + up to 2 words + wanna/want to die),
- * end my life, I was raped / he raped me, self-harm / self harm,
- * cut/cutting myself (CLEAR unless the same clause is an explicit accidental
- * construction: accidentally cut / cut myself shaving / by accident; a bare
- * tool noun is never a cue; repetition ทุกคืน/every night stays CLEAR),
- * i'm/i am suicidal, I have / i'm having suicidal thoughts, I don't/dont/do
- * not want to live (not "live with"; "in fear" / "together" is AMBIGUOUS).
- * Thai mixed: อยาก/คิดจะ + die/kms/unalive unless a NARROW predicate-start
- * negation (ไม่/ไม่ค่อย/ไม่เคย/ไม่คิดจะ/ไม่ได้ at clause start or right after
- * หนู/เรา/ฉัน/ผม/กู/ดิฉัน/เค้า, optional ก็) immediately precedes อยาก/รู้สึก/คิด
- * + the crisis term. A ไม่ได้ that follows any other Thai word is never
- * negation. รู้สึก/หนู/ผม suicidal unless the CAUSE is a closed-list medication
- * or medical product AND the question is about that feeling as an effect
- * (ผลข้างเคียง/side effect, '<drug> ทำให้รู้สึก X ได้ไหม', or กิน/ใช้/ฉีด <drug>
- * แล้วรู้สึก X + clause-final question). A person or place as cause stays CLEAR.
- * cut ตัวเอง / ข้อมือ / แขน with the speaker as subject, or any repetition
- * marker (ทุกคืน/ทุกวัน/บ่อย/อีกแล้ว/every night), is CLEAR whatever tool is
- * named. Downgrade only for an explicit accidental construction (โดน X บาด,
- * เผลอทำ X บาด, บาดตอนโกน/ตอนทำกับข้าว, accidentally cut / cut myself shaving).
- * A bare tool noun is never a cue. Guards only downgrade CLEAR → AMBIGUOUS,
- * never to NONE, and only on a narrow positive match of the whole construction.
- * Everything else stays CLEAR. Help-seeking tails never weaken a disclosure.
- * The multi-turn window may only escalate to CLEAR. Everything else in English
- * goes to the normal card. NFKC + lowercase + Latin fold run before the check
- * (prepCheckText), including English-only lines.
+ * token: อยาก/คิดจะ die|kms|unalive (not ไม่อยาก as a separate sense — option 1
+ * still treats the crisis word as CLEAR), รู้สึก suicidal, cut ตัวเอง/แขน/ข้อมือ,
+ * (แฟน|พ่อ|แม่|…) abuse (หนู|ฉัน|…). Exact English phrases: kill/killing myself,
+ * kms as a bare line or after gonna/going to/will/want to/wanna (never a
+ * distance "N kms"), commit suicide, wanna/want to die, end my life,
+ * I was raped / he raped me, self-harm / self harm, cut/cutting myself,
+ * i'm/i am suicidal, I have / i'm having suicidal thoughts,
+ * I don't/dont/do not want to live (not "live with").
+ *
+ * Option 1 (Keng, 30 Oct 2026): any crisis-word match is CLEAR. There are no
+ * precision downgrades. Negation, side-effect questions, and accidental-cut
+ * frames that still contain a crisis word stay CLEAR (false alarms accepted).
+ * AMBIGUOUS is only vague distress with no crisis word (weak cues).
+ * Help-seeking tails never weaken a disclosure. The multi-turn window may
+ * only escalate to CLEAR. Everything else in English goes to the normal card.
+ * NFKC + lowercase + Latin fold run before the check (prepCheckText),
+ * including English-only lines.
  *
  * The in-memory reason tag is "chat-crisis" (distinct from "rules-crisis"). It
  * stores rule ids only — never user text — and is compiled out of production.
@@ -50,10 +38,10 @@ export interface ChatCrisisRule {
   lang: "th" | "en";
   re: RegExp;
   /**
-   * True = this match is AMBIGUOUS (never NONE). Other crisis wording in the
-   * same message can still be CLEAR. Unclear cues must return false (stay CLEAR).
+   * Weak-cue rule: a match is AMBIGUOUS (never NONE, never CLEAR by itself).
+   * A crisis-word rule in the same message still wins as CLEAR.
    */
-  skip?: (text: string, match: RegExpMatchArray) => boolean;
+  ambiguous?: boolean;
 }
 
 export type ChatCrisisOutcome = "clear" | "ambiguous" | "none";
@@ -100,178 +88,56 @@ export const TH_RULES: ChatCrisisRule[] = [
 /**
  * Mixed Thai wording + English token, and a short exact English phrase list.
  * Jane is Thai-only: fuzzy English (bare die/cut/abuse, forced/forcing,
- * bare suicidal, tenses) is not matched. Precision guards (negation, up to 2
- * intervening English words, same-clause side-effect questions, same-clause
- * accidental cut) only downgrade that phrase CLEAR → AMBIGUOUS — never NONE,
- * never a separate crisis phrase in the message. A guard fires only on a
- * NARROW POSITIVE match of the whole downgrade construction; anything else
- * stays CLEAR. No exception allowlists.
+ * bare suicidal, tenses) is not matched. Option 1: a crisis-word match is
+ * always CLEAR. No precision downgrades.
  */
 
-/** First-person pronouns that may sit immediately before a predicate-start ไม่. */
-const NEG_ME_TH = "(?:หนู|เรา|ฉัน|ผม|กู|ดิฉัน|เค้า)";
+export const EN_RULES: ChatCrisisRule[] = [
+  { id: "EN-T die", cat: "self_harm", lang: "en", re: /(?:คิดจะ|อยากจะ|อยาก)\s?\bdie\b/ },
+  { id: "EN-T kms", cat: "self_harm", lang: "en", re: /(?:คิดจะ|อยากจะ|อยาก)\s?\bkms\b/ },
+  { id: "EN-T suicidal", cat: "self_harm", lang: "en", re: /(?:รู้สึก|(?:หนู|ฉัน|ผม|เรา|กู))\s*suicidal\b/ },
+  { id: "EN-T abuse", cat: "violence_danger", lang: "en", re: /(?:แฟน|พ่อเลี้ยง|แม่เลี้ยง|พ่อ|แม่|พี่ชาย|พี่สาว|พี่|เขา)\s*abuse(?:s|d|ing)?\s*(?:หนู|ฉัน|ผม|เรา)/ },
+  { id: "EN-T cut", cat: "self_harm", lang: "en", re: /(?:หนู|ฉัน|ผม|เรา|อยาก(?:จะ)?|คิดจะ)\s?\bcut\s?ตัวเอง|\bcut\s?(?:แขน|ข้อมือ)/ },
+  { id: "EN-T unalive", cat: "self_harm", lang: "en", re: /(?:คิดจะ|อยากจะ|อยาก)\s?\bunalive\b|\bunalive\s?ตัวเอง/ },
+  { id: "EN kill myself", cat: "self_harm", lang: "en", re: /\bkill(?:ing)? myself\b/ },
+  { id: "EN kms", cat: "self_harm", lang: "en", re: /^kms[.!?]*$|\b(?:gonna|going to|will|want to|wanna) kms\b/ },
+  { id: "EN commit suicide", cat: "self_harm", lang: "en", re: /\bcommit suicide\b/ },
+  { id: "EN want to die", cat: "self_harm", lang: "en", re: /\b(?:wanna|want to) die\b/ },
+  { id: "EN end my life", cat: "self_harm", lang: "en", re: /\bend my life\b(?! insurance)/ },
+  { id: "EN raped", cat: "sexual_violence", lang: "en", re: /\bi was raped\b|\bhe raped me\b/ },
+  { id: "EN self-harm", cat: "self_harm", lang: "en", re: /\bself-harm\b|\bself harm\b/ },
+  { id: "EN cut myself", cat: "self_harm", lang: "en", re: /\bcut(?:ting)? myself\b/ },
+  { id: "EN i'm suicidal", cat: "self_harm", lang: "en", re: /\bi(?:'m| am) suicidal\b|\bi(?:'m| am) having suicidal thoughts\b|\bi have suicidal thoughts\b/ },
+  { id: "EN don't want to live", cat: "self_harm", lang: "en", re: /\bi (?:don't|dont|do not) want to live(?: anymore)?(?! with)\b/ },
+];
+
 /**
- * ไม่ / ไม่ค่อย / ไม่เคย / ไม่เคยคิด / ไม่คิดจะ / ไม่ได้ / ไม่ได้คิดจะ at the
- * predicate start: clause start, or right after a first-person pronoun
- * (optional ก็). Must sit at the end of `before` (immediately before อยาก/
- * รู้สึก/คิด + the crisis term). A ไม่ได้ after any other Thai word is not this.
+ * Vague distress with no crisis word. A match is AMBIGUOUS. Closed list: must
+ * not fire on the 12 NONE eval tables (1839). Everyday SRH "กังวล"/"เครียด"
+ * stays NONE.
  */
-const PREDICATE_START_NEG = new RegExp(
-  `(?:^|(?:${NEG_ME_TH})\\s*(?:ก็\\s*)?)ไม่(?:\\s*ค่อย|\\s*เคย(?:\\s*คิด)?|\\s*ได้(?:\\s*คิดจะ)?|\\s*คิดจะ)?\\s*$`,
-);
-const THAI_INTENT_SUFFIX = /(?:อยาก(?:\s*จะ)?|คิดจะ|รู้สึก)\s*$/;
-const EN_DIE_NEG = /(?:don't|dont|do not|never)(?: +\w+){0,2} +$/;
-/**
- * Explicit accidental constructions only. Reflexive cut ตัวเอง / ข้อมือ / แขน
- * and any repetition marker stay CLEAR; a bare tool noun is never a cue.
- */
-const CUT_REPEAT = /ทุกคืน|ทุกวัน|บ่อย|อีกแล้ว|\bevery\s+(?:night|day)\b|\boften\b/i;
-const EXPLICIT_ACCIDENT =
-  /โดน.{0,16}บาด|เผลอ(?:ทำ.{0,16})?บาด|บาดตอนโกน|ตอนโกน|ตอนทำกับข้าว|accidentally\s+cut(?:ting)?(?:\s+myself)?|\bcut(?:ting)? myself\b[\s\S]{0,40}\bshav(?:e|ing|ed)\b|\bshav(?:e|ing|ed)\b[\s\S]{0,40}\bcut(?:ting)? myself\b|by accident/i;
-/** Help-seeking tails never weaken a disclosure (never downgrade CLEAR). */
-const HELP_SEEKING = /มีใครช่วย|ช่วย(?:หนู|ฉัน|ผม|เรา|กู)?ได้ไหม|คุยได้ไหม|ทำไงดี|ทำยังไงดี/;
-/**
- * Closed medication / medical-product list (cause of a side-effect question).
- * Generic ยา only counts with an intake verb. Longest first.
- */
-const DRUG_TH = "(?:ยาคุมฉุกเฉิน|ยาคุม|ยาต้านไวรัส|ยาฝัง(?:คุมกำเนิด)?|ยาฉีด(?:คุมกำเนิด)?|ฮอร์โมน|วัคซีน|เพร็พ|ถุงยาง)";
-const DRUG_EN =
-  "(?:birth\\s+control|morning[-\\s]?after(?:\\s+pill)?|emergency\\s+contraception|\\bprep\\b|\\bpep\\b|\\barv\\b|\\biud\\b|\\bcondoms?\\b|\\bvaccines?\\b|\\bhormones?\\b)";
-const DRUG_NAME = new RegExp(`${DRUG_TH}|${DRUG_EN}`, "i");
-const DRUG_INTAKE = /(?:กิน|ใช้|ฉีด)\s*ยา/;
-/** กิน/ใช้/ฉีด <medication> แล้ว immediately before the feeling. */
-const DRUG_INTAKE_THEN = new RegExp(
-  `(?:กิน|ใช้|ฉีด)\\s*(?:${DRUG_TH}|${DRUG_EN}|ยา[\\wก-๙]*)[ก-๙A-Za-z0-9\\s]{0,24}แล้ว\\s*(?:หนู|เรา|ฉัน|ผม|กู)?\\s*$`,
-  "i",
-);
-const CLAUSE_FINAL_Q = /(?:ได้)?ไหม|มั้ย|\?/;
+export const WEAK_TH_RULES: ChatCrisisRule[] = [
+  { id: "TH-W hopeless", cat: "self_harm", lang: "th", re: /สิ้นหวัง|หมดหวัง|ท้อแท้/, ambiguous: true },
+  { id: "TH-W no way forward", cat: "self_harm", lang: "th", re: /ไม่รู้จะไปต่อ|ไม่เห็นทางออก/, ambiguous: true },
+  { id: "TH-W want to disappear", cat: "self_harm", lang: "th", re: /อยากหายไป/, ambiguous: true },
+];
 
-function isThaiChar(c: string): boolean {
-  return /\p{Script=Thai}/u.test(c);
-}
+export const WEAK_EN_RULES: ChatCrisisRule[] = [
+  { id: "EN-W hopeless", cat: "self_harm", lang: "en", re: /\bhopeless\b/, ambiguous: true },
+  { id: "EN-W empty", cat: "self_harm", lang: "en", re: /\bi feel empty\b/, ambiguous: true },
+  { id: "EN-W no way forward", cat: "self_harm", lang: "en", re: /\bdon'?t see a way forward\b|\bno way out\b/, ambiguous: true },
+];
 
-/** Clause starts: .!?, Thai particles, แล้ว, question particles, first-person new statements, and spaces between Thai runs. */
-function clauseStarts(text: string): number[] {
-  const starts = new Set<number>([0]);
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (".!?,".includes(ch)) starts.add(i + 1);
-    if (/\s/.test(ch)) {
-      let left = i - 1;
-      while (left >= 0 && /\s/.test(text[left])) left--;
-      let right = i + 1;
-      while (right < text.length && /\s/.test(text[right])) right++;
-      if (left >= 0 && right < text.length && isThaiChar(text[left]) && isThaiChar(text[right])) {
-        starts.add(right);
-      }
-    }
-  }
-  const particle = /ค่ะ|ครับ|คะ|นะครับ|นะคะ|นะ(?=\s|[.!?.,]|$)|แล้ว/g;
-  for (const m of text.matchAll(particle)) {
-    starts.add((m.index ?? 0) + m[0].length);
-  }
-  // Unspaced Thai: split after a question particle when more Thai follows.
-  const qEnd = /ไหม|มั้ย|หรือเปล่า|ป่ะ/g;
-  for (const m of text.matchAll(qEnd)) {
-    const end = (m.index ?? 0) + m[0].length;
-    const next = text[end];
-    if (next && isThaiChar(next)) starts.add(end);
-  }
-  // First-person pronoun starting a new statement after ผลข้างเคียง (no ไหม).
-  const afterSe = /ผลข้างเคียง(?=หนู|เรา|ฉัน|ผม|กู)/g;
-  for (const m of text.matchAll(afterSe)) {
-    starts.add((m.index ?? 0) + m[0].length);
-  }
-  return [...starts].filter((i) => i >= 0 && i <= text.length).sort((a, b) => a - b);
-}
+export const TH_F_ID = "TH-F bare follow-up after violence cue";
 
-function thaiNegationGoverns(before: string): boolean {
-  return PREDICATE_START_NEG.test(before);
-}
-
-function clauseBounds(text: string, index: number): { start: number; end: number } {
-  const starts = clauseStarts(text);
-  let start = 0;
-  let end = text.length;
-  for (const s of starts) {
-    if (s <= index) start = s;
-    else {
-      end = s;
-      break;
-    }
-  }
-  return { start, end };
-}
-
-function skipThaiNegatedIntent(text: string, m: RegExpMatchArray): boolean {
-  const before = text.slice(0, m.index ?? 0);
-  if (thaiNegationGoverns(before)) return true;
-  if (THAI_INTENT_SUFFIX.test(before) && thaiNegationGoverns(before.replace(THAI_INTENT_SUFFIX, ""))) {
-    return true;
-  }
-  return false;
-}
-
-function skipEnglishDieNegation(text: string, m: RegExpMatchArray): boolean {
-  return EN_DIE_NEG.test(text.slice(0, m.index ?? 0));
-}
-
-function skipSuicidalSideEffect(text: string, m: RegExpMatchArray): boolean {
-  const idx = m.index ?? 0;
-  const before = text.slice(0, idx);
-  const rest = text.slice(idx);
-  const { start, end } = clauseBounds(text, idx);
-  if (thaiNegationGoverns(before) && /^รู้สึก/.test(rest)) return true;
-  if (thaiNegationGoverns(before.replace(/\s*รู้สึก\s*$/, "")) && (/^รู้สึก/.test(rest) || /รู้สึก\s*$/.test(before))) {
-    return true;
-  }
-  // Help-seeking tails never weaken a disclosure.
-  if (HELP_SEEKING.test(rest)) return false;
-  const pre = text.slice(start, idx);
-  const post = text.slice(idx, end);
-  const clause = text.slice(start, end);
-  if (HELP_SEEKING.test(post) || HELP_SEEKING.test(clause)) return false;
-  const madeAt = pre.search(/ทำให้/);
-  const cause = madeAt >= 0 ? pre.slice(0, madeAt) : "";
-  const drugCause = (s: string) => DRUG_NAME.test(s) || DRUG_INTAKE.test(s);
-  // Tied to the crisis term: drug + "เป็นผลข้างเคียง / side effect" + question.
-  if (drugCause(clause) && /เป็นผลข้างเคียง|ผลข้างเคียง/.test(post) && CLAUSE_FINAL_Q.test(post)) return true;
-  if (drugCause(clause) && /\bside[ -]?effects?\b/.test(post) && CLAUSE_FINAL_Q.test(post)) return true;
-  // <drug> ทำให้รู้สึก X ได้ไหม — person/place as cause stays CLEAR.
-  if (madeAt >= 0 && drugCause(cause) && /รู้สึก/.test(pre + rest.slice(0, 12)) && CLAUSE_FINAL_Q.test(post)) return true;
-  if (drugCause(pre) && /\bcauses?\b/.test(pre) && /\?/.test(post)) return true;
-  // กิน/ใช้/ฉีด <drug> แล้วรู้สึก X + clause-final question.
-  if (DRUG_INTAKE_THEN.test(before) && CLAUSE_FINAL_Q.test(post)) return true;
-  return false;
-}
-
-function skipDontWantToLive(text: string, m: RegExpMatchArray): boolean {
-  const after = text.slice((m.index ?? 0) + m[0].length);
-  if (/^\s+in fear\b/.test(after)) return true;
-  if (/^\s+together\b/.test(after)) return true;
-  return false;
-}
-
-function skipAccidentalCut(text: string, m: RegExpMatchArray): boolean {
-  const { start, end } = clauseBounds(text, m.index ?? 0);
-  const clause = text.slice(start, end);
-  // Reflexive self-cut or any repetition marker is always CLEAR, whatever tool.
-  if (CUT_REPEAT.test(clause)) return false;
-  return EXPLICIT_ACCIDENT.test(clause);
-}
+const prepTh = (t: string) => compact(prepCheckText(t));
+const prepEn = (t: string) => normalize(prepCheckText(t)).replace(/[\u2018\u2019]/g, "'");
 
 function classifyRule(rule: ChatCrisisRule, text: string): ChatCrisisOutcome {
   const flags = rule.re.flags.includes("g") ? rule.re.flags : `${rule.re.flags}g`;
   const re = new RegExp(rule.re.source, flags);
-  let ambiguous = false;
-  for (const m of text.matchAll(re)) {
-    if (rule.skip?.(text, m)) {
-      ambiguous = true;
-      continue;
-    }
-    return "clear";
-  }
-  return ambiguous ? "ambiguous" : "none";
+  if (![...text.matchAll(re)].length) return "none";
+  return rule.ambiguous ? "ambiguous" : "clear";
 }
 
 function makeHit(outcome: ChatCrisisOutcome, rules: ChatCrisisRule[]): ChatCrisisHit {
@@ -286,30 +152,6 @@ function makeHit(outcome: ChatCrisisOutcome, rules: ChatCrisisRule[]): ChatCrisi
   };
 }
 
-export const EN_RULES: ChatCrisisRule[] = [
-  { id: "EN-T die", cat: "self_harm", lang: "en", re: /(?:คิดจะ|อยากจะ|อยาก)\s?\bdie\b/, skip: skipThaiNegatedIntent },
-  { id: "EN-T kms", cat: "self_harm", lang: "en", re: /(?:คิดจะ|อยากจะ|อยาก)\s?\bkms\b/, skip: skipThaiNegatedIntent },
-  { id: "EN-T suicidal", cat: "self_harm", lang: "en", re: /(?:รู้สึก|(?:หนู|ฉัน|ผม|เรา|กู))\s*suicidal\b/, skip: skipSuicidalSideEffect },
-  { id: "EN-T abuse", cat: "violence_danger", lang: "en", re: /(?:แฟน|พ่อเลี้ยง|แม่เลี้ยง|พ่อ|แม่|พี่ชาย|พี่สาว|พี่|เขา)\s*abuse(?:s|d|ing)?\s*(?:หนู|ฉัน|ผม|เรา)/ },
-  { id: "EN-T cut", cat: "self_harm", lang: "en", re: /(?:หนู|ฉัน|ผม|เรา|อยาก(?:จะ)?|คิดจะ)\s?\bcut\s?ตัวเอง|\bcut\s?(?:แขน|ข้อมือ)/, skip: skipAccidentalCut },
-  { id: "EN-T unalive", cat: "self_harm", lang: "en", re: /(?:คิดจะ|อยากจะ|อยาก)\s?\bunalive\b|\bunalive\s?ตัวเอง/, skip: skipThaiNegatedIntent },
-  { id: "EN kill myself", cat: "self_harm", lang: "en", re: /\bkill(?:ing)? myself\b/ },
-  { id: "EN kms", cat: "self_harm", lang: "en", re: /^kms[.!?]*$|\b(?:gonna|going to|will|want to|wanna) kms\b/ },
-  { id: "EN commit suicide", cat: "self_harm", lang: "en", re: /\bcommit suicide\b/ },
-  { id: "EN want to die", cat: "self_harm", lang: "en", re: /\b(?:wanna|want to) die\b/, skip: skipEnglishDieNegation },
-  { id: "EN end my life", cat: "self_harm", lang: "en", re: /\bend my life\b(?! insurance)/ },
-  { id: "EN raped", cat: "sexual_violence", lang: "en", re: /\bi was raped\b|\bhe raped me\b/ },
-  { id: "EN self-harm", cat: "self_harm", lang: "en", re: /\bself-harm\b|\bself harm\b/ },
-  { id: "EN cut myself", cat: "self_harm", lang: "en", re: /\bcut(?:ting)? myself\b/, skip: skipAccidentalCut },
-  { id: "EN i'm suicidal", cat: "self_harm", lang: "en", re: /\bi(?:'m| am) suicidal\b|\bi(?:'m| am) having suicidal thoughts\b|\bi have suicidal thoughts\b/, skip: skipSuicidalSideEffect },
-  { id: "EN don't want to live", cat: "self_harm", lang: "en", re: /\bi (?:don't|dont|do not) want to live(?: anymore)?(?! with)\b/, skip: skipDontWantToLive },
-];
-
-export const TH_F_ID = "TH-F bare follow-up after violence cue";
-
-const prepTh = (t: string) => compact(prepCheckText(t));
-const prepEn = (t: string) => normalize(prepCheckText(t)).replace(/[\u2018\u2019]/g, "'");
-
 export function detectChatCrisis(text: string): ChatCrisisHit {
   const th = prepTh(text);
   const en = prepEn(text);
@@ -321,6 +163,16 @@ export function detectChatCrisis(text: string): ChatCrisisHit {
     else if (o === "ambiguous") ambiguous.push(r);
   }
   for (const r of EN_RULES) {
+    const o = classifyRule(r, en);
+    if (o === "clear") clear.push(r);
+    else if (o === "ambiguous") ambiguous.push(r);
+  }
+  for (const r of WEAK_TH_RULES) {
+    const o = classifyRule(r, th);
+    if (o === "clear") clear.push(r);
+    else if (o === "ambiguous") ambiguous.push(r);
+  }
+  for (const r of WEAK_EN_RULES) {
     const o = classifyRule(r, en);
     if (o === "clear") clear.push(r);
     else if (o === "ambiguous") ambiguous.push(r);

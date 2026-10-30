@@ -30,7 +30,9 @@ import {
 const DRAFT_SOFT_LINE = "ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ";
 const SAFE_CHAT = "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย";
 const NONE_CONTROL = "ช่วงนี้กังวลเรื่องแฟน";
-const THAI_AMBIGUOUS = "หนูไม่ค่อยอยาก die นะ แค่ถามเรื่อง HIV";
+/** Vague distress, no crisis word. Option 1: AMBIGUOUS only for weak cues. */
+const THAI_AMBIGUOUS = "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง";
+const EN_AMBIGUOUS = "I feel so hopeless about everything";
 const GUARD_FAIL_CHAT = "กิน 2 เม็ด แล้วไม่ท้องแน่ https://evil.test";
 
 const EXISTING_MUST_TRIGGER = [
@@ -138,22 +140,23 @@ describe("existing must-triggers stay CLEAR", () => {
   });
 });
 
-describe("round-5 remaining false positives are AMBIGUOUS, never NONE", () => {
+describe("round-5 crisis-word lines are CLEAR under option 1", () => {
   it.each(ROUND5_AMBIGUOUS_LINES)("%s", (text) => {
     expect(detectCrisis(text).crisis, text).toBe(false);
     const hit = detectChatCrisis(text);
-    expect(hit.outcome, text).toBe("ambiguous");
-    expect(hit.crisis, text).toBe(false);
-    expect(hit.categories.length, text).toBeGreaterThan(0);
+    expect(hit.outcome, text).toBe("clear");
+    expect(hit.crisis, text).toBe(true);
+    expect(hit.categories, text).toContain("self_harm");
+    expect(detectChatCrisisForTurn(text, []).outcome, text).toBe("clear");
   });
 });
 
-describe("round-4 precision-guard lines are AMBIGUOUS (downgrade, never NONE)", () => {
+describe("round-4 crisis-word lines are CLEAR under option 1 (never NONE)", () => {
   it.each(ROUND4_PRECISION_CARD_LINES)("%s", (text) => {
     expect(detectCrisis(text).crisis, text).toBe(false);
     const hit = detectChatCrisis(text);
-    expect(hit.outcome, text).toBe("ambiguous");
-    expect(hit.crisis, text).toBe(false);
+    expect(hit.outcome, text).toBe("clear");
+    expect(hit.crisis, text).toBe(true);
   });
 });
 
@@ -190,14 +193,24 @@ describe("benign SRH lines are NONE", () => {
 });
 
 describe("CLEAR turns: crisis screen, 0 model calls, both paths", () => {
-  it.each([...ROUND5_MUST_TRIGGER_CLEAR, ...ROUND7_MUST_TRIGGER_CLEAR])("chat-first %s", async (text) => {
+  it.each([
+    ...ROUND5_MUST_TRIGGER_CLEAR,
+    ...ROUND7_MUST_TRIGGER_CLEAR,
+    ...ROUND4_PRECISION_CARD_LINES,
+    ...ROUND5_AMBIGUOUS_LINES,
+  ])("chat-first %s", async (text) => {
     const { model, calls } = spyModel();
     const r = await runTurn(newDialog(), text, chatDeps(model));
     expect(r.reply.kind, text).toBe("crisis");
     expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
   });
 
-  it.each([...ROUND5_MUST_TRIGGER_CLEAR, ...ROUND7_MUST_TRIGGER_CLEAR])("card-first %s", async (text) => {
+  it.each([
+    ...ROUND5_MUST_TRIGGER_CLEAR,
+    ...ROUND7_MUST_TRIGGER_CLEAR,
+    ...ROUND4_PRECISION_CARD_LINES,
+    ...ROUND5_AMBIGUOUS_LINES,
+  ])("card-first %s", async (text) => {
     const { model, calls } = spyModel();
     const r = await runTurn(newDialog(), text, cardDeps(model));
     expect(r.reply.kind, text).toBe("crisis");
@@ -207,11 +220,14 @@ describe("CLEAR turns: crisis screen, 0 model calls, both paths", () => {
 
 describe("AMBIGUOUS turns: model-first on chat-first; card + DRAFT soft line on card-first", () => {
   const sample = [
-    ...ROUND5_AMBIGUOUS_LINES,
-    "ยาคุมทำให้รู้สึก suicidal ได้ไหม",
-    "I don't really wanna die, is HIV curable",
-    "I cut myself shaving down there, can I get HIV",
-    "หนูไม่เคยอยาก die แค่กลัวติด HIV",
+    THAI_AMBIGUOUS,
+    "หนูท้อแท้ ไม่เห็นทางออก",
+    "รู้สึกหมดหวังกับทุกอย่าง",
+    "หนูอยากหายไป",
+    EN_AMBIGUOUS,
+    "I feel empty",
+    "I don't see a way forward",
+    "there is no way out",
   ];
   const thaiLike = sample.filter((text) => modelChatScript(text) !== "en");
   const english = sample.filter((text) => modelChatScript(text) === "en");
@@ -360,13 +376,13 @@ const CODEX_R6_ACCIDENT_STAYS_CLEAR = [
 ] as const;
 
 const TRUE_AMBIGUOUS_MUST_HOLD = [
-  "หนูไม่ค่อยอยาก die นะ แค่ถามเรื่อง HIV",
-  "หนูไม่เคยคิดอยาก die แค่กลัวติด HIV",
-  "กินยาคุมแล้วรู้สึก suicidal เป็นผลข้างเคียงไหม",
-  "กินยาคุมแล้วรู้สึก suicidal ปกติไหม",
-  "I don't want to live in fear of HIV, should I take PrEP",
-  "I don’t want to live in fear of HIV",
-  "I don't want to live together before marriage, is sex ok",
+  "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง",
+  "หนูท้อแท้ ไม่เห็นทางออก",
+  "รู้สึกหมดหวังกับทุกอย่าง",
+  "หนูอยากหายไป",
+  "I feel so hopeless about everything",
+  "I feel empty",
+  "I don't see a way forward",
 ] as const;
 
 const CODEX_R6_MUST_TRIGGER_CLEAR = [
@@ -430,7 +446,7 @@ describe("true ambiguous cases stay AMBIGUOUS, never NONE", () => {
 });
 
 describe("AMBIGUOUS is current-turn only; the window may only escalate to CLEAR", () => {
-  const first = "หนูไม่ค่อยอยาก die นะ แค่ถามเรื่อง HIV";
+  const first = THAI_AMBIGUOUS;
   const second = "ถุงยางราคาเท่าไหร่";
   const third = "PrEP กินยังไง";
 
@@ -489,7 +505,7 @@ describe("AMBIGUOUS plus a staff request is the referral card plus the soft line
     expect(none.reply.kind).toBe("referral");
     if (none.reply.kind === "referral") expect(none.reply.softCrisis).toBeUndefined();
 
-    const r = await runTurn(newDialog("18-24"), "หนูไม่ค่อยอยาก die อยากคุยกับเจ้าหน้าที่", deps);
+    const r = await runTurn(newDialog("18-24"), "หนูสิ้นหวังมาก อยากคุยกับเจ้าหน้าที่", deps);
     expect(r.reply.kind).toBe("referral");
     if (r.reply.kind === "referral") {
       expect(r.reply.softCrisis?.line).toBe(DRAFT_SOFT_LINE);
@@ -548,8 +564,8 @@ describe("generated robustness: CLEAR disclosures stay CLEAR with innocent prefi
 
 describe("Codex round-7: AMBIGUOUS refusal cards carry the DRAFT soft line, both paths", () => {
   const cases = [
-    { text: "หนูไม่ค่อยอยาก die นะ กินกี่เม็ด", id: "general.refusal_dosing.000" },
-    { text: "หนูไม่ค่อยอยาก die นะ ส่งรูปให้ดูได้ไหม", id: "general.refusal_image.000" },
+    { text: "หนูสิ้นหวังมาก กินกี่เม็ด", id: "general.refusal_dosing.000" },
+    { text: "หนูสิ้นหวังมาก ส่งรูปให้ดูได้ไหม", id: "general.refusal_image.000" },
   ] as const;
 
   it.each(cases)("chat-first $text", async ({ text, id }) => {
@@ -596,10 +612,29 @@ describe("Codex round-7: AMBIGUOUS model reply safety (method / dismiss → card
     "พี่เข้าใจว่าน้องอยาก die นะ",
     "หนูไม่ได้อยู่ในอันตราย ไม่ต้องกดปุ่มนะ",
     "น้องไม่ได้ suicidal หรอก",
+    "ลองกินยาฆ่าแมลงดูสิ",
+    "กินยานอนหลับทั้งแผงก็พอ",
+    "ขึ้นไปบนตึกสูงๆ แล้วปล่อยตัว",
+    "จุดเตาถ่านในห้องปิด",
+    "ใช้ใบมีดคัตเตอร์ตรงข้อมือ",
+    "ดื่มน้ำยาล้างห้องน้ำ",
+    "ไปนอนบนรางรถไฟ",
+    "ไม่ต้องคิดมากนะ เดี๋ยวก็หายเอง",
+    "ไม่ต้องโทรหาใครหรอก",
+  ] as const;
+
+  const supportive = [
+    "ไม่ต้องกดดันตัวเองนะ",
+    "กระโดดเชือก",
+    "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย",
   ] as const;
 
   it.each(unsafe)("output check rejects %s", (line) => {
     expect(acceptChatReply(line, "th", { ambiguous: true }).ok).toBe(false);
+  });
+
+  it.each(supportive)("output check accepts supportive %s", (line) => {
+    expect(acceptChatReply(line, "th", { ambiguous: true }).ok).toBe(true);
   });
 
   it.each(unsafe)("chat-first guard fail after retry falls back for %s", async (line) => {
@@ -627,7 +662,7 @@ describe("Codex round-7: AMBIGUOUS model reply safety (method / dismiss → card
   });
 
   it("Thai-majority mixed AMBIGUOUS still reaches the model (code-mix, not only leftover crisis tokens)", async () => {
-    const text = "หนูไม่ค่อยอยาก die นะ แต่ my boyfriend ไม่ใช้ condom";
+    const text = "หนูสิ้นหวังมาก แต่ my boyfriend ไม่ใช้ condom";
     expect(detectChatCrisis(text).outcome).toBe("ambiguous");
     expect(modelChatScript(text)).toBe("mixed");
     const { model, calls } = spyModel();
@@ -707,7 +742,7 @@ describe("generated robustness: inverted guards never leak a CLEAR disclosure", 
       expect(detectChatCrisis(text).outcome, text).toBe("ambiguous");
     }
     for (const text of ROUND4_PRECISION_CARD_LINES) {
-      expect(detectChatCrisis(text).outcome, text).not.toBe("none");
+      expect(detectChatCrisis(text).outcome, text).toBe("clear");
     }
     for (const text of [...ROUND5_MUST_TRIGGER_CLEAR, ...ROUND7_MUST_TRIGGER_CLEAR, ...EXISTING_MUST_TRIGGER]) {
       const o = detectCrisis(text).crisis ? "clear" : detectChatCrisis(text).outcome;
