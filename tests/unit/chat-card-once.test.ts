@@ -88,7 +88,7 @@ describe("c=1 does not duplicate the card when the card bubble also shows", () =
     expect(r.reply.text).toBe(formatChatReply(OPENER, LEAK.answer_th, FOLLOW));
   });
 
-  it("c=0 is unchanged with or without a card bubble", async () => {
+  it("c=0 plus a card bubble keeps answer_th on the bubble; turn-1 chat-only forces the card into the chat text", async () => {
     const chatShown = newChat("18-24", spyModel(NONE_JSON), null, { chatFirst: true });
     await sendToChat(chatShown, SHOW_CARD_Q, hooks());
     const shown = janeThisTurn(chatShown.messages, SHOW_CARD_Q);
@@ -101,7 +101,7 @@ describe("c=1 does not duplicate the card when the card bubble also shows", () =
     const only = janeThisTurn(chatOnly.messages, CHAT_ONLY_Q);
     expect(only).toHaveLength(1);
     expect(only[0]!.cardId).toBeFalsy();
-    expect(only[0]!.text).toBe(defaultChatReply("th"));
-    expect(only[0]!.text).not.toContain(LEAK.answer_th);
+    expect(only[0]!.text).toBe(formatChatReply(OPENER, LEAK.answer_th, FOLLOW));
+    expect(only[0]!.text).toContain(LEAK.answer_th);
   });
 });

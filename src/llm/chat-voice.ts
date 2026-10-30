@@ -45,3 +45,12 @@ export function openersFor(lang: "th" | "en"): readonly string[] {
 export function followUpsFor(lang: "th" | "en"): readonly string[] {
   return lang === "en" ? CHAT_FOLLOWUPS_EN : CHAT_FOLLOWUPS_TH;
 }
+
+/**
+ * Follow-ups that offer to send the card. After the TH list drop in the
+ * เรา/เธอ copy, only English still has one (EN q2). Compared by content,
+ * not by index, so a later re-index cannot silently retarget the swap.
+ */
+export const CARD_OFFER_FOLLOWUPS: ReadonlySet<string> = new Set([
+  "Shall I share the checked information?",
+]);

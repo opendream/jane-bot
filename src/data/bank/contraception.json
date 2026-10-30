@@ -53,7 +53,8 @@
       "triggers": [
         "วิธีใช้ถุงยาง",
         "ใส่ถุงยางยังไง",
-        "วิธีใช้ ถุงยาง"
+        "วิธีใช้ ถุงยาง",
+        "ถุงยางอนามัยใช้ยังไง"
       ],
       "next": [],
       "source_intents": [
@@ -64,7 +65,7 @@
         "status": "approved",
         "reviewer": "Keng",
         "reviewed_on": "2026-10-27",
-        "notes": "#15 Approve; name พี่เจน→เจน (Keng 30 Oct 2026 10:35 BKK)"
+        "notes": "#15 Approve; name พี่เจน→เจน (Keng 30 Oct 2026 10:35 BKK); trigger ถุงยางอนามัยใช้ยังไง added (spec owner 30 Oct 2026 11:55 BKK)"
       },
       "last_reviewed": "2026-10-27",
       "flags": [
