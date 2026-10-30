@@ -99,7 +99,7 @@ export async function loadWllama(
           ...history.map((h) => ({ role: h.role, content: h.content })),
           { role: "user", content: `${text} /no_think` },
         ],
-        max_tokens: CHAT_MAX_TOKENS, temperature: CHAT_TEMPERATURE, top_p: CHAT_TOP_P, abortSignal: s,
+        max_tokens: opts?.maxTokens ?? CHAT_MAX_TOKENS, temperature: CHAT_TEMPERATURE, top_p: CHAT_TOP_P, abortSignal: s,
       } as any);
       if (shouldSkipGeneration(groupId, s)) return null;
       return cleanChat(String(r.choices?.[0]?.message?.content ?? "")) || null;

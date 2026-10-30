@@ -20,7 +20,14 @@ const manifest = JSON.parse(fs.readFileSync(path.join(here, "weights-manifest.js
 const MODELS_DIR = path.resolve(arg("--models", path.join(here, "..", "models")));
 const model = arg("--model", "qwen3-1.7b");
 if (!manifest.models[model]) { console.error(`unknown model ${model}; choose: ${Object.keys(manifest.models).join(", ")}`); process.exit(2); }
-const variants = (arg("--variants", "") || (manifest.models[model].wasm ? "webgpu_f16,wasm" : "webgpu_f16")).split(",");
+const defaultVariants = (entry) => {
+  const vs = [];
+  if (entry.webgpu_f16) vs.push("webgpu_f16");
+  else if (entry.webgpu_f32) vs.push("webgpu_f32");
+  if (entry.wasm) vs.push("wasm");
+  return vs.join(",") || "webgpu_f16";
+};
+const variants = (arg("--variants", "") || defaultVariants(manifest.models[model])).split(",");
 
 /** WASM fallback for models without a WASM build (qwen3-4b → qwen3-1.7b). */
 const jobs = variants.map((v) => [model, v]);
@@ -35,6 +42,8 @@ const gb = (n) => (n / 1e9).toFixed(2) + " GB";
 async function getFile(f) {
   const dest = path.join(MODELS_DIR, f.path);
   if (fs.existsSync(dest) && fs.statSync(dest).size === f.size && (await sha256File(dest)) === f.sha256) return "ok";
+  // Local-only entries have no URL: never fetch, only verify if the operator placed the file.
+  if (!f.url) return "missing";
   if (flag("--verify-only")) return "missing";
   fs.mkdirSync(path.dirname(dest), { recursive: true });
   const tmp = dest + ".part";

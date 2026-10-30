@@ -105,7 +105,7 @@ describe("production defaults (chat-first flag off)", () => {
     expect(CHAT_SYSTEM).toContain("ห้ามคุยเชิงชู้สาว");
     expect(CHAT_SYSTEM).toContain("สายด่วน");
     expect(CHAT_SYSTEM).toContain(CHAT_LANG_LINE_TH);
-    expect(CHAT_MAX_TOKENS).toBe(40);
+    expect(CHAT_MAX_TOKENS).toBe(24);
     expect(CHAT_SYSTEM_EN_STATUS).toBe("draft");
     expect(chatSystemFor("th")).toBe(CHAT_SYSTEM);
     expect(chatSystemFor("en")).toBe(CHAT_SYSTEM_EN);
@@ -120,7 +120,7 @@ describe("production defaults (chat-first flag off)", () => {
     expect(CHAT_SYSTEM_EN).not.toContain("her name");
     expect(CHAT_SYSTEM_EN).not.toContain("she typed");
     expect(ENGLISH_MODEL_CHAT).toBe(false);
-    expect(CHAT_FIRST_TIMEOUT_MS).toBe(90_000);
+    expect(CHAT_FIRST_TIMEOUT_MS).toBe(45_000);
     expect(CHAT_TIMEOUT_MS).toBe(CHAT_FIRST_TIMEOUT_MS);
     expect(PICK_TIMEOUT_MS).toBe(8_000);
     expect(REWORD_TIMEOUT_MS).toBe(8_000);

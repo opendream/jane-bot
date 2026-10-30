@@ -165,7 +165,7 @@ export async function bindWebLLMEngine(
             ...history.map((h) => ({ role: h.role, content: h.content })),
             { role: "user", content: text },
           ],
-          max_tokens: CHAT_MAX_TOKENS, temperature: CHAT_TEMPERATURE, top_p: CHAT_TOP_P,
+          max_tokens: opts?.maxTokens ?? CHAT_MAX_TOKENS, temperature: CHAT_TEMPERATURE, top_p: CHAT_TOP_P,
           extra_body: { enable_thinking: false },
         });
         if (dead) throw dead;

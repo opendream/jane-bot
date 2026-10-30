@@ -97,7 +97,7 @@ test("FILMING-CHECKLIST steps 3 and 6: plain / reaches model-ready with a mock w
   await page.waitForLoadState("domcontentloaded");
   await expect(page.getByTestId("screen-start")).toBeVisible();
   await expect(pill(page)).toHaveAttribute("data-state", "ready", { timeout: 10_000 });
-  await expect(pill(page)).toHaveText("🔒 โมเดลในเครื่อง: Qwen3-1.7B · ออฟไลน์");
+  await expect(pill(page)).toHaveText("🔒 โมเดลในเครื่อง: Qwen3-0.6B (Jane fine-tuned) · ออฟไลน์");
   await expect(pill(page)).toHaveAttribute("data-runtime", "wasm");
 });
 

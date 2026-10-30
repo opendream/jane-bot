@@ -94,7 +94,7 @@ async function waitStatus(statuses: ModelStatus[], pred: (s: ModelStatus) => boo
 
 function baseDeps(over: Partial<StartModelDeps> = {}): StartModelDeps {
   return {
-    search: "",
+    search: "?model=qwen3-1.7b",
     gpuInfo: async () => ({ ok: true, f16: false }),
     installed: async () => [{ model: "qwen3-1.7b", variants: ["webgpu_f32", "wasm"] }],
     storage: memoryStore(),

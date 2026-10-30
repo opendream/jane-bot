@@ -52,7 +52,8 @@ SwiftShader is ignored) → **WASM** via wllama (CPU) → **rules**. If WebGPU l
 
 | `MODEL` | WebGPU | WASM (CPU) |
 | --- | --- | --- |
-| `qwen3-1.7b` (default) | q4f16 0.99 GB (q4f32 0.99 GB if no shader-f16) | GGUF Q4_K_M 1.11 GB |
+| `qwen3-0.6b-ft` (default) | none (WASM only) | GGUF Q4_K_M ~0.48 GB, local fine-tune (operator-placed, never fetched) |
+| `qwen3-1.7b` (`?model=qwen3-1.7b`) | q4f16 0.99 GB (q4f32 0.99 GB if no shader-f16) | GGUF Q4_K_M 1.11 GB |
 | `qwen3-4b` | q4f16 / q4f32 2.29 GB | no build (GGUF 2.5 GB > wllama 2 GB limit) → falls back to 1.7B |
 
 - Rules decide when confident; the model is consulted only for low-confidence text (8 s timeout) and its answer is validated.

@@ -11,6 +11,8 @@ import type { ChatLang } from "./chat-lang";
 export type ChatReplyOpts = {
   ambiguous?: boolean;
   grounding?: { facts: string | null; strict?: boolean };
+  /** Chat-choice generation cap. Adapters default to CHAT_MAX_TOKENS. */
+  maxTokens?: number;
 };
 
 /**

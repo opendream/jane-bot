@@ -11,7 +11,7 @@ import { retrieve } from "./retrieve";
 import { VALID_INTENTS, type ChatReplyOpts } from "../llm/adapter";
 import { acceptGroundedChat, groundingCard } from "../llm/chat-ground";
 import { firstTurnChoice, renderChatChoiceForTurn } from "../llm/chat-choice";
-import type { ChatGrounding } from "../llm/chat-system";
+import { CHAT_MAX_TOKENS, type ChatGrounding } from "../llm/chat-system";
 import { detectChatLang, type ChatLang } from "../llm/chat-lang";
 import { currentGenerationToken, bumpGenerationToken, isCurrentGeneration } from "../llm/generation-token";
 import { ACK_LINE_TH, combineUnanswered, countedGroupMessages, dropAckLines, groupReplyLang, groupTakesNoModelPath } from "./chat-group";
@@ -604,12 +604,15 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     const chatOpts: ChatReplyOpts = {
       ...(extraAmbiguous ? { ambiguous: true } : {}),
       grounding,
+      maxTokens: CHAT_MAX_TOKENS,
     };
 
     deps.onGenerating?.({ groupId: token ?? currentGenerationToken(), lang });
     const timeoutMs = deps.chatTimeoutMs ?? CHAT_FIRST_TIMEOUT_MS;
+    const deadlineAt = Date.now() + timeoutMs;
+    const remainingMs = () => Math.max(0, deadlineAt - Date.now());
     const attempt = (g: ChatGrounding) =>
-      withTimeout((s) => live.chatReply!(currentClip, history, s, lang, token, { ...chatOpts, grounding: g }), timeoutMs, deps.signal);
+      withTimeout((s) => live.chatReply!(currentClip, history, s, lang, token, { ...chatOpts, grounding: g }), remainingMs(), deps.signal);
 
     let generated = await attempt(grounding);
     if (stale()) return dropStale();

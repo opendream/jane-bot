@@ -22,13 +22,15 @@ export const MAX_SUGGESTIONS = 3;
 
 /**
  * On-device model (Qwen3, plain Apache-2.0). Typhoon is on hold pending Keng's ruling on the OpenTyphoon terms.
- *  - "qwen3-1.7b": WebGPU ~0.99 GB (q4f16_1 or q4f32_1), WASM ~1.11 GB (GGUF Q4_K_M). Default.
+ *  - "qwen3-0.6b-ft": WASM only, ~0.48 GB GGUF Q4_K_M. Default. Fine-tuned Jane weights, local
+ *    (operator-placed at the manifest path; never fetched, no public URL).
+ *  - "qwen3-1.7b": WebGPU ~0.99 GB (q4f16_1 or q4f32_1), WASM ~1.11 GB (GGUF Q4_K_M). Select with ?model=qwen3-1.7b.
  *  - "qwen3-4b":   WebGPU only, ~2.29 GB; on machines without WebGPU the WASM path falls back to qwen3-1.7b.
  *  - "off":        rules only.
  * The rules always decide crisis handling; the model only refines need detection and summary wording.
- * Testing/filming override via URL: ?model=off | ?runtime=webgpu | ?runtime=wasm
+ * Testing/filming override via URL: ?model=off | ?model=qwen3-1.7b | ?runtime=webgpu | ?runtime=wasm
  */
-export const MODEL: "qwen3-1.7b" | "qwen3-4b" | "off" = "qwen3-1.7b";
+export const MODEL: "qwen3-0.6b-ft" | "qwen3-1.7b" | "qwen3-4b" | "off" = "qwen3-0.6b-ft";
 
 /**
  * Fine-tuned embedding intent matcher (e5-small int8). Off by default and never on
@@ -110,12 +112,13 @@ export const ENGLISH_MODEL_CHAT = false;
 /** User turns in one topic before Jane must close with a card. */
 export const CHAT_MAX_TURNS = 3;
 /**
- * Chat-first reply budget. Card-first pick/reword timeouts are unchanged
- * (PICK_TIMEOUT_MS / REWORD_TIMEOUT_MS). On-device Qwen3-1.7B (arm A) and
- * Qwen3-0.6B (arm B) both need this: a turn can take 9–60 s on phone.
- * The thinking indicator stays up for the whole wait.
+ * Chat-first reply budget. Covers the whole model part of the turn, including
+ * the retry (the clock does not restart). Card-first pick/reword timeouts are
+ * unchanged (PICK_TIMEOUT_MS / REWORD_TIMEOUT_MS). Fine-tuned Qwen3-0.6B on
+ * phone has been seen at 9–37 s on most turns and 90.6 s on one; 45 s is the
+ * per-turn cap before the rules card shows on its own.
  */
-export const CHAT_FIRST_TIMEOUT_MS = 90_000;
+export const CHAT_FIRST_TIMEOUT_MS = 45_000;
 /** Chat-reply budget (plan §2). Same value as CHAT_FIRST_TIMEOUT_MS. */
 export const CHAT_TIMEOUT_MS = CHAT_FIRST_TIMEOUT_MS;
 

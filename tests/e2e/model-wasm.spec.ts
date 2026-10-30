@@ -47,7 +47,7 @@ test("WASM model: cold load caches weights; warm load + full flow make zero weig
   let page = ctx.pages()[0] ?? (await ctx.newPage());
   const coldReqs = record(page);
   const t0 = Date.now();
-  await page.goto("/?runtime=wasm");
+  await page.goto("/?runtime=wasm&model=qwen3-1.7b");
   await expect(pill(page)).toHaveAttribute("data-state", "loading", { timeout: 10_000 });
   // The referral flow is usable while the model loads.
   await expect(page.getByTestId("screen-start")).toBeVisible();
@@ -71,7 +71,7 @@ test("WASM model: cold load caches weights; warm load + full flow make zero weig
   await page.route("**/models/**/*.gguf", (r) => r.abort());
   const t1 = Date.now();
   await page.clock.setFixedTime(new Date("2026-10-22T20:00:00+07:00"));
-  await page.goto("/?runtime=wasm");
+  await page.goto("/?runtime=wasm&model=qwen3-1.7b");
   await expect(pill(page)).toHaveAttribute("data-state", "ready", { timeout: 3 * 60_000 });
   const warmMs = Date.now() - t1;
   await page.screenshot({ path: `${SHOTS}/m-02-model-ready.png` });
