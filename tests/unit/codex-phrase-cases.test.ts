@@ -1,5 +1,5 @@
 /**
- * Fixed Codex phrase cases from PR #38 rounds 1–8 and PR #40 rounds 1–6.
+ * Fixed Codex phrase cases from PR #38 rounds 1–9 and PR #40 rounds 1–6.
  * SYNTHETIC only. Every complete quoted Thai/English phrase the reviewer gave
  * is here with its option-1 verdict. Ellipsis / regex fragments are omitted
  * when a complete form of the same case exists; incomplete snippets that were
@@ -131,6 +131,12 @@ const EXTRA_CLEAR: ExtraCase[] = [
   { text: "เพื่อนหนู suicidal ควรช่วยยังไง", extra: "clear" },
 
   { text: "I really don't want to die from HIV", extra: "clear", flippedByOption1: true },
+];
+
+const EXTRA_AMBIGUOUS: ExtraCase[] = [
+  // Round 9: Keng — vague distress, no crisis word (weak cue)
+  { text: "หนูหมดแรงจะอยู่แล้ว", extra: "ambiguous" },
+  { text: "หมดแรงจะอยู่", extra: "ambiguous" },
 ];
 
 const EXTRA_NONE: ExtraCase[] = [
@@ -274,14 +280,21 @@ const GUARD_REJECT = [
   "ไปนอนบนรางรถไฟ",
   "ไม่ต้องคิดมากนะ เดี๋ยวก็หายเอง",
   "ไม่ต้องโทรหาใครหรอก",
+  // Round 9: restore เชือก / กระโดด (false rejects fall back to the card)
+  "ผูกเชือกกับคอ",
+  "ขึ้นไปบนตึก แล้วกระโดด",
+  "กระโดดเชือก",
+  // Round 9: ignore whitespace inside method phrases (incl. zero-width)
+  "ลองใช้ยา ฆ่าแมลงนะ",
+  "ลองใช้ยา\u200Bฆ่าแมลงนะ",
+  // Round 9: dismisses help
+  "ไม่ต้องไปหาหมอหรอก",
 ];
 
 const GUARD_ACCEPT = [
   "ไม่ต้องกดดันตัวเองนะ",
-  "กระโดดเชือก",
   "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย",
   "ไม่จำเป็นต้องคุยกับใครนะ",
-  "ไม่ต้องไปหาหมอหรอก",
 ];
 
 function extraOf(text: string): Extra {
@@ -306,6 +319,13 @@ describe("Codex phrase cases: extra-check CLEAR (option 1)", () => {
     const label = flippedByOption1 ? `${text} (flipped by option 1)` : text;
     expect(extraOf(text), label).toBe(extra);
     expect(detectChatCrisis(text).crisis, label).toBe(true);
+  });
+});
+
+describe("Codex phrase cases: extra-check AMBIGUOUS (weak cues, no crisis word)", () => {
+  it.each(dedupe(EXTRA_AMBIGUOUS))("$text", ({ text, extra }) => {
+    expect(extraOf(text), text).toBe(extra);
+    expect(detectChatCrisis(text).crisis, text).toBe(false);
   });
 });
 

@@ -120,6 +120,7 @@ export const WEAK_TH_RULES: ChatCrisisRule[] = [
   { id: "TH-W hopeless", cat: "self_harm", lang: "th", re: /สิ้นหวัง|หมดหวัง|ท้อแท้/, ambiguous: true },
   { id: "TH-W no way forward", cat: "self_harm", lang: "th", re: /ไม่รู้จะไปต่อ|ไม่เห็นทางออก/, ambiguous: true },
   { id: "TH-W want to disappear", cat: "self_harm", lang: "th", re: /อยากหายไป/, ambiguous: true },
+  { id: "TH-W exhausted of living", cat: "self_harm", lang: "th", re: /หมดแรง(?:ที่)?จะอยู่/, ambiguous: true },
 ];
 
 export const WEAK_EN_RULES: ChatCrisisRule[] = [
