@@ -40,7 +40,8 @@ URL switches for testing: `?runtime=wasm`, `?runtime=webgpu`, `?model=off`, `?mo
 
 | Build | Size | Source (pinned) |
 | --- | --- | --- |
-| Qwen3-1.7B WebGPU q4f16 (default on GPU) | 0.99 GB | huggingface.co/mlc-ai/Qwen3-1.7B-q4f16_1-MLC |
+| Qwen3-0.6B Jane fine-tune WASM GGUF Q4_K_M (app default; local-only) | 484220256 bytes | operator-placed at `models/gguf/Qwen3-0.6B-jane-ft-Q4_K_M.gguf` (sha256 `1a8056e4f1d0afba32ab87c24f8c2740258b130a9bb7bb5311e742c921daf8e2`). Never fetched. Missing file → console warning + rules-only pill. |
+| Qwen3-1.7B WebGPU q4f16 (`?model=qwen3-1.7b`) | 0.99 GB | huggingface.co/mlc-ai/Qwen3-1.7B-q4f16_1-MLC |
 | Qwen3-1.7B WASM GGUF Q4_K_M (CPU fallback) | 1.11 GB | huggingface.co/unsloth/Qwen3-1.7B-GGUF |
 | Qwen3-4B WebGPU q4f16 (optional) | 2.29 GB | huggingface.co/mlc-ai/Qwen3-4B-q4f16_1-MLC |
 

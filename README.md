@@ -62,6 +62,11 @@ SwiftShader is ignored) → **WASM** via wllama (CPU) → **rules**. If WebGPU l
 - Weights are self-hosted: `node scripts/fetch-weights.mjs` downloads pinned revisions (`scripts/weights-manifest.json`) from the
   original sources, checks sha256, and writes `models/` (gitignored). The app loads them from `/models/` on 127.0.0.1 into
   Cache Storage (`model-weights-v1`, model files only), after which it runs fully offline.
+  The default `qwen3-0.6b-ft` has **no URL** and is never downloaded. Place the GGUF yourself at
+  `models/gguf/Qwen3-0.6B-jane-ft-Q4_K_M.gguf` (sha256 `1a8056e4f1d0afba32ab87c24f8c2740258b130a9bb7bb5311e742c921daf8e2`,
+  484220256 bytes), then `node scripts/fetch-weights.mjs --model qwen3-0.6b-ft --verify-only` to register it in
+  `models/installed.json`. If that file is missing at load, the app logs a console warning, shows the existing
+  rules-only / model-unavailable pill (`data-state="failed"`), and continues on rules. Do not add a hosted fallback URL.
 - Header pill shows the state: loading (flow usable meanwhile) / "โมเดลในเครื่อง: <name> · ออฟไลน์" / rules only.
 - Eval: `node scripts/eval-model.mjs` → `evals/model-scorecard.md` (rules vs model vs combined).
 

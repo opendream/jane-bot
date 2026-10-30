@@ -641,29 +641,34 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     let engineReason: EngineReason | undefined;
 
     if (plan.callPick) {
-      const livePicker = () => deps.cardPicker ?? pickerFromModel(deps.getModel?.() ?? deps.model ?? null, deps.warmupRemainingMs);
-      const decision = await decideCardPick({
-        text: retrieveText,
-        modelText: retrieveText.slice(0, MODEL_INPUT_CHARS),
-        topic: state.topic,
-        ageBand: state.ageBand,
-        cards: deps.cards,
-        copyStatus: deps.copyStatus,
-        picker: livePicker(),
-        getPicker: livePicker,
-        warmupRemainingMs: deps.warmupRemainingMs,
-        previousTitle: state.cardId ? byId.get(state.cardId)?.title_th ?? null : null,
-        timeoutMs: deps.pickTimeoutMs ?? PICK_TIMEOUT_MS,
-        signal: deps.signal,
-        nonePolicy: plan.close === "always" ? "fallback" : "defer",
-      });
-      if (stale()) return dropStale();
-      if (!decision.deferred) {
-        const picked = byId.get(decision.cardId);
-        card = usable(picked) ? picked : fallback;
-        via = decision.via;
-        engine = decision.engine;
-        engineReason = decision.reason;
+      // Whole turn stays inside the 45 s budget. The 8 s model card pick
+      // must not start if fewer than 8 s remain; the rules card is used alone.
+      const left = remainingMs();
+      if (left >= PICK_TIMEOUT_MS) {
+        const livePicker = () => deps.cardPicker ?? pickerFromModel(deps.getModel?.() ?? deps.model ?? null, deps.warmupRemainingMs);
+        const decision = await decideCardPick({
+          text: retrieveText,
+          modelText: retrieveText.slice(0, MODEL_INPUT_CHARS),
+          topic: state.topic,
+          ageBand: state.ageBand,
+          cards: deps.cards,
+          copyStatus: deps.copyStatus,
+          picker: livePicker(),
+          getPicker: livePicker,
+          warmupRemainingMs: deps.warmupRemainingMs,
+          previousTitle: state.cardId ? byId.get(state.cardId)?.title_th ?? null : null,
+          timeoutMs: Math.min(deps.pickTimeoutMs ?? PICK_TIMEOUT_MS, left),
+          signal: deps.signal,
+          nonePolicy: plan.close === "always" ? "fallback" : "defer",
+        });
+        if (stale()) return dropStale();
+        if (!decision.deferred) {
+          const picked = byId.get(decision.cardId);
+          card = usable(picked) ? picked : fallback;
+          via = decision.via;
+          engine = decision.engine;
+          engineReason = decision.reason;
+        }
       }
     }
 

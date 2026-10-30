@@ -110,8 +110,9 @@ export function renderChatChoice(
 }
 
 /**
- * Final chat-bubble text for a turn. If the card bubble will also show,
- * treat c as 0 so answer_th appears once (on the card bubble).
+ * Final chat-bubble text for a turn. Keep the quoted card (c=1 body) even
+ * when a card bubble also shows — `showCardBubble` only drives the follow-up
+ * swap. Out-of-range / dropped v40 ids use the empty fallback (`?? ""`).
  */
 export function renderChatChoiceForTurn(
   choice: ChatChoice,
@@ -119,10 +120,9 @@ export function renderChatChoiceForTurn(
   cardText: string,
   showCardBubble: boolean,
 ): string {
-  const toRender = showCardBubble ? { o: choice.o, c: 0 as const, q: choice.q } : choice;
-  const opener = openersFor(lang)[toRender.o] ?? "";
+  const opener = openersFor(lang)[choice.o] ?? "";
   const follow = followUpText(choice, lang, showCardBubble || choice.c === 1);
-  const body = toRender.c === 1 ? cardText : "";
+  const body = choice.c === 1 ? cardText : "";
   return formatChatReply(opener, body, follow);
 }
 

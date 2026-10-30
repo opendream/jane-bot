@@ -47,7 +47,7 @@ describe("Keng เรา/เธอ voice + เจน rename", () => {
   });
 
   it("shipped Thai openers, follow-ups, ack, ambiguous line, and refusals have no พี่/น้อง pronouns", () => {
-    for (const s of SHIPPED_TH) {
+    for (const s of SHIPPED_TH.filter((t) => t.length > 0)) {
       expect(s, s).not.toMatch(/พี่|น้อง/);
     }
   });
@@ -62,10 +62,12 @@ describe("Keng เรา/เธอ voice + เจน rename", () => {
       "เราเข้าใจค่ะ",
       "ขอบคุณที่ถามมานะคะ",
       "เรื่องนี้เราเข้าใจค่ะ",
+      "",
     ]);
     expect(CHAT_FOLLOWUPS_TH).toEqual([
       "เธออยากเล่าเพิ่มไหมคะ?",
       "ตอนนี้อยากถามเรื่องไหนต่อดีคะ?",
+      "",
       "ยังมีอะไรที่อยากคุยต่อไหมคะ?",
       "เธออยากให้ช่วยตรงไหนก่อนคะ?",
     ]);

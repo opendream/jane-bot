@@ -120,11 +120,11 @@ describe("forced first-turn card (dialog, stub JSON)", () => {
     expect(r.reply.text).not.toContain(LEAK.answer_th);
   });
 
-  it("bubble card id differs from groundCard: groundCard answer_th is not in the chat text", () => {
+  it("bubble card id differs from groundCard: quoted groundCard is kept in the chat text", () => {
     const ground = firstTurnChoice({ o: 0, c: 1, q: 0 }, { topicTurn: 1, hasGroundCard: true, cardBubble: true });
     const text = renderChatChoiceForTurn(ground, "th", HOW_TO.answer_th, true);
-    expect(text).toBe(formatChatReply(CHAT_OPENERS_TH[0]!, "", CHAT_FOLLOWUPS_TH[0]!));
-    expect(text).not.toContain(HOW_TO.answer_th);
+    expect(text).toBe(formatChatReply(CHAT_OPENERS_TH[0]!, HOW_TO.answer_th, CHAT_FOLLOWUPS_TH[0]!));
+    expect(text).toContain(HOW_TO.answer_th);
     expect(text).not.toContain(LEAK.answer_th);
   });
 
@@ -186,9 +186,9 @@ describe("follow-up swap when a card is shown", () => {
     expect(text).toContain("Shall I share the checked information?");
   });
 
-  it("EN card bubble + offer q still swaps even when c is zeroed", () => {
+  it("EN card bubble + offer q still swaps and keeps the quoted card", () => {
     const text = renderChatChoiceForTurn({ o: 0, c: 1, q: 2 }, "en", "Checked card.", true);
-    expect(text).toBe(formatChatReply(CHAT_OPENERS_EN[0]!, "", CHAT_FOLLOWUPS_EN[1]!));
+    expect(text).toBe(formatChatReply(CHAT_OPENERS_EN[0]!, "Checked card.", CHAT_FOLLOWUPS_EN[1]!));
     expect(text).not.toContain("Shall I share the checked information?");
   });
 

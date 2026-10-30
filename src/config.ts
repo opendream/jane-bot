@@ -23,7 +23,7 @@ export const MAX_SUGGESTIONS = 3;
 /**
  * On-device model (Qwen3, plain Apache-2.0). Typhoon is on hold pending Keng's ruling on the OpenTyphoon terms.
  *  - "qwen3-0.6b-ft": WASM only, ~0.48 GB GGUF Q4_K_M. Default. Fine-tuned Jane weights, local
- *    (operator-placed at the manifest path; never fetched, no public URL).
+ *    (operator-placed at models/gguf/Qwen3-0.6B-jane-ft-Q4_K_M.gguf; never fetched, no public URL).
  *  - "qwen3-1.7b": WebGPU ~0.99 GB (q4f16_1 or q4f32_1), WASM ~1.11 GB (GGUF Q4_K_M). Select with ?model=qwen3-1.7b.
  *  - "qwen3-4b":   WebGPU only, ~2.29 GB; on machines without WebGPU the WASM path falls back to qwen3-1.7b.
  *  - "off":        rules only.

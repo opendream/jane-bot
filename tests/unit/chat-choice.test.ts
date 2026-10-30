@@ -92,8 +92,7 @@ function cardBodyOf(text: string, opener: string, follow: string): string | null
 }
 
 function isWholeCardOrNone(text: string, opener: string, follow: string, answer: string): boolean {
-  const body = cardBodyOf(text, opener, follow);
-  return body === "" || body === answer;
+  return text === formatChatReply(opener, "", follow) || text === formatChatReply(opener, answer, follow);
 }
 
 describe("parseChatChoice (strict whole-card flag)", () => {
@@ -171,10 +170,10 @@ describe("renderChatChoice (whole card or none)", () => {
     expect(text).not.toContain(PREP.answer_th);
   });
 
-  it("when the card bubble will show, c=1 renders as opener plus follow-up only", () => {
+  it("when the card bubble will show, c=1 still keeps the quoted card", () => {
     const text = renderChatChoiceForTurn({ o: 0, c: 1, q: 0 }, "th", CONDOM.answer_th, true);
-    expect(text).toBe(formatChatReply(CHAT_OPENERS_TH[0]!, "", CHAT_FOLLOWUPS_TH[0]!));
-    expect(text).not.toContain(CONDOM.answer_th);
+    expect(text).toBe(formatChatReply(CHAT_OPENERS_TH[0]!, CONDOM.answer_th, CHAT_FOLLOWUPS_TH[0]!));
+    expect(text).toContain(CONDOM.answer_th);
   });
 
   it("c=1 with no card bubble still includes the exact full answer_th", () => {
@@ -305,15 +304,14 @@ describe("property: rendered text is opener, then nothing or the exact full answ
         const opener = CHAT_OPENERS_TH[parsed.choice.o]!;
         const follow = CHAT_FOLLOWUPS_TH[parsed.choice.q]!;
         expect(isWholeCardOrNone(text, opener, follow, card.answer_th), raw).toBe(true);
-        expect(text.startsWith(opener)).toBe(true);
-        expect(text.endsWith(follow)).toBe(true);
+        if (opener) expect(text.startsWith(opener)).toBe(true);
+        if (follow) expect(text.endsWith(follow)).toBe(true);
         if (parsed.choice.c === 0) {
           expect(text).toBe(formatChatReply(opener, "", follow));
-          expect(text).not.toContain(card.answer_th);
+          if (card.answer_th) expect(text).not.toContain(card.answer_th);
         } else {
           expect(parsed.choice.c).toBe(1);
           expect(text).toBe(formatChatReply(opener, card.answer_th, follow));
-          expect(cardBodyOf(text, opener, follow)).toBe(card.answer_th);
         }
       }
     }
@@ -341,17 +339,22 @@ describe("property: rendered text is opener, then nothing or the exact full answ
   });
 });
 
-describe("re-indexed TH lists (4 openers, 4 follow-ups)", () => {
-  it("rejects TH o=4 and q=4", () => {
+describe("v40 TH numbering (5 slots; dropped o4/q2 are empty fallback)", () => {
+  it("accepts TH o=4 and q=4 (v40 max) and rejects o=5 / q=5", () => {
     const b = bounds(true);
-    expect(parseChatChoice('{"o":4,"c":0,"q":0}', b).ok).toBe(false);
-    expect(parseChatChoice('{"o":0,"c":0,"q":4}', b).ok).toBe(false);
+    expect(parseChatChoice('{"o":4,"c":0,"q":0}', b).ok).toBe(true);
+    expect(parseChatChoice('{"o":0,"c":0,"q":4}', b).ok).toBe(true);
+    expect(parseChatChoice('{"o":5,"c":0,"q":0}', b).ok).toBe(false);
+    expect(parseChatChoice('{"o":0,"c":0,"q":5}', b).ok).toBe(false);
   });
 
-  it("accepts TH o=3 q=3 and renders the last opener plus last follow-up", () => {
+  it("accepts TH o=3 q=3 as v40 ids (q3 is ยังมีอะไร; last follow-up is q4)", () => {
     const r = parseChatChoice('{"o":3,"c":0,"q":3}', bounds(true));
     expect(r).toEqual({ ok: true, choice: { o: 3, c: 0, q: 3 } });
     expect(renderChatChoice({ o: 3, c: 0, q: 3 }, "th", "")).toBe(
+      "เรื่องนี้เราเข้าใจค่ะ ยังมีอะไรที่อยากคุยต่อไหมคะ?",
+    );
+    expect(renderChatChoice({ o: 3, c: 0, q: 4 }, "th", "")).toBe(
       "เรื่องนี้เราเข้าใจค่ะ เธออยากให้ช่วยตรงไหนก่อนคะ?",
     );
   });
@@ -362,10 +365,11 @@ describe("re-indexed TH lists (4 openers, 4 follow-ups)", () => {
     expect(parseChatChoice('{"o":0,"c":0,"q":3}', b).ok).toBe(false);
   });
 
-  it("every TH opener × follow-up pair passes acceptChatReply", () => {
+  it("every TH opener × follow-up pair with at least one live line passes acceptChatReply", () => {
     for (let o = 0; o < CHAT_OPENERS_TH.length; o++) {
       for (let q = 0; q < CHAT_FOLLOWUPS_TH.length; q++) {
         const text = renderChatChoice({ o, c: 0, q }, "th", "");
+        if (!text) continue;
         expect(acceptChatReply(text, "th").ok, text).toBe(true);
         expect(acceptChatReply(text, "th", { ambiguous: true }).ok, text).toBe(true);
       }

@@ -6,6 +6,10 @@
 //   node scripts/fetch-weights.mjs --model qwen3-4b     # qwen3-4b WebGPU f16 (~2.3 GB) + 1.7B WASM fallback
 //   node scripts/fetch-weights.mjs --variants webgpu_f16,webgpu_f32,wasm
 //   node scripts/fetch-weights.mjs --verify-only
+//   node scripts/fetch-weights.mjs --model qwen3-0.6b-ft --verify-only
+//     local-only Jane fine-tune: place models/gguf/Qwen3-0.6B-jane-ft-Q4_K_M.gguf first
+//     (sha256 1a8056e4f1d0afba32ab87c24f8c2740258b130a9bb7bb5311e742c921daf8e2, 484220256 bytes).
+//     No URL; this script never downloads it.
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";

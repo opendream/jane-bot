@@ -27,17 +27,19 @@ const REASSURANCE = [
 describe("DRAFT opener and follow-up lists", () => {
   it("is marked DRAFT and holds whole phrases, not free-text slots", () => {
     expect(CHAT_VOICE_STATUS).toBe("draft");
-    expect(CHAT_OPENERS_TH.length).toBe(4);
-    expect(CHAT_FOLLOWUPS_TH.length).toBe(4);
+    expect(CHAT_OPENERS_TH.length).toBe(5);
+    expect(CHAT_FOLLOWUPS_TH.length).toBe(5);
     expect(CHAT_OPENERS_TH[0]).toBe("เราอยู่ตรงนี้นะคะ");
-    for (const p of [...CHAT_OPENERS_TH, ...CHAT_FOLLOWUPS_TH, ...CHAT_OPENERS_EN, ...CHAT_FOLLOWUPS_EN]) {
+    expect(CHAT_OPENERS_TH[4]).toBe("");
+    expect(CHAT_FOLLOWUPS_TH[2]).toBe("");
+    for (const p of [...CHAT_OPENERS_TH, ...CHAT_FOLLOWUPS_TH, ...CHAT_OPENERS_EN, ...CHAT_FOLLOWUPS_EN].filter((s) => s.length > 0)) {
       expect(p.trim()).toBe(p);
       expect(p.length).toBeGreaterThan(3);
     }
   });
 
   it("follow-ups are questions with no facts, numbers, drug or method names, or advice", () => {
-    for (const q of CHAT_FOLLOWUPS_TH) {
+    for (const q of CHAT_FOLLOWUPS_TH.filter((s) => s.length > 0)) {
       expect(q.includes("?") || q.includes("ไหม") || q.includes("มั้ย") || q.endsWith("ดี")).toBe(true);
       expect(q).not.toMatch(/ควร|ต้องกิน|ห้าม/);
     }
@@ -47,7 +49,7 @@ describe("DRAFT opener and follow-up lists", () => {
   });
 
   it("contains no facts, instructions, quantities, or numbers", () => {
-    const phrases = [...CHAT_OPENERS_TH, ...CHAT_FOLLOWUPS_TH, ...CHAT_OPENERS_EN, ...CHAT_FOLLOWUPS_EN];
+    const phrases = [...CHAT_OPENERS_TH, ...CHAT_FOLLOWUPS_TH, ...CHAT_OPENERS_EN, ...CHAT_FOLLOWUPS_EN].filter((s) => s.length > 0);
     for (const p of phrases) {
       expect(p, p).not.toMatch(/[0-9๐-๙]/);
       const lower = p.toLowerCase();
@@ -58,7 +60,7 @@ describe("DRAFT opener and follow-up lists", () => {
   });
 
   it("no opener or follow-up contains a reassurance, minimising, or risk-verdict word", () => {
-    const phrases = [...CHAT_OPENERS_TH, ...CHAT_FOLLOWUPS_TH, ...CHAT_OPENERS_EN, ...CHAT_FOLLOWUPS_EN];
+    const phrases = [...CHAT_OPENERS_TH, ...CHAT_FOLLOWUPS_TH, ...CHAT_OPENERS_EN, ...CHAT_FOLLOWUPS_EN].filter((s) => s.length > 0);
     for (const p of phrases) {
       const lower = p.toLowerCase();
       for (const w of REASSURANCE) {

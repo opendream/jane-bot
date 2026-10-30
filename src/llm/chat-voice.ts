@@ -8,18 +8,33 @@
 
 export const CHAT_VOICE_STATUS = "draft" as const;
 
+/**
+ * Model-facing TH ids stay the v40 numbering the fine-tune was trained on
+ * (`{"o":N,"c":0|1,"q":N}`). Live เรา/เธอ strings sit at the same slots.
+ * Dropped v40 ids (o4 `ทางนี้พี่เข้าใจ`, q2 `อยากให้พี่ส่งข้อมูลที่ตรวจแล้วไหม?`)
+ * keep their index so later ids do not shift, and resolve to the same empty
+ * fallback `renderChatChoice` already uses for an out-of-range index (`?? ""`).
+ */
+export const INVALID_VOICE_INDEX_FALLBACK = "";
+/** Inclusive max o the v40 Thai list accepted (0..4). */
+export const V40_OPENER_MAX_TH = 4;
+/** Inclusive max q the v40 Thai list accepted (0..4). */
+export const V40_FOLLOWUP_MAX_TH = 4;
+
 /** DRAFT. Keng review required before these strings are treated as product copy. */
 export const CHAT_OPENERS_TH: readonly string[] = [
   "เราอยู่ตรงนี้นะคะ",
   "เราเข้าใจค่ะ",
   "ขอบคุณที่ถามมานะคะ",
   "เรื่องนี้เราเข้าใจค่ะ",
+  INVALID_VOICE_INDEX_FALLBACK,
 ];
 
 /** DRAFT. Gentle follow-up questions. No facts, numbers, drug or method names, or advice. */
 export const CHAT_FOLLOWUPS_TH: readonly string[] = [
   "เธออยากเล่าเพิ่มไหมคะ?",
   "ตอนนี้อยากถามเรื่องไหนต่อดีคะ?",
+  INVALID_VOICE_INDEX_FALLBACK,
   "ยังมีอะไรที่อยากคุยต่อไหมคะ?",
   "เธออยากให้ช่วยตรงไหนก่อนคะ?",
 ];

@@ -5,7 +5,7 @@ import { MODEL, CHAT_FIRST_TIMEOUT_MS } from "../../src/config";
 import { MODELS } from "../../src/llm/models";
 import { CHAT_MAX_TOKENS, CHAT_SYSTEM, chatSystemFor } from "../../src/llm/chat-system";
 import { CHAT_FOLLOWUPS_TH, CHAT_OPENERS_TH } from "../../src/llm/chat-voice";
-import { resetPreloadForTests, startModel, type ModelStatus } from "../../src/llm/runtime";
+import { missingLocalModelWarning, modelPillCopy, resetPreloadForTests, startModel, type ModelStatus } from "../../src/llm/runtime";
 import type { LLMAdapter } from "../../src/llm/adapter";
 import { BANK } from "../../src/core/bankData";
 import { detectCrisis } from "../../src/core/crisis";
@@ -92,6 +92,50 @@ describe("default model is fine-tuned Qwen3-0.6B (WASM, local)", () => {
     });
     expect(a).toBeNull();
     expect(loadWllama).not.toHaveBeenCalled();
+  });
+
+  it("missing GGUF does not fail silently: warns, shows the rules-only failed pill, uses rules", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const loadWllama = vi.fn(async () => fakeWasm());
+    const statuses: ModelStatus[] = [];
+    const a = await startModel((s) => statuses.push({ ...s }), {
+      search: "",
+      gpuInfo: async () => ({ ok: false, f16: false }),
+      installed: async () => [],
+      loadWllama,
+    });
+    expect(a).toBeNull();
+    expect(loadWllama).not.toHaveBeenCalled();
+    const last = statuses.at(-1)!;
+    expect(last).toMatchObject({ state: "failed", runtime: "rules" });
+    expect(modelPillCopy(last).text).toBe("🔒 ใช้กฎพื้นฐาน (ไม่มีโมเดล) · ออฟไลน์");
+    expect(warn).toHaveBeenCalled();
+    const msg = warn.mock.calls.map((c) => c.map(String).join(" ")).join("\n");
+    expect(msg).toContain(missingLocalModelWarning("qwen3-0.6b-ft"));
+    expect(msg).toContain(FT_FILE);
+    expect(msg).toContain(FT_SHA);
+    expect(msg).toContain(String(FT_BYTES));
+    expect(msg).not.toMatch(/https?:\/\//);
+    warn.mockRestore();
+  });
+
+  it("installed wasm whose load throws also warns and shows failed, not silent off", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const statuses: ModelStatus[] = [];
+    const a = await startModel((s) => statuses.push({ ...s }), {
+      search: "",
+      gpuInfo: async () => ({ ok: false, f16: false }),
+      installed: async () => [{ model: "qwen3-0.6b-ft", variants: ["wasm"] }],
+      loadWllama: async () => {
+        throw new Error("model file missing: gguf/Qwen3-0.6B-jane-ft-Q4_K_M.gguf (404)");
+      },
+    });
+    expect(a).toBeNull();
+    const last = statuses.at(-1)!;
+    expect(last).toMatchObject({ state: "failed", runtime: "rules" });
+    expect(modelPillCopy(last).text).toBe("🔒 ใช้กฎพื้นฐาน (ไม่มีโมเดล) · ออฟไลน์");
+    expect(warn.mock.calls.map((c) => c.map(String).join(" ")).join("\n")).toContain("qwen3-0.6b-ft");
+    warn.mockRestore();
   });
 
   it("manifest pins sha256/size, has no URL, and the repo has no base-0.6B entry", () => {
@@ -194,6 +238,37 @@ describe("per-turn model time limit and max-token cap", () => {
     expect(late).toBe(false);
   });
 
+  it("remaining budget under 8 s skips the model card pick and uses the rules card alone", async () => {
+    vi.useFakeTimers();
+    let n = 0;
+    const pickCard = vi.fn(async () => "none");
+    const model: DialogModel = {
+      ready: () => true,
+      chatReply: async () => {
+        n++;
+        if (n === 3) await new Promise<void>((resolve) => setTimeout(resolve, 40_000));
+        return '{"o":0,"c":0,"q":0}';
+      },
+      pickCard,
+    };
+    const t1 = await runTurn(newDialog("18-24"), "ถุงยางแตกทำไงดี", deps(model, { chatTimeoutMs: 45_000 }));
+    const t2 = await runTurn(t1.state, "แล้วยังไงต่อดี", deps(model, { chatTimeoutMs: 45_000 }));
+    expect(pickCard.mock.calls.length).toBeGreaterThan(0);
+    const picksBefore = pickCard.mock.calls.length;
+    const p3 = runTurn(t2.state, "อยากรู้เพิ่ม", deps(model, { chatTimeoutMs: 45_000 }));
+    await vi.advanceTimersByTimeAsync(40_000);
+    const t3 = await p3;
+    expect(n).toBe(3);
+    expect(pickCard.mock.calls.length).toBe(picksBefore);
+    expect(t3.reply.kind).toBe("chat");
+    if (t3.reply.kind !== "chat") return;
+    expect(t3.reply.card).toBeTruthy();
+    expect(t3.reply.cardText).toBe(t3.reply.card!.answer_th);
+    expect(t3.reply.text).not.toContain(DROPPED_HOLDING_LINE);
+    expect(t3.reply.text).not.toContain(DROPPED_HOLDING_LINE_EN);
+    expect((t3.reply as { holding?: string }).holding).toBeUndefined();
+  });
+
   it("CLEAR crisis makes 0 stub calls", async () => {
     const calls = { chat: 0 };
     const model: DialogModel = {
@@ -222,7 +297,7 @@ describe("model text pin (Commit 1 name + re-indexed lists only)", () => {
     for (const [i, s] of CHAT_FOLLOWUPS_TH.entries()) {
       expect(grounded).toContain(`${i}. ${s}`);
     }
-    expect(grounded).not.toContain("4. ");
+    expect(grounded).toContain("4. ");
     expect(grounded).not.toContain("อยากให้พี่ส่งข้อมูลที่ตรวจแล้วไหม?");
     expect(grounded).not.toContain("ทางนี้พี่เข้าใจ");
   });

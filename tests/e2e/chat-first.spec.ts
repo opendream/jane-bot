@@ -37,7 +37,7 @@ function modelCalls(page: Page) {
   return page.evaluate(() => window.__JANE_RUNTIME_CALLS__ ?? { chat: 0, pick: 0 });
 }
 
-test("c=1 plus a shown card shows answer_th exactly once on that turn", async ({ page }) => {
+test("c=1 plus a shown card keeps the quoted card in chat text and on the bubble", async ({ page }) => {
   await page.goto("/?chatFirst=1&testRuntime=chat-whole&runtime=wasm");
   await page.waitForLoadState("domcontentloaded");
   await expect(page.getByTestId("model-status")).toHaveAttribute("data-state", "ready", { timeout: 10_000 });
@@ -45,7 +45,7 @@ test("c=1 plus a shown card shows answer_th exactly once on that turn", async ({
   await say(page, "ถุงยางแตกต้องทำยังไง");
   await expect(page.locator('[data-testid="chat-msg"][data-from="jane"][data-card="condom.leak.000"]')).toHaveCount(1);
   const texts = await page.locator('[data-testid="chat-text"]').allTextContents();
-  expect(texts.filter((t) => t.includes(LEAK_ANSWER))).toHaveLength(1);
+  expect(texts.filter((t) => t.includes(LEAK_ANSWER))).toHaveLength(2);
 });
 
 test("turn 3 of a stubbed chat-first topic closes with a bank card", async ({ page }) => {
