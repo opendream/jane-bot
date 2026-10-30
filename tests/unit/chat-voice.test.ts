@@ -27,11 +27,9 @@ const REASSURANCE = [
 describe("DRAFT opener and follow-up lists", () => {
   it("is marked DRAFT and holds whole phrases, not free-text slots", () => {
     expect(CHAT_VOICE_STATUS).toBe("draft");
-    expect(CHAT_OPENERS_TH.length).toBeGreaterThan(4);
-    expect(CHAT_OPENERS_TH.length).toBeLessThan(20);
-    expect(CHAT_FOLLOWUPS_TH.length).toBeGreaterThan(3);
-    expect(CHAT_FOLLOWUPS_TH.length).toBeLessThan(20);
-    expect(CHAT_OPENERS_TH[0]).toBe("พี่อยู่ตรงนี้นะ");
+    expect(CHAT_OPENERS_TH.length).toBe(4);
+    expect(CHAT_FOLLOWUPS_TH.length).toBe(4);
+    expect(CHAT_OPENERS_TH[0]).toBe("เราอยู่ตรงนี้นะคะ");
     for (const p of [...CHAT_OPENERS_TH, ...CHAT_FOLLOWUPS_TH, ...CHAT_OPENERS_EN, ...CHAT_FOLLOWUPS_EN]) {
       expect(p.trim()).toBe(p);
       expect(p.length).toBeGreaterThan(3);

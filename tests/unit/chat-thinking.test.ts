@@ -17,7 +17,7 @@ describe("chat-first thinking copy (Thai FINAL, English DRAFT)", () => {
     expect(CHAT_THINKING_PHRASES.status).toBe("reviewed");
     expect(CHAT_THINKING_PHRASES.enStatus).toBe("draft");
     expect(CHAT_THINKING_PHRASES.th).toEqual([
-      "พี่เจนกำลังคิดอยู่นะ",
+      "เจนกำลังคิดอยู่นะ",
       "พี่อ่านข้อความของเราอยู่นะ",
       "กำลังเรียบเรียงคำพูดอยู่",
       "แป๊บนึงนะ พี่อยู่ตรงนี้",
@@ -37,15 +37,15 @@ describe("chat-first thinking copy (Thai FINAL, English DRAFT)", () => {
       "No rush, you can keep typing.",
       "Just a little more time…",
     ]);
-    expect(thinkingLabelFor("th")).toBe("พี่เจนกำลังคิด");
+    expect(thinkingLabelFor("th")).toBe("เจนกำลังคิด");
     expect(thinkingLabelFor("en")).toBe("Jane is thinking");
     expect(CHAT_THINKING_ROTATE_MS).toBeGreaterThanOrEqual(2000);
     expect(CHAT_THINKING_ROTATE_MS).toBeLessThanOrEqual(3000);
   });
 
   it("thinkingPhraseAt wraps around the phrase set", () => {
-    expect(thinkingPhraseAt("th", 0)).toBe("พี่เจนกำลังคิดอยู่นะ");
-    expect(thinkingPhraseAt("th", 8)).toBe("พี่เจนกำลังคิดอยู่นะ");
+    expect(thinkingPhraseAt("th", 0)).toBe("เจนกำลังคิดอยู่นะ");
+    expect(thinkingPhraseAt("th", 8)).toBe("เจนกำลังคิดอยู่นะ");
     expect(thinkingPhraseAt("en", 0)).toBe("Jane is thinking…");
   });
 
@@ -61,7 +61,7 @@ describe("chat-first thinking copy (Thai FINAL, English DRAFT)", () => {
     };
     expect(applyChatThinkingPhrase(root, thinkingPhraseAt("th", 1))).toBe(true);
     expect(phrase.textContent).toBe("พี่อ่านข้อความของเราอยู่นะ");
-    expect(label.textContent).toBe("พี่เจนกำลังคิด");
+    expect(label.textContent).toBe("เจนกำลังคิด");
     expect(applyChatThinkingPhrase({ querySelector: () => null }, thinkingPhraseAt("th", 2))).toBe(false);
   });
 

@@ -343,7 +343,7 @@ describe("model-first chat labels (flag off by default)", () => {
     expect(chat.busy).toBe(true);
     expect(chat.thinkingHint).toBe(thinkingHintAt(0));
     await pending;
-    expect(hints[0]).toBe("พี่เจนกำลังคิดนะ");
+    expect(hints[0]).toBe("เจนกำลังคิดนะ");
     expect(chat.thinkingHint).toBeNull();
     const jane = [...chat.messages].reverse().find((m) => m.from === "jane");
     expect(jane?.engineLabel).toBe(MODEL_ANSWER_LABEL);
@@ -419,7 +419,7 @@ describe("ambiguous extra-check: card bubble carries the DRAFT soft line", () =>
     await sendToChat(chat, "ยาคุมทำให้รู้สึก suicidal ได้ไหม", h);
     expect(h.crisisCalls).toBe(0);
     const jane = [...chat.messages].reverse().find((m) => m.from === "jane");
-    expect(jane?.softCrisis?.line).toBe("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ");
+    expect(jane?.softCrisis?.line).toBe("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะคะ");
     expect(jane?.softCrisis?.categories).toContain("self_harm");
     expect(jane?.cardId).toBeTruthy();
   });
@@ -436,7 +436,7 @@ describe("ambiguous extra-check: card bubble carries the DRAFT soft line", () =>
     expect(model.chatReply).toHaveBeenCalledTimes(1);
     const jane = [...chat.messages].reverse().find((m) => m.from === "jane");
     expect(jane?.text).toBe(defaultChatReply("th"));
-    expect(jane?.softCrisis?.line).toBe("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ");
+    expect(jane?.softCrisis?.line).toBe("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะคะ");
     expect(jane?.softCrisis?.categories).toContain("self_harm");
   });
 
@@ -455,6 +455,6 @@ describe("ambiguous extra-check: card bubble carries the DRAFT soft line", () =>
     expect(h.referralIntents).toHaveLength(1);
     const jane = [...chat.messages].reverse().find((m) => m.from === "jane");
     expect(jane?.note).toBe("referral");
-    expect(jane?.softCrisis?.line).toBe("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ");
+    expect(jane?.softCrisis?.line).toBe("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะคะ");
   });
 });

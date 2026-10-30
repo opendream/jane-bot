@@ -39,7 +39,7 @@ test("thinking indicator is visible during a stubbed slow generation, gone after
   await expect(page.getByTestId("chat-thinking")).toBeVisible({ timeout: 2_000 });
   await expect(page.getByTestId("chat-thinking-label")).toHaveText(thinkingLabelFor("th"));
   await expect(page.getByTestId("chat-thinking-phrase")).toHaveText(thinkingPhraseAt("th", 0));
-  await expect(lastJane(page).getByTestId("chat-text")).toContainText("พี่อยู่ตรงนี้นะ", { timeout: 8_000 });
+  await expect(lastJane(page).getByTestId("chat-text")).toContainText("เราอยู่ตรงนี้นะคะ", { timeout: 8_000 });
   await expect(page.getByTestId("chat-thinking")).toHaveCount(0);
   const log = page.getByTestId("chat-log");
   await expect(log.getByTestId("chat-thinking")).toHaveCount(0);
@@ -64,7 +64,7 @@ test("reduced-motion shows one static phrase with no bobbing animation", async (
   expect(anim === "none" || anim === "").toBe(true);
   await page.waitForTimeout(2_800);
   await expect(page.getByTestId("chat-thinking-phrase")).toHaveText(thinkingPhraseAt("th", 0));
-  await expect(lastJane(page).getByTestId("chat-text")).toContainText("พี่อยู่ตรงนี้นะ", { timeout: 10_000 });
+  await expect(lastJane(page).getByTestId("chat-text")).toContainText("เราอยู่ตรงนี้นะคะ", { timeout: 10_000 });
   await expect(page.getByTestId("chat-thinking")).toHaveCount(0);
 });
 
@@ -89,10 +89,10 @@ test("Thai AMBIGUOUS shows thinking like NONE, then the model reply plus the DRA
   await say(page, "หนูไม่ค่อยอยาก die นะ แค่ถามเรื่อง HIV");
   await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
   await expect(page.getByTestId("chat-thinking")).toBeVisible({ timeout: 2_000 });
-  await expect(lastJane(page).getByTestId("chat-text")).toContainText("พี่อยู่ตรงนี้นะ", { timeout: 8_000 });
+  await expect(lastJane(page).getByTestId("chat-text")).toContainText("เราอยู่ตรงนี้นะคะ", { timeout: 8_000 });
   await expect(page.getByTestId("chat-thinking")).toHaveCount(0);
   const jane = lastJane(page);
-  await expect(jane.getByTestId("chat-crisis-soft-line")).toHaveText("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ");
+  await expect(jane.getByTestId("chat-crisis-soft-line")).toHaveText("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะคะ");
   await expect(jane.getByTestId("chat-crisis-soft-open")).toBeVisible();
   const log = page.getByTestId("chat-log");
   await expect(log.getByTestId("chat-thinking")).toHaveCount(0);
@@ -111,9 +111,9 @@ test("Thai AMBIGUOUS grouped with a prior unanswered line talks once, with think
   await expect(page.getByTestId("chat-thinking")).toBeVisible({ timeout: 2_000 });
   await say(page, "หนูไม่ค่อยอยาก die นะ แค่ถามเรื่อง HIV");
   await expect(page.getByTestId("chat-thinking")).toBeVisible({ timeout: 2_000 });
-  await expect(lastJane(page).getByTestId("chat-text")).toContainText("พี่อยู่ตรงนี้นะ", { timeout: 8_000 });
+  await expect(lastJane(page).getByTestId("chat-text")).toContainText("เราอยู่ตรงนี้นะคะ", { timeout: 8_000 });
   await expect(page.getByTestId("chat-thinking")).toHaveCount(0);
-  await expect(page.getByTestId("chat-crisis-soft-line")).toHaveText("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ");
+  await expect(page.getByTestId("chat-crisis-soft-line")).toHaveText("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะคะ");
   await expect(page.getByTestId("chat-crisis-soft-open")).toBeVisible();
   const after = await modelCalls(page);
   expect(after.chat).toBe(1);
@@ -127,7 +127,7 @@ test("Thai AMBIGUOUS when the model is not ready shows the card plus the DRAFT l
   await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
   await expect(page.getByTestId("chat-thinking")).toHaveCount(0);
   await expect(lastJane(page)).toHaveAttribute("data-card", /.+/);
-  await expect(page.getByTestId("chat-crisis-soft-line")).toHaveText("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ");
+  await expect(page.getByTestId("chat-crisis-soft-line")).toHaveText("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะคะ");
   const calls = await modelCalls(page);
   expect(calls.chat + calls.pick).toBe(0);
 });
@@ -137,7 +137,7 @@ test("ขอข้อมูลเลย stays available mid-generation and shows
   await openChat(page);
   await say(page, "ช่วงนี้กังวลเรื่องแฟน");
   await expect(page.getByTestId("chat-thinking")).toBeVisible({ timeout: 2_000 });
-  await expect(lastJane(page).getByTestId("chat-text")).toContainText("พี่อยู่ตรงนี้นะ", { timeout: 8_000 });
+  await expect(lastJane(page).getByTestId("chat-text")).toContainText("เราอยู่ตรงนี้นะคะ", { timeout: 8_000 });
   const before = await modelCalls(page);
   expect(before.chat).toBeGreaterThan(0);
   await say(page, "แฟนไม่ยอมคุยด้วย");

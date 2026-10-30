@@ -11,10 +11,10 @@
 
 /** @type {readonly NameAllowEntry[]} */
 export const PII_NAME_ALLOWLIST = Object.freeze([
-  // Jane persona intro. findPII already treats พี่เจน as generic; stripPII's ชื่อ rule still matches.
+  // Jane persona intro. findPII already treats เจน / พี่เจน as generic; stripPII's ชื่อ rule still matches.
   Object.freeze({
     id: "general.welcome.000",
-    span: "ชื่อพี่เจน",
+    span: "ชื่อเจน",
     why: "Public character name in the welcome line, not a personal name.",
   }),
   // "ไม่แจ้งชื่อ มีคลินิกนิรนาม" — the detector reads ชื่อ + the clinic phrase as a Thai name.

@@ -52,7 +52,7 @@ test("turn 3 of a stubbed chat-first topic closes with a bank card", async ({ pa
   await openChatFirst(page);
   await openChat(page);
   await say(page, "ช่วงนี้กังวลเรื่องแฟน");
-  await expect(lastJane(page).getByTestId("chat-text")).toContainText("พี่อยู่ตรงนี้นะ");
+  await expect(lastJane(page).getByTestId("chat-text")).toContainText("เราอยู่ตรงนี้นะคะ");
   await expect(lastJane(page)).toHaveAttribute("data-card", "");
   await say(page, "แฟนไม่ยอมคุยด้วย");
   await expect(lastJane(page)).toHaveAttribute("data-card", "");
@@ -64,7 +64,7 @@ test("ขอข้อมูลเลย chip after a chat turn shows a bank card
   await openChatFirst(page);
   await openChat(page);
   await say(page, "ช่วงนี้กังวลเรื่องแฟน");
-  await expect(lastJane(page).getByTestId("chat-text")).toContainText("พี่อยู่ตรงนี้นะ");
+  await expect(lastJane(page).getByTestId("chat-text")).toContainText("เราอยู่ตรงนี้นะคะ");
   const before = await modelCalls(page);
   expect(before.chat).toBeGreaterThan(0);
   await expect(page.getByRole("button", { name: SHOW_CARD_NOW })).toBeVisible();
@@ -161,7 +161,7 @@ test("thanks after a condom topic does not show that card on the thanks turn", a
   await openChatFirstPick(page);
   await openChat(page);
   await say(page, "ถุงยางแตกค่ะ");
-  await expect(lastJane(page).getByTestId("chat-text")).toContainText("พี่อยู่ตรงนี้นะ");
+  await expect(lastJane(page).getByTestId("chat-text")).toContainText("เราอยู่ตรงนี้นะคะ");
   await expect(lastJane(page)).toHaveAttribute("data-card", "");
   const before = await modelCalls(page);
   await say(page, "ขอบคุณค่ะ");

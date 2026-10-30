@@ -1,4 +1,4 @@
-# Run bundle: พี่เจน · Jane (SRH referral demo)
+# Run bundle: เจน · Jane (SRH referral demo)
 
 Private prototype for filming. Apache-2.0 (see `LICENSE`). Synthetic data only. **Thai copy is DRAFT.**
 The app runs entirely in the browser; the local server only hands out static files and never sees chat text.

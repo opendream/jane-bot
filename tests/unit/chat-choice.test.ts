@@ -8,6 +8,7 @@ import {
   renderChatChoiceForTurn,
   type ChatChoiceBounds,
 } from "../../src/llm/chat-choice";
+import { acceptChatReply } from "../../src/llm/chatGuard";
 import {
   CHAT_FOLLOWUPS_EN,
   CHAT_FOLLOWUPS_TH,
@@ -69,6 +70,14 @@ function bounds(hasCard: boolean): ChatChoiceBounds {
   return {
     openerCount: CHAT_OPENERS_TH.length,
     followUpCount: CHAT_FOLLOWUPS_TH.length,
+    hasCard,
+  };
+}
+
+function enBounds(hasCard: boolean): ChatChoiceBounds {
+  return {
+    openerCount: CHAT_OPENERS_EN.length,
+    followUpCount: CHAT_FOLLOWUPS_EN.length,
     hasCard,
   };
 }
@@ -329,5 +338,37 @@ describe("property: rendered text is opener, then nothing or the exact full answ
     expect(json).not.toContain('"s"');
     const parsed = parseChatChoice(json, bounds(true));
     expect(parsed).toEqual({ ok: true, choice: { o: 2, c: 1, q: 1 } });
+  });
+});
+
+describe("re-indexed TH lists (4 openers, 4 follow-ups)", () => {
+  it("rejects TH o=4 and q=4", () => {
+    const b = bounds(true);
+    expect(parseChatChoice('{"o":4,"c":0,"q":0}', b).ok).toBe(false);
+    expect(parseChatChoice('{"o":0,"c":0,"q":4}', b).ok).toBe(false);
+  });
+
+  it("accepts TH o=3 q=3 and renders the last opener plus last follow-up", () => {
+    const r = parseChatChoice('{"o":3,"c":0,"q":3}', bounds(true));
+    expect(r).toEqual({ ok: true, choice: { o: 3, c: 0, q: 3 } });
+    expect(renderChatChoice({ o: 3, c: 0, q: 3 }, "th", "")).toBe(
+      "เรื่องนี้เราเข้าใจค่ะ เธออยากให้ช่วยตรงไหนก่อนคะ?",
+    );
+  });
+
+  it("still rejects EN o=3 and q=3", () => {
+    const b = enBounds(true);
+    expect(parseChatChoice('{"o":3,"c":0,"q":0}', b).ok).toBe(false);
+    expect(parseChatChoice('{"o":0,"c":0,"q":3}', b).ok).toBe(false);
+  });
+
+  it("every TH opener × follow-up pair passes acceptChatReply", () => {
+    for (let o = 0; o < CHAT_OPENERS_TH.length; o++) {
+      for (let q = 0; q < CHAT_FOLLOWUPS_TH.length; q++) {
+        const text = renderChatChoice({ o, c: 0, q }, "th", "");
+        expect(acceptChatReply(text, "th").ok, text).toBe(true);
+        expect(acceptChatReply(text, "th", { ambiguous: true }).ok, text).toBe(true);
+      }
+    }
   });
 });

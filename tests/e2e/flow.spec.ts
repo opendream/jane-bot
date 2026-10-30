@@ -123,6 +123,9 @@ test("C1 crisis phrase overrides the flow → 1323 then 1669 only; SOS (unclear)
   const t0 = Date.now();
   await expect(page.getByTestId("screen-crisis")).toBeVisible();
   expect(Date.now() - t0).toBeLessThan(1000);
+  await expect(page.getByTestId("brand")).toContainText("เจน");
+  await expect(page.getByTestId("brand")).not.toContainText("พี่เจน");
+  await expect(page).toHaveTitle(/^เจน · Jane/);
   await expect(page.getByTestId("screen-crisis")).toContainText(`โทร 1663 ปรึกษาฟรี`);
   await expect(page.getByTestId("screen-crisis")).toContainText(effectiveHoursLabel("hotline_1663"));
   await expect(page.getByTestId("screen-crisis")).not.toContainText("รวมวันหยุด");
@@ -145,9 +148,9 @@ test("C1 crisis phrase overrides the flow → 1323 then 1669 only; SOS (unclear)
   await expect(page.getByTestId("screen-neutral")).toBeVisible();
   expect(await page.locator("body").innerText()).not.toContain("ไม่อยากมีชีวิต");
   // Discreet: no name, mark or icon on the neutral page.
-  expect(await page.locator("body").innerText()).not.toMatch(/พี่เจน|Jane/);
+  expect(await page.locator("body").innerText()).not.toMatch(/เจน|Jane/);
   await expect(page.locator(".mark")).toHaveCount(0);
-  expect(await page.title()).not.toMatch(/พี่เจน|Jane/);
+  expect(await page.title()).not.toMatch(/เจน|Jane/);
   expect(await page.locator('link[rel="icon"]').getAttribute("href")).toBe("data:,");
   await shot(page, "c1-02-quick-exit-neutral");
 

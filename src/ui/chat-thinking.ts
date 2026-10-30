@@ -1,7 +1,8 @@
 /**
  * Chat-first thinking indicator copy and in-place phrase patch.
  *
- * Thai phrases: FINAL (Keng, 29 Oct 2026). Do not edit the Thai strings.
+ * Thai phrases: FINAL (Keng, 29 Oct 2026), except the name พี่เจน→เจน
+ * (Keng, 30 Oct 2026 10:35 BKK). Do not edit the other Thai strings.
  * English set is DRAFT for later and is used only if an English turn ever
  * runs the model.
  *
@@ -18,7 +19,7 @@ export const CHAT_THINKING_PHRASES = {
   status: "reviewed" as const,
   enStatus: "draft" as const,
   th: [
-    "พี่เจนกำลังคิดอยู่นะ",
+    "เจนกำลังคิดอยู่นะ",
     "พี่อ่านข้อความของเราอยู่นะ",
     "กำลังเรียบเรียงคำพูดอยู่",
     "แป๊บนึงนะ พี่อยู่ตรงนี้",
@@ -39,7 +40,7 @@ export const CHAT_THINKING_PHRASES = {
     "Just a little more time…",
   ],
   label: {
-    th: "พี่เจนกำลังคิด",
+    th: "เจนกำลังคิด",
     en: "Jane is thinking",
   },
 } as const;

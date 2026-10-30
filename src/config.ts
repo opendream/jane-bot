@@ -1,11 +1,11 @@
 // Single place for product-level settings. Change here, nowhere else.
 
 /**
- * Product name (Keng's ruling, 22 Oct 2026 19:49 BKK): keep the Jane / พี่เจน name.
+ * Product name (Keng's ruling, 30 Oct 2026 10:35 BKK): the Thai name is เจน.
  * UI art is the 2018 Sex Safe Safe illustrations in src/assets/jane/ (© Opendream 2018).
  * Never use the 2020 Jane artwork. The small mark in src/assets/mark.svg was drawn from scratch for this build.
  */
-export const PRODUCT_NAME = "พี่เจน";
+export const PRODUCT_NAME = "เจน";
 export const PRODUCT_NAME_EN = "Jane";
 
 /** Lowest age for the demo. Open question for Keng; default 15+. */

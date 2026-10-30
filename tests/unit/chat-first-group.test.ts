@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CHAT_HOLDING_LINE } from "../../src/llm/chatGuard";
 import {
   DialogSession,
   HARD_CAP,
@@ -21,6 +20,7 @@ import {
 import { createGenerationQueue } from "../../src/llm/generation-queue";
 import { DEFAULT_CHAT_CHOICE_JSON, defaultChatReply } from "../../src/llm/chat-choice";
 
+const DROPPED_HOLDING_LINE = "พี่ฟังอยู่นะ ขอส่งข้อมูลที่ตรวจแล้วให้ก่อน";
 const SAFE_JSON = DEFAULT_CHAT_CHOICE_JSON;
 const SAFE_CHAT = defaultChatReply("th");
 const BAD_CHAT = "กิน 2 เม็ด แล้วไม่ท้องแน่ https://evil.test";
@@ -106,7 +106,7 @@ describe("chat-first message grouping", () => {
     expect(r3?.kind).toBe("chat");
     if (r3?.kind === "chat") {
       expect(r3.text).toBe(SAFE_CHAT);
-      expect(r3.text).not.toBe(CHAT_HOLDING_LINE);
+      expect(r3.text).not.toBe(DROPPED_HOLDING_LINE);
     }
     expect(calls.lastChat).toBe(`${A}\n${B}\n${C}`);
     expect(calls.chat).toBe(1);
@@ -298,7 +298,7 @@ describe("chat-first guard retry (no holding bubble)", () => {
     expect(r.reply.kind).toBe("chat");
     if (r.reply.kind === "chat") {
       expect(r.reply.text).toBe(SAFE_CHAT);
-      expect(r.reply.text).not.toBe(CHAT_HOLDING_LINE);
+      expect(r.reply.text).not.toBe(DROPPED_HOLDING_LINE);
       expect(r.reply.holding).toBeUndefined();
       expect(r.reply.card).toBeNull();
     }
@@ -312,7 +312,7 @@ describe("chat-first guard retry (no holding bubble)", () => {
     expect(r.reply.kind).toBe("card");
     if (r.reply.kind === "card") {
       expect(r.reply.text).toBe(r.reply.card.answer_th);
-      expect(r.reply.text).not.toBe(CHAT_HOLDING_LINE);
+      expect(r.reply.text).not.toBe(DROPPED_HOLDING_LINE);
     }
   });
 
@@ -334,7 +334,7 @@ describe("chat-first guard retry (no holding bubble)", () => {
     const r = await runTurn(newDialog(), A, deps(model, { chatTimeoutMs: 30 }));
     expect(calls.chat).toBe(before.chat + 1);
     expect(r.reply.kind).toBe("card");
-    if (r.reply.kind === "card") expect(r.reply.text).not.toBe(CHAT_HOLDING_LINE);
+    if (r.reply.kind === "card") expect(r.reply.text).not.toBe(DROPPED_HOLDING_LINE);
   });
 
   it("model not ready shows the card at once with zero chat calls", async () => {
@@ -366,7 +366,7 @@ describe("chat-first thinking indicator", () => {
     await pending;
     expect(chat.thinking).toBe(false);
     expect(chat.messages.some((m) => m.text === thinkingPhraseAt("th", 0))).toBe(false);
-    expect(chat.messages.some((m) => m.text === CHAT_HOLDING_LINE)).toBe(false);
+    expect(chat.messages.some((m) => m.text === DROPPED_HOLDING_LINE)).toBe(false);
     expect(calls.chat).toBeGreaterThan(0);
   });
 
@@ -441,7 +441,7 @@ describe("chat-first thinking indicator", () => {
     const jane = [...chat.messages].reverse().find((m) => m.from === "jane");
     expect(jane?.cardId).toBeTruthy();
     expect(jane?.text).not.toBe(BAD_CHAT);
-    expect(jane?.text).not.toBe(CHAT_HOLDING_LINE);
+    expect(jane?.text).not.toBe(DROPPED_HOLDING_LINE);
     expect(jane?.softCrisis?.line).toBe(AMBIGUOUS_CRISIS_LINE_TH);
   });
 

@@ -18,7 +18,7 @@ const ACK_PARTICLE_RE = /^(ค่ะ|ครับ|คะ|จ้า|จ้ะ|ง
  * DRAFT. Keng review required before this string is treated as product copy.
  * Fixed local acknowledgement for a whole-line thanks/ack. Never generated.
  */
-export const ACK_LINE_TH = "ยินดีค่ะ พี่อยู่ตรงนี้นะ";
+export const ACK_LINE_TH = "ยินดีค่ะ เราอยู่ตรงนี้นะคะ";
 export const ACK_LINE_TH_STATUS = "draft" as const;
 
 /** True for thanks / short particles with no topic words. Never logs the line. */

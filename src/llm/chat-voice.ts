@@ -10,20 +10,18 @@ export const CHAT_VOICE_STATUS = "draft" as const;
 
 /** DRAFT. Keng review required before these strings are treated as product copy. */
 export const CHAT_OPENERS_TH: readonly string[] = [
-  "พี่อยู่ตรงนี้นะ",
-  "พี่เข้าใจ",
-  "ขอบคุณที่ถามมา",
-  "เรื่องนี้พี่เข้าใจ",
-  "ทางนี้พี่เข้าใจ",
+  "เราอยู่ตรงนี้นะคะ",
+  "เราเข้าใจค่ะ",
+  "ขอบคุณที่ถามมานะคะ",
+  "เรื่องนี้เราเข้าใจค่ะ",
 ];
 
 /** DRAFT. Gentle follow-up questions. No facts, numbers, drug or method names, or advice. */
 export const CHAT_FOLLOWUPS_TH: readonly string[] = [
-  "น้องอยากเล่าเพิ่มไหม?",
-  "ตอนนี้อยากถามเรื่องไหนต่อดี?",
-  "อยากให้พี่ส่งข้อมูลที่ตรวจแล้วไหม?",
-  "ยังมีอะไรที่อยากคุยต่อไหม?",
-  "น้องอยากให้ช่วยตรงไหนก่อน?",
+  "เธออยากเล่าเพิ่มไหมคะ?",
+  "ตอนนี้อยากถามเรื่องไหนต่อดีคะ?",
+  "ยังมีอะไรที่อยากคุยต่อไหมคะ?",
+  "เธออยากให้ช่วยตรงไหนก่อนคะ?",
 ];
 
 /** DRAFT. Used only if an English model-chat turn ever runs. */

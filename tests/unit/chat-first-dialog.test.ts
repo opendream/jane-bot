@@ -12,7 +12,6 @@ import {
   type TurnDeps,
 } from "../../src/core/dialog";
 import { SHOW_CARD_NOW, SHOW_CARD_NOW_EN } from "../../src/core/chat-flow";
-import { CHAT_HOLDING_LINE, CHAT_HOLDING_LINE_EN } from "../../src/llm/chatGuard";
 import { detectChatLang, modelChatScript } from "../../src/llm/chat-lang";
 import {
   CHAT_LANG_LINE_EN,
@@ -29,6 +28,9 @@ import { CARD_THAI_NOTE_EN } from "../../src/core/card-lang";
 import { LOCKED_ROUTE_IDS } from "../../src/core/pick-engine";
 import { REFUSAL_CARDS } from "../../src/core/guard";
 import { DEFAULT_CHAT_CHOICE_JSON, defaultChatReply } from "../../src/llm/chat-choice";
+
+const DROPPED_HOLDING_LINE = "พี่ฟังอยู่นะ ขอส่งข้อมูลที่ตรวจแล้วให้ก่อน";
+const DROPPED_HOLDING_LINE_EN = "I hear you. Let me share the checked information first.";
 
 // SYNTHETIC chat lines only. Model stubs return JSON; Jane's text is rendered.
 const SAFE_JSON = DEFAULT_CHAT_CHOICE_JSON;
@@ -311,9 +313,8 @@ describe("chat-first conversation", () => {
     expect(r.reply.kind).toBe("card");
     if (r.reply.kind === "card") {
       expect(r.reply.text).toBe(r.reply.card.answer_th);
-      expect(r.reply.text).not.toBe(CHAT_HOLDING_LINE);
+      expect(r.reply.text).not.toBe(DROPPED_HOLDING_LINE);
     }
-    expect(CHAT_HOLDING_LINE.length).toBeGreaterThan(0);
   });
 
   it("card text always comes from the bank, never from the model", async () => {
@@ -538,7 +539,7 @@ describe("chat-first English replies with ENGLISH_MODEL_CHAT on", () => {
     expect(r.reply.kind).toBe("card");
     if (r.reply.kind === "card") {
       expect(r.reply.text).toBe(r.reply.card.answer_th);
-      expect(r.reply.text).not.toBe(CHAT_HOLDING_LINE_EN);
+      expect(r.reply.text).not.toBe(DROPPED_HOLDING_LINE_EN);
       expect(r.reply.text).not.toContain("pills");
     }
   });

@@ -138,7 +138,7 @@ describe("model pill copy", () => {
 
   it("flag-on loading uses the readiness line; flag-off keeps the existing loading copy", () => {
     const loading = { state: "loading" as const, runtime: "wasm" as const, label: "Qwen3-1.7B", progress: 0.4 };
-    expect(modelPillCopy(loading, { modelPick: true }).text).toBe("กำลังเตรียมพี่เจน…");
+    expect(modelPillCopy(loading, { modelPick: true }).text).toBe("กำลังเตรียมเจน…");
     expect(modelPillCopy(loading).text).toBe("⏳ กำลังโหลดโมเดล Qwen3-1.7B 40% · ใช้งานได้ตามปกติระหว่างนี้");
   });
 });

@@ -79,7 +79,6 @@ textarea { width: 100%; font: inherit; padding: 12px; border-radius: var(--radiu
 .foot p { margin: 2px 0; }
 .art-credit { color: var(--text-muted); }
 .nmad { font-weight: 700; color: var(--fg); }
-.draft { color: var(--warn); }
 .neutral { padding: 24px; font-family: Georgia, serif; }
 .sr { position: absolute; left: -9999px; }
 .crisis-strip { background: var(--danger-bg); border: 1px solid #f3c3bf; border-radius: var(--radius); padding: 10px 12px; margin-bottom: 12px; }

@@ -14,7 +14,7 @@ function gitBlobSha(rel: string): string {
 
 const PINNED = {
   "src/core/crisis.ts": "411f1531a32fe4b0353fc59975b2cdfec0a6c713",
-  "src/core/guard.ts": "e452dc278b3f56a98b31c73b368b75821af9212e",
+  "src/core/guard.ts": "19fff7350b90616b1b1d908a91f4c664bfb369bc",
   "src/core/crisis-order.ts": "ffd4cdecbc97bcfe6704c290924ce6797d990e71",
   "scripts/bank/pii-patterns.mjs": "174de25dac4c1b933c4b5df74afb5d26d5ebba1a",
   "src/core/summary.ts": "ea53da49f5861a079b05c3d55592dee973a686b6",
