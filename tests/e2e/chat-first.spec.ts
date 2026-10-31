@@ -124,15 +124,14 @@ test("English disclosures show the existing crisis screen with zero model calls"
   }
 });
 
-test("I don't wanna die, is HIV curable stays on the card with zero model calls", async ({ page }) => {
+test("I don't wanna die, is HIV curable is CLEAR under option 1 with zero model calls", async ({ page }) => {
   await openChatFirst(page);
   await openChat(page);
   const before = await modelCalls(page);
   expect(before.chat).toBe(0);
   expect(before.pick).toBe(0);
   await say(page, "I don't wanna die, is HIV curable");
-  await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
-  await expect(lastJane(page)).toBeVisible();
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
   const after = await modelCalls(page);
   expect(after.chat).toBe(0);
   expect(after.pick).toBe(0);

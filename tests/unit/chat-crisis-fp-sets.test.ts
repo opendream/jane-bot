@@ -304,7 +304,6 @@ const SYNTHETIC_ENGLISH_MIXED_HEALTH: Item[] = [
   { id: "emh43", text: "cut calories before taking EC" },
   { id: "emh44", text: "partner said the condom cut during sex" },
   { id: "emh45", text: "forced daily dosing of PrEP vs on demand" },
-  { id: "emh46", text: "I don't wanna die, is HIV curable" },
   { id: "emh47", text: "can birth control cause suicidal thoughts" },
   { id: "emh48", text: "can PrEP cause suicidal thoughts?" },
   { id: "emh49", text: "does the morning after pill cause suicidal thoughts" },
@@ -354,7 +353,8 @@ const ADVERSARIAL_ITEMS: Item[] = ADVERSARIAL_CHAT_CRISIS_FP.map((text, i) => ({
   text,
 }));
 
-const ADVERSARIAL_FP: SetCount = { hits: 0, total: ADVERSARIAL_ITEMS.length };
+/** Option 1: crisis-word lines in the adversarial set are CLEAR (58). Health-sense stays NONE. */
+const ADVERSARIAL_FP: SetCount = { hits: 58, total: ADVERSARIAL_ITEMS.length };
 
 describe("English extra-check false positives on every normal set (ENGLISH_MODEL_CHAT off)", () => {
   it("English-item detector matches card-first and chat-first; pin English totals", async () => {
@@ -418,16 +418,22 @@ describe("English extra-check false positives on every normal set (ENGLISH_MODEL
   });
 });
 
-describe("adversarial FP set keeps base card-first ids; no crisis on either path", () => {
-  it("each line matches the retrieve base card and never opens crisis", async () => {
+describe("adversarial FP set: health-sense stays on the card; crisis-word lines are CLEAR", () => {
+  it("each health-sense line matches the retrieve base card and never opens crisis; crisis-word lines open crisis on both paths", async () => {
     const { model, calls } = spyModel();
     for (const x of ADVERSARIAL_ITEMS) {
       expect(detectCrisisRawOrFolded(x.text).crisis, x.id).toBe(false);
+      const extraClear = extraHit(x.text);
       const beforeCard = calls.chat + calls.pick + calls.reword;
       const card = await runTurn(newDialog("18-24"), x.text, { cards: BANK, copyStatus: "draft", model });
-      expect(card.reply.kind, x.id).toBe("card");
-      if (card.reply.kind === "card") {
-        expect(card.reply.card.id, x.id).toBe(baseCardId(x.text));
+      if (extraClear) {
+        expect(card.reply.kind, x.id).toBe("crisis");
+        expect(calls.chat + calls.pick + calls.reword, x.id).toBe(beforeCard);
+      } else {
+        expect(card.reply.kind, x.id).toBe("card");
+        if (card.reply.kind === "card") {
+          expect(card.reply.card.id, x.id).toBe(baseCardId(x.text));
+        }
       }
       expect(typeof beforeCard).toBe("number");
 
@@ -435,15 +441,20 @@ describe("adversarial FP set keeps base card-first ids; no crisis on either path
       const chat = await runTurn(newDialog("18-24"), x.text, {
         cards: BANK, copyStatus: "draft", model, chatFirst: true,
       });
-      expect(chat.reply.kind, x.id).not.toBe("crisis");
+      if (extraClear) {
+        expect(chat.reply.kind, x.id).toBe("crisis");
+        expect(calls.chat + calls.pick + calls.reword, x.id).toBe(beforeChat);
+      } else {
+        expect(chat.reply.kind, x.id).not.toBe("crisis");
+      }
       expect(typeof beforeChat).toBe("number");
     }
   });
 });
 
 const GIT_EXTRA_OUTCOMES: OutcomeCount = { clear: 0, ambiguous: 0, none: 1839, total: 1839 };
-const ADVERSARIAL_EXTRA_OUTCOMES: OutcomeCount = { clear: 0, ambiguous: 58, none: 227, total: 285 };
-const CUE_MIX_OUTCOMES: OutcomeCount = { clear: 51, ambiguous: 8, none: 0, total: 59 };
+const ADVERSARIAL_EXTRA_OUTCOMES: OutcomeCount = { clear: 58, ambiguous: 0, none: 227, total: 285 };
+const CUE_MIX_OUTCOMES: OutcomeCount = { clear: 59, ambiguous: 0, none: 0, total: 59 };
 
 async function scanPathOutcomes(items: Item[], deps: TurnDeps): Promise<OutcomeCount> {
   const out: OutcomeCount = { clear: 0, ambiguous: 0, none: 0, total: items.length };
@@ -480,14 +491,14 @@ describe("extra-check three-way outcomes on FP corpora (pin-miss only)", () => {
     expect(chat, "git chat-first vs detector").toEqual(git);
   });
 
-  it("adversarial FP set is 0 CLEAR; precision-guard and round-5 remaining FPs are AMBIGUOUS, both paths", async () => {
+  it("adversarial FP set: option 1 flips the 58 crisis-word lines to CLEAR; health-sense stays NONE, both paths", async () => {
     const adv = scanOutcomes(ADVERSARIAL_ITEMS);
     expect(adv, "pinned adversarial extra-check outcomes").toEqual(ADVERSARIAL_EXTRA_OUTCOMES);
     expect(ROUND4_PRECISION_CARD_LINES.length).toBe(44);
     expect(ROUND5_AMBIGUOUS_LINES.length).toBe(8);
 
     for (const text of [...ROUND4_PRECISION_CARD_LINES, ...ROUND5_AMBIGUOUS_LINES]) {
-      expect(extraOutcome(text), text).toBe("ambiguous");
+      expect(extraOutcome(text), text).toBe("clear");
     }
 
     const card = await scanPathOutcomes(ADVERSARIAL_ITEMS, cardDeps());

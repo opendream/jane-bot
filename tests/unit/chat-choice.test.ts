@@ -371,7 +371,6 @@ describe("v40 TH numbering (5 slots; dropped o4/q2 are empty fallback)", () => {
         const text = renderChatChoice({ o, c: 0, q }, "th", "");
         if (!text) continue;
         expect(acceptChatReply(text, "th").ok, text).toBe(true);
-        expect(acceptChatReply(text, "th", { ambiguous: true }).ok, text).toBe(true);
       }
     }
   });

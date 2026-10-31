@@ -480,11 +480,18 @@ const EN_EXACT_PHRASE_TP: { text: string; cat: "self_harm" | "sexual_violence" }
   { text: "I am going to kms tonight", cat: "self_harm" },
 ];
 
-/** Codex + owner: these must stay on the card (extra check must not fire). */
-const EN_EXACT_PHRASE_FP = [
+/** Option 1: crisis-word forms that used to be guarded are now CLEAR. */
+const EN_EXACT_PHRASE_NOW_CLEAR = [
   "I don't wanna die, is HIV curable",
   "i dont wanna die",
   "I don't wanna die",
+  "หนูไม่อยาก die เพราะ HIV ต้องทำยังไง",
+  "ผมไม่อยาก die ครับ ตรวจ HIV ที่ไหน",
+  "ไม่อยาก kms",
+];
+
+/** Health-sense lines with no crisis-word rule. Extra check must not fire. */
+const EN_EXACT_PHRASE_FP = [
   "can birth control cause suicidal thoughts",
   "can PrEP cause suicidal thoughts?",
   "does the morning after pill cause suicidal thoughts",
@@ -493,9 +500,6 @@ const EN_EXACT_PHRASE_FP = [
   "I cut my legs shaving can I still have sex",
   "the condom got cut",
   "condom was cut",
-  "หนูไม่อยาก die เพราะ HIV ต้องทำยังไง",
-  "ผมไม่อยาก die ครับ ตรวจ HIV ที่ไหน",
-  "ไม่อยาก kms",
 ];
 
 describe("exact English crisis phrases (Thai-only short list)", () => {
@@ -508,15 +512,25 @@ describe("exact English crisis phrases (Thai-only short list)", () => {
   });
 });
 
-describe("narrow don't-wanna-die guard and Codex card lines", () => {
+describe("option 1: negated wanna-die / ไม่อยาก die is CLEAR", () => {
+  it.each(EN_EXACT_PHRASE_NOW_CLEAR)("%s", (text) => {
+    expect(detectCrisis(text).crisis, text).toBe(false);
+    expect(detectChatCrisis(text).crisis, text).toBe(true);
+    expect(detectChatCrisis(text).outcome, text).toBe("clear");
+    expect(detectChatCrisisForTurn(text, []).crisis, text).toBe(true);
+  });
+});
+
+describe("health-sense Codex card lines with no crisis-word rule stay NONE", () => {
   it.each(EN_EXACT_PHRASE_FP)("%s", (text) => {
     expect(detectCrisis(text).crisis, text).toBe(false);
     expect(detectChatCrisis(text).crisis, text).toBe(false);
+    expect(detectChatCrisis(text).outcome, text).toBe("none");
     expect(detectChatCrisisForTurn(text, []).crisis, text).toBe(false);
   });
 });
 
-describe("round-4 precision guards stay on the card (pin misses)", () => {
+describe("round-4 crisis-word lines are CLEAR under option 1 (pin misses)", () => {
   it("has the converted block plus at least 30 variants; มีดโกน is not an accident cue", () => {
     expect(ROUND4_PRECISION_CARD_LINES.length).toBeGreaterThanOrEqual(41);
     expect(ROUND4_PRECISION_CARD_LINES).toContain("หนูไม่ อยาก die เพราะ HIV ต้องทำยังไง");
@@ -528,9 +542,9 @@ describe("round-4 precision guards stay on the card (pin misses)", () => {
 
   it.each(ROUND4_PRECISION_CARD_LINES)("%s", (text) => {
     expect(detectCrisis(text).crisis, text).toBe(false);
-    expect(detectChatCrisis(text).crisis, text).toBe(false);
-    expect(detectChatCrisis(text).outcome, text).toBe("ambiguous");
-    expect(detectChatCrisisForTurn(text, []).crisis, text).toBe(false);
+    expect(detectChatCrisis(text).crisis, text).toBe(true);
+    expect(detectChatCrisis(text).outcome, text).toBe("clear");
+    expect(detectChatCrisisForTurn(text, []).crisis, text).toBe(true);
   });
 });
 
