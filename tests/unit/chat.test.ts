@@ -6,6 +6,7 @@ import { applyQuizUpdate, beginQuiz, newChat, sendToChat, type ChatHooks } from 
 import { MODEL_ANSWER_LABEL, RULES_ANSWER_LABEL, thinkingHintAt } from "../../src/ui/thinking";
 import { CHAT_CRISIS_CARD_FIRST, CHAT_FIRST, MODEL_CARD_PICK } from "../../src/config";
 import type { DialogModel } from "../../src/core/dialog";
+import { DEFAULT_CHAT_CHOICE_JSON } from "../../src/llm/chat-choice";
 
 // SYNTHETIC chat lines only.
 const FILLER = "อยากรู้เรื่องทั่วไปค่ะ";
@@ -426,7 +427,7 @@ describe("ambiguous extra-check: card bubble carries the DRAFT soft line", () =>
   it("chat-first Thai AMBIGUOUS renders the bank card plus the DRAFT soft line and never calls the model", async () => {
     const model: DialogModel = {
       ready: () => true,
-      chatReply: vi.fn(async () => "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย"),
+      chatReply: vi.fn(async () => DEFAULT_CHAT_CHOICE_JSON),
     };
     const chat = newChat("18-24", model, null, { chatFirst: true });
     const h = hooks();

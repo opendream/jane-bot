@@ -21,6 +21,7 @@ import {
 } from "../../src/core/dialog";
 import { detectChatLang } from "../../src/llm/chat-lang";
 import { ENGLISH_MODEL_CHAT } from "../../src/config";
+import { DEFAULT_CHAT_CHOICE_JSON } from "../../src/llm/chat-choice";
 import {
   ADVERSARIAL_CHAT_CRISIS_FP,
   ADVERSARIAL_CUE_MIX,
@@ -333,7 +334,7 @@ function spyModel() {
     ready: () => true,
     chatReply: vi.fn(async () => {
       calls.chat++;
-      return "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย";
+      return DEFAULT_CHAT_CHOICE_JSON;
     }),
     pickCard: vi.fn(async (_t, list) => {
       calls.pick++;

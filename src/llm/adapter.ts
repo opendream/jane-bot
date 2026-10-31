@@ -4,6 +4,16 @@ import { detectCrisis } from "../core/crisis";
 import type { ChatLang } from "./chat-lang";
 
 /**
+ * Extra chat-turn flags. Stays the 6th `chatReply` argument.
+ * `grounding` is the approved card (or none) for the structured-choice chat path.
+ * AMBIGUOUS turns never call the model, so there is no ambiguous flag.
+ */
+export type ChatReplyOpts = {
+  grounding?: { facts: string | null; strict?: boolean };
+};
+
+
+/**
  * Interface for an optional in-browser model (WebLLM / wllama). The deterministic rules are always
  * the fallback: if the adapter is missing, slow, throws, or returns something invalid, rules win.
  * Safety (crisis detection) is never delegated to the model.
@@ -24,9 +34,11 @@ export interface LLMAdapter {
   /** Chat: reword one curated card. Output is validated by rewordGuard; failures show the exact text. */
   rewordCard?(card: { answer_th: string; key_facts: string[] }, signal: AbortSignal): Promise<string | null>;
   /**
-   * Chat-first connective talk. Output is validated by chatGuard.
+   * Chat-first connective talk. Output is a JSON choice (opener / whole-card
+   * flag / follow-up), parsed strictly, then chatGuard on the list text.
    * History is PII-stripped, memory-only, and excludes crisis lines.
-   * `groupId` is the generation token; a stale token must return without generating.
+   * `groupId` is the generation token; a stale token must return without
+   * generating. `opts` is the 6th argument (approved-card grounding, or none).
    */
   chatReply?(
     text: string,
@@ -34,6 +46,7 @@ export interface LLMAdapter {
     signal: AbortSignal,
     lang?: ChatLang,
     groupId?: number,
+    opts?: ChatReplyOpts,
   ): Promise<string | null>;
   /** Tear down a worker / GPU engine. Used when WebGPU dies and we fall back. */
   dispose?(): void | Promise<void>;

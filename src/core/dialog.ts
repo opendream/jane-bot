@@ -8,8 +8,10 @@ import { normalize, findPhrases, prepCheckText } from "./text";
 import { stripPII } from "./summary";
 import { checkInput, REFUSAL_CARDS, type GuardReason } from "./guard";
 import { retrieve } from "./retrieve";
-import { VALID_INTENTS } from "../llm/adapter";
-import { acceptChatReply } from "../llm/chatGuard";
+import { VALID_INTENTS, type ChatReplyOpts } from "../llm/adapter";
+import { acceptGroundedChat, groundingCard } from "../llm/chat-ground";
+import { renderChatChoiceForTurn } from "../llm/chat-choice";
+import type { ChatGrounding } from "../llm/chat-system";
 import { detectChatLang, type ChatLang } from "../llm/chat-lang";
 import { currentGenerationToken, bumpGenerationToken, isCurrentGeneration } from "../llm/generation-token";
 import { ACK_LINE_TH, combineUnanswered, countedGroupMessages, dropAckLines, groupReplyLang, groupTakesNoModelPath } from "./chat-group";
@@ -232,8 +234,9 @@ export interface DialogModel {
   /** Reword a card. The model sees only the card (never her text). The result is validated; any failure shows answer_th verbatim. */
   reword?(card: BankCard, signal: AbortSignal): Promise<string | null>;
   /**
-   * Chat-first connective talk. Input is PII-stripped. Output is validated by chatGuard.
-   * History is memory-only (last topic user lines + Jane's last guarded replies).
+   * Chat-first connective talk. Input is PII-stripped. Output is a JSON
+   * choice, parsed strictly, then chatGuard on opener + follow-up.
+   * History is memory-only (last topic user lines + Jane's last replies).
    */
   chatReply?(
     text: string,
@@ -241,6 +244,7 @@ export interface DialogModel {
     signal: AbortSignal,
     lang?: ChatLang,
     groupId?: number,
+    opts?: ChatReplyOpts,
   ): Promise<string | null>;
 }
 
@@ -598,31 +602,36 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     }
     if (stale()) return dropStale();
 
+    const groundCard = groundingCard(retrieved, state.ageBand);
+    const cardFacts = groundCard ? bankAnswerForLang(groundCard, lang) : null;
+    const grounding: ChatGrounding = { facts: cardFacts };
+    const chatOpts: ChatReplyOpts = { grounding };
+
     deps.onGenerating?.({ groupId: token ?? currentGenerationToken(), lang });
     const timeoutMs = deps.chatTimeoutMs ?? CHAT_FIRST_TIMEOUT_MS;
-    const attempt = () => withTimeout((s) => live.chatReply!(currentClip, history, s, lang, token), timeoutMs, deps.signal);
+    const attempt = (g: ChatGrounding) =>
+      withTimeout((s) => live.chatReply!(currentClip, history, s, lang, token, { ...chatOpts, grounding: g }), timeoutMs, deps.signal);
 
-    let generated = await attempt();
+    let generated = await attempt(grounding);
     if (stale()) return dropStale();
     if (generated == null) {
       const top = rulesTop(retrieveText);
       return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined);
     }
-    let acc = acceptChatReply(generated, lang);
+    let acc = acceptGroundedChat(generated, lang, cardFacts, chatOpts);
     if (!acc.ok) {
-      generated = await attempt();
+      generated = await attempt({ ...grounding, strict: true });
       if (stale()) return dropStale();
       if (generated == null) {
         const top = rulesTop(retrieveText);
         return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined);
       }
-      acc = acceptChatReply(generated, lang);
+      acc = acceptGroundedChat(generated, lang, cardFacts, { ...chatOpts, grounding: { ...grounding, strict: true } });
     }
     if (!acc.ok) {
       const top = rulesTop(retrieveText);
       return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, lang === "en" ? lang : undefined);
     }
-    const chatText = acc.text;
 
     let card: BankCard | null = null;
     let via: Via = "rules";
@@ -676,6 +685,8 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
       if (shown.id === FALLBACK_ID && offer === "none") offer = "soft";
       offerIntents = offer === "none" ? shown.referral.intents : (shown.referral.intents.length ? shown.referral.intents : asIntents(shown.topic === "general" ? state.topic : shown.topic, ["other"]));
     }
+
+    const chatText = renderChatChoiceForTurn(acc.choice, lang, cardFacts ?? "", !!shown);
 
     const chips = shown ? shown.next : [showCardNowChip(lang)];
     const nextFlow = shown

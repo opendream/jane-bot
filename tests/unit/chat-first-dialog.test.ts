@@ -28,10 +28,12 @@ import { BANK } from "../../src/core/bankData";
 import { CARD_THAI_NOTE_EN } from "../../src/core/card-lang";
 import { LOCKED_ROUTE_IDS } from "../../src/core/pick-engine";
 import { REFUSAL_CARDS } from "../../src/core/guard";
+import { DEFAULT_CHAT_CHOICE_JSON, defaultChatReply } from "../../src/llm/chat-choice";
 
-// SYNTHETIC chat lines only.
-const SAFE_CHAT = "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย";
-const SAFE_CHAT_EN = "I'm here. You can tell me more whenever you like.";
+// SYNTHETIC chat lines only. Model stubs return JSON; Jane's text is rendered.
+const SAFE_JSON = DEFAULT_CHAT_CHOICE_JSON;
+const SAFE_CHAT = defaultChatReply("th");
+const SAFE_CHAT_EN = defaultChatReply("en");
 const FILLER = "อยากรู้เรื่องทั่วไปค่ะ";
 
 function spyModel(chat: string | null | undefined = undefined, pick: string | null = null) {
@@ -43,7 +45,7 @@ function spyModel(chat: string | null | undefined = undefined, pick: string | nu
       calls.lastChat = text;
       calls.lastLang = lang ?? detectChatLang(text);
       if (chat !== undefined) return chat;
-      return detectChatLang(text) === "en" ? SAFE_CHAT_EN : SAFE_CHAT;
+      return SAFE_JSON;
     }),
     pickCard: vi.fn(async (text, list) => {
       calls.pick++;
@@ -101,7 +103,7 @@ describe("production defaults (chat-first flag off)", () => {
     expect(CHAT_SYSTEM).toContain("ห้ามคุยเชิงชู้สาว");
     expect(CHAT_SYSTEM).toContain("สายด่วน");
     expect(CHAT_SYSTEM).toContain(CHAT_LANG_LINE_TH);
-    expect(CHAT_MAX_TOKENS).toBe(60);
+    expect(CHAT_MAX_TOKENS).toBe(40);
     expect(CHAT_SYSTEM_EN_STATUS).toBe("draft");
     expect(chatSystemFor("th")).toBe(CHAT_SYSTEM);
     expect(chatSystemFor("en")).toBe(CHAT_SYSTEM_EN);
@@ -279,7 +281,7 @@ describe("chat-first conversation", () => {
   });
 
   it("turn 2 may keep chatting when the model picks none", async () => {
-    const { model, calls } = spyModel(SAFE_CHAT, "none");
+    const { model, calls } = spyModel(SAFE_JSON, "none");
     const a = await runTurn(newDialog(), "ช่วงนี้กังวลเรื่องแฟน", deps(model));
     const b = await runTurn(a.state, "แฟนไม่ยอมคุยด้วย", deps(model));
     expect(b.reply.kind).toBe("chat");
@@ -289,7 +291,7 @@ describe("chat-first conversation", () => {
   });
 
   it("turn 3 always closes with a bank card (model pick, else rules, else fallback)", async () => {
-    const { model } = spyModel(SAFE_CHAT, "none");
+    const { model } = spyModel(SAFE_JSON, "none");
     const { replies } = await talk(
       ["ช่วงนี้กังวลเรื่องแฟน", "แฟนไม่ยอมคุยด้วย", "แล้วหนูควรพูดยังไงดี"],
       deps(model),
@@ -315,7 +317,7 @@ describe("chat-first conversation", () => {
   });
 
   it("card text always comes from the bank, never from the model", async () => {
-    const { model, calls } = spyModel("พี่อยู่ตรงนี้นะ เดี๋ยวส่งข้อมูลให้", "birth.control.000");
+    const { model, calls } = spyModel(SAFE_JSON, "birth.control.000");
     const { replies } = await talk(
       ["อยากรู้เรื่องคุมกำเนิดไหม", "แบบไหนที่น้อง ๆ ใช้กัน", "ขอคำตอบที่ตรวจแล้ว"],
       deps(model),
@@ -335,7 +337,7 @@ describe("chat-first conversation", () => {
   });
 
   it("fallback close offers referral", async () => {
-    const { model, calls } = spyModel(SAFE_CHAT, "none");
+    const { model, calls } = spyModel(SAFE_JSON, "none");
     const { replies } = await talk(
       [FILLER, "เรื่องแปลก ๆ ที่ไม่มีในคลัง", "ยังไม่ใช่เรื่องในคลังอีก"],
       deps(model),

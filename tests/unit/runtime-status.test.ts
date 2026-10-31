@@ -276,11 +276,18 @@ describe("startModel test hooks for model-first pick", () => {
     expect(a?.chatReply).toBeTypeOf("function");
     expect(a?.pickCard).toBeTypeOf("function");
     const line = await a!.chatReply!("ช่วงนี้กังวลเรื่องแฟน", [], new AbortController().signal);
-    expect(line).toBe("พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย");
+    expect(line).toBe('{"o":0,"c":0,"q":0}');
     const en = await a!.chatReply!("I am worried about my boyfriend", [], new AbortController().signal);
-    expect(en).toBe("I'm here. You can tell me more whenever you like.");
+    expect(en).toBe('{"o":0,"c":0,"q":0}');
     const id = await a!.pickCard!("ช่วงนี้กังวลเรื่องแฟน", [{ id: "birth.control.000", title_th: "คุมกำเนิด" }], null, new AbortController().signal);
     expect(id).toContain("none");
+  });
+
+  it("chat-whole exposes a guarded chatReply that returns c=1", async () => {
+    const a = await startModel(() => {}, { search: "?testRuntime=chat-whole&runtime=wasm" });
+    expect(a?.chatReply).toBeTypeOf("function");
+    const line = await a!.chatReply!("ช่วงนี้กังวลเรื่องแฟน", [], new AbortController().signal);
+    expect(line).toBe('{"o":0,"c":1,"q":0}');
   });
 
   it("pick-warmup remaining is ≤ 5 s and not-ready; pick-warmup-slow remaining is > 5 s", async () => {

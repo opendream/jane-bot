@@ -51,6 +51,8 @@ export type RuntimeTestHook = {
   pick?: "ok" | "timeout" | "not-ready" | "warmup" | "warmup-slow" | "loading" | "fail" | "none";
   /** Stubbed chatReply delay in ms (e2e thinking indicator). Never user text. */
   chatDelayMs?: number;
+  /** Stub returns c=1 (whole card) instead of c=0. E2E only. */
+  chatWhole?: boolean;
 };
 
 export {
@@ -123,6 +125,7 @@ function readTestHook(deps: StartModelDeps, params: URLSearchParams): RuntimeTes
   if (fromUrl === "pick-loading") return { wasm: "ok", gpu: false, pick: "loading" };
   if (fromUrl === "pick-fail") return { wasm: "ok", gpu: false, pick: "fail" };
   if (fromUrl === "chat-ok") return { wasm: "ok", gpu: false, pick: "none" };
+  if (fromUrl === "chat-whole") return { wasm: "ok", gpu: false, pick: "none", chatWhole: true };
   if (fromUrl === "chat-slow") return { wasm: "ok", gpu: false, pick: "none", chatDelayMs: 1_500 };
   try {
     if (typeof window !== "undefined" && window.__JANE_RUNTIME_TEST__) return window.__JANE_RUNTIME_TEST__;
@@ -154,9 +157,10 @@ function mockPickCard(hook: RuntimeTestHook): LLMAdapter["pickCard"] | undefined
   };
 }
 
-/** Synthetic guarded lines for the chat-first e2e stub. Never user text. */
-const MOCK_CHAT_REPLY = "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย";
-const MOCK_CHAT_REPLY_EN = "I'm here. You can tell me more whenever you like.";
+/** Synthetic structured choice for the chat-first e2e stub. Never user text. */
+const MOCK_CHAT_REPLY = '{"o":0,"c":0,"q":0}';
+const MOCK_CHAT_REPLY_EN = '{"o":0,"c":0,"q":0}';
+const MOCK_CHAT_REPLY_WHOLE = '{"o":0,"c":1,"q":0}';
 
 function mockChatDelayMs(hook: RuntimeTestHook): number {
   try {
@@ -181,6 +185,7 @@ function mockChatReply(hook: RuntimeTestHook): LLMAdapter["chatReply"] | undefin
       if (shouldSkipGeneration(groupId, signal)) return null;
     }
     noteCall("chat");
+    if (hook.chatWhole) return MOCK_CHAT_REPLY_WHOLE;
     return detectChatLang(text) === "en" ? MOCK_CHAT_REPLY_EN : MOCK_CHAT_REPLY;
   };
 }
@@ -284,7 +289,7 @@ function watchWebGpu(adapter: LLMAdapter, onFail: () => void): LLMAdapter {
       ? (card, signal) => guard(adapter.rewordCard!(card, signal))
       : undefined,
     chatReply: adapter.chatReply
-      ? (text, history, signal, lang, groupId) => guard(adapter.chatReply!(text, history, signal, lang, groupId))
+      ? (text, history, signal, lang, groupId, opts) => guard(adapter.chatReply!(text, history, signal, lang, groupId, opts))
       : undefined,
     warmupRemainingMs: adapter.warmupRemainingMs ? () => adapter.warmupRemainingMs!() : () => getWarmupRemainingMs(),
     dispose: () => adapter.dispose?.(),

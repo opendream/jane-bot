@@ -7,8 +7,10 @@ import {
   currentGenerationToken,
   resetGenerationTokenForTests,
 } from "../../src/llm/generation-token";
+import { DEFAULT_CHAT_CHOICE_JSON, defaultChatReply } from "../../src/llm/chat-choice";
 
-const SAFE_CHAT = "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย";
+const SAFE_JSON = DEFAULT_CHAT_CHOICE_JSON;
+const SAFE_CHAT = defaultChatReply("th");
 const CONDOM_Q = "ถุงยางแตกต้องทำยังไง";
 const THANKS = "ขอบคุณค่ะ";
 const LEAK_ID = "condom.leak.000";
@@ -40,7 +42,7 @@ function chatModel(opts: { delayMs?: number; pick?: "top" | "none" } = {}) {
       }
       calls.chat++;
       calls.lastChat = text;
-      return SAFE_CHAT;
+      return SAFE_JSON;
     },
     pickCard: async (_text, list) => {
       calls.pick++;

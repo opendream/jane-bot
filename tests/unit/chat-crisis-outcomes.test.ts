@@ -16,6 +16,7 @@ import { BANK } from "../../src/core/bankData";
 import { modelChatScript } from "../../src/llm/chat-lang";
 import { CHAT_HOLDING_LINE } from "../../src/llm/chatGuard";
 import { CHAT_SYSTEM, chatSystemFor } from "../../src/llm/chat-system";
+import { DEFAULT_CHAT_CHOICE_JSON, defaultChatReply } from "../../src/llm/chat-choice";
 import { readFileSync } from "node:fs";
 import {
   ADVERSARIAL_CUE_MIX,
@@ -28,7 +29,8 @@ import {
 // SYNTHETIC paraphrases only. Never user logs.
 
 const DRAFT_SOFT_LINE = "ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ";
-const SAFE_CHAT = "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย";
+const SAFE_JSON = DEFAULT_CHAT_CHOICE_JSON;
+const SAFE_CHAT = defaultChatReply("th");
 const NONE_CONTROL = "ช่วงนี้กังวลเรื่องแฟน";
 /** Vague distress, no crisis word. Option 1: AMBIGUOUS only for weak cues. */
 const THAI_AMBIGUOUS = "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง";
@@ -67,7 +69,7 @@ function spyModel(opts?: { chat?: string | null; ready?: boolean; hang?: boolean
         });
       }
       if (opts && "chat" in opts) return opts.chat ?? null;
-      return SAFE_CHAT;
+      return SAFE_JSON;
     }),
     pickCard: vi.fn(async (_t, list) => {
       calls.pick++;
@@ -629,6 +631,15 @@ describe("Codex round-7: AMBIGUOUS mocked model output is discarded (card + soft
     expect(r.reply.kind).toBe("card");
     if (r.reply.kind === "card") expect(r.reply.softCrisis?.line).toBe(DRAFT_SOFT_LINE);
     expect(calls.chat).toBe(0);
+  });
+
+  it("NONE chat still passes grounding as the 6th chatReply argument", async () => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog("18-24"), NONE_CONTROL, chatDeps(model));
+    expect(r.reply.kind).toBe("chat");
+    expect(calls.chat).toBe(1);
+    const opts = vi.mocked(model.chatReply!).mock.calls[0]?.[5];
+    expect(opts?.grounding).toBeDefined();
   });
 });
 

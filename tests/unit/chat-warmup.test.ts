@@ -19,6 +19,7 @@ import {
   resetGenerationTokenForTests,
   shouldSkipGeneration,
 } from "../../src/llm/generation-token";
+import { DEFAULT_CHAT_CHOICE_JSON } from "../../src/llm/chat-choice";
 
 afterEach(() => {
   resetGenerationTokenForTests();
@@ -65,7 +66,7 @@ describe("chat load warm-up", () => {
         if (shouldSkipGeneration(groupId, s)) return null;
         calls.chat++;
         seen.push(text);
-        return "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย";
+        return DEFAULT_CHAT_CHOICE_JSON;
       }),
     };
     const deps: TurnDeps = { cards: BANK, model, copyStatus: "draft", chatFirst: true };
@@ -98,7 +99,7 @@ describe("chat load warm-up", () => {
       ready: () => true,
       chatReply: (_t, _h, signal, _lang, groupId) => queue.run(groupId, signal, async (s) => {
         if (shouldSkipGeneration(groupId, s)) return null;
-        return "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย";
+        return DEFAULT_CHAT_CHOICE_JSON;
       }),
     };
     const s = new DialogSession("18+", { cards: BANK, model, copyStatus: "draft", chatFirst: true });
