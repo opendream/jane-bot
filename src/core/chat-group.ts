@@ -51,8 +51,8 @@ export function countedGroupMessages(messages: readonly string[]): string[] {
 
 /**
  * True when the group must take the no-model card path. Idle emoji-only is false.
- * `allowMixed` is for chat-first AMBIGUOUS: leftover crisis-token Latin still
- * takes Thai chat. English stays off the model unless `allowEnglish` is true.
+ * `allowMixed` lets leftover crisis-token Latin take Thai chat. AMBIGUOUS
+ * turns never reach this path. English stays off unless `allowEnglish` is true.
  */
 export function groupTakesNoModelPath(
   messages: readonly string[],
