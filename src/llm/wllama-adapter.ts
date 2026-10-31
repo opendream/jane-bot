@@ -5,8 +5,11 @@ import type { Intent } from "../core/types";
 import { cachedBlob } from "./weights-cache";
 import { CLASSIFY_SCHEMA, CLASSIFY_SYSTEM, POLISH_SYSTEM, PICK_SYSTEM, PICK_MAX_TOKENS, REWORD_SYSTEM, REWORD_MAX_TOKENS, cleanPolished, cleanReword, parseIntent, pickSchema, pickUser, rewordUser } from "./prompts";
 import { CHAT_MAX_TOKENS, CHAT_TEMPERATURE, CHAT_TOP_P, chatSystemFor, cleanChat } from "./chat-system";
+import { runChatWarmup } from "./chat-warmup";
 import { detectChatLang } from "./chat-lang";
 import { wllamaContextLength } from "./wllama-ctx";
+import { shouldSkipGeneration } from "./generation-token";
+import { createGenerationQueue } from "./generation-queue";
 import { replaceNeedLine, needLine } from "./summary-lines";
 import { WARMUP_BUDGET_MS } from "./loader-eta";
 
@@ -26,6 +29,9 @@ export async function loadWllama(
   opts?.onWarmup?.(WARMUP_BUDGET_MS);
   let busy: Promise<unknown> = Promise.resolve();
   const serial = <T>(fn: () => Promise<T>): Promise<T> => { const p = busy.then(fn, fn); busy = p.catch(() => null); return p; };
+  // Chat is one-at-a-time on WASM. Timed-out / superseded calls abort the
+  // in-flight generate so the next turn does not wait behind it.
+  const chatQueue = createGenerationQueue({ waitForPrevious: true });
   const classifyRaw = (text: string, signal?: AbortSignal) => serial(async () => {
     const r: any = await w.createChatCompletion({
       messages: [{ role: "system", content: CLASSIFY_SYSTEM }, { role: "user", content: `${text} /no_think` }],
@@ -38,6 +44,21 @@ export async function loadWllama(
   // would otherwise hit the 8 s classify timeout on her first message.
   await classifyRaw("สวัสดี").catch(() => "");
   onProgress(1);
+  // Chat warm-up is background: crisis/card never wait. A user turn aborts it
+  // via the generation queue. Synthetic prompt only; no network.
+  void runChatWarmup(async ({ user, maxTokens, signal, groupId, lang }) => {
+    await chatQueue.run(groupId, signal, async (s) => {
+      if (shouldSkipGeneration(groupId, s)) return null;
+      await w.createChatCompletion({
+        messages: [
+          { role: "system", content: chatSystemFor(lang) },
+          { role: "user", content: `${user} /no_think` },
+        ],
+        max_tokens: maxTokens, temperature: 0, abortSignal: s,
+      } as any);
+      return null;
+    });
+  }).catch(() => {});
   return {
     name: `${label} (WASM)`,
     runtime: "wasm" as const,
@@ -70,15 +91,17 @@ export async function loadWllama(
       } as any);
       return cleanReword(String(r.choices?.[0]?.message?.content ?? "")) || null;
     }),
-    chatReply: (text, history, signal, lang) => serial(async () => {
+    chatReply: (text, history, signal, lang, groupId) => chatQueue.run(groupId, signal, async (s) => {
+      if (shouldSkipGeneration(groupId, s)) return null;
       const r: any = await w.createChatCompletion({
         messages: [
           { role: "system", content: chatSystemFor(lang ?? detectChatLang(text)) },
           ...history.map((h) => ({ role: h.role, content: h.content })),
           { role: "user", content: `${text} /no_think` },
         ],
-        max_tokens: CHAT_MAX_TOKENS, temperature: CHAT_TEMPERATURE, top_p: CHAT_TOP_P, abortSignal: signal,
+        max_tokens: CHAT_MAX_TOKENS, temperature: CHAT_TEMPERATURE, top_p: CHAT_TOP_P, abortSignal: s,
       } as any);
+      if (shouldSkipGeneration(groupId, s)) return null;
       return cleanChat(String(r.choices?.[0]?.message?.content ?? "")) || null;
     }),
   };

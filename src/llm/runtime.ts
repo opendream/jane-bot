@@ -20,6 +20,7 @@ import {
   resetLoaderEta,
 } from "./loader-eta";
 import { READINESS_LINE } from "../ui/thinking";
+import { shouldSkipGeneration } from "./generation-token";
 
 export type Runtime = "webgpu" | "wasm" | "rules";
 export interface ModelStatus {
@@ -48,6 +49,8 @@ export type RuntimeTestHook = {
   gpu?: boolean;
   /** Mock card-pick worker (e2e / unit). */
   pick?: "ok" | "timeout" | "not-ready" | "warmup" | "warmup-slow" | "loading" | "fail" | "none";
+  /** Stubbed chatReply delay in ms (e2e thinking indicator). Never user text. */
+  chatDelayMs?: number;
 };
 
 export {
@@ -120,6 +123,7 @@ function readTestHook(deps: StartModelDeps, params: URLSearchParams): RuntimeTes
   if (fromUrl === "pick-loading") return { wasm: "ok", gpu: false, pick: "loading" };
   if (fromUrl === "pick-fail") return { wasm: "ok", gpu: false, pick: "fail" };
   if (fromUrl === "chat-ok") return { wasm: "ok", gpu: false, pick: "none" };
+  if (fromUrl === "chat-slow") return { wasm: "ok", gpu: false, pick: "none", chatDelayMs: 1_500 };
   try {
     if (typeof window !== "undefined" && window.__JANE_RUNTIME_TEST__) return window.__JANE_RUNTIME_TEST__;
   } catch { /* node unit tests */ }
@@ -154,9 +158,28 @@ function mockPickCard(hook: RuntimeTestHook): LLMAdapter["pickCard"] | undefined
 const MOCK_CHAT_REPLY = "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย";
 const MOCK_CHAT_REPLY_EN = "I'm here. You can tell me more whenever you like.";
 
+function mockChatDelayMs(hook: RuntimeTestHook): number {
+  try {
+    const q = Number(new URLSearchParams(typeof location !== "undefined" ? location.search : "").get("chatReplyMs") || "");
+    if (Number.isFinite(q) && q > 0) return q;
+  } catch { /* node unit tests */ }
+  return hook.chatDelayMs ?? 0;
+}
+
 function mockChatReply(hook: RuntimeTestHook): LLMAdapter["chatReply"] | undefined {
   if (!hook.pick || hook.pick === "not-ready" || hook.pick === "fail") return undefined;
-  return async (text) => {
+  return async (text, _history, signal, _lang, groupId) => {
+    if (shouldSkipGeneration(groupId, signal)) return null;
+    const delay = mockChatDelayMs(hook);
+    if (delay > 0) {
+      await new Promise<void>((resolve, reject) => {
+        const t = setTimeout(resolve, delay);
+        const onAbort = () => { clearTimeout(t); reject(new Error("aborted")); };
+        if (signal?.aborted) return onAbort();
+        signal?.addEventListener("abort", onAbort, { once: true });
+      }).catch(() => null);
+      if (shouldSkipGeneration(groupId, signal)) return null;
+    }
     noteCall("chat");
     return detectChatLang(text) === "en" ? MOCK_CHAT_REPLY_EN : MOCK_CHAT_REPLY;
   };
@@ -261,7 +284,7 @@ function watchWebGpu(adapter: LLMAdapter, onFail: () => void): LLMAdapter {
       ? (card, signal) => guard(adapter.rewordCard!(card, signal))
       : undefined,
     chatReply: adapter.chatReply
-      ? (text, history, signal, lang) => guard(adapter.chatReply!(text, history, signal, lang))
+      ? (text, history, signal, lang, groupId) => guard(adapter.chatReply!(text, history, signal, lang, groupId))
       : undefined,
     warmupRemainingMs: adapter.warmupRemainingMs ? () => adapter.warmupRemainingMs!() : () => getWarmupRemainingMs(),
     dispose: () => adapter.dispose?.(),

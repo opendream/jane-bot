@@ -109,8 +109,15 @@ export const CHAT_FIRST = false;
 export const ENGLISH_MODEL_CHAT = false;
 /** User turns in one topic before Jane must close with a card. */
 export const CHAT_MAX_TURNS = 3;
-/** Chat-reply budget (plan §2). Pick still uses PICK_TIMEOUT_MS (8 s). */
-export const CHAT_TIMEOUT_MS = 12_000;
+/**
+ * Chat-first reply budget. Card-first pick/reword timeouts are unchanged
+ * (PICK_TIMEOUT_MS / REWORD_TIMEOUT_MS). On-device Qwen3-1.7B (arm A) and
+ * Qwen3-0.6B (arm B) both need this: a turn can take 9–60 s on phone.
+ * The thinking indicator stays up for the whole wait.
+ */
+export const CHAT_FIRST_TIMEOUT_MS = 90_000;
+/** Chat-reply budget (plan §2). Same value as CHAT_FIRST_TIMEOUT_MS. */
+export const CHAT_TIMEOUT_MS = CHAT_FIRST_TIMEOUT_MS;
 
 /** Honours ?chatFirst=1 on production builds too (not a Vite-dev-only flag). */
 export function chatFirstEnabled(search?: string): boolean {

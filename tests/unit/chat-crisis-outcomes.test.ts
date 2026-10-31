@@ -285,10 +285,10 @@ describe("AMBIGUOUS turns: card + DRAFT soft line, 0 model calls, both paths", (
   it("chat-first Thai AMBIGUOUS discards a mocked unsafe model reply and never calls the model", async () => {
     const noneSpy = spyModel({ chat: GUARD_FAIL_CHAT });
     const none = await runTurn(newDialog("18-24"), NONE_CONTROL, chatDeps(noneSpy.model));
-    expect(none.reply.kind).toBe("chat");
-    if (none.reply.kind === "chat") {
-      expect(none.reply.text).toBe(CHAT_HOLDING_LINE);
-      expect(none.reply.holding).toBe(true);
+    expect(none.reply.kind).toBe("card");
+    if (none.reply.kind === "card") {
+      expect(none.reply.text).not.toBe(CHAT_HOLDING_LINE);
+      expect(none.reply.softCrisis).toBeUndefined();
     }
     expect(noneSpy.calls.chat).toBe(2);
 

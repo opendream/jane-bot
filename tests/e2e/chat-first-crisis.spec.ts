@@ -206,6 +206,7 @@ test("?chatFirst=1 Thai AMBIGUOUS shows the card plus the DRAFT line, 0 model ca
   await expect(lastJane(page).getByTestId("chat-text")).not.toHaveText("พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย");
   await expect(page.getByTestId("chat-crisis-soft-line")).toHaveText("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ");
   await expect(page.getByTestId("chat-crisis-soft-open")).toBeVisible();
+  await expect(page.getByTestId("chat-thinking")).toHaveCount(0);
   const afterAmb = await modelCalls(page);
   expect(afterAmb.chat + afterAmb.pick).toBe(0);
   await page.getByTestId("chat-crisis-soft-open").click();

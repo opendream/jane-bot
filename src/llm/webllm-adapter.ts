@@ -5,10 +5,13 @@ import type { WebGpuBuild } from "./models";
 import { modelUrl } from "./weights-cache";
 import { CLASSIFY_SYSTEM, POLISH_SYSTEM, PICK_SYSTEM, PICK_MAX_TOKENS, REWORD_SYSTEM, REWORD_MAX_TOKENS, cleanPolished, cleanReword, parseIntent, pickSchema, pickUser, rewordUser } from "./prompts";
 import { CHAT_MAX_TOKENS, CHAT_TEMPERATURE, CHAT_TOP_P, chatSystemFor, cleanChat } from "./chat-system";
+import { runChatWarmup } from "./chat-warmup";
 import { detectChatLang } from "./chat-lang";
 import { needLine, replaceNeedLine } from "./summary-lines";
 import { isWebGpuRuntimeFailure } from "./gpu-failure";
 import { WARMUP_BUDGET_MS } from "./loader-eta";
+import { shouldSkipGeneration } from "./generation-token";
+import { createGenerationQueue } from "./generation-queue";
 
 export { isWebGpuRuntimeFailure } from "./gpu-failure";
 
@@ -17,6 +20,13 @@ export interface WebLLMEngineLike {
   unload?: () => unknown;
   device?: { lost?: Promise<unknown> };
   gpuDevice?: { lost?: Promise<unknown> };
+  /**
+   * Best-effort cancel of in-flight GPU generate. WebLLM does not honour
+   * AbortSignal on chat.completions.create; if interruptGenerate is missing
+   * or ignored, the late result is discarded via the generation token and
+   * must not be rendered or counted.
+   */
+  interruptGenerate?: () => void | Promise<void>;
 }
 
 export interface WebLLMWorkerLike {
@@ -95,6 +105,36 @@ export async function bindWebLLMEngine(
   }
   released = true;
 
+  // Do not wait for a previous GPU generate: interrupt is best-effort and a
+  // late result is discarded by the generation token.
+  const chatQueue = createGenerationQueue({ waitForPrevious: false });
+
+  // Chat warm-up is background: crisis/card never wait. A user turn aborts it.
+  // Synthetic prompt only; no network. interruptGenerate cancels if a turn arrives.
+  void runChatWarmup(async ({ user, maxTokens, signal, groupId, lang }) => {
+    await chatQueue.run(groupId, signal, async (s) => {
+      if (shouldSkipGeneration(groupId, s)) return null;
+      const stop = () => {
+        try { void engine.interruptGenerate?.(); } catch { /* best-effort */ }
+      };
+      if (s.aborted) { stop(); return null; }
+      s.addEventListener("abort", stop, { once: true });
+      try {
+        await engine.chat.completions.create({
+          messages: [
+            { role: "system", content: chatSystemFor(lang) },
+            { role: "user", content: user },
+          ],
+          max_tokens: maxTokens, temperature: 0,
+          extra_body: { enable_thinking: false },
+        });
+        return null;
+      } finally {
+        s.removeEventListener("abort", stop);
+      }
+    });
+  }).catch(() => {});
+
   return {
     name: `${label} (WebGPU)`,
     runtime: "webgpu" as const,
@@ -110,8 +150,14 @@ export async function bindWebLLMEngine(
     },
     pickCard: async (text, shortlist, prev) => ask(PICK_SYSTEM, pickUser(text, shortlist, prev), PICK_MAX_TOKENS, pickSchema(shortlist.map((s) => s.id))),
     rewordCard: async (card) => cleanReword(await ask(REWORD_SYSTEM, rewordUser(card), REWORD_MAX_TOKENS)) || null,
-    chatReply: async (text, history, _signal, lang) => {
+    chatReply: (text, history, signal, lang, groupId) => chatQueue.run(groupId, signal, async (s) => {
+      if (shouldSkipGeneration(groupId, s)) return null;
       if (dead) throw dead;
+      const stop = () => {
+        try { void engine.interruptGenerate?.(); } catch { /* best-effort cancel */ }
+      };
+      if (s.aborted) { stop(); return null; }
+      s.addEventListener("abort", stop, { once: true });
       try {
         const r: any = await engine.chat.completions.create({
           messages: [
@@ -123,12 +169,15 @@ export async function bindWebLLMEngine(
           extra_body: { enable_thinking: false },
         });
         if (dead) throw dead;
+        if (shouldSkipGeneration(groupId, s)) return null;
         return cleanChat(String(r.choices?.[0]?.message?.content ?? "")) || null;
       } catch (e) {
         if (isWebGpuRuntimeFailure(e) || dead) markDead(e);
         throw e;
+      } finally {
+        s.removeEventListener("abort", stop);
       }
-    },
+    }),
     dispose,
   };
 }

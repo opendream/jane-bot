@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { CHAT_CRISIS_CARD_FIRST, CHAT_FIRST, ENGLISH_MODEL_CHAT, chatFirstEnabled } from "../../src/config";
+import { CHAT_CRISIS_CARD_FIRST, CHAT_FIRST, CHAT_FIRST_TIMEOUT_MS, CHAT_TIMEOUT_MS, ENGLISH_MODEL_CHAT, chatFirstEnabled } from "../../src/config";
+import { PICK_TIMEOUT_MS, REWORD_TIMEOUT_MS } from "../../src/core/dialog";
 import { detectCrisis } from "../../src/core/crisis";
 import {
   FALLBACK_ID,
@@ -16,6 +17,7 @@ import { detectChatLang, modelChatScript } from "../../src/llm/chat-lang";
 import {
   CHAT_LANG_LINE_EN,
   CHAT_LANG_LINE_TH,
+  CHAT_MAX_TOKENS,
   CHAT_SYSTEM,
   CHAT_SYSTEM_EN,
   CHAT_SYSTEM_EN_STATUS,
@@ -95,12 +97,17 @@ describe("production defaults (chat-first flag off)", () => {
     expect(chatFirstEnabled("?chatFirst=true")).toBe(true);
     expect(CHAT_SYSTEM_STATUS).toBe("draft");
     expect(CHAT_SYSTEM).toContain("ห้ามให้ข้อมูลทางการแพทย์ของตัวเอง");
+    expect(CHAT_SYSTEM).toContain("ห้ามสวมบทบาท");
+    expect(CHAT_SYSTEM).toContain("ห้ามคุยเชิงชู้สาว");
+    expect(CHAT_SYSTEM).toContain("สายด่วน");
     expect(CHAT_SYSTEM).toContain(CHAT_LANG_LINE_TH);
+    expect(CHAT_MAX_TOKENS).toBe(60);
     expect(CHAT_SYSTEM_EN_STATUS).toBe("draft");
     expect(chatSystemFor("th")).toBe(CHAT_SYSTEM);
     expect(chatSystemFor("en")).toBe(CHAT_SYSTEM_EN);
     expect(CHAT_SYSTEM_EN).toContain(CHAT_LANG_LINE_EN);
     expect(CHAT_SYSTEM_EN).toContain("Do not give your own medical facts");
+    expect(CHAT_SYSTEM_EN).toContain("hotlines");
     expect(CHAT_SYSTEM_EN).toContain("Do not roleplay");
     expect(CHAT_SYSTEM_EN).toContain("what they need");
     expect(CHAT_SYSTEM_EN).toContain("their name");
@@ -109,6 +116,10 @@ describe("production defaults (chat-first flag off)", () => {
     expect(CHAT_SYSTEM_EN).not.toContain("her name");
     expect(CHAT_SYSTEM_EN).not.toContain("she typed");
     expect(ENGLISH_MODEL_CHAT).toBe(false);
+    expect(CHAT_FIRST_TIMEOUT_MS).toBe(90_000);
+    expect(CHAT_TIMEOUT_MS).toBe(CHAT_FIRST_TIMEOUT_MS);
+    expect(PICK_TIMEOUT_MS).toBe(8_000);
+    expect(REWORD_TIMEOUT_MS).toBe(8_000);
   });
 
   it("without the flag, runTurn stays card-first and never calls chatReply", async () => {
@@ -290,23 +301,17 @@ describe("chat-first conversation", () => {
     }
   });
 
-  it("a rejected chat line becomes the holding line and never blocks the card on a close turn", async () => {
-    const { model } = spyModel("กิน 2 เม็ด แล้วไม่ท้องแน่ https://evil.test", "none");
+  it("a rejected chat line retries once then shows the top card with no holding bubble", async () => {
+    const { model, calls } = spyModel("กิน 2 เม็ด แล้วไม่ท้องแน่ https://evil.test", "none");
+    const before = { chat: calls.chat };
     const r = await runTurn(newDialog(), "ช่วงนี้กังวลเรื่องแฟน", deps(model));
-    expect(r.reply.kind).toBe("chat");
-    if (r.reply.kind === "chat") {
-      expect(r.reply.text).toBe(CHAT_HOLDING_LINE);
-      expect(r.reply.holding).toBe(true);
+    expect(calls.chat).toBe(before.chat + 2);
+    expect(r.reply.kind).toBe("card");
+    if (r.reply.kind === "card") {
+      expect(r.reply.text).toBe(r.reply.card.answer_th);
+      expect(r.reply.text).not.toBe(CHAT_HOLDING_LINE);
     }
-    const closed = await runTurn(r.state, "แฟนไม่ยอมคุยด้วย", deps(model));
-    // Second reject in the topic closes with a bank card; the holding line still shows.
-    if (closed.reply.kind === "chat") {
-      expect(closed.reply.text).toBe(CHAT_HOLDING_LINE);
-      expect(closed.reply.card).not.toBeNull();
-      expect(closed.reply.cardText).toBe(closed.reply.card!.answer_th);
-    } else if (closed.reply.kind === "card") {
-      expect(closed.reply.text).toBe(closed.reply.card.answer_th);
-    }
+    expect(CHAT_HOLDING_LINE.length).toBeGreaterThan(0);
   });
 
   it("card text always comes from the bank, never from the model", async () => {
@@ -523,15 +528,16 @@ describe("chat-first English replies with ENGLISH_MODEL_CHAT on", () => {
     }
   });
 
-  it("an unsafe English stub is invoked but the guard holds the line", async () => {
+  it("an unsafe English stub is invoked twice then the top card shows, with no holding bubble", async () => {
     const { model, calls } = spyModel("Take two pills now. You are not pregnant.");
+    const before = { chat: calls.chat };
     const r = await runTurn(newDialog(), "I am worried about birth control", enChatDeps(model));
-    expect(calls.chat).toBeGreaterThan(0);
-    expect(r.reply.kind).toBe("chat");
-    if (r.reply.kind === "chat") {
-      expect(r.reply.text).toBe(CHAT_HOLDING_LINE_EN);
+    expect(calls.chat).toBe(before.chat + 2);
+    expect(r.reply.kind).toBe("card");
+    if (r.reply.kind === "card") {
+      expect(r.reply.text).toBe(r.reply.card.answer_th);
+      expect(r.reply.text).not.toBe(CHAT_HOLDING_LINE_EN);
       expect(r.reply.text).not.toContain("pills");
-      expect(r.reply.holding).toBe(true);
     }
   });
 

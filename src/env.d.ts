@@ -12,6 +12,7 @@ interface Window {
     wasm?: "ok" | "unavailable";
     gpu?: boolean;
     pick?: "ok" | "timeout" | "not-ready" | "warmup" | "warmup-slow" | "none" | "loading" | "fail";
+    chatDelayMs?: number;
   };
   /** E2E call counts for the stubbed model. Counts only, never user text. */
   __JANE_RUNTIME_CALLS__?: { chat: number; pick: number };
