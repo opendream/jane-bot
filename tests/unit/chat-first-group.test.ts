@@ -172,23 +172,22 @@ describe("chat-first message grouping", () => {
     expect(s.state.chatFlow.rulesOnly).toBe(true);
   });
 
-  it("AMBIGUOUS in the second of two grouped messages talks like NONE plus the DRAFT soft line", async () => {
+  it("AMBIGUOUS in the second of two grouped messages is the card plus the DRAFT soft line, 0 model calls", async () => {
     const { model, calls } = delayedModel({ delayMs: 80 });
     const s = new DialogSession("18+", deps(model));
     s.start();
     const p1 = s.send(A);
     await waitUntil(() => calls.started > 0);
-    const p2 = s.send("ยาคุมทำให้รู้สึก suicidal ได้ไหม");
+    const before = { chat: calls.chat, started: calls.started };
+    const p2 = s.send("หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง");
     const r2 = await p2;
     expect(await p1).toBeNull();
-    expect(r2?.kind).toBe("chat");
-    if (r2?.kind === "chat") {
-      expect(r2.text).toBe(SAFE_CHAT);
+    expect(r2?.kind).toBe("card");
+    if (r2?.kind === "card") {
       expect(r2.softCrisis?.line).toBe(AMBIGUOUS_CRISIS_LINE_TH);
       expect(r2.softCrisis?.categories).toContain("self_harm");
     }
-    expect(calls.lastChat).toBe(`${A}\nยาคุมทำให้รู้สึก suicidal ได้ไหม`);
-    expect(calls.chat).toBe(1);
+    expect(calls.chat).toBe(before.chat);
   });
 
   it("a crisis line hidden in the first of two grouped messages opens the crisis screen with 0 model calls", async () => {
@@ -390,33 +389,33 @@ describe("chat-first thinking indicator", () => {
     expect(crisisChat.thinking).toBe(false);
   });
 
-  it("AMBIGUOUS extra-check shows the thinking indicator, calls the model, and puts the DRAFT soft line on the reply", async () => {
+  it("AMBIGUOUS extra-check never thinks or calls the model; card plus the DRAFT soft line", async () => {
     const { model, calls } = delayedModel({ delayMs: 80 });
     const chat = newChat("18+", model, null, { chatFirst: true });
     const h = hooks();
     let sawThinking = false;
     h.rerender = () => { if (chat.thinking) sawThinking = true; };
     const before = { chat: calls.chat, started: calls.started };
-    await sendToChat(chat, "หนูไม่ค่อยอยาก die นะ แค่ถามเรื่อง HIV", h);
+    await sendToChat(chat, "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง", h);
     expect(h.crisisCalls).toBe(0);
-    expect(sawThinking).toBe(true);
+    expect(sawThinking).toBe(false);
     expect(chat.thinking).toBe(false);
-    expect(calls.chat).toBe(before.chat + 1);
-    expect(calls.started).toBe(before.started + 1);
+    expect(calls.chat).toBe(before.chat);
+    expect(calls.started).toBe(before.started);
     const jane = [...chat.messages].reverse().find((m) => m.from === "jane" && m.softCrisis);
-    expect(jane?.text).toBe(SAFE_CHAT);
+    expect(jane?.cardId).toBeTruthy();
     expect(jane?.softCrisis?.line).toBe(AMBIGUOUS_CRISIS_LINE_TH);
     expect(jane?.softCrisis?.categories).toContain("self_harm");
     expect(chat.messages.some((m) => m.text === thinkingPhraseAt("th", 0))).toBe(false);
   });
 
-  it("AMBIGUOUS model-not-ready falls back to the card plus the DRAFT soft line without thinking", async () => {
+  it("AMBIGUOUS model-not-ready is the card plus the DRAFT soft line without thinking", async () => {
     const model: DialogModel = { ready: () => false };
     const chat = newChat("18+", model, null, { chatFirst: true });
     const h = hooks();
     let sawThinking = false;
     h.rerender = () => { if (chat.thinking) sawThinking = true; };
-    await sendToChat(chat, "ยาคุมทำให้รู้สึก suicidal ได้ไหม", h);
+    await sendToChat(chat, "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง", h);
     expect(h.crisisCalls).toBe(0);
     expect(sawThinking).toBe(false);
     expect(chat.thinking).toBe(false);
@@ -426,16 +425,16 @@ describe("chat-first thinking indicator", () => {
     expect(jane?.softCrisis?.categories).toContain("self_harm");
   });
 
-  it("AMBIGUOUS guard fail after retry falls back to the card plus the DRAFT soft line", async () => {
+  it("AMBIGUOUS never calls the model even when a guard-fail stub is injected", async () => {
     const { model, calls } = delayedModel({ delayMs: 20, replies: [BAD_CHAT, BAD_CHAT] });
     const chat = newChat("18+", model, null, { chatFirst: true });
     const h = hooks();
     let sawThinking = false;
     h.rerender = () => { if (chat.thinking) sawThinking = true; };
-    await sendToChat(chat, "ยาคุมทำให้รู้สึก suicidal ได้ไหม", h);
+    await sendToChat(chat, "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง", h);
     expect(h.crisisCalls).toBe(0);
-    expect(sawThinking).toBe(true);
-    expect(calls.chat).toBe(2);
+    expect(sawThinking).toBe(false);
+    expect(calls.chat).toBe(0);
     const jane = [...chat.messages].reverse().find((m) => m.from === "jane");
     expect(jane?.cardId).toBeTruthy();
     expect(jane?.text).not.toBe(BAD_CHAT);

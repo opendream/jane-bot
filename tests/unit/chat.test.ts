@@ -415,7 +415,7 @@ describe("ambiguous extra-check: card bubble carries the DRAFT soft line", () =>
   it("does not open the crisis screen until the soft button is used", async () => {
     const chat = newChat("18-24", null);
     const h = hooks();
-    await sendToChat(chat, "ยาคุมทำให้รู้สึก suicidal ได้ไหม", h);
+    await sendToChat(chat, "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง", h);
     expect(h.crisisCalls).toBe(0);
     const jane = [...chat.messages].reverse().find((m) => m.from === "jane");
     expect(jane?.softCrisis?.line).toBe("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ");
@@ -423,18 +423,19 @@ describe("ambiguous extra-check: card bubble carries the DRAFT soft line", () =>
     expect(jane?.cardId).toBeTruthy();
   });
 
-  it("chat-first Thai AMBIGUOUS renders the model reply plus the DRAFT soft line", async () => {
+  it("chat-first Thai AMBIGUOUS renders the bank card plus the DRAFT soft line and never calls the model", async () => {
     const model: DialogModel = {
       ready: () => true,
       chatReply: vi.fn(async () => "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย"),
     };
     const chat = newChat("18-24", model, null, { chatFirst: true });
     const h = hooks();
-    await sendToChat(chat, "หนูไม่ค่อยอยาก die นะ แค่ถามเรื่อง HIV", h);
+    await sendToChat(chat, "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง", h);
     expect(h.crisisCalls).toBe(0);
-    expect(model.chatReply).toHaveBeenCalledTimes(1);
+    expect(model.chatReply).not.toHaveBeenCalled();
     const jane = [...chat.messages].reverse().find((m) => m.from === "jane");
-    expect(jane?.text).toBe("พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย");
+    expect(jane?.text).not.toBe("พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย");
+    expect(jane?.cardId).toBeTruthy();
     expect(jane?.softCrisis?.line).toBe("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ");
     expect(jane?.softCrisis?.categories).toContain("self_harm");
   });
@@ -449,7 +450,7 @@ describe("ambiguous extra-check: card bubble carries the DRAFT soft line", () =>
   it("AMBIGUOUS plus a staff request keeps the referral message and the DRAFT soft line", async () => {
     const chat = newChat("18-24", null);
     const h = hooks();
-    await sendToChat(chat, "หนูไม่ค่อยอยาก die อยากคุยกับเจ้าหน้าที่", h);
+    await sendToChat(chat, "หนูสิ้นหวังมาก อยากคุยกับเจ้าหน้าที่", h);
     expect(h.crisisCalls).toBe(0);
     expect(h.referralIntents).toHaveLength(1);
     const jane = [...chat.messages].reverse().find((m) => m.from === "jane");

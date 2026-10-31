@@ -24,7 +24,7 @@ export function toDialogModel(a: LLMAdapter | null, rewordRuntimes: readonly str
   }
   if (a.chatReply) {
     const chat = a.chatReply.bind(a);
-    m.chatReply = (text, history, signal, lang, groupId, opts) => chat(text, history, signal, lang, groupId, opts);
+    m.chatReply = (text, history, signal, lang, groupId) => chat(text, history, signal, lang, groupId);
   }
   return m.pickCard || m.reword || m.chatReply ? m : null;
 }
