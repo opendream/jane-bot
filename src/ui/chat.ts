@@ -203,7 +203,18 @@ export async function sendToChat(chat: ChatState, text: string, hooks: ChatHooks
     if (!owns()) return;
     const reply = await chat.session.send(t);
     if (!owns()) return;
-    if (reply?.kind === "crisis") hooks.crisis(reply.categories);
+    if (reply?.kind === "crisis") {
+      hooks.crisis(reply.categories);
+      return;
+    }
+    // After the 30-turn lock, AMBIGUOUS still shows the fixed soft line + button.
+    // Never generate; never block the crisis card. Ordinary text stays silent.
+    const soft = reply && "softCrisis" in reply ? reply.softCrisis : undefined;
+    if (soft) {
+      push(chat, { from: "user", text: t });
+      push(chat, chatMsgFromReply(reply, chat.modelPick, chat.chatFirst));
+      hooks.rerender();
+    }
     return;
   }
   chat.draft = "";

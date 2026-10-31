@@ -67,6 +67,24 @@ describe("chat send path", () => {
     expect(h.crisisCalls).toBe(1);
   });
 
+  it("after the hard cap, AMBIGUOUS หนูหมดแรงจะอยู่แล้ว still shows the soft line and crisis button", async () => {
+    const model: DialogModel = {
+      ready: () => true,
+      chatReply: vi.fn(async () => DEFAULT_CHAT_CHOICE_JSON),
+    };
+    const chat = newChat("18-24", model, null, { chatFirst: true });
+    const h = hooks();
+    for (let i = 0; i < HARD_CAP; i++) await sendToChat(chat, FILLER, h);
+    expect(chat.readOnly).toBe(true);
+    const before = vi.mocked(model.chatReply!).mock.calls.length;
+    await sendToChat(chat, "หนูหมดแรงจะอยู่แล้ว", h);
+    expect(h.crisisCalls).toBe(0);
+    expect(vi.mocked(model.chatReply!).mock.calls.length).toBe(before);
+    const jane = [...chat.messages].reverse().find((m) => m.from === "jane" && m.softCrisis);
+    expect(jane?.softCrisis?.line).toBe("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะคะ");
+    expect(jane?.softCrisis?.categories.length).toBeGreaterThan(0);
+  });
+
   it("text typed during a quiz at the read-only cap closes the panel, rerenders, and does not add a bubble", async () => {
     const chat = newChat("15-17", null);
     const h = hooks();

@@ -9,7 +9,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { BANK } from "../../src/core/bankData";
 import { detectCrisis } from "../../src/core/crisis";
 import { REFUSAL_CARDS } from "../../src/core/guard";
+import { AMBIGUOUS_CRISIS_LINE_TH } from "../../src/core/chat-crisis";
 import {
+  HARD_CAP,
   PICK_TIMEOUT_MS,
   newDialog,
   runTurn,
@@ -340,6 +342,37 @@ describe("PR #41 round-3 Codex MEDIUM findings", () => {
     expect(modelPillCopy(last).text).toBe(RULES_PILL);
     expect(warn.mock.calls.map((c) => c.map(String).join(" ")).join("\n")).toContain(missingLocalModelWarning("qwen3-0.6b-ft"));
     warn.mockRestore();
+  });
+
+  it("issue #42: turn 31 AMBIGUOUS หนูหมดแรงจะอยู่แล้ว still shows the soft line and crisis button", async () => {
+    const line = "หนูหมดแรงจะอยู่แล้ว";
+    const st = newDialog("18-24");
+    st.turns = HARD_CAP;
+    const model: DialogModel = {
+      ready: () => true,
+      chatReply: vi.fn(async () => '{"o":0,"c":0,"q":0}'),
+    };
+    const r = await runTurn(st, line, deps(model));
+    expect(r.reply.kind).toBe("readonly");
+    if (r.reply.kind === "readonly") {
+      expect(r.reply.softCrisis?.line).toBe(AMBIGUOUS_CRISIS_LINE_TH);
+      expect(r.reply.softCrisis?.categories.length).toBeGreaterThan(0);
+    }
+    expect(vi.mocked(model.chatReply!).mock.calls.length).toBe(0);
+
+    const chat = newChat("18-24", model, null, { chatFirst: true });
+    const h = chatHooks();
+    const crisisCalls: number[] = [];
+    h.crisis = (cats) => { crisisCalls.push(cats.length); };
+    for (let i = 0; i < HARD_CAP; i++) await sendToChat(chat, "อยากรู้เรื่องทั่วไปค่ะ", h);
+    expect(chat.readOnly).toBe(true);
+    const before = vi.mocked(model.chatReply!).mock.calls.length;
+    await sendToChat(chat, line, h);
+    expect(crisisCalls.length).toBe(0);
+    expect(vi.mocked(model.chatReply!).mock.calls.length).toBe(before);
+    const jane = [...chat.messages].reverse().find((m) => m.from === "jane" && m.softCrisis);
+    expect(jane?.softCrisis?.line).toBe(AMBIGUOUS_CRISIS_LINE_TH);
+    expect(jane?.softCrisis?.categories.length).toBeGreaterThan(0);
   });
 
   it("duplicate: c=1 quoting the same card as the closer shows the answer once", async () => {
