@@ -148,15 +148,15 @@ describe("forced first-turn card (dialog, stub JSON)", () => {
     expect(detectCrisis("ตอนนี้อยากตายมาก").level).not.toBe("none");
   });
 
-  it("chat-crisis AMBIGUOUS still talks; CLEAR stays off the stub", async () => {
-    const line = "หนูไม่ค่อยอยาก die นะ แค่ถามเรื่อง HIV";
+  it("chat-crisis AMBIGUOUS is the bank card plus the DRAFT soft line; never calls the stub", async () => {
+    const line = "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง";
     expect(detectCrisis(line).level).toBe("none");
     expect(detectChatCrisisForTurn(line, []).outcome).toBe("ambiguous");
     const { model, calls } = spyModel(NONE_JSON);
     const r = await runTurn(newDialog("18-24"), line, deps(model));
-    expect(r.reply.kind).not.toBe("crisis");
-    expect(calls.chat).toBeGreaterThan(0);
-    if (r.reply.kind === "chat") expect(r.reply.softCrisis?.line).toMatch(/ไม่ปลอดภัย/);
+    expect(r.reply.kind).toBe("card");
+    expect(calls.chat).toBe(0);
+    if (r.reply.kind === "card") expect(r.reply.softCrisis?.line).toMatch(/ไม่ปลอดภัย/);
   });
 
   it("invalid output on both attempts is the existing rules fallback", async () => {

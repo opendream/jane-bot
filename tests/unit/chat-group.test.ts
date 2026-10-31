@@ -69,7 +69,7 @@ describe("group script gate", () => {
     expect(groupTakesNoModelPath(["อยากรู้เรื่อง prepare ค่ะ"], false)).toBe(true);
   });
 
-  it("chat-first AMBIGUOUS allows mixed leftover Latin on the model path, not English", () => {
+  it("mixed leftover Latin takes the card path unless allowMixed is set; English stays off", () => {
     expect(groupTakesNoModelPath(["ยาคุมทำให้รู้สึก suicidal ได้ไหม"], false)).toBe(true);
     expect(groupTakesNoModelPath(["ยาคุมทำให้รู้สึก suicidal ได้ไหม"], false, true)).toBe(false);
     expect(groupTakesNoModelPath(["ช่วงนี้กังวลเรื่องแฟน", "ยาคุมทำให้รู้สึก suicidal ได้ไหม"], false, true)).toBe(false);

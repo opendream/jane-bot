@@ -6,7 +6,7 @@ import { applyQuizUpdate, beginQuiz, newChat, sendToChat, type ChatHooks } from 
 import { MODEL_ANSWER_LABEL, RULES_ANSWER_LABEL, thinkingHintAt } from "../../src/ui/thinking";
 import { CHAT_CRISIS_CARD_FIRST, CHAT_FIRST, MODEL_CARD_PICK } from "../../src/config";
 import type { DialogModel } from "../../src/core/dialog";
-import { DEFAULT_CHAT_CHOICE_JSON, defaultChatReply } from "../../src/llm/chat-choice";
+import { DEFAULT_CHAT_CHOICE_JSON } from "../../src/llm/chat-choice";
 
 // SYNTHETIC chat lines only.
 const FILLER = "อยากรู้เรื่องทั่วไปค่ะ";
@@ -416,7 +416,7 @@ describe("ambiguous extra-check: card bubble carries the DRAFT soft line", () =>
   it("does not open the crisis screen until the soft button is used", async () => {
     const chat = newChat("18-24", null);
     const h = hooks();
-    await sendToChat(chat, "ยาคุมทำให้รู้สึก suicidal ได้ไหม", h);
+    await sendToChat(chat, "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง", h);
     expect(h.crisisCalls).toBe(0);
     const jane = [...chat.messages].reverse().find((m) => m.from === "jane");
     expect(jane?.softCrisis?.line).toBe("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะคะ");
@@ -424,18 +424,19 @@ describe("ambiguous extra-check: card bubble carries the DRAFT soft line", () =>
     expect(jane?.cardId).toBeTruthy();
   });
 
-  it("chat-first Thai AMBIGUOUS renders the model reply plus the DRAFT soft line", async () => {
+  it("chat-first Thai AMBIGUOUS renders the bank card plus the DRAFT soft line and never calls the model", async () => {
     const model: DialogModel = {
       ready: () => true,
       chatReply: vi.fn(async () => DEFAULT_CHAT_CHOICE_JSON),
     };
     const chat = newChat("18-24", model, null, { chatFirst: true });
     const h = hooks();
-    await sendToChat(chat, "หนูไม่ค่อยอยาก die นะ แค่ถามเรื่อง HIV", h);
+    await sendToChat(chat, "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง", h);
     expect(h.crisisCalls).toBe(0);
-    expect(model.chatReply).toHaveBeenCalledTimes(1);
+    expect(model.chatReply).not.toHaveBeenCalled();
     const jane = [...chat.messages].reverse().find((m) => m.from === "jane");
-    expect(jane?.text).toBe(defaultChatReply("th"));
+    expect(jane?.text).not.toBe("พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย");
+    expect(jane?.cardId).toBeTruthy();
     expect(jane?.softCrisis?.line).toBe("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะคะ");
     expect(jane?.softCrisis?.categories).toContain("self_harm");
   });
@@ -450,7 +451,7 @@ describe("ambiguous extra-check: card bubble carries the DRAFT soft line", () =>
   it("AMBIGUOUS plus a staff request keeps the referral message and the DRAFT soft line", async () => {
     const chat = newChat("18-24", null);
     const h = hooks();
-    await sendToChat(chat, "หนูไม่ค่อยอยาก die อยากคุยกับเจ้าหน้าที่", h);
+    await sendToChat(chat, "หนูสิ้นหวังมาก อยากคุยกับเจ้าหน้าที่", h);
     expect(h.crisisCalls).toBe(0);
     expect(h.referralIntents).toHaveLength(1);
     const jane = [...chat.messages].reverse().find((m) => m.from === "jane");

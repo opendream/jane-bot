@@ -52,7 +52,7 @@ export function acceptGroundedChat(
   raw: string | null | undefined,
   lang: ChatLang,
   cardText: string | null | undefined,
-  opts?: ChatReplyOpts,
+  _opts?: ChatReplyOpts,
 ): GroundedAccept {
   const card = cardText == null ? "" : String(cardText);
   const hasCard = card.trim().length > 0;
@@ -65,7 +65,7 @@ export function acceptGroundedChat(
   const opener = openersFor(lang)[parsed.choice.o]!;
   const follow = followUpsFor(lang)[parsed.choice.q]!;
   const voice = formatChatReply(opener, "", follow);
-  const guard = acceptChatReply(voice, lang, opts);
+  const guard = acceptChatReply(voice, lang);
   if (!guard.ok) return guard;
   return { ok: true, text: renderChatChoice(parsed.choice, lang, hasCard ? card : ""), choice: parsed.choice };
 }

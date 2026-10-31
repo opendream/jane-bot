@@ -135,32 +135,31 @@ describe("chat-first grounding in runTurn", () => {
     expect(calls.chat).toBe(0);
   });
 
-  it("AMBIGUOUS keeps the DRAFT soft line on a grounded model reply", async () => {
+  it("AMBIGUOUS is the bank card plus the DRAFT soft line and never calls the model", async () => {
     const { model, calls } = spyModel();
-    const r = await runTurn(newDialog(), "หนูไม่ค่อยอยาก die นะ แค่ถามเรื่อง HIV", deps(model));
-    expect(r.reply.kind).toBe("chat");
-    expect(calls.chat).toBe(1);
-    if (r.reply.kind === "chat") {
+    const r = await runTurn(newDialog(), "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง", deps(model));
+    expect(calls.chat).toBe(0);
+    expect(r.reply.kind).toBe("card");
+    if (r.reply.kind === "card") {
       expect(r.reply.softCrisis?.line).toBe(AMBIGUOUS_CRISIS_LINE_TH);
-      expect(r.reply.text).toBe(SAFE);
+      expect(r.reply.card.id).toBeTruthy();
     }
   });
 
-  it("AMBIGUOUS keeps the DRAFT soft line when a retry then succeeds", async () => {
+  it("AMBIGUOUS discards a mocked model reply and still never calls the model", async () => {
     const { model, calls } = spyModel([INCOMPLETE, SAFE_JSON]);
-    const r = await runTurn(newDialog(), "หนูไม่ค่อยอยาก die นะ แค่ถามเรื่อง HIV", deps(model));
-    expect(calls.chat).toBe(2);
-    expect(r.reply.kind).toBe("chat");
-    if (r.reply.kind === "chat") {
+    const r = await runTurn(newDialog(), "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง", deps(model));
+    expect(calls.chat).toBe(0);
+    expect(r.reply.kind).toBe("card");
+    if (r.reply.kind === "card") {
       expect(r.reply.softCrisis?.line).toBe(AMBIGUOUS_CRISIS_LINE_TH);
-      expect(r.reply.text).toBe(SAFE);
     }
   });
 
-  it("AMBIGUOUS keeps the DRAFT soft line when invalid choice falls back to the card", async () => {
+  it("AMBIGUOUS with a topic question is still the card plus the DRAFT soft line, 0 calls", async () => {
     const { model, calls } = spyModel(HEAT);
-    const r = await runTurn(newDialog(), "หนูไม่ค่อยอยาก die นะ ถุงยางแตกทำไงดี", deps(model));
-    expect(calls.chat).toBeGreaterThanOrEqual(1);
+    const r = await runTurn(newDialog(), "หนูสิ้นหวังมาก ถุงยางแตกทำไงดี", deps(model));
+    expect(calls.chat).toBe(0);
     expect(r.reply.kind).toBe("card");
     if (r.reply.kind === "card") {
       expect(r.reply.softCrisis?.line).toBe(AMBIGUOUS_CRISIS_LINE_TH);

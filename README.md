@@ -25,25 +25,18 @@ Art: 2018 *Sex Safe Safe* vector stars and approved figures in `src/assets/jane/
 7. Crisis detection has two levels: **override** (full crisis screen) and **banner** (topic/fiction/news or resolved mild
    wording: normal flow plus a crisis strip with the numbers). False-positive probe: `evals/crisis-fp-set.json` → `evals/crisis-scorecard.md`.
    Chat then runs an add-only extra check (`src/core/chat-crisis.ts`) after pinned `crisis.ts`. The extra check has three
-   outcomes: **CLEAR** (full crisis screen, no model), **AMBIGUOUS** (chat-first is model-first: the same
-   guarded model reply as a NONE turn — guard, one retry — plus a fixed DRAFT Thai line
-   `ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ` and a button that opens the existing crisis screen;
-   the bank card is only a fallback on guard fail after retry, timeout, model not ready, or
-   non-Thai text. Card-first stays card plus that DRAFT line), or **NONE**.
-   Precision guards (never on the pin) only downgrade CLEAR → AMBIGUOUS, never to NONE, and only on a **narrow
-   positive** match of the whole construction (anything else stays CLEAR; no exception allowlists): Thai `ไม่` /
-   `ไม่ค่อย` / `ไม่เคย` / `ไม่คิดจะ` / `ไม่ได้` at clause start or right after `หนู`/`เรา`/`ฉัน`/`ผม`/`กู`/`ดิฉัน`/`เค้า`
-   (optional `ก็`), immediately before `อยาก`/`รู้สึก`/`คิด` + the crisis term — a `ไม่ได้` after any other Thai word is
-   never negation; up to two words between don't/dont/do not/never and wanna/want to die; a same-clause question whether
-   the feeling is an effect of a **closed-list medication or medical product** (`ผลข้างเคียง` / side effect, `<drug>
-   ทำให้รู้สึก X ได้ไหม`, or `กิน`/`ใช้`/`ฉีด` `<drug>` `แล้วรู้สึก X` + clause-final question — a person or place as
-   cause stays CLEAR); same-clause **explicit accidental cut** (`โดน X บาด`, `เผลอทำ X บาด`, `บาดตอนโกน`/`ตอนทำกับข้าว`,
-   accidentally cut / cut myself shaving). Reflexive `cut ตัวเอง` / ข้อมือ / แขน, or any repetition marker (`ทุกคืน` /
-   every night), is CLEAR whatever tool is named; a bare tool noun is never a cue. A help-seeking tail never weakens a
-   disclosure. The multi-turn window may only escalate to CLEAR (a previous AMBIGUOUS line is not inherited). A separate
-   first-person disclosure in the same message still opens the crisis screen. Jane is Thai-only for now; English
-   extra-check rules are a short exact-phrase list. Chat-first AMBIGUOUS sends any Thai-majority mixed line to the model
-   (users code-mix crisis words), with an add-only output check that rejects method/means content and dismissive help.
+   outcomes: **CLEAR** (full crisis screen, no model), **AMBIGUOUS** (both paths: the turn's bank
+   card plus a fixed DRAFT Thai line `ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ` and a button that
+   opens the existing crisis screen; never the model, never model-written text), or **NONE**.
+   **Option 1 (Keng, 30 Oct 2026): any crisis word is CLEAR.** There are no precision downgrades.
+   Negation, side-effect questions, and accidental-cut frames that still contain a crisis word
+   stay CLEAR (false alarms accepted). **AMBIGUOUS** is only vague distress with no crisis word
+   (weak cues: สิ้นหวัง / หมดหวัง / ท้อแท้ / ไม่รู้จะไปต่อ / ไม่เห็นทางออก / อยากหายไป,
+   hopeless / I feel empty / don't see a way forward / no way out). The multi-turn window may
+   only escalate to CLEAR (a previous AMBIGUOUS line is not inherited). A separate first-person
+   disclosure in the same message still opens the crisis screen. Jane is Thai-only for now; English
+   extra-check rules are a short exact-phrase list. AMBIGUOUS turns never call the model
+   (Thai, English, or mixed); there is no reply-phrase output check.
 
 ## On-device model (optional; the app works without it)
 
