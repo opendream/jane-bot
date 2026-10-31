@@ -152,8 +152,6 @@ describe("Codex HIGH 1: grouped thanks must not blank an AMBIGUOUS turn", () => 
 
   it("AMBIGUOUS grouped with ขอบคุณค่ะ still renders the soft line and never calls the model", async () => {
     const { model, calls } = spyModel({ chat: BAD_CHAT });
-    const s = new DialogSession("18-24", chatDeps(model));
-    s.start();
     const r = await runTurn(newDialog("18-24"), THANKS, {
       ...chatDeps(model),
       groupMessages: [TH_AMB, THANKS],

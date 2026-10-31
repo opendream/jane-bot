@@ -633,7 +633,6 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
       return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, lang === "en" ? lang : undefined);
     }
 
-
     let card: BankCard | null = null;
     let via: Via = "rules";
     let engine: EngineTag | undefined;
