@@ -282,9 +282,8 @@ describe("every AMBIGUOUS return path carries a renderable soft line", () => {
     if (path === "staff") expect(out.reply.kind).toBe("referral");
     if (path === "readonly") expect(out.reply.kind).toBe("readonly");
     if (path === "english-no-model") expect(calls.chat + calls.pick + calls.reword).toBe(0);
-    if (path === "locked" && (out.reply.kind === "card" || out.reply.kind === "chat")) {
-      const id = out.reply.kind === "card" ? out.reply.card.id : out.reply.card?.id;
-      expect(id).toBe("ec.timing.b001");
+    if (path === "locked") {
+      expect(out.reply.kind).toBe("card");
       expect(calls.chat + calls.pick + calls.reword).toBe(0);
     }
   });

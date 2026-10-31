@@ -174,23 +174,22 @@ describe("chat-first message grouping", () => {
     expect(s.state.chatFlow.rulesOnly).toBe(true);
   });
 
-  it("AMBIGUOUS in the second of two grouped messages talks like NONE plus the DRAFT soft line", async () => {
+  it("AMBIGUOUS in the second of two grouped messages is the card plus the DRAFT soft line, 0 model calls", async () => {
     const { model, calls } = delayedModel({ delayMs: 80 });
     const s = new DialogSession("18+", deps(model));
     s.start();
     const p1 = s.send(A);
     await waitUntil(() => calls.started > 0);
-    const p2 = s.send("ยาคุมทำให้รู้สึก suicidal ได้ไหม");
+    const before = { chat: calls.chat, started: calls.started };
+    const p2 = s.send("หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง");
     const r2 = await p2;
     expect(await p1).toBeNull();
-    expect(r2?.kind).toBe("chat");
-    if (r2?.kind === "chat") {
-      expect(r2.text).toBe(SAFE_CHAT);
+    expect(r2?.kind).toBe("card");
+    if (r2?.kind === "card") {
       expect(r2.softCrisis?.line).toBe(AMBIGUOUS_CRISIS_LINE_TH);
       expect(r2.softCrisis?.categories).toContain("self_harm");
     }
-    expect(calls.lastChat).toBe(`${A}\nยาคุมทำให้รู้สึก suicidal ได้ไหม`);
-    expect(calls.chat).toBe(1);
+    expect(calls.chat).toBe(before.chat);
   });
 
   it("a crisis line hidden in the first of two grouped messages opens the crisis screen with 0 model calls", async () => {
