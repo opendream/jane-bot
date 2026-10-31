@@ -48,6 +48,21 @@ test("CH1 chat: welcome → chip → follow-up chip → typed question, all verb
   expect(rec.consoleText.join("\n")).not.toContain("เครียดมาก");
 });
 
+test("CH2b extra-check paraphrase in card-first chat → existing crisis card, 191 then 1300", async ({ page }) => {
+  const rec = await open(page, "14:00");
+  await openChat(page, "18-24");
+  await say(page, "อยากรู้เรื่องคุมกำเนิด");
+  await expect(lastJane(page)).toHaveAttribute("data-card", "birth.control.000");
+  // bt532 paraphrase: first-person harassment, missed by pinned crisis.ts.
+  await say(page, "หนูถูกคุกคามที่ทำงาน");
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  await expect(page.locator('[data-testid^="crisis-"]').first()).toHaveAttribute("data-testid", "crisis-191");
+  expect(await crisisCallHrefs(page)).toEqual(["tel:191", "tel:1300"]);
+  await expect(page.getByTestId("crisis-female-officer")).toHaveCount(0);
+  await assertNoStorage(page);
+  await assertNetwork(page, rec);
+});
+
 test("CH2 crisis mid-chat (turn 3) → crisis screen, 1323 first; 'I'm safe now' returns to the same chat", async ({ page }) => {
   const rec = await open(page, "21:00");
   await openChat(page);

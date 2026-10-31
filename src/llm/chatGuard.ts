@@ -186,7 +186,10 @@ function englishPrice(raw: string): boolean {
 }
 
 /** All failed checks for a generated reply (empty array = accept). Never logs text. */
-export function chatGuardFailures(text: string | null | undefined, lang: ChatLang = "th"): ChatGuardReason[] {
+export function chatGuardFailures(
+  text: string | null | undefined,
+  lang: ChatLang = "th",
+): ChatGuardReason[] {
   const fails: ChatGuardReason[] = [];
   const raw = text == null ? "" : nfc(String(text));
   if (!raw.trim()) return ["empty"];

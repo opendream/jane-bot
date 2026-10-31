@@ -24,6 +24,19 @@ Art: 2018 *Sex Safe Safe* vector stars and approved figures in `src/assets/jane/
    being forced → crisis, 191 then 1300), S5 mental health (1323 first; suicidal wording → crisis override).
 7. Crisis detection has two levels: **override** (full crisis screen) and **banner** (topic/fiction/news or resolved mild
    wording: normal flow plus a crisis strip with the numbers). False-positive probe: `evals/crisis-fp-set.json` → `evals/crisis-scorecard.md`.
+   Chat then runs an add-only extra check (`src/core/chat-crisis.ts`) after pinned `crisis.ts`. The extra check has three
+   outcomes: **CLEAR** (full crisis screen, no model), **AMBIGUOUS** (both paths: the turn's bank
+   card plus a fixed DRAFT Thai line `ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ` and a button that
+   opens the existing crisis screen; never the model, never model-written text), or **NONE**.
+   **Option 1 (Keng, 30 Oct 2026): any crisis word is CLEAR.** There are no precision downgrades.
+   Negation, side-effect questions, and accidental-cut frames that still contain a crisis word
+   stay CLEAR (false alarms accepted). **AMBIGUOUS** is only vague distress with no crisis word
+   (weak cues: สิ้นหวัง / หมดหวัง / ท้อแท้ / ไม่รู้จะไปต่อ / ไม่เห็นทางออก / อยากหายไป,
+   hopeless / I feel empty / don't see a way forward / no way out). The multi-turn window may
+   only escalate to CLEAR (a previous AMBIGUOUS line is not inherited). A separate first-person
+   disclosure in the same message still opens the crisis screen. Jane is Thai-only for now; English
+   extra-check rules are a short exact-phrase list. AMBIGUOUS turns never call the model
+   (Thai, English, or mixed); there is no reply-phrase output check.
 
 ## On-device model (optional; the app works without it)
 

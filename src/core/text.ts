@@ -1,3 +1,28 @@
+/**
+ * NFKC + strip combining marks on non-Thai characters so fullwidth / accented
+ * Latin folds to ASCII ("ｄｉｅ" → "die", "ḍïë" → "die"). Thai — including
+ * SARA AM ำ, which NFKC would split — is left unchanged.
+ */
+export function foldLatinCompat(input: string): string {
+  let out = "";
+  for (const c of input == null ? "" : String(input)) {
+    if (/\p{Script=Thai}/u.test(c)) {
+      out += c;
+      continue;
+    }
+    out += c.normalize("NFKC").normalize("NFD").replace(/\p{M}/gu, "");
+  }
+  return out;
+}
+
+/**
+ * NFKC + Latin fold + lowercase, used before every extra crisis check and
+ * the script / reply-language gates. Thai (including SARA AM) is unchanged.
+ */
+export function prepCheckText(input: string): string {
+  return foldLatinCompat(input == null ? "" : String(input)).toLowerCase();
+}
+
 /** Normalise Thai/English free text for matching. */
 export function normalize(input: string): string {
   return input

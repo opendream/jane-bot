@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { CHAT_FIRST, ENGLISH_MODEL_CHAT, chatFirstEnabled } from "../../src/config";
+import { CHAT_CRISIS_CARD_FIRST, CHAT_FIRST, ENGLISH_MODEL_CHAT, chatFirstEnabled } from "../../src/config";
 import { detectCrisis } from "../../src/core/crisis";
 import {
   FALLBACK_ID,
@@ -10,10 +10,9 @@ import {
   type DialogState,
   type TurnDeps,
 } from "../../src/core/dialog";
-import { SHOW_CARD_NOW } from "../../src/core/chat-flow";
-import { CHAT_HOLDING_LINE } from "../../src/llm/chatGuard";
-import { CARD_THAI_NOTE_EN } from "../../src/core/card-lang";
-import { detectChatLang } from "../../src/llm/chat-lang";
+import { SHOW_CARD_NOW, SHOW_CARD_NOW_EN } from "../../src/core/chat-flow";
+import { CHAT_HOLDING_LINE, CHAT_HOLDING_LINE_EN } from "../../src/llm/chatGuard";
+import { detectChatLang, modelChatScript } from "../../src/llm/chat-lang";
 import {
   CHAT_LANG_LINE_EN,
   CHAT_LANG_LINE_TH,
@@ -24,6 +23,7 @@ import {
   chatSystemFor,
 } from "../../src/llm/chat-system";
 import { BANK } from "../../src/core/bankData";
+import { CARD_THAI_NOTE_EN } from "../../src/core/card-lang";
 import { LOCKED_ROUTE_IDS } from "../../src/core/pick-engine";
 import { REFUSAL_CARDS } from "../../src/core/guard";
 
@@ -60,6 +60,9 @@ const deps = (model: DialogModel | null = null, extra: Partial<TurnDeps> = {}): 
   cards: BANK, model, copyStatus: "draft", chatFirst: true, ...extra,
 });
 
+const enChatDeps = (model: DialogModel | null = null, extra: Partial<TurnDeps> = {}): TurnDeps =>
+  deps(model, { englishModelChat: true, ...extra });
+
 async function talk(lines: string[], d: TurnDeps, st: DialogState = newDialog("18+")) {
   const replies = [];
   for (const l of lines) {
@@ -85,6 +88,7 @@ function shownCard(reply: { kind: string; card?: { id: string; answer_th: string
 describe("production defaults (chat-first flag off)", () => {
   it("CHAT_FIRST is false and the query parser is opt-in", () => {
     expect(CHAT_FIRST).toBe(false);
+    expect(CHAT_CRISIS_CARD_FIRST).toBe(true);
     expect(chatFirstEnabled("")).toBe(false);
     expect(chatFirstEnabled("?chatFirst=0")).toBe(false);
     expect(chatFirstEnabled("?chatFirst=1")).toBe(true);
@@ -349,7 +353,7 @@ describe("chat-first conversation", () => {
   });
 });
 
-describe("chat-first English replies", () => {
+describe("chat-first English replies (ENGLISH_MODEL_CHAT off)", () => {
   it("Thai turns still go to model chat while English turns do not", async () => {
     const { model, calls } = spyModel();
     const th = await runTurn(newDialog(), "ช่วงนี้กังวลเรื่องแฟน", deps(model));
@@ -410,59 +414,172 @@ describe("chat-first English replies", () => {
     expect(calls.chat + calls.pick + calls.reword).toBe(0);
   });
 
-  const englishCrisisParaphrases = [
-    "I was forced to have sex",
-    "I don't want to live anymore",
-    "my boyfriend hits me and I am scared",
-    "Someone forced me into sex last night",
-    "I feel like I cannot go on living",
-    "I was sexually assaulted and I am scared",
-  ];
-
-  it.each(englishCrisisParaphrases)("English disclosure never reaches the model: %s", async (line) => {
-    const { model, calls } = spyModel();
-    const r = await runTurn(newDialog(), line, deps(model));
-    expect(calls.chat + calls.pick + calls.reword).toBe(0);
-    if (detectCrisis(line).crisis) {
-      expect(r.reply.kind).toBe("crisis");
-    } else {
-      expect(r.reply.kind).not.toBe("chat");
-      expect(r.reply.kind === "card" || r.reply.kind === "crisis").toBe(true);
-      if (r.reply.kind === "card") {
-        expect(r.reply.cardNote === CARD_THAI_NOTE_EN || r.reply.cardNote == null).toBe(true);
-      }
-    }
-  });
-
-  const scriptGateNoModel = [
+  it.each([
+    "I want to ｋｉｌｌ ｍｙｓｅｌｆ",
+    "I want to kíll myself",
     "I'm suicidal",
-    "Suicidal",
-    "feeling suicidal",
-    "suicidal thoughts",
     "wanna die",
     "end my life",
-    "Forced sex",
-    "partner hit me",
     "cutting myself",
-    "I cut myself every night",
-    "kill myself",
-    "he raped me",
-    "help",
-    "HELP",
-    "i want to kill myself",
-  ];
-
-  it.each(scriptGateNoModel)("not-clearly-Thai disclosure never calls the model: %s", async (line) => {
+  ])("exact English crisis phrase shows the crisis screen, stub 0 times: %s", async (line) => {
     const { model, calls } = spyModel();
     const r = await runTurn(newDialog(), line, deps(model));
-    expect(calls.chat + calls.pick + calls.reword).toBe(0);
-    if (detectCrisis(line).crisis) {
-      expect(r.reply.kind).toBe("crisis");
-    } else {
-      expect(r.reply.kind).not.toBe("chat");
-      expect(r.reply.kind === "card" || r.reply.kind === "crisis").toBe(true);
+    expect(r.reply.kind, line).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, line).toBe(0);
+  });
+
+  it.each([
+    "I want to hurt myself",
+    "I don't want to be alive",
+    "I wish I was dead",
+    "my stepdad molested me",
+    "he forced me",
+    "My boyfriend is forcing me to have sex",
+  ])("fuzzy English disclosure stays on the card, stub 0 times: %s", async (line) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), line, deps(model));
+    expect(r.reply.kind, line).not.toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, line).toBe(0);
+  });
+});
+
+describe("chat-first English replies with ENGLISH_MODEL_CHAT on", () => {
+  const enProbes = [
+    "he touched me and I don't like it",
+    "I keep blaming myself for what happened",
+    "nobody believes me about the harassment",
+    "they shrugged off my concerns about harassment",
+    "I feel guilty about not speaking up",
+    "I'm afraid to go back because of someone's behaviour",
+    "the harassment that I experienced still scares me",
+    "I was sexually harassed at work",
+    "I'm scared to tell anyone about the harassment",
+    "I keep getting harassed on the way home",
+    "she isn't believing me about sexual harassment",
+  ];
+  const enDisclosuresPinned = [
+    "I was sexually assaulted and I am scared",
+  ];
+  const enDisclosuresNowCard = [
+    "I was forced to have sex",
+    "my boyfriend hits me and I am scared",
+  ];
+  const enLiveWishCrisis = [
+    "I don't want to live",
+    "I don't want to live anymore",
+    "i dont want to live anymore",
+  ];
+
+  it("Thai and English non-crisis turns both reach model chat", async () => {
+    const { model, calls } = spyModel();
+    const th = await runTurn(newDialog(), "ช่วงนี้กังวลเรื่องแฟน", enChatDeps(model));
+    expect(th.reply.kind).toBe("chat");
+    if (th.reply.kind === "chat") {
+      expect(th.reply.text).toBe(SAFE_CHAT);
+      expect(th.reply.chips.some((c) => c.label_th === SHOW_CARD_NOW)).toBe(true);
+    }
+    expect(calls.chat).toBe(1);
+    expect(calls.lastLang).toBe("th");
+
+    const en = await runTurn(newDialog(), "I am worried about my boyfriend", enChatDeps(model));
+    expect(en.reply.kind).toBe("chat");
+    if (en.reply.kind === "chat") {
+      expect(en.reply.text).toBe(SAFE_CHAT_EN);
+      expect(en.reply.card).toBeNull();
+    }
+    expect(calls.chat).toBe(2);
+    expect(calls.lastLang).toBe("en");
+    expect(calls.pick).toBe(0);
+  });
+
+  it("a normal English question reaches model chat and then the card", async () => {
+    const { model, calls } = spyModel();
+    const first = await runTurn(newDialog(), "I want to know about birth control", enChatDeps(model));
+    expect(first.reply.kind).toBe("chat");
+    expect(calls.chat).toBeGreaterThan(0);
+    const afterChat = calls.chat;
+    const closed = await runTurn(first.state, SHOW_CARD_NOW_EN, enChatDeps(model));
+    const c = shownCard(closed.reply as never);
+    expect(c.id).toBeTruthy();
+    expect(calls.chat).toBe(afterChat);
+    expect(calls.pick).toBe(0);
+  });
+
+  it("serves the bank English body when the topic closes on a card that has one", async () => {
+    const cards = BANK.map((c) => ({ ...c, answer_en: `SYNTHETIC EN ${c.id}` }));
+    const { model, calls } = spyModel();
+    const first = await runTurn(newDialog(), "I want to know about birth control", enChatDeps(model, { cards }));
+    expect(first.reply.kind).toBe("chat");
+    expect(calls.chat).toBeGreaterThan(0);
+    const closed = await runTurn(first.state, SHOW_CARD_NOW_EN, enChatDeps(model, { cards }));
+    expect(closed.reply.kind === "card" || (closed.reply.kind === "chat" && (closed.reply as { card: unknown }).card)).toBeTruthy();
+    if (closed.reply.kind === "card") {
+      expect(closed.reply.text).toBe(`SYNTHETIC EN ${closed.reply.card.id}`);
+      expect(closed.reply.cardNote ?? null).toBeNull();
+    }
+    if (closed.reply.kind === "chat") {
+      expect(closed.reply.cardText).toBe(`SYNTHETIC EN ${closed.reply.card!.id}`);
+      expect(closed.reply.cardNote ?? null).toBeNull();
     }
   });
+
+  it("an unsafe English stub is invoked but the guard holds the line", async () => {
+    const { model, calls } = spyModel("Take two pills now. You are not pregnant.");
+    const r = await runTurn(newDialog(), "I am worried about birth control", enChatDeps(model));
+    expect(calls.chat).toBeGreaterThan(0);
+    expect(r.reply.kind).toBe("chat");
+    if (r.reply.kind === "chat") {
+      expect(r.reply.text).toBe(CHAT_HOLDING_LINE_EN);
+      expect(r.reply.text).not.toContain("pills");
+      expect(r.reply.holding).toBe(true);
+    }
+  });
+
+  it("English crisis-like wording caught by the existing detector makes zero model calls", async () => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), "I want to die", enChatDeps(model));
+    expect(r.reply.kind).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword).toBe(0);
+  });
+
+  it.each(enDisclosuresPinned)("pinned English disclosure shows the crisis screen, stub 0 times: %s", async (line) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), line, enChatDeps(model));
+    expect(r.reply.kind, line).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, line).toBe(0);
+  });
+
+  it.each(enDisclosuresNowCard)("fuzzy English disclosure is not a crisis override: %s", async (line) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), line, enChatDeps(model));
+    expect(r.reply.kind, line).not.toBe("crisis");
+    expect(typeof (calls.chat + calls.pick + calls.reword)).toBe("number");
+  });
+
+  it.each(enLiveWishCrisis)("don't-want-to-live shows crisis, stub 0 times: %s", async (line) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), line, enChatDeps(model));
+    expect(r.reply.kind, line).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, line).toBe(0);
+  });
+
+  it.each(enProbes)("English probe is not a crisis override: %s", async (line) => {
+    expect(detectCrisis(line).crisis, line).toBe(false);
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), line, enChatDeps(model));
+    expect(r.reply.kind, line).not.toBe("crisis");
+    expect(typeof (calls.chat + calls.pick + calls.reword)).toBe("number");
+  });
+
+  it.each(["Someone forced me into sex last night", "I feel like I cannot go on living"])(
+    "fuzzy extra-check English disclosure is not an override: %s",
+    async (line) => {
+      const { model, calls } = spyModel();
+      const r = await runTurn(newDialog(), line, enChatDeps(model));
+      expect(r.reply.kind, line).not.toBe("crisis");
+      expect(typeof (calls.chat + calls.pick + calls.reword)).toBe("number");
+    },
+  );
 
   const mixedOrUnclearNoModel = [
     "อยากตาย hi there",
@@ -478,7 +595,7 @@ describe("chat-first English replies", () => {
 
   it.each(mixedOrUnclearNoModel)("mixed or unclear input never calls the model: %s", async (line) => {
     const { model, calls } = spyModel();
-    const r = await runTurn(newDialog(), line, deps(model));
+    const r = await runTurn(newDialog(), line, enChatDeps(model));
     expect(calls.chat + calls.pick + calls.reword).toBe(0);
     if (detectCrisis(line).crisis) {
       expect(r.reply.kind).toBe("crisis");
@@ -498,7 +615,7 @@ describe("chat-first English replies", () => {
 
   it.each(thaiPlusEnglishCrisisNoModel)("mostly-Thai line with a non-allowlisted English word never calls the model: %s", async (line) => {
     const { model, calls } = spyModel();
-    const r = await runTurn(newDialog(), line, deps(model));
+    const r = await runTurn(newDialog(), line, enChatDeps(model));
     expect(calls.chat).toBe(0);
     expect(calls.chat + calls.pick + calls.reword).toBe(0);
     expect(r.reply.kind).not.toBe("chat");
@@ -511,7 +628,7 @@ describe("chat-first English replies", () => {
 
   it("a Thai line with a non-allowlisted English word takes the no-model path", async () => {
     const { model, calls } = spyModel();
-    const r = await runTurn(newDialog(), "อยากรู้เรื่อง prepare ค่ะ", deps(model));
+    const r = await runTurn(newDialog(), "อยากรู้เรื่อง prepare ค่ะ", enChatDeps(model));
     expect(calls.chat).toBe(0);
     expect(calls.chat + calls.pick + calls.reword).toBe(0);
     expect(r.reply.kind).not.toBe("chat");
@@ -520,35 +637,122 @@ describe("chat-first English replies", () => {
 
   it("Thai with an allowlisted health loanword still makes one model call", async () => {
     const { model, calls } = spyModel();
-    const hiv = await runTurn(newDialog(), "ตรวจ HIV ที่ไหนดี", deps(model));
+    const hiv = await runTurn(newDialog(), "ตรวจ HIV ที่ไหนดี", enChatDeps(model));
     expect(hiv.reply.kind).toBe("chat");
     expect(calls.chat).toBe(1);
-    const prep = await runTurn(newDialog(), "กิน PrEP ยังไงคะ", deps(model));
+    const prep = await runTurn(newDialog(), "กิน PrEP ยังไงคะ", enChatDeps(model));
     expect(prep.reply.kind).toBe("chat");
     expect(calls.chat).toBe(2);
-    const condom = await runTurn(newDialog(), "ใช้ condom ยังไง", deps(model));
+    const condom = await runTurn(newDialog(), "ใช้ condom ยังไง", enChatDeps(model));
     expect(condom.reply.kind).toBe("chat");
     expect(calls.chat).toBe(3);
-    const hivBank = await runTurn(newDialog(), "อยากตรวจ HIV ค่ะ", deps(model));
+    const hivBank = await runTurn(newDialog(), "อยากตรวจ HIV ค่ะ", enChatDeps(model));
     expect(hivBank.reply.kind).toBe("chat");
     expect(calls.chat).toBe(4);
-    const prepBank = await runTurn(newDialog(), "กิน PrEP ยังไง", deps(model));
+    const prepBank = await runTurn(newDialog(), "กิน PrEP ยังไง", enChatDeps(model));
     expect(prepBank.reply.kind).toBe("chat");
     expect(calls.chat).toBe(5);
+    const shortHiv = await runTurn(newDialog(), "ตรวจ HIV", enChatDeps(model));
+    expect(shortHiv.reply.kind).toBe("chat");
+    expect(calls.chat).toBe(6);
+    const shortPrep = await runTurn(newDialog(), "กิน PrEP", enChatDeps(model));
+    expect(shortPrep.reply.kind).toBe("chat");
+    expect(calls.chat).toBe(7);
+    expect(calls.lastLang).toBe("th");
     expect(calls.pick + calls.reword).toBe(0);
   });
 
   it("a clearly Thai question still makes one model call", async () => {
     const { model, calls } = spyModel();
-    const r = await runTurn(newDialog(), "กินยาคุมยังไง", deps(model));
+    const r = await runTurn(newDialog(), "กินยาคุมยังไง", enChatDeps(model));
     expect(r.reply.kind).toBe("chat");
     expect(calls.chat).toBe(1);
     expect(calls.pick + calls.reword).toBe(0);
   });
 
+  const shortEnCrisis = [
+    "I'm suicidal",
+    "wanna die",
+    "end my life",
+    "cutting myself",
+    "I cut myself every night",
+    "kill myself",
+    "he raped me",
+    "i want to kill myself",
+  ];
+
+  it.each(shortEnCrisis)("short English crisis phrase shows the crisis screen, stub 0 times: %s", async (line) => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), line, enChatDeps(model));
+    expect(r.reply.kind, line).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, line).toBe(0);
+  });
+
+  const thEnCrisisLoanword = [
+    "หนูอยาก die ค่ะ",
+    "หนูคิดจะ kms คืนนี้",
+    "หนูรู้สึก suicidal มาหลายวันแล้ว",
+    "แฟน abuse หนูทุกวัน",
+    "หนู cut ตัวเองทุกคืนค่ะ",
+    "อยาก unalive ตัวเองค่ะ",
+  ];
+
+  const fullwidthOrAccentedInThai: { text: string; kind: "crisis" | "card" }[] = [
+    { text: "หนูอยาก ｄｉｅ ค่ะ", kind: "crisis" },
+    { text: "อยาก ｋｉｌｌ ตัวเอง", kind: "card" },
+    { text: "หนูรู้สึก ｓｕｉｃｉｄａｌ มาหลายวันแล้ว", kind: "crisis" },
+    { text: "หนูอยาก ḍïë ค่ะ", kind: "crisis" },
+    { text: "อยาก ｄｉｅ HIV ค่ะ", kind: "crisis" },
+  ];
+
+  it.each(fullwidthOrAccentedInThai)("fullwidth/accented line never calls the model: $text", async ({ text, kind }) => {
+    expect(detectCrisis(text).crisis, text).toBe(false);
+    expect(modelChatScript(text), text).not.toBe("th");
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), text, enChatDeps(model));
+    expect(calls.chat + calls.pick + calls.reword, text).toBe(0);
+    expect(r.reply.kind, text).toBe(kind);
+  });
+
+  it.each(["ซุยไซด์", "ซูอิไซด์", "ซูไซด์"])("Thai suicide transliteration shows the crisis screen, stub 0 times: %s", async (line) => {
+    expect(detectCrisis(line).crisis, line).toBe(false);
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), line, enChatDeps(model));
+    expect(r.reply.kind, line).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, line).toBe(0);
+  });
+
+  it.each(thEnCrisisLoanword)("mostly-Thai English crisis word shows the crisis screen before the script gate: %s", async (line) => {
+    expect(modelChatScript(line), line).toBe("mixed");
+    expect(detectCrisis(line).crisis, line).toBe(false);
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), line, enChatDeps(model));
+    expect(r.reply.kind, line).toBe("crisis");
+    expect(calls.chat + calls.pick + calls.reword, line).toBe(0);
+  });
+
+  const bareHelp = ["help", "HELP", "help me", "please help", "pls help me", "help!", "help 😭"];
+
+  it.each(bareHelp)("bare help line is not a crisis override: %s", async (line) => {
+    expect(modelChatScript(line)).toBe("en");
+    expect(detectCrisis(line).crisis).toBe(false);
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), line, enChatDeps(model));
+    expect(r.reply.kind, line).not.toBe("crisis");
+    expect(typeof (calls.chat + calls.pick + calls.reword)).toBe("number");
+  });
+
+  it("longer help-in-normal-use still reaches English model chat", async () => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog(), "help me choose a condom", enChatDeps(model));
+    expect(r.reply.kind).not.toBe("crisis");
+    expect(r.reply.kind).toBe("chat");
+    expect(calls.chat).toBe(1);
+  });
+
   it("refusals and talk-to-a-person stay unchanged on an English turn", async () => {
     const { model, calls } = spyModel();
-    const image = await runTurn(newDialog(), "send a photo please", deps(model));
+    const image = await runTurn(newDialog(), "send a photo please", enChatDeps(model));
     expect(image.reply.kind).toBe("card");
     if (image.reply.kind === "card") {
       expect(image.reply.via).toBe("guard");
@@ -558,7 +762,7 @@ describe("chat-first English replies", () => {
     }
     expect(calls.chat + calls.pick + calls.reword).toBe(0);
 
-    const human = await runTurn(newDialog(), "talk to a person", deps(model));
+    const human = await runTurn(newDialog(), "talk to a person", enChatDeps(model));
     expect(human.reply.kind).toBe("referral");
     expect(calls.chat + calls.pick + calls.reword).toBe(0);
   });

@@ -93,15 +93,18 @@ export function pickTimeoutMsFromSearch(search?: string, fallback = 20_000): num
  */
 export const CHAT_FIRST = false;
 /**
- * English model chat is off in this PR. While false, a chat-first turn that
- * is not clearly Thai never calls the model: after stripping the short
- * health-loanword allowlist, leftover Latin, Latin share ≥ 60%, mixed
- * Thai/English, <2 letters, or no letters takes the fixed-card path (rules
- * match, bank English body when present on an English-language turn,
- * otherwise the Thai card plus the DRAFT "This info card is in Thai." note
- * on English-language turns). Reply language still uses the word-list
- * rule. English strings, language detection, and the English output-guard
- * path stay in place so a later crisis-detection PR can flip this.
+ * English model chat is off on this branch. Everyday English (including
+ * open-ended disclosures the pin misses) takes the no-model card path with
+ * the Thai-card note, same as #37. Crisis still runs first on every turn
+ * (pinned detectCrisis on raw and on NFKC/folded text, then the add-only
+ * chat-crisis check), whatever the letter-script class, on both chat-first
+ * and card-first. Then the script/allowlist gate: leftover Latin share ≥ 60%
+ * is English (no model call while this flag is false); no leftover Latin and
+ * Thai share of what remains ≥ 60% calls Thai chat; mixed/unclear makes 0
+ * model calls. Reply language still uses the word-list rule after the same
+ * allowlist strip. Keep the English chatReply code path; tests that need the
+ * flag on set `englishModelChat: true` on TurnDeps. English model chat is
+ * planned as its own PR after filming.
  */
 export const ENGLISH_MODEL_CHAT = false;
 /** User turns in one topic before Jane must close with a card. */
@@ -118,6 +121,17 @@ export function chatFirstEnabled(search?: string): boolean {
     if (v === "0" || v === "off" || v === "false") return false;
   } catch { /* node unit tests */ }
   return CHAT_FIRST;
+}
+
+/**
+ * Extra chat-crisis rules (src/core/chat-crisis.ts) after pinned detectCrisis.
+ * On for both paths: chat-first and card-first. Add-only (never clears a pin).
+ */
+export const CHAT_CRISIS_CARD_FIRST = true;
+
+/** True when the extra pre-model crisis check should run (always, with the card-first switch on). */
+export function chatCrisisEnabled(chatFirst: boolean): boolean {
+  return chatFirst || CHAT_CRISIS_CARD_FIRST;
 }
 
 /**
