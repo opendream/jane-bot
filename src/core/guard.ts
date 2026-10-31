@@ -30,16 +30,16 @@ const REFERRAL: Record<GuardReason, Intent[]> = {
 };
 
 const TEXT: Record<GuardReason, string> = {
-  roleplay: "พี่คุยแบบสวมบทบาทไม่ได้นะ แต่ถ้ามีคำถามเรื่องสุขภาพหรือความสัมพันธ์ ถามพี่ได้เลย",
-  explicit: "พี่คุยเรื่องทางเพศแบบโจ่งแจ้งไม่ได้นะ แต่ถ้ามีคำถามเรื่องสุขภาพหรือการป้องกัน ถามพี่ได้เลย",
-  image: "พี่รับหรือส่งรูปไม่ได้ และไม่ต้องส่งรูปใด ๆ มานะ เล่าเป็นข้อความได้เลย",
-  dosing: "เรื่องขนาดยาหรือวิธีกินยา พี่บอกไม่ได้ ควรถามเภสัชกรหรือเจ้าหน้าที่โดยตรง",
-  abortion_method: "พี่ให้ข้อมูลวิธีทำแท้งไม่ได้ แต่มีเจ้าหน้าที่ที่ปรึกษาเรื่องท้องไม่พร้อมได้อย่างปลอดภัยและเป็นความลับ",
+  roleplay: "เราคุยแบบสวมบทบาทไม่ได้นะคะ แต่ถ้ามีคำถามเรื่องสุขภาพหรือความสัมพันธ์ ถามเราได้เลยค่ะ",
+  explicit: "เราคุยเรื่องทางเพศแบบโจ่งแจ้งไม่ได้นะคะ แต่ถ้ามีคำถามเรื่องสุขภาพหรือการป้องกัน ถามเราได้เลยค่ะ",
+  image: "เรารับหรือส่งรูปไม่ได้นะคะ เล่าเป็นข้อความได้เลยค่ะ",
+  dosing: "เราให้คำปรึกษาเรื่องขนาดยาหรือวิธีกินยาไม่ได้ค่ะ ควรถามเภสัชกรหรือเจ้าหน้าที่โดยตรงค่ะ",
+  abortion_method: "เราให้ข้อมูลวิธีทำแท้งไม่ได้ค่ะ แต่มีเจ้าหน้าที่ที่ปรึกษาเรื่องท้องไม่พร้อมได้อย่างปลอดภัยและเป็นความลับนะคะ",
 };
 
 /** Fixed refusal cards (DRAFT copy, product text, not bank content). Always verbatim. */
 export const REFUSAL_CARDS: Record<GuardReason, BankCard> = Object.fromEntries(ORDER.map((r) => [r, {
-  id: `general.refusal_${r}.000`, topic: "general", title_th: "เรื่องนี้พี่ช่วยไม่ได้", answer_th: TEXT[r], key_facts: [], triggers: [],
+  id: `general.refusal_${r}.000`, topic: "general", title_th: "เรื่องนี้เราช่วยไม่ได้ค่ะ", answer_th: TEXT[r], key_facts: [], triggers: [],
   next: [], source_intents: [], source: [], review: { status: "draft", reviewer: null, reviewed_on: null, notes: "Fixed refusal copy, Thai review pending" },
   last_reviewed: null, flags: ["pii_checked"], referral: { offer: "soft", intents: REFERRAL[r] }, links: [], age_min: 15, reword: false,
   licence: "Apache-2.0 (product copy, OpenDream)",

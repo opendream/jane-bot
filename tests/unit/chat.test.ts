@@ -343,7 +343,7 @@ describe("model-first chat labels (flag off by default)", () => {
     expect(chat.busy).toBe(true);
     expect(chat.thinkingHint).toBe(thinkingHintAt(0));
     await pending;
-    expect(hints[0]).toBe("พี่เจนกำลังคิดนะ");
+    expect(hints[0]).toBe("เจนกำลังคิดนะ");
     expect(chat.thinkingHint).toBeNull();
     const jane = [...chat.messages].reverse().find((m) => m.from === "jane");
     expect(jane?.engineLabel).toBe(MODEL_ANSWER_LABEL);
@@ -419,7 +419,7 @@ describe("ambiguous extra-check: card bubble carries the DRAFT soft line", () =>
     await sendToChat(chat, "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง", h);
     expect(h.crisisCalls).toBe(0);
     const jane = [...chat.messages].reverse().find((m) => m.from === "jane");
-    expect(jane?.softCrisis?.line).toBe("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ");
+    expect(jane?.softCrisis?.line).toBe("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะคะ");
     expect(jane?.softCrisis?.categories).toContain("self_harm");
     expect(jane?.cardId).toBeTruthy();
   });
@@ -437,7 +437,7 @@ describe("ambiguous extra-check: card bubble carries the DRAFT soft line", () =>
     const jane = [...chat.messages].reverse().find((m) => m.from === "jane");
     expect(jane?.text).not.toBe("พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย");
     expect(jane?.cardId).toBeTruthy();
-    expect(jane?.softCrisis?.line).toBe("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ");
+    expect(jane?.softCrisis?.line).toBe("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะคะ");
     expect(jane?.softCrisis?.categories).toContain("self_harm");
   });
 
@@ -456,6 +456,6 @@ describe("ambiguous extra-check: card bubble carries the DRAFT soft line", () =>
     expect(h.referralIntents).toHaveLength(1);
     const jane = [...chat.messages].reverse().find((m) => m.from === "jane");
     expect(jane?.note).toBe("referral");
-    expect(jane?.softCrisis?.line).toBe("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ");
+    expect(jane?.softCrisis?.line).toBe("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะคะ");
   });
 });

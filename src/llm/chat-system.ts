@@ -25,8 +25,12 @@ export const CHAT_SYSTEM_STATUS = "draft" as const;
 
 export const CHAT_TEMPERATURE = 0.3;
 export const CHAT_TOP_P = 0.9;
-/** Cap output length. Structured JSON ids only; 40 is enough. */
-export const CHAT_MAX_TOKENS = 40;
+/**
+ * Cap output length. The model returns only `{"o":N,"c":0|1,"q":N}` (~20
+ * characters, ~12–16 Qwen tokens). 24 leaves a small margin for whitespace
+ * and EOS; the parser contract is unchanged.
+ */
+export const CHAT_MAX_TOKENS = 24;
 
 /**
  * Per-turn grounding. `facts` is the approved card's answer text (bank only),
@@ -44,7 +48,7 @@ export const CHAT_LANG_LINE_EN = "Reply in English.";
 
 /** DRAFT. Keng review required before this string is treated as product copy. */
 export const CHAT_SYSTEM =
-  "คุณคือพี่เจน อบอุ่น สั้น ไม่ตัดสิน " +
+  "คุณคือเจน อบอุ่น สั้น ไม่ตัดสิน " +
   `${CHAT_LANG_LINE_TH}เท่านั้น ` +
   "สองประโยค ถามได้หนึ่งข้อ " +
   "ห้ามให้ข้อมูลทางการแพทย์ของตัวเอง ห้ามเบอร์โทร สายด่วน ขนาดยา ราคา ลิงก์ " +

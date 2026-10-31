@@ -78,6 +78,7 @@ const NEW_OWN_TRIGGER_FRAGMENTS = [
   "prep แพง",
   "ค่ายาprep",
   "ค่ายา prep",
+  "ถุงยางอนามัยใช้ยังไง",
 ];
 
 /** Topic term a new fragment on that owner must carry. */

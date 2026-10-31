@@ -12,7 +12,6 @@ import {
   type TurnDeps,
 } from "../../src/core/dialog";
 import { SHOW_CARD_NOW, SHOW_CARD_NOW_EN } from "../../src/core/chat-flow";
-import { CHAT_HOLDING_LINE, CHAT_HOLDING_LINE_EN } from "../../src/llm/chatGuard";
 import { detectChatLang, modelChatScript } from "../../src/llm/chat-lang";
 import {
   CHAT_LANG_LINE_EN,
@@ -29,6 +28,9 @@ import { CARD_THAI_NOTE_EN } from "../../src/core/card-lang";
 import { LOCKED_ROUTE_IDS } from "../../src/core/pick-engine";
 import { REFUSAL_CARDS } from "../../src/core/guard";
 import { DEFAULT_CHAT_CHOICE_JSON, defaultChatReply } from "../../src/llm/chat-choice";
+
+const DROPPED_HOLDING_LINE = "พี่ฟังอยู่นะ ขอส่งข้อมูลที่ตรวจแล้วให้ก่อน";
+const DROPPED_HOLDING_LINE_EN = "I hear you. Let me share the checked information first.";
 
 // SYNTHETIC chat lines only. Model stubs return JSON; Jane's text is rendered.
 const SAFE_JSON = DEFAULT_CHAT_CHOICE_JSON;
@@ -103,7 +105,7 @@ describe("production defaults (chat-first flag off)", () => {
     expect(CHAT_SYSTEM).toContain("ห้ามคุยเชิงชู้สาว");
     expect(CHAT_SYSTEM).toContain("สายด่วน");
     expect(CHAT_SYSTEM).toContain(CHAT_LANG_LINE_TH);
-    expect(CHAT_MAX_TOKENS).toBe(40);
+    expect(CHAT_MAX_TOKENS).toBe(24);
     expect(CHAT_SYSTEM_EN_STATUS).toBe("draft");
     expect(chatSystemFor("th")).toBe(CHAT_SYSTEM);
     expect(chatSystemFor("en")).toBe(CHAT_SYSTEM_EN);
@@ -118,7 +120,7 @@ describe("production defaults (chat-first flag off)", () => {
     expect(CHAT_SYSTEM_EN).not.toContain("her name");
     expect(CHAT_SYSTEM_EN).not.toContain("she typed");
     expect(ENGLISH_MODEL_CHAT).toBe(false);
-    expect(CHAT_FIRST_TIMEOUT_MS).toBe(90_000);
+    expect(CHAT_FIRST_TIMEOUT_MS).toBe(45_000);
     expect(CHAT_TIMEOUT_MS).toBe(CHAT_FIRST_TIMEOUT_MS);
     expect(PICK_TIMEOUT_MS).toBe(8_000);
     expect(REWORD_TIMEOUT_MS).toBe(8_000);
@@ -311,9 +313,8 @@ describe("chat-first conversation", () => {
     expect(r.reply.kind).toBe("card");
     if (r.reply.kind === "card") {
       expect(r.reply.text).toBe(r.reply.card.answer_th);
-      expect(r.reply.text).not.toBe(CHAT_HOLDING_LINE);
+      expect(r.reply.text).not.toBe(DROPPED_HOLDING_LINE);
     }
-    expect(CHAT_HOLDING_LINE.length).toBeGreaterThan(0);
   });
 
   it("card text always comes from the bank, never from the model", async () => {
@@ -538,7 +539,7 @@ describe("chat-first English replies with ENGLISH_MODEL_CHAT on", () => {
     expect(r.reply.kind).toBe("card");
     if (r.reply.kind === "card") {
       expect(r.reply.text).toBe(r.reply.card.answer_th);
-      expect(r.reply.text).not.toBe(CHAT_HOLDING_LINE_EN);
+      expect(r.reply.text).not.toBe(DROPPED_HOLDING_LINE_EN);
       expect(r.reply.text).not.toContain("pills");
     }
   });

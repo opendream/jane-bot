@@ -99,8 +99,8 @@ describe("scoped PII name allowlist (synthetic data only)", () => {
     expect(piiRules(cards)).toEqual([]);
   });
 
-  it("a synthetic name glued to ชื่อพี่เจน fails bank:validate and guard", () => {
-    const span = "ชื่อพี่เจน";
+  it("a synthetic name glued to ชื่อเจน fails bank:validate and guard", () => {
+    const span = "ชื่อเจน";
     const cards = JSON.parse(JSON.stringify(BANK)).map((c: BankCard) =>
       c.id === "general.welcome.000" ? { ...c, answer_th: c.answer_th.replace(span, span + SYN_GLUE) } : c,
     );

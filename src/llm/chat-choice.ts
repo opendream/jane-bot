@@ -5,7 +5,7 @@
  */
 
 import type { ChatLang } from "./chat-lang";
-import { followUpsFor, openersFor } from "./chat-voice";
+import { CARD_OFFER_FOLLOWUPS, followUpsFor, openersFor } from "./chat-voice";
 
 export interface ChatChoice {
   o: number;
@@ -75,20 +75,44 @@ export function parseChatChoice(
   return { ok: true, choice: { o, c, q } };
 }
 
+/**
+ * Turn-1 rule: if retrieval already has a confident ground card and no card
+ * bubble will show, render c=1 whatever the model returned. Keeps o and q.
+ * Pure. Does not close the topic.
+ */
+export function firstTurnChoice(
+  choice: ChatChoice,
+  opts: { topicTurn: number; hasGroundCard: boolean; cardBubble: boolean },
+): ChatChoice {
+  if (opts.topicTurn === 1 && opts.hasGroundCard && !opts.cardBubble) {
+    return { o: choice.o, c: 1, q: choice.q };
+  }
+  return choice;
+}
+
+function followUpText(choice: ChatChoice, lang: ChatLang, cardShown: boolean): string {
+  const follow = followUpsFor(lang)[choice.q] ?? "";
+  if (cardShown && CARD_OFFER_FOLLOWUPS.has(follow)) {
+    return followUpsFor(lang)[1] ?? follow;
+  }
+  return follow;
+}
+
 export function renderChatChoice(
   choice: ChatChoice,
   lang: ChatLang,
   cardText: string,
 ): string {
   const opener = openersFor(lang)[choice.o] ?? "";
-  const follow = followUpsFor(lang)[choice.q] ?? "";
+  const follow = followUpText(choice, lang, choice.c === 1);
   const body = choice.c === 1 ? cardText : "";
   return formatChatReply(opener, body, follow);
 }
 
 /**
- * Final chat-bubble text for a turn. If the card bubble will also show,
- * treat c as 0 so answer_th appears once (on the card bubble).
+ * Final chat-bubble text for a turn. Keep the quoted card (c=1 body) even
+ * when a card bubble also shows — `showCardBubble` only drives the follow-up
+ * swap. Out-of-range / dropped v40 ids use the empty fallback (`?? ""`).
  */
 export function renderChatChoiceForTurn(
   choice: ChatChoice,
@@ -96,11 +120,10 @@ export function renderChatChoiceForTurn(
   cardText: string,
   showCardBubble: boolean,
 ): string {
-  return renderChatChoice(
-    showCardBubble ? { o: choice.o, c: 0, q: choice.q } : choice,
-    lang,
-    cardText,
-  );
+  const opener = openersFor(lang)[choice.o] ?? "";
+  const follow = followUpText(choice, lang, showCardBubble || choice.c === 1);
+  const body = choice.c === 1 ? cardText : "";
+  return formatChatReply(opener, body, follow);
 }
 
 /** Default stub / no-card choice: opener 0, no card, follow-up 0. */

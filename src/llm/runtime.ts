@@ -1,7 +1,7 @@
 import { MODEL, chatFirstEnabled, shouldPreloadModel } from "../config";
 import { detectChatLang } from "./chat-lang";
 import { wllamaContextLength } from "./wllama-ctx";
-import { MODELS, type ModelSpec, type WebGpuBuild } from "./models";
+import { FT_GGUF_BYTES, FT_GGUF_FILE, FT_GGUF_SHA256, MODELS, type ModelSpec, type WebGpuBuild } from "./models";
 import type { LLMAdapter } from "./adapter";
 import {
   GPU_FAIL_FLAG,
@@ -66,6 +66,21 @@ export {
 
 const LOST_MSG = "Device was lost. This can happen due to insufficient memory or other GPU constraints [GPUDeviceLostInfo]";
 const DISPOSED_MSG = "The current Object has already been disposed";
+
+/**
+ * Console warning when the requested on-device model cannot load.
+ * Local 0.6B fine-tune is never fetched; the operator places the GGUF.
+ */
+export function missingLocalModelWarning(key: string): string {
+  if (key === "qwen3-0.6b-ft") {
+    return (
+      `[jane] Default model qwen3-0.6b-ft GGUF is missing. ` +
+      `Place models/${FT_GGUF_FILE} (sha256 ${FT_GGUF_SHA256}, ${FT_GGUF_BYTES} bytes). ` +
+      `Weights stay local-only (no URL, never downloaded). Using rules-only.`
+    );
+  }
+  return `[jane] Model ${key} is not available on this machine. Using rules-only.`;
+}
 
 /** Honest Thai + English copy for the header pill. Rules-only text is the existing label. */
 export function modelPillCopy(m: ModelStatus, opts?: { modelPick?: boolean }): { text: string; title: string } {
@@ -201,10 +216,12 @@ function hookLoaders(hook: RuntimeTestHook): Pick<StartModelDeps, "gpuInfo" | "i
     gpuInfo: async () => ({ ok: hook.gpu !== false, f16: false }),
     installed: async () => {
       if (hook.pick === "not-ready") return [];
-      return [{
-        model: "qwen3-1.7b",
-        variants: hook.wasm === "unavailable" ? ["webgpu_f32"] : ["webgpu_f32", "wasm"],
-      }];
+      const wasmOk = hook.wasm !== "unavailable";
+      return [
+        { model: "qwen3-0.6b-ft", variants: wasmOk ? ["wasm"] : [] },
+        { model: "qwen3-1.7b", variants: wasmOk ? ["webgpu_f32", "wasm"] : ["webgpu_f32"] },
+        { model: "qwen3-4b", variants: ["webgpu_f32"] },
+      ].filter((i) => i.variants.length > 0);
     },
     loadWebLLM: async (_b, label, onProgress) => {
       onProgress(1);
@@ -357,6 +374,9 @@ export async function startModel(onStatus: (s: ModelStatus) => void, deps: Start
     onAdapter?.(null);
   };
   if (key === "off" || !(key in MODELS)) { rules("off"); return null; }
+  const warnUnavailable = (why: string) => {
+    console.warn(`${missingLocalModelWarning(String(key))} (${why})`);
+  };
   const spec = MODELS[key as ModelSpec["key"]];
   const inst = await installedFn();
   const has = (m: string, v: string) => inst.some((i) => i.model === m && i.variants.includes(v));
@@ -368,13 +388,17 @@ export async function startModel(onStatus: (s: ModelStatus) => void, deps: Start
   const skipGpu = gpuFailedThisSession(storage) && forced !== "webgpu";
   const gpu = forced === "wasm" || skipGpu ? { ok: false, f16: false } : await gpuInfoFn();
   if ((gpu.ok || forced === "webgpu") && !skipGpu) {
-    const v = gpu.f16 && has(spec.key, "webgpu_f16") ? "webgpu_f16" : has(spec.key, "webgpu_f32") ? "webgpu_f32" : null;
-    if (v) plan.push({
+    const v: "webgpu_f16" | "webgpu_f32" | null =
+      gpu.f16 && spec.webgpu_f16 && has(spec.key, "webgpu_f16") ? "webgpu_f16"
+      : spec.webgpu_f32 && has(spec.key, "webgpu_f32") ? "webgpu_f32"
+      : null;
+    const build = v ? spec[v] : undefined;
+    if (v && build) plan.push({
       runtime: "webgpu",
       run: async () => {
         const load = loadWebLLMFn ?? (await import("./webllm-adapter")).loadWebLLM;
         onStatus({ state: "loading", runtime: "webgpu", label: spec.label, progress: 0 });
-        return load(spec[v as "webgpu_f16"], spec.label, (p) => onStatus({ state: "loading", runtime: "webgpu", label: spec.label, progress: p }), {
+        return load(build, spec.label, (p) => onStatus({ state: "loading", runtime: "webgpu", label: spec.label, progress: p }), {
           onDead: () => gpuDead?.(),
           onWarmup: (ms) => beginWarmup(ms),
         });
@@ -435,6 +459,7 @@ export async function startModel(onStatus: (s: ModelStatus) => void, deps: Start
       /* try the next runtime; never log user content (none is involved here) */
     }
   }
-  rules(plan.length ? "failed" : "off");
+  warnUnavailable(plan.length ? "load failed" : "GGUF not installed");
+  rules("failed");
   return null;
 }

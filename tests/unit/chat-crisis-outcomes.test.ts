@@ -14,7 +14,6 @@ import {
 } from "../../src/core/dialog";
 import { BANK } from "../../src/core/bankData";
 import { modelChatScript } from "../../src/llm/chat-lang";
-import { CHAT_HOLDING_LINE } from "../../src/llm/chatGuard";
 import { CHAT_SYSTEM, chatSystemFor } from "../../src/llm/chat-system";
 import { DEFAULT_CHAT_CHOICE_JSON, defaultChatReply } from "../../src/llm/chat-choice";
 import { readFileSync } from "node:fs";
@@ -28,7 +27,8 @@ import {
 
 // SYNTHETIC paraphrases only. Never user logs.
 
-const DRAFT_SOFT_LINE = "ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ";
+const DRAFT_SOFT_LINE = "ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะคะ";
+const DROPPED_HOLDING_LINE = "พี่ฟังอยู่นะ ขอส่งข้อมูลที่ตรวจแล้วให้ก่อน";
 const SAFE_JSON = DEFAULT_CHAT_CHOICE_JSON;
 const SAFE_CHAT = defaultChatReply("th");
 const NONE_CONTROL = "ช่วงนี้กังวลเรื่องแฟน";
@@ -289,7 +289,7 @@ describe("AMBIGUOUS turns: card + DRAFT soft line, 0 model calls, both paths", (
     const none = await runTurn(newDialog("18-24"), NONE_CONTROL, chatDeps(noneSpy.model));
     expect(none.reply.kind).toBe("card");
     if (none.reply.kind === "card") {
-      expect(none.reply.text).not.toBe(CHAT_HOLDING_LINE);
+      expect(none.reply.text).not.toBe(DROPPED_HOLDING_LINE);
       expect(none.reply.softCrisis).toBeUndefined();
     }
     expect(noneSpy.calls.chat).toBe(2);
@@ -301,7 +301,7 @@ describe("AMBIGUOUS turns: card + DRAFT soft line, 0 model calls, both paths", (
     if (r.reply.kind === "card") {
       expect(r.reply.softCrisis?.line).toBe(DRAFT_SOFT_LINE);
       expect(r.reply.text).not.toBe(GUARD_FAIL_CHAT);
-      expect(r.reply.text).not.toBe(CHAT_HOLDING_LINE);
+      expect(r.reply.text).not.toBe(DROPPED_HOLDING_LINE);
     }
   });
 
@@ -612,7 +612,7 @@ describe("Codex round-7: AMBIGUOUS mocked model output is discarded (card + soft
     if (r.reply.kind === "card") {
       expect(r.reply.softCrisis?.line).toBe(DRAFT_SOFT_LINE);
       expect(r.reply.text).not.toBe(line);
-      expect(r.reply.text).not.toBe(CHAT_HOLDING_LINE);
+      expect(r.reply.text).not.toBe(DROPPED_HOLDING_LINE);
     }
     expect(JSON.stringify(r.reply)).not.toContain(line);
   });

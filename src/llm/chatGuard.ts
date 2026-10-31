@@ -6,22 +6,11 @@ import { type ChatLang, mostlyLatin } from "./chat-lang";
 
 /**
  * Output guard for free-generated Jane chat (PR A). Pinned `src/core/guard.ts` is imported
- * read-only. Chat-first retries once, then shows the rules' top card (no holding bubble).
- * Holding-line strings stay for card-first / later and are unused in chat-first.
- *
- * DRAFT copy (holding lines): Thai and English review pending.
+ * read-only. Chat-first retries once, then shows the rules' top card on its own.
  */
 
-export const CHAT_HOLDING_LINE = "พี่ฟังอยู่นะ ขอส่งข้อมูลที่ตรวจแล้วให้ก่อน";
-/** DRAFT. Keng review required before this string is treated as product copy. */
-export const CHAT_HOLDING_LINE_EN = "I hear you. Let me share the checked information first.";
-export const CHAT_HOLDING_LINE_EN_STATUS = "draft" as const;
 export const CHAT_MAX_CHARS = 160;
 export const CHAT_MAX_CHARS_EN = 220;
-
-export function holdingLineFor(lang: ChatLang): string {
-  return lang === "en" ? CHAT_HOLDING_LINE_EN : CHAT_HOLDING_LINE;
-}
 
 export type ChatGuardReason =
   | "empty"

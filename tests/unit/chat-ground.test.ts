@@ -26,8 +26,8 @@ describe("grounded system prompt", () => {
     expect(chatSystemFor("en")).not.toBe(CHAT_SYSTEM);
   });
 
-  it("CHAT_MAX_TOKENS stays 40", () => {
-    expect(CHAT_MAX_TOKENS).toBe(40);
+  it("CHAT_MAX_TOKENS is 24 (JSON choice plus a small margin)", () => {
+    expect(CHAT_MAX_TOKENS).toBe(24);
   });
 
   it("ENGLISH_MODEL_CHAT stays false", () => {

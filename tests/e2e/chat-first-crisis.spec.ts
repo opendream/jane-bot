@@ -178,7 +178,7 @@ test("card-first vague distress shows the card, DRAFT soft line, and button; but
   await say(page, "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง");
   await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
   await expect(lastJane(page)).toBeVisible();
-  await expect(page.getByTestId("chat-crisis-soft-line")).toHaveText("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ");
+  await expect(page.getByTestId("chat-crisis-soft-line")).toHaveText("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะคะ");
   await expect(page.getByTestId("chat-crisis-soft-open")).toBeVisible();
   const before = await modelCalls(page);
   expect(before.chat + before.pick).toBe(0);
@@ -204,7 +204,7 @@ test("?chatFirst=1 Thai AMBIGUOUS shows the card plus the DRAFT line, 0 model ca
   await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
   await expect(lastJane(page)).toBeVisible();
   await expect(lastJane(page).getByTestId("chat-text")).not.toHaveText("พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย");
-  await expect(page.getByTestId("chat-crisis-soft-line")).toHaveText("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ");
+  await expect(page.getByTestId("chat-crisis-soft-line")).toHaveText("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะคะ");
   await expect(page.getByTestId("chat-crisis-soft-open")).toBeVisible();
   await expect(page.getByTestId("chat-thinking")).toHaveCount(0);
   const afterAmb = await modelCalls(page);
@@ -229,7 +229,7 @@ test("?chatFirst=1 English AMBIGUOUS makes zero model calls and shows the card p
   await say(page, "I feel so hopeless about everything");
   await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
   await expect(lastJane(page)).toBeVisible();
-  await expect(page.getByTestId("chat-crisis-soft-line")).toHaveText("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ");
+  await expect(page.getByTestId("chat-crisis-soft-line")).toHaveText("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะคะ");
   const calls = await modelCalls(page);
   expect(calls.chat + calls.pick).toBe(0);
 });
@@ -241,7 +241,7 @@ test("?chatFirst=1 Thai AMBIGUOUS when the model is not ready shows the card plu
   await say(page, "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง");
   await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
   await expect(lastJane(page)).toBeVisible();
-  await expect(page.getByTestId("chat-crisis-soft-line")).toHaveText("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะ");
+  await expect(page.getByTestId("chat-crisis-soft-line")).toHaveText("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะคะ");
   const calls = await modelCalls(page);
   expect(calls.chat + calls.pick).toBe(0);
 });

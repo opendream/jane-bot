@@ -3,7 +3,7 @@ import fs from "node:fs";
 import { open, shot, assertNoStorage, assertNetwork, startAs, crisisBannerHrefs, STRIP_HREFS } from "./helpers";
 
 const QUIZ = JSON.parse(fs.readFileSync("src/data/bank/quiz.json", "utf8")) as { items: { id: string; prompt_th: string; explanation_th: string }[] };
-const QUIZ_WRAP = "ขอบคุณที่ลองทำควิซนะ กลับไปคุยกับพี่เจนต่อได้เลย";
+const QUIZ_WRAP = "ขอบคุณที่ลองทำควิซนะ กลับไปคุยกับเจนต่อได้เลย";
 const QUIZ_OK = "ถูกต้อง";
 const QUIZ_NO = "ยังไม่ถูก";
 const QUIZ_PRAISE = /เก่งมาก|ใช่เลย|เยี่ยม(?:มาก)?|สุดยอด|well done/i;

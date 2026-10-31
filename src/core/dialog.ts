@@ -10,8 +10,8 @@ import { checkInput, REFUSAL_CARDS, type GuardReason } from "./guard";
 import { retrieve } from "./retrieve";
 import { VALID_INTENTS, type ChatReplyOpts } from "../llm/adapter";
 import { acceptGroundedChat, groundingCard } from "../llm/chat-ground";
-import { renderChatChoiceForTurn } from "../llm/chat-choice";
-import type { ChatGrounding } from "../llm/chat-system";
+import { firstTurnChoice, renderChatChoiceForTurn } from "../llm/chat-choice";
+import { CHAT_MAX_TOKENS, type ChatGrounding } from "../llm/chat-system";
 import { detectChatLang, type ChatLang } from "../llm/chat-lang";
 import { currentGenerationToken, bumpGenerationToken, isCurrentGeneration } from "../llm/generation-token";
 import { ACK_LINE_TH, combineUnanswered, countedGroupMessages, dropAckLines, groupReplyLang, groupTakesNoModelPath } from "./chat-group";
@@ -605,12 +605,14 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     const groundCard = groundingCard(retrieved, state.ageBand);
     const cardFacts = groundCard ? bankAnswerForLang(groundCard, lang) : null;
     const grounding: ChatGrounding = { facts: cardFacts };
-    const chatOpts: ChatReplyOpts = { grounding };
+    const chatOpts: ChatReplyOpts = { grounding, maxTokens: CHAT_MAX_TOKENS };
 
     deps.onGenerating?.({ groupId: token ?? currentGenerationToken(), lang });
     const timeoutMs = deps.chatTimeoutMs ?? CHAT_FIRST_TIMEOUT_MS;
+    const deadlineAt = Date.now() + timeoutMs;
+    const remainingMs = () => Math.max(0, deadlineAt - Date.now());
     const attempt = (g: ChatGrounding) =>
-      withTimeout((s) => live.chatReply!(currentClip, history, s, lang, token, { ...chatOpts, grounding: g }), timeoutMs, deps.signal);
+      withTimeout((s) => live.chatReply!(currentClip, history, s, lang, token, { ...chatOpts, grounding: g }), remainingMs(), deps.signal);
 
     let generated = await attempt(grounding);
     if (stale()) return dropStale();
@@ -639,29 +641,34 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     let engineReason: EngineReason | undefined;
 
     if (plan.callPick) {
-      const livePicker = () => deps.cardPicker ?? pickerFromModel(deps.getModel?.() ?? deps.model ?? null, deps.warmupRemainingMs);
-      const decision = await decideCardPick({
-        text: retrieveText,
-        modelText: retrieveText.slice(0, MODEL_INPUT_CHARS),
-        topic: state.topic,
-        ageBand: state.ageBand,
-        cards: deps.cards,
-        copyStatus: deps.copyStatus,
-        picker: livePicker(),
-        getPicker: livePicker,
-        warmupRemainingMs: deps.warmupRemainingMs,
-        previousTitle: state.cardId ? byId.get(state.cardId)?.title_th ?? null : null,
-        timeoutMs: deps.pickTimeoutMs ?? PICK_TIMEOUT_MS,
-        signal: deps.signal,
-        nonePolicy: plan.close === "always" ? "fallback" : "defer",
-      });
-      if (stale()) return dropStale();
-      if (!decision.deferred) {
-        const picked = byId.get(decision.cardId);
-        card = usable(picked) ? picked : fallback;
-        via = decision.via;
-        engine = decision.engine;
-        engineReason = decision.reason;
+      // Whole turn stays inside the 45 s budget. The 8 s model card pick
+      // must not start if fewer than 8 s remain; the rules card is used alone.
+      const left = remainingMs();
+      if (left >= PICK_TIMEOUT_MS) {
+        const livePicker = () => deps.cardPicker ?? pickerFromModel(deps.getModel?.() ?? deps.model ?? null, deps.warmupRemainingMs);
+        const decision = await decideCardPick({
+          text: retrieveText,
+          modelText: retrieveText.slice(0, MODEL_INPUT_CHARS),
+          topic: state.topic,
+          ageBand: state.ageBand,
+          cards: deps.cards,
+          copyStatus: deps.copyStatus,
+          picker: livePicker(),
+          getPicker: livePicker,
+          warmupRemainingMs: deps.warmupRemainingMs,
+          previousTitle: state.cardId ? byId.get(state.cardId)?.title_th ?? null : null,
+          timeoutMs: Math.min(deps.pickTimeoutMs ?? PICK_TIMEOUT_MS, left),
+          signal: deps.signal,
+          nonePolicy: plan.close === "always" ? "fallback" : "defer",
+        });
+        if (stale()) return dropStale();
+        if (!decision.deferred) {
+          const picked = byId.get(decision.cardId);
+          card = usable(picked) ? picked : fallback;
+          via = decision.via;
+          engine = decision.engine;
+          engineReason = decision.reason;
+        }
       }
     }
 
@@ -686,7 +693,12 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
       offerIntents = offer === "none" ? shown.referral.intents : (shown.referral.intents.length ? shown.referral.intents : asIntents(shown.topic === "general" ? state.topic : shown.topic, ["other"]));
     }
 
-    const chatText = renderChatChoiceForTurn(acc.choice, lang, cardFacts ?? "", !!shown);
+    const choice = firstTurnChoice(acc.choice, {
+      topicTurn: plan.topicTurn,
+      hasGroundCard: groundCard != null,
+      cardBubble: !!shown,
+    });
+    const chatText = renderChatChoiceForTurn(choice, lang, cardFacts ?? "", !!shown);
 
     const chips = shown ? shown.next : [showCardNowChip(lang)];
     const nextFlow = shown

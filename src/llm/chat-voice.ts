@@ -8,22 +8,35 @@
 
 export const CHAT_VOICE_STATUS = "draft" as const;
 
+/**
+ * Model-facing TH ids stay the v40 numbering the fine-tune was trained on
+ * (`{"o":N,"c":0|1,"q":N}`). Live เรา/เธอ strings sit at the same slots.
+ * Dropped v40 ids (o4 `ทางนี้พี่เข้าใจ`, q2 `อยากให้พี่ส่งข้อมูลที่ตรวจแล้วไหม?`)
+ * keep their index so later ids do not shift, and resolve to the same empty
+ * fallback `renderChatChoice` already uses for an out-of-range index (`?? ""`).
+ */
+export const INVALID_VOICE_INDEX_FALLBACK = "";
+/** Inclusive max o the v40 Thai list accepted (0..4). */
+export const V40_OPENER_MAX_TH = 4;
+/** Inclusive max q the v40 Thai list accepted (0..4). */
+export const V40_FOLLOWUP_MAX_TH = 4;
+
 /** DRAFT. Keng review required before these strings are treated as product copy. */
 export const CHAT_OPENERS_TH: readonly string[] = [
-  "พี่อยู่ตรงนี้นะ",
-  "พี่เข้าใจ",
-  "ขอบคุณที่ถามมา",
-  "เรื่องนี้พี่เข้าใจ",
-  "ทางนี้พี่เข้าใจ",
+  "เราอยู่ตรงนี้นะคะ",
+  "เราเข้าใจค่ะ",
+  "ขอบคุณที่ถามมานะคะ",
+  "เรื่องนี้เราเข้าใจค่ะ",
+  INVALID_VOICE_INDEX_FALLBACK,
 ];
 
 /** DRAFT. Gentle follow-up questions. No facts, numbers, drug or method names, or advice. */
 export const CHAT_FOLLOWUPS_TH: readonly string[] = [
-  "น้องอยากเล่าเพิ่มไหม?",
-  "ตอนนี้อยากถามเรื่องไหนต่อดี?",
-  "อยากให้พี่ส่งข้อมูลที่ตรวจแล้วไหม?",
-  "ยังมีอะไรที่อยากคุยต่อไหม?",
-  "น้องอยากให้ช่วยตรงไหนก่อน?",
+  "เธออยากเล่าเพิ่มไหมคะ?",
+  "ตอนนี้อยากถามเรื่องไหนต่อดีคะ?",
+  INVALID_VOICE_INDEX_FALLBACK,
+  "ยังมีอะไรที่อยากคุยต่อไหมคะ?",
+  "เธออยากให้ช่วยตรงไหนก่อนคะ?",
 ];
 
 /** DRAFT. Used only if an English model-chat turn ever runs. */
@@ -47,3 +60,12 @@ export function openersFor(lang: "th" | "en"): readonly string[] {
 export function followUpsFor(lang: "th" | "en"): readonly string[] {
   return lang === "en" ? CHAT_FOLLOWUPS_EN : CHAT_FOLLOWUPS_TH;
 }
+
+/**
+ * Follow-ups that offer to send the card. After the TH list drop in the
+ * เรา/เธอ copy, only English still has one (EN q2). Compared by content,
+ * not by index, so a later re-index cannot silently retarget the swap.
+ */
+export const CARD_OFFER_FOLLOWUPS: ReadonlySet<string> = new Set([
+  "Shall I share the checked information?",
+]);

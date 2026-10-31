@@ -82,7 +82,10 @@ test("D5 under-15 screen still shows 1323/1300/1663 and SOS is not delayed by ag
   const rec = await open(page, "14:00");
   await page.getByTestId("age-under").click();
   await expect(page.getByTestId("screen-underage")).toBeVisible();
-  await expect(page.getByTestId("screen-underage")).toContainText("ขอบคุณที่บอกพี่เจน");
+  await expect(page.getByTestId("screen-underage").locator("h1")).toHaveText("ขอบคุณที่บอกเจน");
+  await expect(page.getByTestId("screen-underage")).not.toContainText("ขอบคุณที่บอกพี่เจน");
+  await expect(page.getByTestId("brand")).toContainText("เจน");
+  await expect(page.getByTestId("brand")).not.toContainText("พี่เจน");
   await expect(page.locator('a[href="tel:1323"]').first()).toBeVisible();
   await expect(page.locator('a[href="tel:1300"]').first()).toBeVisible();
   await expect(page.locator('a[href="tel:1663"]').first()).toBeVisible();

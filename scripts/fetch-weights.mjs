@@ -6,6 +6,10 @@
 //   node scripts/fetch-weights.mjs --model qwen3-4b     # qwen3-4b WebGPU f16 (~2.3 GB) + 1.7B WASM fallback
 //   node scripts/fetch-weights.mjs --variants webgpu_f16,webgpu_f32,wasm
 //   node scripts/fetch-weights.mjs --verify-only
+//   node scripts/fetch-weights.mjs --model qwen3-0.6b-ft --verify-only
+//     local-only Jane fine-tune: place models/gguf/Qwen3-0.6B-jane-ft-Q4_K_M.gguf first
+//     (sha256 1a8056e4f1d0afba32ab87c24f8c2740258b130a9bb7bb5311e742c921daf8e2, 484220256 bytes).
+//     No URL; this script never downloads it.
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -20,7 +24,14 @@ const manifest = JSON.parse(fs.readFileSync(path.join(here, "weights-manifest.js
 const MODELS_DIR = path.resolve(arg("--models", path.join(here, "..", "models")));
 const model = arg("--model", "qwen3-1.7b");
 if (!manifest.models[model]) { console.error(`unknown model ${model}; choose: ${Object.keys(manifest.models).join(", ")}`); process.exit(2); }
-const variants = (arg("--variants", "") || (manifest.models[model].wasm ? "webgpu_f16,wasm" : "webgpu_f16")).split(",");
+const defaultVariants = (entry) => {
+  const vs = [];
+  if (entry.webgpu_f16) vs.push("webgpu_f16");
+  else if (entry.webgpu_f32) vs.push("webgpu_f32");
+  if (entry.wasm) vs.push("wasm");
+  return vs.join(",") || "webgpu_f16";
+};
+const variants = (arg("--variants", "") || defaultVariants(manifest.models[model])).split(",");
 
 /** WASM fallback for models without a WASM build (qwen3-4b → qwen3-1.7b). */
 const jobs = variants.map((v) => [model, v]);
@@ -35,6 +46,8 @@ const gb = (n) => (n / 1e9).toFixed(2) + " GB";
 async function getFile(f) {
   const dest = path.join(MODELS_DIR, f.path);
   if (fs.existsSync(dest) && fs.statSync(dest).size === f.size && (await sha256File(dest)) === f.sha256) return "ok";
+  // Local-only entries have no URL: never fetch, only verify if the operator placed the file.
+  if (!f.url) return "missing";
   if (flag("--verify-only")) return "missing";
   fs.mkdirSync(path.dirname(dest), { recursive: true });
   const tmp = dest + ".part";

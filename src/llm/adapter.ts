@@ -10,6 +10,8 @@ import type { ChatLang } from "./chat-lang";
  */
 export type ChatReplyOpts = {
   grounding?: { facts: string | null; strict?: boolean };
+  /** Chat-choice generation cap. Adapters default to CHAT_MAX_TOKENS. */
+  maxTokens?: number;
 };
 
 

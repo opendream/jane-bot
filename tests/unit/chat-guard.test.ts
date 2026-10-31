@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  CHAT_HOLDING_LINE,
-  CHAT_HOLDING_LINE_EN,
-  CHAT_HOLDING_LINE_EN_STATUS,
   CHAT_MAX_CHARS_EN,
   acceptChatReply,
   chatGuardFailures,
@@ -150,11 +147,6 @@ describe("chatGuard (generated Jane replies)", () => {
     expect(acceptChatReply(null).ok).toBe(false);
     expect(acceptChatReply(undefined).ok).toBe(false);
   });
-
-  it("the holding line itself passes the guard", () => {
-    expect(chatGuardFailures(CHAT_HOLDING_LINE)).toEqual([]);
-    expect(CHAT_HOLDING_LINE.length).toBeLessThanOrEqual(160);
-  });
 });
 
 const SAFE_EN = "I'm here. You can tell me more whenever you like.";
@@ -234,12 +226,6 @@ describe("chatGuard English path", () => {
     expect(chatGuardFailures(SAFE_EN, "th")).toContain("script");
     expect(acceptChatReply(SAFE, "en").ok).toBe(false);
     expect(acceptChatReply(SAFE_EN, "th").ok).toBe(false);
-  });
-
-  it("the English holding line itself passes the English guard and is marked DRAFT", () => {
-    expect(CHAT_HOLDING_LINE_EN_STATUS).toBe("draft");
-    expect(chatGuardFailures(CHAT_HOLDING_LINE_EN, "en")).toEqual([]);
-    expect(CHAT_HOLDING_LINE_EN.length).toBeLessThanOrEqual(CHAT_MAX_CHARS_EN);
   });
 });
 

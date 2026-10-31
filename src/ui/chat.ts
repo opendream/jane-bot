@@ -365,10 +365,10 @@ export function chatView(chat: ChatState, hooks: ChatHooks): HTMLElement {
         "aria-hidden": "true",
       }, chat.thinkingPhrase ?? thinkingPhraseAt(chat.thinkingLang, 0)),
     ) : null,
-    !chat.chatFirst && chat.busy && h("p", { class: "note", "data-testid": "chat-busy" }, chat.modelPick ? (chat.thinkingHint ?? thinkingHintAt(0)) : "พี่เจนกำลังพิมพ์…"),
+    !chat.chatFirst && chat.busy && h("p", { class: "note", "data-testid": "chat-busy" }, chat.modelPick ? (chat.thinkingHint ?? thinkingHintAt(0)) : "เจนกำลังพิมพ์…"),
     chat.readOnly && h("p", { class: "note", "data-testid": "cap-hard" }, "แชทนี้ยาวมากแล้ว ตอนนี้ส่งข้อความเพิ่มไม่ได้ คุยกับเจ้าหน้าที่ตัวจริง หรือกดลบแชทเพื่อเริ่มใหม่ได้"),
     h("form", { class: "chat-form", onsubmit: submit },
-      h("label", { class: "sr", for: "chat-input" }, "ข้อความถึงพี่เจน"), ta,
+      h("label", { class: "sr", for: "chat-input" }, "ข้อความถึงเจน"), ta,
       h("button", { class: "btn-primary", type: "submit", "data-testid": "chat-send" }, "ส่ง")),
   );
 }

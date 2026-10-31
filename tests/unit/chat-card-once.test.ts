@@ -46,29 +46,29 @@ function countNeedle(texts: string[], needle: string): number {
   return texts.filter((t) => t.includes(needle)).length;
 }
 
-describe("c=1 does not duplicate the card when the card bubble also shows", () => {
-  it("c=1 plus a shown card: answer_th appears exactly once on that turn", async () => {
+describe("c=1 keeps the quoted card when the card bubble also shows", () => {
+  it("c=1 plus a shown card: quoted answer_th stays in the chat bubble and on the card", async () => {
     const model = spyModel(WHOLE_JSON);
     const chat = newChat("18-24", model, null, { chatFirst: true });
     await sendToChat(chat, SHOW_CARD_Q, hooks());
     const jane = janeThisTurn(chat.messages, SHOW_CARD_Q);
-    expect(countNeedle(jane.map((m) => m.text), LEAK.answer_th)).toBe(1);
+    expect(countNeedle(jane.map((m) => m.text), LEAK.answer_th)).toBe(2);
     const chatBubble = jane.find((m) => !m.cardId);
     const cardBubble = jane.find((m) => m.cardId);
-    expect(chatBubble?.text).toBe(formatChatReply(OPENER, "", FOLLOW));
-    expect(chatBubble?.text).not.toContain(LEAK.answer_th);
+    expect(chatBubble?.text).toBe(formatChatReply(OPENER, LEAK.answer_th, FOLLOW));
+    expect(chatBubble?.text).toContain(LEAK.answer_th);
     expect(cardBubble?.cardId).toBe(LEAK.id);
     expect(cardBubble?.text).toBe(LEAK.answer_th);
   });
 
-  it("runTurn: c=1 plus a shown card keeps answer_th on the card bubble only", async () => {
+  it("runTurn: c=1 plus a shown card keeps the quoted card in chat text", async () => {
     const r = await runTurn(newDialog(), SHOW_CARD_Q, deps(spyModel(WHOLE_JSON)));
     expect(r.reply.kind).toBe("chat");
     if (r.reply.kind !== "chat") return;
     expect(r.reply.card?.id).toBe(LEAK.id);
     expect(r.reply.cardText).toBe(LEAK.answer_th);
-    expect(r.reply.text).toBe(formatChatReply(OPENER, "", FOLLOW));
-    expect(r.reply.text).not.toContain(LEAK.answer_th);
+    expect(r.reply.text).toBe(formatChatReply(OPENER, LEAK.answer_th, FOLLOW));
+    expect(r.reply.text).toContain(LEAK.answer_th);
   });
 
   it("c=1 with no card bubble still shows the card in the chat bubble", async () => {
@@ -88,7 +88,7 @@ describe("c=1 does not duplicate the card when the card bubble also shows", () =
     expect(r.reply.text).toBe(formatChatReply(OPENER, LEAK.answer_th, FOLLOW));
   });
 
-  it("c=0 is unchanged with or without a card bubble", async () => {
+  it("c=0 plus a card bubble keeps answer_th on the bubble; turn-1 chat-only forces the card into the chat text", async () => {
     const chatShown = newChat("18-24", spyModel(NONE_JSON), null, { chatFirst: true });
     await sendToChat(chatShown, SHOW_CARD_Q, hooks());
     const shown = janeThisTurn(chatShown.messages, SHOW_CARD_Q);
@@ -101,7 +101,7 @@ describe("c=1 does not duplicate the card when the card bubble also shows", () =
     const only = janeThisTurn(chatOnly.messages, CHAT_ONLY_Q);
     expect(only).toHaveLength(1);
     expect(only[0]!.cardId).toBeFalsy();
-    expect(only[0]!.text).toBe(defaultChatReply("th"));
-    expect(only[0]!.text).not.toContain(LEAK.answer_th);
+    expect(only[0]!.text).toBe(formatChatReply(OPENER, LEAK.answer_th, FOLLOW));
+    expect(only[0]!.text).toContain(LEAK.answer_th);
   });
 });

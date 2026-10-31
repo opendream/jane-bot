@@ -31,7 +31,7 @@ test("CH1 chat: welcome → chip → follow-up chip → typed question, all verb
   await openChat(page);
   await expect(lastJane(page)).toHaveAttribute("data-card", "general.welcome.000");
   await expect(lastJane(page).getByTestId("placeholder-tag")).toHaveCount(0);
-  await expect(lastJane(page)).toContainText("สวัสดี เราชื่อพี่เจน :D");
+  await expect(lastJane(page)).toContainText("สวัสดี เราชื่อเจน :D");
   await shot(page, "ch1-01-welcome");
   await page.getByTestId("chat-chip-1").click(); // "กังวลเรื่องท้อง"
   await expect(lastJane(page)).toHaveAttribute("data-card", "pregnancy.ornot.000");
@@ -40,7 +40,7 @@ test("CH1 chat: welcome → chip → follow-up chip → typed question, all verb
   await say(page, "ช่วงนี้เครียดมาก นอนไม่หลับ");
   await expect(lastJane(page)).toHaveAttribute("data-card", "general.fallback.000");
   await expect(lastJane(page)).toHaveAttribute("data-reworded", "false");
-  await expect(lastJane(page)).toContainText("ตอนนี้พี่เจนยังไม่สามารถตอบเรื่องนั้นได้ค่ะ");
+  await expect(lastJane(page)).toContainText("ตอนนี้เจนยังไม่สามารถตอบเรื่องนั้นได้ค่ะ");
   await expect(page.getByTestId("not-medical-advice")).toBeVisible();
   await shot(page, "ch1-02-multi-turn");
   await assertNoStorage(page);

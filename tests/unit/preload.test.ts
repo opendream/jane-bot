@@ -57,7 +57,7 @@ describe("preloadModel", () => {
     const rewordCard = vi.fn(async () => "ข้อความทดสอบ");
     const statuses: ModelStatus[] = [];
     const a = await preloadModel((s) => statuses.push({ ...s }), {
-      search: "",
+      search: "?model=qwen3-1.7b",
       gpuInfo: async () => ({ ok: true, f16: false }),
       installed: async () => [{ model: "qwen3-1.7b", variants: ["webgpu_f32", "wasm"] }],
       loadWebLLM: async (_b, label, onProgress) => {
@@ -122,7 +122,7 @@ describe("preloadModel", () => {
     const deps = {
       search: "?modelPick=1",
       gpuInfo: async () => ({ ok: false, f16: false }),
-      installed: async () => [{ model: "qwen3-1.7b", variants: ["wasm"] }],
+      installed: async () => [{ model: "qwen3-0.6b-ft", variants: ["wasm"] }],
       loadWllama,
     };
     const first = preloadModel((s) => statuses.push({ ...s }), deps);
@@ -162,7 +162,7 @@ describe("wllama n_ctx (chat-first only)", () => {
       return fakeWasm();
     });
     await startModel(() => {}, {
-      search: "?chatFirst=1&runtime=wasm",
+      search: "?model=qwen3-1.7b&chatFirst=1&runtime=wasm",
       gpuInfo: async () => ({ ok: false, f16: false }),
       installed: async () => [{ model: "qwen3-1.7b", variants: ["wasm"] }],
       loadWllama: loadOn,
@@ -174,7 +174,7 @@ describe("wllama n_ctx (chat-first only)", () => {
       return fakeWasm();
     });
     await startModel(() => {}, {
-      search: "?runtime=wasm",
+      search: "?model=qwen3-1.7b&runtime=wasm",
       gpuInfo: async () => ({ ok: false, f16: false }),
       installed: async () => [{ model: "qwen3-1.7b", variants: ["wasm"] }],
       loadWllama: loadOff,

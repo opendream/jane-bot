@@ -104,7 +104,7 @@ describe("flag off: identical rules routing on the frozen corpus", () => {
     expect(hit.reply.kind === "card" && hit.reply.via === "matcher").toBe(false);
     const miss = await runTurn(newDialog(), "อยากรู้เรื่องทั่วไปค่ะ", deps());
     expect(miss.reply.kind === "card" && miss.reply.card.id).toBe(FALLBACK_ID);
-    expect(miss.reply.kind === "card" && miss.reply.text).toBe("ตอนนี้พี่เจนยังไม่สามารถตอบเรื่องนั้นได้ค่ะ");
+    expect(miss.reply.kind === "card" && miss.reply.text).toBe("ตอนนี้เจนยังไม่สามารถตอบเรื่องนั้นได้ค่ะ");
     expect(miss.reply.kind === "card" && miss.reply.chips.map((c) => c.label_th)).toEqual(["เริ่มใหม่"]);
   });
 });
@@ -128,7 +128,7 @@ describe("flag on with a stub matcher: crisis rules still win", () => {
     const r = await runTurn(newDialog(), "อยากรู้เรื่องคุมกำเนิด", deps({ matcher: noopMatcher }));
     expect(r.reply.kind === "card" && r.reply.card.id).toBe(FALLBACK_ID);
     expect(r.reply.kind === "card" && r.reply.via).toBe("fallback");
-    expect(r.reply.kind === "card" && r.reply.text).toBe("ตอนนี้พี่เจนยังไม่สามารถตอบเรื่องนั้นได้ค่ะ");
+    expect(r.reply.kind === "card" && r.reply.text).toBe("ตอนนี้เจนยังไม่สามารถตอบเรื่องนั้นได้ค่ะ");
     expect(r.reply.kind === "card" && r.reply.chips.map((c) => c.label_th)).toEqual(["เริ่มใหม่"]);
   });
 

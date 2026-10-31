@@ -94,7 +94,7 @@ async function waitStatus(statuses: ModelStatus[], pred: (s: ModelStatus) => boo
 
 function baseDeps(over: Partial<StartModelDeps> = {}): StartModelDeps {
   return {
-    search: "",
+    search: "?model=qwen3-1.7b",
     gpuInfo: async () => ({ ok: true, f16: false }),
     installed: async () => [{ model: "qwen3-1.7b", variants: ["webgpu_f32", "wasm"] }],
     storage: memoryStore(),
@@ -138,7 +138,7 @@ describe("model pill copy", () => {
 
   it("flag-on loading uses the readiness line; flag-off keeps the existing loading copy", () => {
     const loading = { state: "loading" as const, runtime: "wasm" as const, label: "Qwen3-1.7B", progress: 0.4 };
-    expect(modelPillCopy(loading, { modelPick: true }).text).toBe("กำลังเตรียมพี่เจน…");
+    expect(modelPillCopy(loading, { modelPick: true }).text).toBe("กำลังเตรียมเจน…");
     expect(modelPillCopy(loading).text).toBe("⏳ กำลังโหลดโมเดล Qwen3-1.7B 40% · ใช้งานได้ตามปกติระหว่างนี้");
   });
 });
