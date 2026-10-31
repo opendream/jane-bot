@@ -2,7 +2,9 @@
  * Chat-first thinking indicator copy and in-place phrase patch.
  *
  * Thai phrases: FINAL (Keng, 29 Oct 2026), except the name พี่เจน→เจน
- * (Keng, 30 Oct 2026 10:35 BKK). Do not edit the other Thai strings.
+ * (Keng, 30 Oct 2026 10:35 BKK). th[1], th[3], th[5] and th[7] changed
+ * to the เรา voice per Keng, 31 Oct 2026 (Notion section 8). Do not edit
+ * the other Thai strings.
  * English set is DRAFT for later and is used only if an English turn ever
  * runs the model.
  *
@@ -20,13 +22,13 @@ export const CHAT_THINKING_PHRASES = {
   enStatus: "draft" as const,
   th: [
     "เจนกำลังคิดอยู่นะ",
-    "พี่อ่านข้อความของเราอยู่นะ",
+    "เรากำลังอ่านข้อความของเธออยู่นะ",
     "กำลังเรียบเรียงคำพูดอยู่",
-    "แป๊บนึงนะ พี่อยู่ตรงนี้",
+    "แป๊บนึงนะ เราอยู่ตรงนี้",
     "ค่อย ๆ คุยกันไปนะ",
-    "พี่กำลังดูข้อมูลที่เกี่ยวข้องอยู่",
+    "เรากำลังดูข้อมูลที่เกี่ยวข้องอยู่",
     "ไม่ต้องรีบนะ พิมพ์เพิ่มได้เลย",
-    "ขอเวลาพี่อีกนิดนะ",
+    "ขอเวลาเราอีกนิดนะ",
   ],
   /** DRAFT. Keng review required before these strings are treated as product copy. */
   en: [

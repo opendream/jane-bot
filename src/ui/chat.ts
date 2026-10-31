@@ -133,7 +133,7 @@ export function chatMsgFromReply(r: TurnReply, modelPick = false, chatFirst = fa
   if (r.kind === "referral") {
     return {
       from: "jane",
-      text: "ได้เลย พี่ช่วยหาที่ปรึกษาที่เปิดอยู่ตอนนี้ให้นะ",
+      text: "ได้เลยค่ะ เราช่วยหาที่ปรึกษาที่เปิดอยู่ตอนนี้ให้นะคะ",
       banner: r.banner,
       offer: "strong",
       offerIntents: r.intents,
@@ -348,7 +348,7 @@ function bubble(m: ChatMsg, i: number, last: boolean, chat: ChatState, hooks: Ch
       last && !chat.readOnly && !chat.busy && !chat.quiz && m.cardId && hasRelatedQuiz(BANK.find((c) => c.id === m.cardId)?.topic, chat.session.state.ageBand, undefined, quizCopyStatus())
         ? h("button", { class: "chip", "data-testid": "quiz-start", type: "button", onclick: () => beginQuiz(chat, BANK.find((c) => c.id === m.cardId)?.topic ?? null, hooks) }, QUIZ_CHIP) : null,
       last && m.offer && m.offer !== "none" && hooks.referral && !chat.quiz ? h("button", { class: m.offer === "strong" ? "btn-primary" : "btn-ghost", "data-testid": "chat-offer",
-        onclick: () => hooks.referral!(m.offerIntents ?? ["other"], m.banner) }, "ให้พี่ช่วยหาที่ปรึกษาที่เปิดอยู่ตอนนี้ไหม") : null,
+        onclick: () => hooks.referral!(m.offerIntents ?? ["other"], m.banner) }, "ให้เราช่วยหาที่ปรึกษาที่เปิดอยู่ตอนนี้ไหมคะ") : null,
     ),
   );
 }
