@@ -18,13 +18,13 @@ describe("chat-first thinking copy (Thai FINAL, English DRAFT)", () => {
     expect(CHAT_THINKING_PHRASES.enStatus).toBe("draft");
     expect(CHAT_THINKING_PHRASES.th).toEqual([
       "เจนกำลังคิดอยู่นะ",
-      "พี่อ่านข้อความของเราอยู่นะ",
+      "เรากำลังอ่านข้อความของเธออยู่นะ",
       "กำลังเรียบเรียงคำพูดอยู่",
-      "แป๊บนึงนะ พี่อยู่ตรงนี้",
+      "แป๊บนึงนะ เราอยู่ตรงนี้",
       "ค่อย ๆ คุยกันไปนะ",
-      "พี่กำลังดูข้อมูลที่เกี่ยวข้องอยู่",
+      "เรากำลังดูข้อมูลที่เกี่ยวข้องอยู่",
       "ไม่ต้องรีบนะ พิมพ์เพิ่มได้เลย",
-      "ขอเวลาพี่อีกนิดนะ",
+      "ขอเวลาเราอีกนิดนะ",
     ]);
     expect(CHAT_THINKING_PHRASES.th).toHaveLength(8);
     expect(CHAT_THINKING_PHRASES.en).toEqual([
@@ -60,7 +60,7 @@ describe("chat-first thinking copy (Thai FINAL, English DRAFT)", () => {
       },
     };
     expect(applyChatThinkingPhrase(root, thinkingPhraseAt("th", 1))).toBe(true);
-    expect(phrase.textContent).toBe("พี่อ่านข้อความของเราอยู่นะ");
+    expect(phrase.textContent).toBe("เรากำลังอ่านข้อความของเธออยู่นะ");
     expect(label.textContent).toBe("เจนกำลังคิด");
     expect(applyChatThinkingPhrase({ querySelector: () => null }, thinkingPhraseAt("th", 2))).toBe(false);
   });
