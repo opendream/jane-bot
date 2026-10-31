@@ -46,29 +46,29 @@ function countNeedle(texts: string[], needle: string): number {
   return texts.filter((t) => t.includes(needle)).length;
 }
 
-describe("c=1 keeps the quoted card when the card bubble also shows", () => {
-  it("c=1 plus a shown card: quoted answer_th stays in the chat bubble and on the card", async () => {
+describe("c=1 same-card closer shows the answer once", () => {
+  it("c=1 plus a shown card: answer_th is on the card bubble only", async () => {
     const model = spyModel(WHOLE_JSON);
     const chat = newChat("18-24", model, null, { chatFirst: true });
     await sendToChat(chat, SHOW_CARD_Q, hooks());
     const jane = janeThisTurn(chat.messages, SHOW_CARD_Q);
-    expect(countNeedle(jane.map((m) => m.text), LEAK.answer_th)).toBe(2);
+    expect(countNeedle(jane.map((m) => m.text), LEAK.answer_th)).toBe(1);
     const chatBubble = jane.find((m) => !m.cardId);
     const cardBubble = jane.find((m) => m.cardId);
-    expect(chatBubble?.text).toBe(formatChatReply(OPENER, LEAK.answer_th, FOLLOW));
-    expect(chatBubble?.text).toContain(LEAK.answer_th);
+    expect(chatBubble?.text).toBe(formatChatReply(OPENER, "", FOLLOW));
+    expect(chatBubble?.text).not.toContain(LEAK.answer_th);
     expect(cardBubble?.cardId).toBe(LEAK.id);
     expect(cardBubble?.text).toBe(LEAK.answer_th);
   });
 
-  it("runTurn: c=1 plus a shown card keeps the quoted card in chat text", async () => {
+  it("runTurn: c=1 plus a shown same card omits the quote from chat text", async () => {
     const r = await runTurn(newDialog(), SHOW_CARD_Q, deps(spyModel(WHOLE_JSON)));
     expect(r.reply.kind).toBe("chat");
     if (r.reply.kind !== "chat") return;
     expect(r.reply.card?.id).toBe(LEAK.id);
     expect(r.reply.cardText).toBe(LEAK.answer_th);
-    expect(r.reply.text).toBe(formatChatReply(OPENER, LEAK.answer_th, FOLLOW));
-    expect(r.reply.text).toContain(LEAK.answer_th);
+    expect(r.reply.text).toBe(formatChatReply(OPENER, "", FOLLOW));
+    expect(r.reply.text).not.toContain(LEAK.answer_th);
   });
 
   it("c=1 with no card bubble still shows the card in the chat bubble", async () => {

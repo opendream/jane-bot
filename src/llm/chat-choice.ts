@@ -110,19 +110,26 @@ export function renderChatChoice(
 }
 
 /**
- * Final chat-bubble text for a turn. Keep the quoted card (c=1 body) even
- * when a card bubble also shows — `showCardBubble` only drives the follow-up
- * swap. Out-of-range / dropped v40 ids use the empty fallback (`?? ""`).
+ * Final chat-bubble text for a turn. `showCardBubble` drives the follow-up
+ * swap. When c=1 quotes the same card as the closing bubble, omit the body
+ * so the answer appears once (on the card). A different quoted card stays.
+ * Out-of-range / dropped v40 ids use the empty fallback (`?? ""`).
  */
 export function renderChatChoiceForTurn(
   choice: ChatChoice,
   lang: ChatLang,
   cardText: string,
   showCardBubble: boolean,
+  closingCardText?: string | null,
 ): string {
   const opener = openersFor(lang)[choice.o] ?? "";
   const follow = followUpText(choice, lang, showCardBubble || choice.c === 1);
-  const body = choice.c === 1 ? cardText : "";
+  const sameAsClosing = showCardBubble
+    && choice.c === 1
+    && closingCardText != null
+    && closingCardText !== ""
+    && closingCardText === cardText;
+  const body = choice.c === 1 && !sameAsClosing ? cardText : "";
   return formatChatReply(opener, body, follow);
 }
 

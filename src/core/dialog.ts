@@ -698,7 +698,8 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
       hasGroundCard: groundCard != null,
       cardBubble: !!shown,
     });
-    const chatText = renderChatChoiceForTurn(choice, lang, cardFacts ?? "", !!shown);
+    const closingText = shown ? bankAnswerForLang(shown, lang) : null;
+    const chatText = renderChatChoiceForTurn(choice, lang, cardFacts ?? "", !!shown, closingText);
 
     const chips = shown ? shown.next : [showCardNowChip(lang)];
     const nextFlow = shown
