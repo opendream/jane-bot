@@ -5,13 +5,13 @@ import type { ChatLang } from "./chat-lang";
 
 /**
  * Extra chat-turn flags. Stays the 6th `chatReply` argument.
- * `ambiguous` adds the short AMBIGUOUS system line.
  * `grounding` is the approved card (or none) for the structured-choice chat path.
+ * AMBIGUOUS turns never call the model, so there is no ambiguous flag.
  */
 export type ChatReplyOpts = {
-  ambiguous?: boolean;
   grounding?: { facts: string | null; strict?: boolean };
 };
+
 
 /**
  * Interface for an optional in-browser model (WebLLM / wllama). The deterministic rules are always
@@ -38,8 +38,7 @@ export interface LLMAdapter {
    * flag / follow-up), parsed strictly, then chatGuard on the list text.
    * History is PII-stripped, memory-only, and excludes crisis lines.
    * `groupId` is the generation token; a stale token must return without
-   * generating. `opts` is the 6th argument (AMBIGUOUS flag plus the
-   * approved-card grounding, or none).
+   * generating. `opts` is the 6th argument (approved-card grounding, or none).
    */
   chatReply?(
     text: string,

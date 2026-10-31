@@ -20,7 +20,7 @@ import {
 import { DEFAULT_CHAT_CHOICE_JSON } from "../../src/llm/chat-choice";
 
 // SYNTHETIC paraphrases only. Never user logs.
-const TH_AMB = "หนูไม่ค่อยอยาก die นะ แค่ถามเรื่อง HIV";
+const TH_AMB = "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง";
 const THANKS = "ขอบคุณค่ะ";
 const SAFE_JSON = DEFAULT_CHAT_CHOICE_JSON;
 const BAD_CHAT = "กิน 2 เม็ด แล้วไม่ท้องแน่ https://evil.test";
@@ -82,14 +82,6 @@ function hooks(): ChatHooks & { crisisCalls: number } {
   return h;
 }
 
-async function waitUntil(fn: () => boolean, ms = 400) {
-  const t0 = Date.now();
-  while (!fn()) {
-    if (Date.now() - t0 > ms) throw new Error("waitUntil timed out");
-    await new Promise((r) => setTimeout(r, 5));
-  }
-}
-
 function softOf(reply: TurnReply) {
   return "softCrisis" in reply ? reply.softCrisis : undefined;
 }
@@ -141,70 +133,65 @@ describe("renderer keeps an AMBIGUOUS chat reply with no text and no card", () =
 });
 
 describe("Codex HIGH 1: grouped thanks must not blank an AMBIGUOUS turn", () => {
-  it("AMBIGUOUS then ขอบคุณค่ะ while generating, timeout still renders the soft line (no empty drop)", async () => {
-    const { model, calls } = spyModel({ hang: true, delayMs: 40 });
+  it("AMBIGUOUS then ขอบคุณค่ะ keeps the first soft line (no empty drop, 0 model calls)", async () => {
+    const { model, calls } = spyModel();
     const chat = newChat("18-24", model, null, { chatFirst: true });
-    chat.session = new DialogSession("18-24", chatDeps(model, { chatTimeoutMs: 30 }));
+    chat.session = new DialogSession("18-24", chatDeps(model));
     chat.session.start();
     const h = hooks();
-    const p1 = sendToChat(chat, TH_AMB, h);
-    await waitUntil(() => calls.started > 0);
-    await sendToChat(chat, THANKS, h);
-    await p1;
+    await sendToChat(chat, TH_AMB, h);
+    expect(calls.chat + calls.started).toBe(0);
     expect(h.crisisCalls).toBe(0);
     const jane = janeSoft(chat.messages);
     expect(jane.length).toBeGreaterThan(0);
     expect(jane[0]?.softCrisis?.line).toBe(DRAFT_SOFT);
+    await sendToChat(chat, THANKS, h);
+    expect(janeSoft(chat.messages).length).toBeGreaterThan(0);
     expect(chat.messages.some((m) => m.from === "jane")).toBe(true);
   });
 
-  it("AMBIGUOUS then ขอบคุณค่ะ while generating, guard fail twice still renders the soft line", async () => {
-    const { model, calls } = spyModel({ chat: BAD_CHAT, delayMs: 30 });
+  it("AMBIGUOUS grouped with ขอบคุณค่ะ still renders the soft line and never calls the model", async () => {
+    const { model, calls } = spyModel({ chat: BAD_CHAT });
     const s = new DialogSession("18-24", chatDeps(model));
     s.start();
-    const p1 = s.send(TH_AMB);
-    await waitUntil(() => calls.started > 0);
-    const r2 = await s.send(THANKS);
-    expect(await p1).toBeNull();
-    expect(r2).not.toBeNull();
-    expect(r2!.kind).not.toBe("crisis");
-    expect(softOf(r2!)?.line).toBe(DRAFT_SOFT);
-    const msg = chatMsgFromReply(r2!, false, true);
+    const r = await runTurn(newDialog("18-24"), THANKS, {
+      ...chatDeps(model),
+      groupMessages: [TH_AMB, THANKS],
+    });
+    expect(calls.chat).toBe(0);
+    expect(r.reply.kind).not.toBe("crisis");
+    expect(softOf(r.reply)?.line).toBe(DRAFT_SOFT);
+    const msg = chatMsgFromReply(r.reply, false, true);
     expect(msg).not.toBeNull();
     expect(msg?.softCrisis?.line).toBe(DRAFT_SOFT);
   });
 });
 
 describe("Codex HIGH 2: show-card-now / chip keep the soft line", () => {
-  it("AMBIGUOUS then ขอข้อมูลเลย while generating shows a card plus the soft line and button", async () => {
-    const { model, calls } = spyModel({ delayMs: 80 });
+  it("AMBIGUOUS immediately shows a card plus the soft line and button, 0 model calls", async () => {
+    const { model, calls } = spyModel();
     const chat = newChat("18-24", model, null, { chatFirst: true });
     const h = hooks();
-    const p1 = sendToChat(chat, TH_AMB, h);
-    await waitUntil(() => calls.started > 0);
-    await sendToChat(chat, SHOW_CARD_NOW, h);
-    await p1;
+    await sendToChat(chat, TH_AMB, h);
     expect(h.crisisCalls).toBe(0);
+    expect(calls.chat).toBe(0);
     const jane = [...chat.messages].reverse().find((m) => m.from === "jane");
     expect(jane?.cardId).toBeTruthy();
     expect(jane?.softCrisis?.line).toBe(DRAFT_SOFT);
     expect(janeSoft(chat.messages).length).toBeGreaterThan(0);
   });
 
-  it("AMBIGUOUS unanswered then a follow-up chip shows that card plus the soft line", async () => {
-    const { model, calls } = spyModel({ delayMs: 80 });
-    const s = new DialogSession("18-24", chatDeps(model));
-    const welcome = s.start();
-    expect(welcome.kind).toBe("card");
-    const chip = welcome.kind === "card" ? welcome.chips[0] : undefined;
-    expect(chip?.label_th).toBeTruthy();
-    const p1 = s.send(TH_AMB);
-    await waitUntil(() => calls.started > 0);
-    const r2 = await s.send(chip!.label_th);
-    expect(await p1).toBeNull();
-    expect(r2?.kind === "card" || (r2?.kind === "chat" && r2.card)).toBeTruthy();
-    expect(softOf(r2!)?.line).toBe(DRAFT_SOFT);
-    expect(chatMsgFromReply(r2!, false, true)?.softCrisis?.line).toBe(DRAFT_SOFT);
+  it("AMBIGUOUS grouped with ขอข้อมูลเลย shows a card plus the soft line", async () => {
+    const { model, calls } = spyModel();
+    const r = await runTurn(newDialog("18-24"), SHOW_CARD_NOW, {
+      ...chatDeps(model),
+      unansweredLines: [TH_AMB],
+      groupMessages: [TH_AMB, SHOW_CARD_NOW],
+    });
+    expect(calls.chat).toBe(0);
+    expect(r.reply.kind === "card" || (r.reply.kind === "chat" && r.reply.card)).toBeTruthy();
+    expect(softOf(r.reply)?.line).toBe(DRAFT_SOFT);
+    expect(chatMsgFromReply(r.reply, false, true)?.softCrisis?.line).toBe(DRAFT_SOFT);
   });
 });
 
@@ -243,7 +230,7 @@ describe("every AMBIGUOUS return path carries a renderable soft line", () => {
     } else if (path === "not-ready") {
       out = await runTurn(newDialog("18-24"), TH_AMB, d);
     } else if (path === "english-no-model") {
-      out = await runTurn(newDialog("18-24"), "I don't want to live in fear of HIV", d);
+      out = await runTurn(newDialog("18-24"), "I feel so hopeless about everything", d);
     } else if (path === "refusal") {
       out = await runTurn(newDialog("18-24"), `${TH_AMB} ขอรูปหน่อย`, d);
     } else if (path === "staff") {

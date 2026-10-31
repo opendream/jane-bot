@@ -48,14 +48,11 @@ export type { CardPicker, EngineReason, EngineTag } from "./pick-engine";
  *   1. crisis rules (every message, synchronous, BEFORE anything else; never the model or matcher)
  *      pinned detectCrisis first (raw AND NFKC/folded/lowercased; hit on either
  *      is crisis), then an add-only chat-crisis check (never clears a pin):
- *      CLEAR → existing crisis screen (no model); AMBIGUOUS on chat-first is
- *      MODEL-FIRST: the same guarded chat path as NONE (guard, one retry) plus
- *      a fixed DRAFT soft line and a button that opens the existing crisis
- *      screen. The bank card is only a fallback (guard fail after retry,
- *      timeout, model not ready, invalid structured choice after retry, or
- *      non-Thai while ENGLISH_MODEL_CHAT is false). Card-first AMBIGUOUS
- *      stays card + DRAFT soft line. Staff request → referral card + the
- *      same soft line. NONE → continue.
+ *      CLEAR → existing crisis screen (no model); AMBIGUOUS (both paths) →
+ *      the turn's bank card plus a fixed DRAFT soft line and a button that
+ *      opens the existing crisis screen. Never the model; model output is
+ *      discarded if a caller still injects one. Staff request → referral
+ *      card + the same soft line. NONE → continue.
  *      AMBIGUOUS is decided once per turn/group; attachSoftCrisis is the
  *      single exit that puts the DRAFT line on every non-CLEAR reply.
  *      Whole-line thanks/ack make 0 model calls (fixed DRAFT Thai line, no
@@ -63,9 +60,7 @@ export type { CardPicker, EngineReason, EngineTag } from "./pick-engine";
  *      gate (lock, English, crisis). Both run on every turn, whatever the
  *      letter-script class, on both paths. Then the script/allowlist gate:
  *      English → English model chat, clearly Thai → Thai chat, mixed/unclear
- *      → 0 model calls except chat-first AMBIGUOUS (any Thai-majority mixed
- *      line still takes Thai chat, including leftover crisis-token Latin
- *      and other code-mix).
+ *      → 0 model calls.
  *   2. input guard (refusals; chat-first banner-level wording comes after this)   3. follow-up chips
  *   4. optional matcher (injected only when the desktop-dev flag is on; abstain → fallback)
  *   5. rules retrieval   6. model pick (only if unsure; every free-text turn when modelPick is on, except locked routes)
@@ -322,7 +317,7 @@ export type TurnReply =
       kind: "chat"; text: string; card: BankCard | null; cardText: string | null; via: Via; banner: CrisisCategory[];
       chips: CardNext[]; offer: "none" | "soft" | "strong"; offerIntents: Intent[]; capNotice: CapNotice;
       engine?: EngineTag; engineReason?: EngineReason; holding?: boolean; cardNote?: string | null; groupId?: number;
-      /** AMBIGUOUS extra-check: DRAFT line + button on the model reply. */
+      /** AMBIGUOUS extra-check: DRAFT line + button that opens the existing crisis screen. */
       softCrisis?: SoftCrisis;
     };
 export type CapNotice = "soft" | "hard" | null;
@@ -486,10 +481,20 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     return { state: { ...state, turns, recentUser, pendingChips: [] }, reply: { kind: "referral", intents: asIntents(state.topic, retrieve(input, []).prior.intents), banner, capNotice } };
   }
 
-  // Card-first AMBIGUOUS: the turn's bank card. Never the model. Soft line is attached on the way out.
-  if (extraAmbiguous && !chatFirst) {
+  // AMBIGUOUS: the turn's bank card plus a DRAFT soft line. Never the model,
+  // chat-first or card-first. English chat-first still uses the English overlay.
+  // Soft line is attached on the way out via attachSoftCrisis.
+  if (extraAmbiguous) {
     const top = rulesTop(input);
-    return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined);
+    const overlayLang = chatFirst && detectChatLang(input) === "en" ? "en" as const : null;
+    return verbatimCard(
+      top.card,
+      top.via,
+      tagged ? "rules-fallback" : undefined,
+      undefined,
+      undefined,
+      overlayLang,
+    );
   }
 
   // Chat-first: banner-level wording is a rules-only turn (no generation). After refusals.
@@ -567,15 +572,14 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     // Crisis already returned above (pin, then extra check) on every script
     // class. Model chat is then gated per message: if any counted message
     // would take the no-model path, the group takes it (card). Emoji-only
-    // messages do not count either way. Chat-first AMBIGUOUS is model-first:
-    // leftover crisis-token Latin and other Thai-majority code-mix still
-    // take Thai chat. English script stays off the model while
-    // ENGLISH_MODEL_CHAT is false (card + DRAFT soft line). Acks never skip this gate.
+    // messages do not count either way. AMBIGUOUS already returned above
+    // (card + DRAFT soft line, 0 model calls). English script stays off the
+    // model while ENGLISH_MODEL_CHAT is false. Acks never skip this gate.
     const allowEnglishChat = deps.englishModelChat ?? ENGLISH_MODEL_CHAT;
     if (countedGroupMessages(topicMessages).length === 0) {
       return { state: { ...state, turns, recentUser }, reply: { kind: "idle", capNotice } };
     }
-    if (groupTakesNoModelPath(topicMessages, allowEnglishChat, !!extraAmbiguous)) {
+    if (groupTakesNoModelPath(topicMessages, allowEnglishChat)) {
       const top = rulesTop(retrieveText);
       return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, lang === "en" ? lang : undefined);
     }
@@ -601,10 +605,7 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     const groundCard = groundingCard(retrieved, state.ageBand);
     const cardFacts = groundCard ? bankAnswerForLang(groundCard, lang) : null;
     const grounding: ChatGrounding = { facts: cardFacts };
-    const chatOpts: ChatReplyOpts = {
-      ...(extraAmbiguous ? { ambiguous: true } : {}),
-      grounding,
-    };
+    const chatOpts: ChatReplyOpts = { grounding };
 
     deps.onGenerating?.({ groupId: token ?? currentGenerationToken(), lang });
     const timeoutMs = deps.chatTimeoutMs ?? CHAT_FIRST_TIMEOUT_MS;
@@ -631,6 +632,7 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
       const top = rulesTop(retrieveText);
       return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, lang === "en" ? lang : undefined);
     }
+
 
     let card: BankCard | null = null;
     let via: Via = "rules";
