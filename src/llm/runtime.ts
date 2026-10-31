@@ -435,6 +435,30 @@ export async function startModel(onStatus: (s: ModelStatus) => void, deps: Start
         });
       },
     });
+    // Manifest can list 0.6B-ft while its GGUF is missing/corrupt. A failed
+    // load must still try installed 1.7B before rules-only.
+    const fb = MODELS[FT_MISSING_FALLBACK_KEY];
+    if (
+      key === "qwen3-0.6b-ft"
+      && spec.key === "qwen3-0.6b-ft"
+      && fb.wasm
+      && has(fb.key, "wasm")
+      && wSpec?.key !== fb.key
+    ) {
+      plan.push({
+        runtime: "wasm",
+        run: async () => {
+          console.warn(missingFtFallbackWarning());
+          const load = loadWllamaFn ?? (await import("./wllama-adapter")).loadWllama;
+          onStatus({ state: "loading", runtime: "wasm", label: fb.label, progress: 0 });
+          return load(fb.wasm!.file, fb.label, (p) => onStatus({ state: "loading", runtime: "wasm", label: fb.label, progress: p }), {
+            onWarmup: (ms) => beginWarmup(ms),
+            nCtx: wllamaContextLength(chatFirstEnabled(search)),
+            chatFirst: chatFirstEnabled(search),
+          });
+        },
+      });
+    }
   }
 
   const wasmStep = plan.find((s) => s.runtime === "wasm");

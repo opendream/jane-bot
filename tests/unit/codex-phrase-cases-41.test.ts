@@ -26,6 +26,7 @@ import {
   MODELS,
 } from "../../src/llm/models";
 import {
+  missingFtFallbackWarning,
   missingLocalModelWarning,
   modelPillCopy,
   resetPreloadForTests,
@@ -47,7 +48,7 @@ import {
   V40_FOLLOWUP_MAX_TH,
   V40_OPENER_MAX_TH,
 } from "../../src/llm/chat-voice";
-import { newChat, sendToChat, type ChatHooks } from "../../src/ui/chat";
+import { chatView, newChat, sendToChat, type ChatHooks } from "../../src/ui/chat";
 import type { LLMAdapter } from "../../src/llm/adapter";
 const GUARD_VOICE_STRINGS: readonly { old: string; neu: string }[] = [
   { old: "เรื่องนี้พี่ช่วยไม่ได้", neu: "เรื่องนี้เราช่วยไม่ได้ค่ะ" },
@@ -89,8 +90,71 @@ function fakeWasm(label: string): LLMAdapter {
   };
 }
 
-function chatHooks(): ChatHooks {
-  return { rerender: () => {}, crisis: () => {} };
+function chatHooks(): ChatHooks & { crisisCalls: number } {
+  const h: ChatHooks & { crisisCalls: number } = {
+    crisisCalls: 0,
+    rerender: () => {},
+    crisis: () => { h.crisisCalls++; },
+  };
+  return h;
+}
+
+/** Enough of the DOM for chatView + a click. Unit tests run in node. */
+function installChatDom(): void {
+  if (typeof document !== "undefined" && typeof document.createElement === "function") return;
+  class MiniNode {
+    childNodes: MiniNode[] = [];
+  }
+  class MiniText extends MiniNode {
+    constructor(readonly data: string) { super(); }
+  }
+  class MiniEl extends MiniNode {
+    tagName: string;
+    attrs: Record<string, string> = {};
+    listeners: Record<string, Array<(ev: { preventDefault(): void }) => void>> = {};
+    className = "";
+    value = "";
+    constructor(tag: string) {
+      super();
+      this.tagName = tag.toUpperCase();
+    }
+    setAttribute(k: string, v: string) { this.attrs[k] = String(v); }
+    getAttribute(k: string) { return this.attrs[k] ?? null; }
+    addEventListener(t: string, fn: (ev: { preventDefault(): void }) => void) {
+      (this.listeners[t] ??= []).push(fn);
+    }
+    append(...nodes: MiniNode[]) { this.childNodes.push(...nodes); }
+    appendChild(n: MiniNode) { this.append(n); return n; }
+    querySelector(sel: string): MiniEl | null {
+      const id = /\[data-testid="([^"]+)"\]/.exec(sel)?.[1];
+      const walk = (el: MiniNode): MiniEl | null => {
+        if (el instanceof MiniEl && id && el.attrs["data-testid"] === id) return el;
+        for (const c of el.childNodes) {
+          const hit = walk(c);
+          if (hit) return hit;
+        }
+        return null;
+      };
+      return walk(this);
+    }
+    click() {
+      const ev = { preventDefault() {} };
+      for (const fn of this.listeners.click ?? []) fn(ev);
+    }
+  }
+  const g = globalThis as typeof globalThis & {
+    Node: typeof MiniNode;
+    HTMLElement: typeof MiniEl;
+    HTMLTextAreaElement: typeof MiniEl;
+    document: { createElement: (t: string) => MiniEl; createTextNode: (t: string) => MiniText };
+  };
+  g.Node = MiniNode;
+  g.HTMLElement = MiniEl;
+  g.HTMLTextAreaElement = MiniEl;
+  g.document = {
+    createElement: (t: string) => new MiniEl(t),
+    createTextNode: (t: string) => new MiniText(t),
+  };
 }
 
 function janeThisTurn(messages: { from: string; text: string; cardId?: string }[], userText: string) {
@@ -400,5 +464,79 @@ describe("PR #41 round-3 Codex MEDIUM findings", () => {
     expect(hits).toHaveLength(1);
     expect(hits[0]!.cardId).toBe(LEAK.id);
     expect(jane.find((m) => !m.cardId)?.text).not.toContain(LEAK.answer_th);
+  });
+});
+
+describe("PR #43 Codex MEDIUM findings", () => {
+  it("fallback: listed 0.6B-ft load throws, installed 1.7B is loaded (mocked, no real weights)", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const files: string[] = [];
+    const statuses: ModelStatus[] = [];
+    const a = await startModel((s) => statuses.push({ ...s }), {
+      search: "",
+      gpuInfo: async () => ({ ok: false, f16: false }),
+      installed: async () => [
+        { model: "qwen3-0.6b-ft", variants: ["wasm"] },
+        { model: "qwen3-1.7b", variants: ["wasm"] },
+      ],
+      loadWllama: async (file, label, onP) => {
+        if (file === FT_GGUF_FILE) throw new Error("corrupt gguf");
+        files.push(file);
+        onP(1);
+        return fakeWasm(label);
+      },
+    });
+    expect(warn.mock.calls.map((c) => c.map(String).join(" ")).join("\n")).toContain(missingFtFallbackWarning());
+    warn.mockRestore();
+    expect(a).not.toBeNull();
+    expect(a?.runtime).toBe("wasm");
+    expect(files).toEqual([SEVENTEEN_FILE]);
+    expect(statuses.at(-1)).toMatchObject({ state: "ready", runtime: "wasm", label: SEVENTEEN_LABEL });
+    expect(modelPillCopy(statuses.at(-1)!).text).toContain(SEVENTEEN_LABEL);
+    expect(modelPillCopy(statuses.at(-1)!).text).not.toBe(RULES_PILL);
+  });
+
+  it("issue #42: turn 31 sending หนูหมดแรงจะอยู่แล้ว twice is one user bubble, one soft bubble, empty draft", async () => {
+    const line = "หนูหมดแรงจะอยู่แล้ว";
+    const model: DialogModel = {
+      ready: () => true,
+      chatReply: vi.fn(async () => '{"o":0,"c":0,"q":0}'),
+    };
+    const chat = newChat("18-24", model, null, { chatFirst: true });
+    const h = chatHooks();
+    for (let i = 0; i < HARD_CAP; i++) await sendToChat(chat, "อยากรู้เรื่องทั่วไปค่ะ", h);
+    expect(chat.readOnly).toBe(true);
+    const before = vi.mocked(model.chatReply!).mock.calls.length;
+    chat.draft = line;
+    await sendToChat(chat, chat.draft, h);
+    await sendToChat(chat, chat.draft, h);
+    expect(chat.draft).toBe("");
+    expect(chat.messages.filter((m) => m.from === "user" && m.text === line)).toHaveLength(1);
+    expect(chat.messages.filter((m) => m.from === "jane" && m.softCrisis)).toHaveLength(1);
+    expect(vi.mocked(model.chatReply!).mock.calls.length).toBe(before);
+  });
+
+  it("issue #42: turn-31 distress renders the crisis button; click opens the crisis card", async () => {
+    const line = "หนูหมดแรงจะอยู่แล้ว";
+    const model: DialogModel = {
+      ready: () => true,
+      chatReply: vi.fn(async () => '{"o":0,"c":0,"q":0}'),
+    };
+    const chat = newChat("18-24", model, null, { chatFirst: true });
+    const h = chatHooks();
+    for (let i = 0; i < HARD_CAP; i++) await sendToChat(chat, "อยากรู้เรื่องทั่วไปค่ะ", h);
+    expect(chat.readOnly).toBe(true);
+    const before = vi.mocked(model.chatReply!).mock.calls.length;
+    await sendToChat(chat, line, h);
+    expect(h.crisisCalls).toBe(0);
+    installChatDom();
+    const view = chatView(chat, h);
+    const btn = view.querySelector('[data-testid="chat-crisis-soft-open"]') as { click(): void } | null;
+    const lineEl = view.querySelector('[data-testid="chat-crisis-soft-line"]');
+    expect(btn, "read-only state still renders the crisis button").not.toBeNull();
+    expect(lineEl).not.toBeNull();
+    btn!.click();
+    expect(h.crisisCalls).toBe(1);
+    expect(vi.mocked(model.chatReply!).mock.calls.length).toBe(before);
   });
 });

@@ -198,6 +198,7 @@ export async function sendToChat(chat: ChatState, text: string, hooks: ChatHooks
   const fromQuiz = !!chat.quiz;
   if (chat.quiz) chat.quiz = null;
   if (chat.readOnly) {
+    chat.draft = "";
     hooks.rerender();
     if (!fromQuiz && chatDelayMs() > 0) await new Promise((r) => setTimeout(r, chatDelayMs()));
     if (!owns()) return;

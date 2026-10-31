@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import type { CrisisCategory, Intent } from "../../src/core/types";
 import { HARD_CAP, newNeedGate, bumpNeed } from "../../src/core/dialog";
 import { startQuiz } from "../../src/core/quiz";
-import { applyQuizUpdate, beginQuiz, newChat, sendToChat, type ChatHooks } from "../../src/ui/chat";
+import { applyQuizUpdate, beginQuiz, chatView, newChat, sendToChat, type ChatHooks } from "../../src/ui/chat";
 import { MODEL_ANSWER_LABEL, RULES_ANSWER_LABEL, thinkingHintAt } from "../../src/ui/thinking";
 import { CHAT_CRISIS_CARD_FIRST, CHAT_FIRST, MODEL_CARD_PICK } from "../../src/config";
 import type { DialogModel } from "../../src/core/dialog";
@@ -25,6 +25,57 @@ function hooks() {
     referral: (intents, banner = []) => { referralIntents.push(intents); referralBanners.push(banner); },
   };
   return h;
+}
+
+/** Enough of the DOM for chatView + a click. Unit tests run in node. */
+function installChatDom(): void {
+  if (typeof document !== "undefined" && typeof document.createElement === "function") return;
+  class MiniNode { childNodes: MiniNode[] = []; }
+  class MiniText extends MiniNode { constructor(readonly data: string) { super(); } }
+  class MiniEl extends MiniNode {
+    tagName: string;
+    attrs: Record<string, string> = {};
+    listeners: Record<string, Array<(ev: { preventDefault(): void }) => void>> = {};
+    className = "";
+    value = "";
+    constructor(tag: string) { super(); this.tagName = tag.toUpperCase(); }
+    setAttribute(k: string, v: string) { this.attrs[k] = String(v); }
+    getAttribute(k: string) { return this.attrs[k] ?? null; }
+    addEventListener(t: string, fn: (ev: { preventDefault(): void }) => void) {
+      (this.listeners[t] ??= []).push(fn);
+    }
+    append(...nodes: MiniNode[]) { this.childNodes.push(...nodes); }
+    appendChild(n: MiniNode) { this.append(n); return n; }
+    querySelector(sel: string): MiniEl | null {
+      const id = /\[data-testid="([^"]+)"\]/.exec(sel)?.[1];
+      const walk = (el: MiniNode): MiniEl | null => {
+        if (el instanceof MiniEl && id && el.attrs["data-testid"] === id) return el;
+        for (const c of el.childNodes) {
+          const hit = walk(c);
+          if (hit) return hit;
+        }
+        return null;
+      };
+      return walk(this);
+    }
+    click() {
+      const ev = { preventDefault() {} };
+      for (const fn of this.listeners.click ?? []) fn(ev);
+    }
+  }
+  const g = globalThis as typeof globalThis & {
+    Node: typeof MiniNode;
+    HTMLElement: typeof MiniEl;
+    HTMLTextAreaElement: typeof MiniEl;
+    document: { createElement: (t: string) => MiniEl; createTextNode: (t: string) => MiniText };
+  };
+  g.Node = MiniNode;
+  g.HTMLElement = MiniEl;
+  g.HTMLTextAreaElement = MiniEl;
+  g.document = {
+    createElement: (t: string) => new MiniEl(t),
+    createTextNode: (t: string) => new MiniText(t),
+  };
 }
 
 describe("chat send path", () => {
@@ -83,6 +134,14 @@ describe("chat send path", () => {
     const jane = [...chat.messages].reverse().find((m) => m.from === "jane" && m.softCrisis);
     expect(jane?.softCrisis?.line).toBe("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะคะ");
     expect(jane?.softCrisis?.categories.length).toBeGreaterThan(0);
+    installChatDom();
+    const view = chatView(chat, h);
+    const btn = view.querySelector('[data-testid="chat-crisis-soft-open"]') as { click(): void } | null;
+    expect(btn, "read-only state still renders the crisis button").not.toBeNull();
+    expect(view.querySelector('[data-testid="chat-crisis-soft-line"]')).not.toBeNull();
+    expect(h.crisisCalls).toBe(0);
+    btn!.click();
+    expect(h.crisisCalls).toBe(1);
   });
 
   it("text typed during a quiz at the read-only cap closes the panel, rerenders, and does not add a bubble", async () => {

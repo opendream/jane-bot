@@ -265,6 +265,23 @@ test("card-first AMBIGUOUS is not inherited by a later unrelated turn", async ({
   await expect(lastJane(page).getByTestId("chat-crisis-soft-line")).toHaveCount(0);
 });
 
+test("?chatFirst=1 turn-31 AMBIGUOUS หนูหมดแรงจะอยู่แล้ว renders the crisis button; click opens the crisis card", async ({ page }) => {
+  test.setTimeout(60_000);
+  await openChatFirst(page);
+  await openChat(page);
+  for (let i = 0; i < 30; i++) await say(page, "อยากรู้เรื่องทั่วไปค่ะ");
+  await expect(page.getByTestId("cap-hard").first()).toBeVisible();
+  await say(page, "หนูหมดแรงจะอยู่แล้ว");
+  await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
+  await expect(page.getByTestId("chat-crisis-soft-open")).toBeVisible();
+  await expect(page.getByTestId("chat-crisis-soft-line")).toHaveText("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะคะ");
+  const before = await modelCalls(page);
+  await page.getByTestId("chat-crisis-soft-open").click();
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  const after = await modelCalls(page);
+  expect(after.chat + after.pick).toBe(before.chat + before.pick);
+});
+
 test("?chatFirst=1 later unrelated turn after AMBIGUOUS has no soft line and calls the model", async ({ page }) => {
   await openChatFirst(page);
   await openChat(page);
