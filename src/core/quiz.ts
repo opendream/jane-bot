@@ -32,7 +32,7 @@ export const QUIZ_MENU = "ทำควิซ";
 export const QUIZ_STOP = "หยุด";
 export const QUIZ_NEXT = "ข้อถัดไป";
 export const QUIZ_BACK = "กลับไปคุยต่อ";
-export const QUIZ_WRAP = "ขอบคุณที่ลองทำควิซนะ กลับไปคุยกับพี่เจนต่อได้เลย";
+export const QUIZ_WRAP = "ขอบคุณที่ลองทำควิซนะ กลับไปคุยกับเจนต่อได้เลย";
 export const QUIZ_OK = "ถูกต้อง";
 export const QUIZ_NO = "ยังไม่ถูก";
 /** Praise openers must not sit in explanation_th — the UI lead carries the verdict. */

@@ -1,5 +1,5 @@
 import "./styles.css";
-import { PRODUCT_NAME, PRODUCT_NAME_EN, MIN_AGE, THAI_COPY_STATUS, MATCHER, modelCardPickEnabled } from "./config";
+import { PRODUCT_NAME, PRODUCT_NAME_EN, MIN_AGE, MATCHER, modelCardPickEnabled } from "./config";
 import { matcherEnabled, readMatcherFlag, type IntentMatcher } from "./core/matcher";
 import markSvg from "./assets/mark.svg?raw";
 import type { CrisisCategory, Intent, IntentResult } from "./core/types";
@@ -16,6 +16,7 @@ import { toDialogModel } from "./llm/dialogModel";
 import { shouldApplyAsyncResult, newNeedGate, beginNeed, bumpNeed, needBusy, endNeed } from "./core/dialog";
 import { h } from "./ui/dom";
 import { applyThinkingHint } from "./ui/thinking";
+import { applyChatThinkingPhrase } from "./ui/chat-thinking";
 import { newChat, chatView, beginQuiz, type ChatState } from "./ui/chat";
 import { ART_CREDIT, janeImg, preloadJaneArt, welcomeStars } from "./ui/jane";
 import { QUIZ_MENU, pickQuizItems, quizCopyStatus } from "./core/quiz";
@@ -84,6 +85,10 @@ function dropInflightChat() {
   if (state.chat) {
     state.chat.session.abort();
     state.chat.busy = false;
+    state.chat.thinking = false;
+    state.chat.thinkingPhrase = null;
+    state.chat.thinkingToken = 0;
+    state.chat.thinkingHint = null;
   }
 }
 
@@ -121,16 +126,23 @@ function header() {
 }
 
 function modelPill() {
+  const show = modelCardPickEnabled();
   const m = modelStatus;
-  const { text, title } = modelPillCopy(m, { modelPick: modelCardPickEnabled() });
-  return h("div", { class: `model-pill ${m.state}`, "data-testid": "model-status", "data-state": m.state, "data-runtime": m.runtime, title }, text);
+  const { text, title } = modelPillCopy(m, { modelPick: show });
+  return h("div", {
+    class: `model-pill ${m.state}${show ? "" : " is-dev-hidden"}`,
+    "data-testid": "model-status",
+    "data-state": m.state,
+    "data-runtime": m.runtime,
+    hidden: show ? undefined : true,
+    title,
+  }, text);
 }
 
 function footer() {
   if (state.screen === "neutral") return null;
   return h("footer", { class: "foot" },
     h("p", { class: "nmad", "data-testid": "not-medical-advice" }, "ข้อมูลทั่วไป ไม่ใช่คำแนะนำทางการแพทย์ · General information, not medical advice"),
-    THAI_COPY_STATUS === "draft" && h("p", { class: "draft", "data-testid": "draft-flag" }, "ข้อความภาษาไทยเป็นฉบับร่าง รอผู้เชี่ยวชาญตรวจ · Thai copy is DRAFT, pending review"),
     h("p", { class: "art-credit", "data-testid": "art-credit" }, ART_CREDIT),
     h("p", { class: "meta" }, `ข้อมูลบริการตรวจสอบเมื่อ ${DATA_VERSION} ข้อมูลทุกอย่างประมวลผลในเครื่องนี้ ไม่มีการบันทึก`),
   );
@@ -164,7 +176,7 @@ function startScreen() {
 
 function underageScreen() {
   return h("main", { class: "screen", "data-testid": "screen-underage" },
-    h("h1", {}, "ขอบคุณที่บอกพี่เจน"),
+    h("h1", {}, "ขอบคุณที่บอกเจน"),
     h("p", {}, `เดโมนี้ทำสำหรับอายุ ${MIN_AGE} ปีขึ้นไป แต่คุณยังขอความช่วยเหลือได้เสมอ:`),
     callList(["1323", "1300"]),
     h("p", {}, `เรื่องท้องหรือเอชไอวี โทร 1663 ปรึกษาฟรี (ข้อมูล กรมประชาสัมพันธ์) ${serviceHoursLabel("hotline_1663")} (ข้อมูล สปสช.)`),
@@ -189,7 +201,7 @@ function describeScreen() {
     h("p", { class: "lead" }, "พิมพ์ภาษาไทยได้เลย ไม่ต้องบอกชื่อ เบอร์โทร หรือข้อมูลส่วนตัว"),
     h("label", { for: "need", class: "sr" }, "เรื่องที่อยากปรึกษา"), ta,
     h("button", { class: "btn-primary", "data-testid": "need-submit", onclick: submit, disabled: needBusy(need) }, needBusy(need) ? "กำลังคิด…" : "หาที่ปรึกษา"),
-    h("button", { class: "btn-ghost", "data-testid": "open-chat", onclick: openChat, disabled: needBusy(need) }, "หรือคุยกับพี่เจนแบบแชท (Beta)"),
+    h("button", { class: "btn-ghost", "data-testid": "open-chat", onclick: openChat, disabled: needBusy(need) }, "หรือคุยกับเจนแบบแชท (Beta)"),
   );
 }
 
@@ -207,6 +219,7 @@ function openChat() {
 const chatHooks = {
   rerender: () => { if (state.screen === "chat") render(); },
   updateThinkingHint: (text: string) => { applyThinkingHint(app, text); },
+  updateThinkingPhrase: (text: string) => { applyChatThinkingPhrase(app, text); },
   // Crisis rules decided this before any model step; show the existing crisis screen.
   crisis: (categories: CrisisCategory[]) => { bumpNeed(need); go({ screen: "crisis", crisisCategories: categories, crisisFrom: "chat" }); },
   // In-chat referral (plan v2 §5): the same service cards, summary, approval and DEMO handoff as the one-shot flow.
@@ -311,7 +324,7 @@ function suggestScreen() {
         canPrepareMessage(s.service) && h("button", { class: "btn-primary", "data-testid": `pick-${s.service.id}`, onclick: () => pick(s) }, "ให้ช่วยเตรียมข้อความถึงที่นี่"),
       )),
     backToChat()
-      ? h("button", { class: "btn-ghost", "data-testid": "retell", "data-to": "chat", onclick: () => go({ screen: "chat" }) }, "กลับไปคุยกับพี่เจนต่อ")
+      ? h("button", { class: "btn-ghost", "data-testid": "retell", "data-to": "chat", onclick: () => go({ screen: "chat" }) }, "กลับไปคุยกับเจนต่อ")
       : h("button", { class: "btn-ghost", "data-testid": "retell", onclick: () => go({ screen: "describe" }) }, "ไม่ใช่เรื่องนี้ / เล่าใหม่"),
   );
 }

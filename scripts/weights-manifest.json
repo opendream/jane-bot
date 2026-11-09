@@ -2,6 +2,20 @@
   "$comment": "Model weights for the demo. Fetched by scripts/fetch-weights.mjs from these pinned original sources and verified by sha256. Never committed or bundled.",
   "generated": "2026-10-22T12:04:56.545Z",
   "models": {
+    "qwen3-0.6b-ft": {
+      "wasm": {
+        "source": "local",
+        "license": "Apache-2.0 (Qwen3 base; Jane fine-tune, local weights)",
+        "files": [
+          {
+            "path": "gguf/Qwen3-0.6B-jane-ft-Q4_K_M.gguf",
+            "size": 484220256,
+            "sha256": "1a8056e4f1d0afba32ab87c24f8c2740258b130a9bb7bb5311e742c921daf8e2"
+          }
+        ],
+        "total_bytes": 484220256
+      }
+    },
     "qwen3-1.7b": {
       "webgpu_f16": {
         "source": "https://huggingface.co/mlc-ai/Qwen3-1.7B-q4f16_1-MLC @ 80b3abcec6c3b3f5355dc0cc99cc4fb578f192bc",

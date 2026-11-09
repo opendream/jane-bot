@@ -94,7 +94,7 @@ async function waitStatus(statuses: ModelStatus[], pred: (s: ModelStatus) => boo
 
 function baseDeps(over: Partial<StartModelDeps> = {}): StartModelDeps {
   return {
-    search: "",
+    search: "?model=qwen3-1.7b",
     gpuInfo: async () => ({ ok: true, f16: false }),
     installed: async () => [{ model: "qwen3-1.7b", variants: ["webgpu_f32", "wasm"] }],
     storage: memoryStore(),
@@ -138,7 +138,7 @@ describe("model pill copy", () => {
 
   it("flag-on loading uses the readiness line; flag-off keeps the existing loading copy", () => {
     const loading = { state: "loading" as const, runtime: "wasm" as const, label: "Qwen3-1.7B", progress: 0.4 };
-    expect(modelPillCopy(loading, { modelPick: true }).text).toBe("กำลังเตรียมพี่เจน…");
+    expect(modelPillCopy(loading, { modelPick: true }).text).toBe("กำลังเตรียมเจน…");
     expect(modelPillCopy(loading).text).toBe("⏳ กำลังโหลดโมเดล Qwen3-1.7B 40% · ใช้งานได้ตามปกติระหว่างนี้");
   });
 });
@@ -264,9 +264,30 @@ describe("startModel test hooks for model-first pick", () => {
     const a = await startModel(() => {}, { search: "?testRuntime=pick-ok&runtime=wasm" });
     expect(a?.runtime).toBe("wasm");
     expect(a?.pickCard).toBeTypeOf("function");
+    expect(a?.chatReply).toBeTypeOf("function");
     expect(a?.warmupRemainingMs).toBeTypeOf("function");
     const id = await a!.pickCard!("ทดสอบ", [{ id: "birth.control.000", title_th: "คุมกำเนิด" }], null, new AbortController().signal);
     expect(id).toContain("birth.control.000");
+  });
+
+  it("chat-ok exposes a guarded chatReply and pickCard that returns none", async () => {
+    const a = await startModel(() => {}, { search: "?testRuntime=chat-ok&runtime=wasm" });
+    expect(a?.runtime).toBe("wasm");
+    expect(a?.chatReply).toBeTypeOf("function");
+    expect(a?.pickCard).toBeTypeOf("function");
+    const line = await a!.chatReply!("ช่วงนี้กังวลเรื่องแฟน", [], new AbortController().signal);
+    expect(line).toBe('{"o":0,"c":0,"q":0}');
+    const en = await a!.chatReply!("I am worried about my boyfriend", [], new AbortController().signal);
+    expect(en).toBe('{"o":0,"c":0,"q":0}');
+    const id = await a!.pickCard!("ช่วงนี้กังวลเรื่องแฟน", [{ id: "birth.control.000", title_th: "คุมกำเนิด" }], null, new AbortController().signal);
+    expect(id).toContain("none");
+  });
+
+  it("chat-whole exposes a guarded chatReply that returns c=1", async () => {
+    const a = await startModel(() => {}, { search: "?testRuntime=chat-whole&runtime=wasm" });
+    expect(a?.chatReply).toBeTypeOf("function");
+    const line = await a!.chatReply!("ช่วงนี้กังวลเรื่องแฟน", [], new AbortController().signal);
+    expect(line).toBe('{"o":0,"c":1,"q":0}');
   });
 
   it("pick-warmup remaining is ≤ 5 s and not-ready; pick-warmup-slow remaining is > 5 s", async () => {

@@ -1,6 +1,19 @@
 import type { Intent, IntentResult } from "../core/types";
 import { classifyNeed } from "../core/intent";
 import { detectCrisis } from "../core/crisis";
+import type { ChatLang } from "./chat-lang";
+
+/**
+ * Extra chat-turn flags. Stays the 6th `chatReply` argument.
+ * `grounding` is the approved card (or none) for the structured-choice chat path.
+ * AMBIGUOUS turns never call the model, so there is no ambiguous flag.
+ */
+export type ChatReplyOpts = {
+  grounding?: { facts: string | null; strict?: boolean };
+  /** Chat-choice generation cap. Adapters default to CHAT_MAX_TOKENS. */
+  maxTokens?: number;
+};
+
 
 /**
  * Interface for an optional in-browser model (WebLLM / wllama). The deterministic rules are always
@@ -22,6 +35,21 @@ export interface LLMAdapter {
   pickCard?(text: string, shortlist: { id: string; title_th: string; key_fact?: string }[], previousTitle: string | null, signal: AbortSignal): Promise<string | null>;
   /** Chat: reword one curated card. Output is validated by rewordGuard; failures show the exact text. */
   rewordCard?(card: { answer_th: string; key_facts: string[] }, signal: AbortSignal): Promise<string | null>;
+  /**
+   * Chat-first connective talk. Output is a JSON choice (opener / whole-card
+   * flag / follow-up), parsed strictly, then chatGuard on the list text.
+   * History is PII-stripped, memory-only, and excludes crisis lines.
+   * `groupId` is the generation token; a stale token must return without
+   * generating. `opts` is the 6th argument (approved-card grounding, or none).
+   */
+  chatReply?(
+    text: string,
+    history: { role: "user" | "assistant"; content: string }[],
+    signal: AbortSignal,
+    lang?: ChatLang,
+    groupId?: number,
+    opts?: ChatReplyOpts,
+  ): Promise<string | null>;
   /** Tear down a worker / GPU engine. Used when WebGPU dies and we fall back. */
   dispose?(): void | Promise<void>;
 }

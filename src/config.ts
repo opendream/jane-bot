@@ -1,11 +1,11 @@
 // Single place for product-level settings. Change here, nowhere else.
 
 /**
- * Product name (Keng's ruling, 22 Oct 2026 19:49 BKK): keep the Jane / พี่เจน name.
+ * Product name (Keng's ruling, 30 Oct 2026 10:35 BKK): the Thai name is เจน.
  * UI art is the 2018 Sex Safe Safe illustrations in src/assets/jane/ (© Opendream 2018).
  * Never use the 2020 Jane artwork. The small mark in src/assets/mark.svg was drawn from scratch for this build.
  */
-export const PRODUCT_NAME = "พี่เจน";
+export const PRODUCT_NAME = "เจน";
 export const PRODUCT_NAME_EN = "Jane";
 
 /** Lowest age for the demo. Open question for Keng; default 15+. */
@@ -22,13 +22,17 @@ export const MAX_SUGGESTIONS = 3;
 
 /**
  * On-device model (Qwen3, plain Apache-2.0). Typhoon is on hold pending Keng's ruling on the OpenTyphoon terms.
- *  - "qwen3-1.7b": WebGPU ~0.99 GB (q4f16_1 or q4f32_1), WASM ~1.11 GB (GGUF Q4_K_M). Default.
+ *  - "qwen3-0.6b-ft": WASM only, ~0.48 GB GGUF Q4_K_M. Default. Fine-tuned Jane weights, local
+ *    (operator-placed at models/gguf/Qwen3-0.6B-jane-ft-Q4_K_M.gguf; never fetched, no public URL).
+ *    If that GGUF is not installed, startModel falls back to qwen3-1.7b when that model is
+ *    installed; only if 1.7B is also missing does it go rules-only (warn + failed pill).
+ *  - "qwen3-1.7b": WebGPU ~0.99 GB (q4f16_1 or q4f32_1), WASM ~1.11 GB (GGUF Q4_K_M). Select with ?model=qwen3-1.7b.
  *  - "qwen3-4b":   WebGPU only, ~2.29 GB; on machines without WebGPU the WASM path falls back to qwen3-1.7b.
  *  - "off":        rules only.
  * The rules always decide crisis handling; the model only refines need detection and summary wording.
- * Testing/filming override via URL: ?model=off | ?runtime=webgpu | ?runtime=wasm
+ * Testing/filming override via URL: ?model=off | ?model=qwen3-1.7b | ?runtime=webgpu | ?runtime=wasm
  */
-export const MODEL: "qwen3-1.7b" | "qwen3-4b" | "off" = "qwen3-1.7b";
+export const MODEL: "qwen3-0.6b-ft" | "qwen3-1.7b" | "qwen3-4b" | "off" = "qwen3-0.6b-ft";
 
 /**
  * Fine-tuned embedding intent matcher (e5-small int8). Off by default and never on
@@ -83,6 +87,63 @@ export function pickTimeoutMsFromSearch(search?: string, fallback = 20_000): num
     if (Number.isFinite(n) && n > 0) return n;
   } catch { /* node unit tests */ }
   return fallback;
+}
+
+/**
+ * Chat-first (PR A): Jane talks, then hands over a reviewed bank card at the end of the topic.
+ * Off by default so production stays card-first until Keng flips this.
+ * Filming/demo override: ?chatFirst=1 works on the production build as well as
+ * the Vite dev server (same pattern as ?modelPick=). Flag-off stays card-first.
+ */
+export const CHAT_FIRST = false;
+/**
+ * English model chat is off on this branch. Everyday English (including
+ * open-ended disclosures the pin misses) takes the no-model card path with
+ * the Thai-card note, same as #37. Crisis still runs first on every turn
+ * (pinned detectCrisis on raw and on NFKC/folded text, then the add-only
+ * chat-crisis check), whatever the letter-script class, on both chat-first
+ * and card-first. Then the script/allowlist gate: leftover Latin share ≥ 60%
+ * is English (no model call while this flag is false); no leftover Latin and
+ * Thai share of what remains ≥ 60% calls Thai chat; mixed/unclear makes 0
+ * model calls. Reply language still uses the word-list rule after the same
+ * allowlist strip. Keep the English chatReply code path; tests that need the
+ * flag on set `englishModelChat: true` on TurnDeps. English model chat is
+ * planned as its own PR after filming.
+ */
+export const ENGLISH_MODEL_CHAT = false;
+/** User turns in one topic before Jane must close with a card. */
+export const CHAT_MAX_TURNS = 3;
+/**
+ * Chat-first reply budget. Covers the whole model part of the turn, including
+ * the retry (the clock does not restart). Card-first pick/reword timeouts are
+ * unchanged (PICK_TIMEOUT_MS / REWORD_TIMEOUT_MS). Fine-tuned Qwen3-0.6B on
+ * phone has been seen at 9–37 s on most turns and 90.6 s on one; 45 s is the
+ * per-turn cap before the rules card shows on its own.
+ */
+export const CHAT_FIRST_TIMEOUT_MS = 45_000;
+/** Chat-reply budget (plan §2). Same value as CHAT_FIRST_TIMEOUT_MS. */
+export const CHAT_TIMEOUT_MS = CHAT_FIRST_TIMEOUT_MS;
+
+/** Honours ?chatFirst=1 on production builds too (not a Vite-dev-only flag). */
+export function chatFirstEnabled(search?: string): boolean {
+  try {
+    const raw = search ?? (typeof location !== "undefined" ? location.search : "");
+    const v = new URLSearchParams(raw.startsWith("?") ? raw.slice(1) : raw).get("chatFirst")?.toLowerCase() ?? "";
+    if (v === "1" || v === "on" || v === "true") return true;
+    if (v === "0" || v === "off" || v === "false") return false;
+  } catch { /* node unit tests */ }
+  return CHAT_FIRST;
+}
+
+/**
+ * Extra chat-crisis rules (src/core/chat-crisis.ts) after pinned detectCrisis.
+ * On for both paths: chat-first and card-first. Add-only (never clears a pin).
+ */
+export const CHAT_CRISIS_CARD_FIRST = true;
+
+/** True when the extra pre-model crisis check should run (always, with the card-first switch on). */
+export function chatCrisisEnabled(chatFirst: boolean): boolean {
+  return chatFirst || CHAT_CRISIS_CARD_FIRST;
 }
 
 /**

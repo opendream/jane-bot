@@ -15,7 +15,7 @@ const pill = (page: Page) => page.getByTestId("model-status");
 
 async function openHook(page: Page, testRuntime: "gpu-lost" | "gpu-lost-rules") {
   await page.clock.setFixedTime(new Date("2026-10-22T19:00:00+07:00"));
-  await page.goto(`/?testRuntime=${testRuntime}`);
+  await page.goto(`/?model=qwen3-1.7b&testRuntime=${testRuntime}`);
   await page.waitForLoadState("domcontentloaded");
 }
 

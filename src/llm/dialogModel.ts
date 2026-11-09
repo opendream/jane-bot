@@ -22,5 +22,9 @@ export function toDialogModel(a: LLMAdapter | null, rewordRuntimes: readonly str
     const rw = a.rewordCard.bind(a);
     m.reword = (card, signal) => rw({ answer_th: card.answer_th, key_facts: card.key_facts }, signal);
   }
-  return m.pickCard || m.reword ? m : null;
+  if (a.chatReply) {
+    const chat = a.chatReply.bind(a);
+    m.chatReply = (text, history, signal, lang, groupId, opts) => chat(text, history, signal, lang, groupId, opts);
+  }
+  return m.pickCard || m.reword || m.chatReply ? m : null;
 }

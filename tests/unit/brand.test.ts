@@ -3,8 +3,8 @@ import fs from "node:fs";
 import { PRODUCT_NAME, PRODUCT_NAME_EN } from "../../src/config";
 
 describe("brand", () => {
-  it("name is พี่เจน / Jane", () => {
-    expect(PRODUCT_NAME).toBe("พี่เจน");
+  it("name is เจน / Jane", () => {
+    expect(PRODUCT_NAME).toBe("เจน");
     expect(PRODUCT_NAME_EN).toBe("Jane");
   });
   it("mark is a self-contained, code-drawn SVG (no images, links, scripts or fonts)", () => {

@@ -1,13 +1,21 @@
 /// <reference types="vite/client" />
 
+interface ImportMetaEnv {
+  /** Set to "1" in the eval build so the in-memory chat-crisis tag is kept. Never user text. */
+  readonly VITE_EVAL?: string;
+}
+
 interface Window {
   /** E2E / unit test hook only. Never stores user content. */
   __JANE_RUNTIME_TEST__?: {
     webllm?: "warmup-lost" | "generate-lost" | "disposed";
     wasm?: "ok" | "unavailable";
     gpu?: boolean;
-    pick?: "ok" | "timeout" | "not-ready" | "warmup" | "warmup-slow";
+    pick?: "ok" | "timeout" | "not-ready" | "warmup" | "warmup-slow" | "none" | "loading" | "fail";
+    chatDelayMs?: number;
   };
+  /** E2E call counts for the stubbed model. Counts only, never user text. */
+  __JANE_RUNTIME_CALLS__?: { chat: number; pick: number };
 }
 declare module "*.css";
 declare module "*.webp" {
