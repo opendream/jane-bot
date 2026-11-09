@@ -1,100 +1,86 @@
-# พี่เจน · Jane: SRH referral demo, milestones 1–2
+# Jane (พี่เจน)
 
-Private prototype. Not published, no remote, no deploy.
+Thai sexual-health information chat demo by [Opendream](https://opendream.co.th/).
 
-## Licence
+Jane helps a person describe a need in Thai, checks for crisis language first, then suggests public services and a handoff summary. It is a **local demo**, not a clinic, not a counsellor, and **not medical advice**.
 
-The **code** is under the Apache License 2.0 (see the root `LICENSE`). The **answer-bank text** (cards under `src/data/bank/`: `answer_th`, titles, variants, key facts, triggers, chip labels) is licensed CC BY-SA 4.0 (see `src/data/bank/LICENSE`; attribution Opendream). That CC BY-SA grant covers the answer-bank text only: it does not cover illustrations, art, images, sprites, or the brand mark. The **eval question set** (`evals/` item files) is separately licensed CC BY-SA 4.0 as text (see `evals/LICENSE`; attribution Opendream). Quiz content is adapted from 'Judies, Opendream 2017' (Opendream owns Judies and relicenses its quiz content under CC BY-SA 4.0).
-Name: **พี่เจน** (Thai) / **Jane** (English), `PRODUCT_NAME` / `PRODUCT_NAME_EN` in `src/config.ts` (Keng, 22 Oct 19:49 BKK).
-Illustration © Opendream, 2018. Some figures redrawn with AI assistance, 2026.
-Art: 2018 *Sex Safe Safe* vector stars and approved figures in `src/assets/jane/` (all rights reserved; not covered by Apache-2.0 or CC BY-SA). Provenance: native 2018 PDF crops plus an AI-assisted high-res redraw of Opendream's 2018 illustrations, Grok Imagine, 2026 (see `src/assets/jane/MANIFEST.md`). The small mark (`src/assets/mark.svg`) was drawn in code for this build and is also the favicon. Never use the 2020 Jane art. UI font is self-hosted Mitr (SIL OFL 1.1, Cadson Demak). Minimum age: `MIN_AGE` (default 15).
-**Thai copy is reviewed** (Keng, 27 Oct 2026). The crisis phrase list was approved unchanged.
+If the text looks like a crisis (self-harm, violence, emergency), Jane stops the normal flow and shows Thailand support lines with tap-to-call (`tel:`): **1323**, **1300**, **1669**, and **191**. Mixed or unclear crisis wording shows all four.
 
-## What it does (works without any model)
+Minimum age for the demo is 15 (`MIN_AGE` in `src/config.ts`).
 
-1. Start screen: not medical advice · privacy (on device, no logs) · age band (15–17 / 18–24 / 25+ / ไม่อยากบอก). Quick-exit button on every screen.
-2. She describes her need in Thai → **crisis check first** (`src/core/crisis.ts`) → rule-based need mapping
-   (`src/core/intent.ts`) → 1–3 services from the cited data file (`src/data/services.json`) with an
-   open-now check in Asia/Bangkok time (`src/core/openNow.ts`).
-3. Handoff summary from a fixed template, PII stripped (`src/core/summary.ts`); she can edit, approve or cancel.
-4. Approve → simulated handoff screen labelled **DEMO — nothing was sent**, plus the real public channel.
-5. Crisis phrases override everything: the matching helplines with tap-to-call (`tel:`). Mixed or unclear shows all four (1323 / 1300 / 1669 / 191).
+## Demo
 
-6. Five acceptance scenarios: S1 pregnancy, S2 emergency contraception, S3 HIV test, S4 consent (Teen Club / 1323 / 1300;
-   being forced → crisis, 191 then 1300), S5 mental health (1323 first; suicidal wording → crisis override).
-7. Crisis detection has two levels: **override** (full crisis screen) and **banner** (topic/fiction/news or resolved mild
-   wording: normal flow plus a crisis strip with the numbers). False-positive probe: `evals/crisis-fp-set.json` → `evals/crisis-scorecard.md`.
+Screenshots from the local e2e run live in `shots/`:
 
-## On-device model (optional; the app works without it)
-
-Qwen3 (Apache-2.0) only. Typhoon is on hold until the OpenTyphoon terms are cleared. Order: **WebGPU** via WebLLM (real GPU only;
-SwiftShader is ignored) → **WASM** via wllama (CPU) → **rules**. If WebGPU loads then loses the device, the pill is not left on "ready": WebLLM is torn down and WASM is tried next. Choose in `src/config.ts` (`MODEL`) or with `?model=` / `?runtime=`.
-
-| `MODEL` | WebGPU | WASM (CPU) |
+| Start | Suggestions | Crisis |
 | --- | --- | --- |
-| `qwen3-1.7b` (default) | q4f16 0.99 GB (q4f32 0.99 GB if no shader-f16) | GGUF Q4_K_M 1.11 GB |
-| `qwen3-4b` | q4f16 / q4f32 2.29 GB | no build (GGUF 2.5 GB > wllama 2 GB limit) → falls back to 1.7B |
+| ![Start screen](shots/s1-01-start.png) | ![Service suggestions](shots/s1-03-suggestions.png) | ![Crisis card](shots/c1-01-crisis-card.png) |
 
-- Rules decide when confident; the model is consulted only for low-confidence text (8 s timeout) and its answer is validated.
-  Summary polish runs in the background, only touches her own line, and is discarded if it adds numbers, crisis words or length.
-  Crisis detection is rules-only and always runs first.
-- Weights are self-hosted: `node scripts/fetch-weights.mjs` downloads pinned revisions (`scripts/weights-manifest.json`) from the
-  original sources, checks sha256, and writes `models/` (gitignored). The app loads them from `/models/` on 127.0.0.1 into
-  Cache Storage (`model-weights-v1`, model files only), after which it runs fully offline.
-- Header pill shows the state: loading (flow usable meanwhile) / "โมเดลในเครื่อง: <name> · ออฟไลน์" / rules only.
-- Eval: `node scripts/eval-model.mjs` → `evals/model-scorecard.md` (rules vs model vs combined).
+More stills (handoff labelled **DEMO — nothing was sent**, under-age gate, model-loading pill) are in the same folder.
 
-## Embedding matcher (off; desktop-dev seam only)
+## What it does
 
-Rules are the sole shipped router: crisis first, then trigger retrieval, then the fallback card
-(ตอนนี้พี่เจนยังไม่สามารถตอบเรื่องนั้นได้ค่ะ, เริ่มใหม่). The e5-small int8 matcher is behind
-`MATCHER` in `src/config.ts` (default `false`) or `?matcher=1` in desktop DEV only
-(`import.meta.env.DEV`, same gate as `?copy=`). Production builds never enable it. Phones never
-enable it, even if the flag is set. Iteration 3 failed the acceptance gates (in-scope abstain
-32–45% vs ≤20%; 1–3 normal-card leaks on the development harassment/crisis sets), so the matcher
-is not used in production. The loader is a no-op stub: no fetch/XHR/HEAD. Weights, if you have
-a local copy, stay in a gitignored dir (`models/matcher/` or `?matcherWeights=models/...`) on
-this origin; they are not in this repo. Parked PR #17 crisis patterns are not included.
+The app works **without any model**.
 
-## Privacy guarantees (checked by the e2e tests)
+1. Start screen: not medical advice, on-device privacy, age band, quick-exit on every screen.
+2. The person types a need in Thai. Crisis rules run first (`src/core/crisis.ts`), then rule-based mapping, then 1–3 services from `src/data/services.json` with an open-now check in Asia/Bangkok.
+3. A handoff summary is built from a fixed template with PII stripped. The person can edit, approve, or cancel.
+4. Approve shows a simulated handoff screen labelled **DEMO — nothing was sent**, plus the real public channel as text (not a live send).
+5. An optional on-device Qwen3 model can refine low-confidence routing and summary wording. Crisis detection stays rules-only.
 
-- No `fetch`/XHR in the app; strict CSP (`default-src 'self'`); no external fonts, scripts or links (source URLs are text).
-- State is in memory only: nothing in localStorage, IndexedDB or cookies. sessionStorage may hold a single non-personal
-  `jane.webgpu.failed` flag after a WebGPU device loss so the next load skips the broken GPU and tries WASM. Cache Storage holds model files only.
-- No logging of user text; the static server never receives chat content.
+## Setup and run
 
-## Run locally (bound to 127.0.0.1 only)
+Needs Node.js 18+ (verified here on Node 22). The static server binds **127.0.0.1 only**.
 
 ```bash
 npm ci
-npm run dev        # http://127.0.0.1:5173  (dev, hot reload)
-node scripts/fetch-weights.mjs     # once, ~2.1 GB (optional: app works on rules without it)
-# closest to filming (same server as the run bundle):
+npm test           # vitest unit tests
+npm run e2e        # build + Playwright (headless Chrome on 127.0.0.1:4173)
+npm run dev        # http://127.0.0.1:5173  (hot reload)
 npm run build && node scripts/serve.mjs   # http://127.0.0.1:4173
 ```
 
-## Tests
+`npm run e2e` uses `/usr/bin/google-chrome` (override with `CHROME_PATH`). Step screenshots go to `e2e-shots/` (gitignored). The WASM model e2e test is skipped when weights are not installed.
+
+Optional filming bundle: `python3 scripts/make-bundle.py` → see `bundle/README-RUN.md`.
+
+## Model setup
+
+Weights are **never in this repository**. The demo runs on rules if they are missing.
+
+To fetch the default Qwen3-1.7B builds (WebGPU + WASM GGUF, about 2.1 GB), from their official pinned sources:
 
 ```bash
-npm test           # unit tests + seed set scorecard (writes evals/scorecard.md)
-npm run e2e        # builds, serves on 127.0.0.1:4173, headless Chrome; 5 scenarios, crisis, banner, under-age,
-                   # and the WASM model test (persistent profile; zero weight/flow requests once warm; skipped without weights)
+node scripts/fetch-weights.mjs
+# optional larger WebGPU model:
+node scripts/fetch-weights.mjs --model qwen3-4b
 ```
-E2E uses `/usr/bin/google-chrome` (override with `CHROME_PATH`). Step screenshots go to `e2e-shots/`; key ones are in `shots/`.
-The e2e run fixes the browser clock (Playwright clock API) to set BKK times.
 
-## Model spike (`spike/`, not part of the app bundle)
+| `MODEL` (`src/config.ts`) | WebGPU | WASM (CPU) | Official source |
+| --- | --- | --- | --- |
+| `qwen3-1.7b` (default) | MLC q4f16 / q4f32 ~0.99 GB | GGUF Q4_K_M 1.11 GB | [Qwen3-1.7B](https://huggingface.co/Qwen/Qwen3-1.7B), [MLC build](https://huggingface.co/mlc-ai/Qwen3-1.7B-q4f16_1-MLC), [unsloth GGUF](https://huggingface.co/unsloth/Qwen3-1.7B-GGUF) |
+| `qwen3-4b` | MLC q4f16 / q4f32 ~2.29 GB | falls back to 1.7B | [Qwen3 blog](https://qwenlm.github.io/blog/qwen3/) |
+| `off` | none | none | rules only |
 
-`spike/fetch-model.sh` downloads WebLLM prebuilt Qwen3-1.7B weights and WebGPU libs once to the box;
-`spike/webllm-spike.html` loads them from `127.0.0.1` only. On a machine without a GPU, Chrome's SwiftShader
-WebGPU adapter (`--enable-unsafe-webgpu`) can run the q4f32_1 build on CPU (very slow, wiring proof only).
+Files land in `models/` (gitignored) after sha256 checks against `scripts/weights-manifest.json`. The app loads them from `/models/` on 127.0.0.1 into Cache Storage (`model-weights-v1`, model files only). Testing overrides: `?model=off`, `?runtime=webgpu`, `?runtime=wasm`.
 
-## Data sources
+Qwen3-0.6B, Qwen3.5 0.8B/2B, and Gemma are **not** fetched by the default-branch scripts. See `THIRD_PARTY.md`.
 
-Every service and crisis line cites a public source with a check date (BKK) in `src/data/services.json`.
-For teen_club, yfhs and oscc_hospital, hours and open-now show without a caveat, by owner decision (27 Oct 2026). 1663 hours are 09:00–21:00 daily (D3; operator / RSATHAI / NHSO).
+## Safety notes
 
-## Run bundle for the filming laptop
+- Eval and unit tests use **synthetic** prompts only. Do not commit real chat logs.
+- **No logging of user messages.** Chat state is in memory. The static server does not receive chat content. There is no `console` logging of user text.
+- **No image upload.** There is no file input.
+- No `fetch`/XHR in the app; strict CSP (`default-src 'self'`). Source URLs are shown as text, not links.
+- Nothing user-identifying is written to localStorage, IndexedDB, or cookies. sessionStorage may hold a single non-personal `jane.webgpu.failed` flag after a WebGPU device loss. Cache Storage holds model files only.
+- Quick-exit and erase drop in-memory state.
 
-`python3 scripts/make-bundle.py` → `dist-bundle/jane-demo-run-bundle-<stamp>.zip` (prebuilt app + Node-only scripts; no weights).
-On the laptop: unzip, `./start.sh` (or `start.command`). See `bundle/README-RUN.md` and `bundle/FILMING-CHECKLIST.md`.
+## Licence
+
+The **code** is under the Apache License 2.0 (see the root `LICENSE`). `package.json` `license` is `Apache-2.0`. The **answer-bank text** (cards under `src/data/bank/`: `answer_th`, titles, variants, key facts, triggers, chip labels) is licensed CC BY-SA 4.0 (see `src/data/bank/LICENSE`; attribution Opendream). That CC BY-SA grant covers the answer-bank text only: it does not cover illustrations, art, images, sprites, or the brand mark. The **eval question set** (`evals/` item files) is separately licensed CC BY-SA 4.0 as text (see `evals/LICENSE`; attribution Opendream). Quiz content is adapted from 'Judies, Opendream 2017' (Opendream owns Judies and relicenses its quiz content under CC BY-SA 4.0).
+Illustration © Opendream, 2018. Some figures redrawn with AI assistance, 2026.
+Art: 2018 *Sex Safe Safe* vector stars and approved figures in `src/assets/jane/` (all rights reserved; not covered by Apache-2.0 or CC BY-SA). Never use the 2020 Jane art. UI font is self-hosted Mitr (SIL OFL 1.1, Cadson Demak). Third-party models and other notices: `NOTICE` and `THIRD_PARTY.md`.
+
+## Contact
+
+Opendream — https://opendream.co.th/en/contact_en — info@opendream.co.th
