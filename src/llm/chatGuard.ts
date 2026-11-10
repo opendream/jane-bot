@@ -20,6 +20,7 @@ export type ChatGuardReason =
   | "email"
   | "phone"
   | "dose"
+  | "advice"
   | "claim"
   | "price"
   | "roleplay"
@@ -166,6 +167,37 @@ function englishClaim(raw: string): boolean {
   return !!(findPhrases(raw, EN_CLAIM_PHRASES).length || EN_CURE_RE.test(raw) || EN_GUARANTEE_RE.test(raw));
 }
 
+/**
+ * Instruction / permission to take a named medicine or contraceptive method.
+ * Topic mentions without an imperative (คุยเรื่องยาคุมได้เลย) stay allowed.
+ */
+const MED_TH =
+  "(?:ยาคุมฉุกเฉิน|ยาฉุกเฉิน|ยาคุม|ยาแก้ปวด|ยาฆ่าเชื้อ|ยาปฏิชีวนะ|ยาแพ้|ยาฝัง|ยาฉีด|เพรพ|เปป|PrEP|PEP|prep|pep)";
+const THAI_ADVICE_RE = new RegExp(
+  `(?:ให้กิน|ควรกิน|ลองกิน|ให้ทาน|ควรทาน|ลองทาน|ให้ใช้|ควรใช้|ลองใช้).{0,20}?${MED_TH}`
+  + `|(?:กิน|ทาน|ใช้).{0,20}?${MED_TH}.{0,12}?(?:ได้เลย|ไปเลย|เลย)`
+  + `|${MED_TH}.{0,12}?(?:ให้กิน|ควรกิน|ลองกิน|กินได้เลย|ใช้ได้เลย|ใช้เลย)`
+  + `|${MED_TH}.{0,12}?(?:เม็ด|มก\\.?|mg|โดส)|(?:เม็ด|มก\\.?|mg|โดส).{0,12}?${MED_TH}`,
+  "iu",
+);
+
+const MED_EN =
+  "(?:emergency contraception|emergency contraceptive(?: pills?)?|birth control(?: pills?)?|plan b|prep|pep|painkillers?|ibuprofen|paracetamol|the pill|contraceptive(?: pills?)?)";
+const EN_ADVICE_RE = new RegExp(
+  `\\b(?:go ahead and |just |please )?(?:take|taking|use|using|swallow)\\b(?:[\\s,.-]+\\w+){0,6}[\\s,.-]*\\b${MED_EN}\\b`
+  + `|\\b(?:you (?:can|should|could|may|need to)|try )(?:take|taking|use|using)\\b(?:[\\s,.-]+\\w+){0,6}[\\s,.-]*\\b${MED_EN}\\b`
+  + `|\\b${MED_EN}\\b(?:[\\s,.-]+\\w+){0,4}[\\s,.-]+\\b(?:mg|milligrams?|pills?|tablets?|doses?)\\b`,
+  "i",
+);
+
+function thaiAdvice(raw: string): boolean {
+  return THAI_ADVICE_RE.test(raw);
+}
+
+function englishAdvice(raw: string): boolean {
+  return EN_ADVICE_RE.test(raw);
+}
+
 function thaiPrice(raw: string): boolean {
   return THAI_PRICE_RE.test(raw);
 }
@@ -188,6 +220,7 @@ export function chatGuardFailures(
   if (/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/.test(raw)) fails.push("email");
   if (/(?:\+66|0[689])[\d๐-๙\s-]{7,}/.test(raw) || /โทร\s*[\d๐-๙]/.test(raw)) fails.push("phone");
   if (lang === "en" ? englishDose(raw) : thaiDose(raw)) fails.push("dose");
+  if (lang === "en" ? englishAdvice(raw) : thaiAdvice(raw)) fails.push("advice");
   if (lang === "en" ? englishClaim(raw) : thaiClaim(raw)) fails.push("claim");
   if (lang === "en" ? englishPrice(raw) : thaiPrice(raw)) fails.push("price");
   for (const r of OUTPUT_GUARD_REASONS) {

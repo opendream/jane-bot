@@ -344,6 +344,29 @@ async function withTimeout<T>(fn: (s: AbortSignal) => Promise<T>, ms: number, ou
   } catch { return null; } finally { clearTimeout(t); outer?.removeEventListener("abort", stop); }
 }
 
+/** Wait out a short in-flight warm-up so the first chat-first turn is not a card. */
+async function waitForChatReady(
+  deps: TurnDeps,
+  initial: DialogModel | null,
+  budgetMs: number,
+  signal?: AbortSignal,
+): Promise<DialogModel | null> {
+  const current = () => deps.getModel?.() ?? deps.model ?? initial;
+  const first = current();
+  if (first?.ready() && first.chatReply) return first;
+  const eta = first?.warmupRemainingMs?.() ?? deps.warmupRemainingMs?.() ?? null;
+  if (eta == null || eta > budgetMs) return first?.ready() && first.chatReply ? first : null;
+  const deadline = Date.now() + Math.min(budgetMs, Math.max(0, eta) + 25);
+  while (Date.now() < deadline) {
+    if (signal?.aborted) return null;
+    const p = current();
+    if (p?.ready() && p.chatReply) return p;
+    await new Promise<void>((r) => setTimeout(r, Math.min(25, Math.max(0, deadline - Date.now()))));
+  }
+  const last = current();
+  return last?.ready() && last.chatReply ? last : null;
+}
+
 const verbatim = async (c: BankCard) => ({ text: c.answer_th, reworded: false });
 
 /** Default render: ask the model to reword, validate, and fall back to the exact text on any failure or timeout. */
@@ -586,11 +609,15 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     }
 
     const history = chatHistory(state.chatFlow);
-    const live = deps.getModel?.() ?? deps.model ?? null;
+    let live = deps.getModel?.() ?? deps.model ?? null;
     const token = deps.generationToken;
     const stale = () => (token != null && !isCurrentGeneration(token)) || !!deps.signal?.aborted;
     const dropStale = () => ({ state, reply: { kind: "idle" as const, capNotice: null } });
 
+    const timeoutMs = deps.chatTimeoutMs ?? CHAT_FIRST_TIMEOUT_MS;
+    if (plan.callChat && live?.chatReply && !live.ready()) {
+      live = await waitForChatReady(deps, live, timeoutMs, deps.signal);
+    }
     if (!plan.callChat || !live?.ready() || !live.chatReply) {
       const top = rulesTop(retrieveText);
       return verbatimCard(top.card, top.via, tagged ? "rules-not-ready" : undefined);
@@ -601,7 +628,6 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     const retryGrounding: ChatGrounding = { facts: null, strict: true };
 
     deps.onGenerating?.({ groupId: token ?? currentGenerationToken(), lang });
-    const timeoutMs = deps.chatTimeoutMs ?? CHAT_FIRST_TIMEOUT_MS;
     const deadlineAt = Date.now() + timeoutMs;
     const remainingMs = () => Math.max(0, deadlineAt - Date.now());
     const attempt = (g?: ChatGrounding) =>
@@ -723,7 +749,7 @@ export class DialogSession {
   setMatcher(matcher: IntentMatcher | null) { this.deps = { ...this.deps, matcher }; }
   async send(text: string, extra?: { onGenerating?: TurnDeps["onGenerating"] }): Promise<TurnReply | null> {
     const chatFirst = !!this.deps.chatFirst;
-    const token = chatFirst ? bumpGenerationToken() : currentGenerationToken();
+    const token = bumpGenerationToken();
     this.inflight?.abort();
     const ac = new AbortController();
     this.inflight = ac;
@@ -731,7 +757,7 @@ export class DialogSession {
     const out = chatFirst
       ? await this.sendChatFirst(text, ac, token, extra)
       : await runTurn(this.state, text, { ...this.deps, signal: ac.signal, getModel: () => this.deps.model ?? null });
-    if (my !== this.seq || (chatFirst && !isCurrentGeneration(token))) return null;
+    if (my !== this.seq || !isCurrentGeneration(token)) return null;
     this.state = out.state;
     if (chatFirst && out.reply.kind !== "idle") this.unanswered = [];
     this.inflight = null;
@@ -740,7 +766,7 @@ export class DialogSession {
   abort() {
     this.inflight?.abort();
     this.seq++;
-    if (this.deps.chatFirst) bumpGenerationToken();
+    bumpGenerationToken();
   }
 
   private async sendChatFirst(

@@ -36,7 +36,7 @@ export interface StartModelDeps {
   search?: string;
   gpuInfo?: () => Promise<{ ok: boolean; f16: boolean }>;
   installed?: () => Promise<Installed[]>;
-  loadWebLLM?: (build: WebGpuBuild, label: string, onProgress: (p: number) => void, opts?: { onDead?: (err: Error) => void; onWarmup?: (ms: number) => void }) => Promise<LLMAdapter>;
+  loadWebLLM?: (build: WebGpuBuild, label: string, onProgress: (p: number) => void, opts?: { onDead?: (err: Error) => void; onWarmup?: (ms: number) => void; chatFirst?: boolean }) => Promise<LLMAdapter>;
   loadWllama?: (file: string, label: string, onProgress: (p: number) => void, opts?: { onWarmup?: (ms: number) => void; nCtx?: number; chatFirst?: boolean }) => Promise<LLMAdapter>;
   storage?: StorageLike;
   onAdapter?: (a: LLMAdapter | null) => void;
@@ -418,6 +418,7 @@ export async function startModel(onStatus: (s: ModelStatus) => void, deps: Start
         return load(build, spec.label, (p) => onStatus({ state: "loading", runtime: "webgpu", label: spec.label, progress: p }), {
           onDead: () => gpuDead?.(),
           onWarmup: (ms) => beginWarmup(ms),
+          chatFirst: chatFirstEnabled(search),
         });
       },
     });
