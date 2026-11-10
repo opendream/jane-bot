@@ -4,6 +4,8 @@ import { newChat } from "../../src/ui/chat";
 import { newDialog, runTurn, type DialogModel, type TurnDeps } from "../../src/core/dialog";
 import { planTurn, newChatFlow, applyChatTurn } from "../../src/core/chat-flow";
 import { BANK } from "../../src/core/bankData";
+import { parseChatChoice, renderChatChoice } from "../../src/llm/chat-choice";
+import { acceptChatReply, chatGuardFailures } from "../../src/llm/chatGuard";
 import { CHAT_OPENERS_TH, CHAT_FOLLOWUPS_TH } from "../../src/llm/chat-voice";
 import { STUB_CHAT_REPLY_TH } from "../../src/llm/runtime";
 import { CHAT_SYSTEM } from "../../src/llm/chat-system";
@@ -21,6 +23,7 @@ function spyModel(reply: string = SAFE) {
       histories.push(history.map((h) => ({ ...h })));
       return reply;
     }),
+    pickCard: vi.fn(async (_t, list) => list[0]?.id ?? null),
   };
   return { model, histories, texts };
 }
@@ -29,25 +32,31 @@ const deps = (model: DialogModel | null, extra: Partial<TurnDeps> = {}): TurnDep
   cards: BANK, model, copyStatus: "draft", chatFirst: true, ...extra,
 });
 
-describe("chat-first is the production default", () => {
-  it("CHAT_FIRST is on; ?chatFirst=0 is the only opt-out", () => {
-    expect(CHAT_FIRST).toBe(true);
-    expect(chatFirstEnabled("")).toBe(true);
-    expect(chatFirstEnabled("?model=off")).toBe(true);
+describe("card-first is the production default", () => {
+  it("CHAT_FIRST is off; ?chatFirst=1 is the experimental opt-in", () => {
+    expect(CHAT_FIRST).toBe(false);
+    expect(chatFirstEnabled("")).toBe(false);
+    expect(chatFirstEnabled("?model=off")).toBe(false);
     expect(chatFirstEnabled("?chatFirst=1")).toBe(true);
     expect(chatFirstEnabled("?chatFirst=true")).toBe(true);
+    expect(chatFirstEnabled("?chatFirst=on")).toBe(true);
     expect(chatFirstEnabled("?chatFirst=0")).toBe(false);
     expect(chatFirstEnabled("?chatFirst=false")).toBe(false);
     expect(chatFirstEnabled("?chatFirst=off")).toBe(false);
     expect(CHAT_HISTORY_TURNS).toBeGreaterThanOrEqual(3);
   });
 
-  it("newChat without a query flag is chat-first", () => {
+  it("newChat without a query flag is card-first", () => {
     const chat = newChat("18-24", null);
+    expect(chat.chatFirst).toBe(false);
+  });
+
+  it("newChat with ?chatFirst=1 enables chat-first", () => {
+    const chat = newChat("18-24", null, null, { search: "?chatFirst=1" });
     expect(chat.chatFirst).toBe(true);
   });
 
-  it("newChat with ?chatFirst=0 is the card-first opt-out", () => {
+  it("newChat with ?chatFirst=0 still forces card-first", () => {
     const chat = newChat("18-24", null, null, { search: "?chatFirst=0" });
     expect(chat.chatFirst).toBe(false);
   });
@@ -57,6 +66,60 @@ describe("chat-first is the production default", () => {
     expect(CHAT_SYSTEM).toContain("เรา");
     expect(CHAT_SYSTEM).toContain("เธอ");
     expect(CHAT_SYSTEM).not.toMatch(/พี่เจน/);
+  });
+
+  it("default URL is card-first and a v40 JSON choice maps to an approved card", async () => {
+    expect(chatFirstEnabled("")).toBe(false);
+    const birth = BANK.find((c) => c.id === "birth.control.000");
+    expect(birth).toBeTruthy();
+    const json = '{"o":0,"c":1,"q":0}';
+    const parsed = parseChatChoice(json, {
+      openerCount: CHAT_OPENERS_TH.length,
+      followUpCount: CHAT_FOLLOWUPS_TH.length,
+      hasCard: true,
+    });
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const text = renderChatChoice(parsed.choice, "th", birth!.answer_th);
+    expect(text).toContain(birth!.answer_th);
+
+    const model: DialogModel = {
+      ready: () => true,
+      chatReply: vi.fn(async () => json),
+      pickCard: vi.fn(async () => json),
+    };
+    const r = await runTurn(newDialog("18-24"), "อยากรู้เรื่องคุมกำเนิด", {
+      cards: BANK, model, copyStatus: "reviewed",
+    });
+    expect(r.reply.kind).toBe("card");
+    if (r.reply.kind === "card") {
+      expect(r.reply.card.id).toBe("birth.control.000");
+      expect(BANK.some((c) => c.id === r.reply.card.id)).toBe(true);
+      expect(r.reply.text).toBe(r.reply.card.answer_th);
+    }
+    expect(model.chatReply).not.toHaveBeenCalled();
+  });
+
+  it("v40 JSON {o,c,q} is accepted by the card-choice path and rejected by chatGuard as prose", () => {
+    const canonical = '{"o":0,"c":0,"q":0}';
+    const withCard = '{"o":0,"c":1,"q":0}';
+    const observed = '{"o":0,"c":"general","q":0}';
+    const bounds = {
+      openerCount: CHAT_OPENERS_TH.length,
+      followUpCount: CHAT_FOLLOWUPS_TH.length,
+      hasCard: true,
+    };
+    expect(parseChatChoice(canonical, bounds)).toEqual({ ok: true, choice: { o: 0, c: 0, q: 0 } });
+    expect(parseChatChoice(withCard, bounds)).toEqual({ ok: true, choice: { o: 0, c: 1, q: 0 } });
+    const condom = BANK.find((c) => c.id === "condom.000")!;
+    expect(renderChatChoice({ o: 0, c: 1, q: 0 }, "th", condom.answer_th)).toContain(condom.answer_th);
+
+    expect(acceptChatReply(canonical).ok).toBe(false);
+    expect(acceptChatReply(withCard).ok).toBe(false);
+    expect(acceptChatReply(observed).ok).toBe(false);
+    expect(chatGuardFailures(canonical)).toContain("think");
+    expect(chatGuardFailures(withCard)).toContain("think");
+    expect(chatGuardFailures(observed)).toContain("think");
   });
 });
 
@@ -205,12 +268,15 @@ describe("reviewed cards only as fallback", () => {
 });
 
 describe("crisis bypass never calls the model", () => {
-  it("อยากตาย is the crisis screen with zero chatReply calls", async () => {
+  it("อยากตาย is the crisis screen in both modes with zero model calls", async () => {
     const line = "อยากตาย";
     expect(detectCrisis(line).crisis).toBe(true);
-    const { model } = spyModel();
-    const r = await runTurn(newDialog(), line, deps(model));
-    expect(r.reply.kind).toBe("crisis");
-    expect(model.chatReply).not.toHaveBeenCalled();
+    for (const chatFirst of [false, true]) {
+      const { model } = spyModel();
+      const r = await runTurn(newDialog(), line, deps(model, { chatFirst }));
+      expect(r.reply.kind, `chatFirst=${chatFirst}`).toBe("crisis");
+      expect(model.chatReply).not.toHaveBeenCalled();
+      expect(model.pickCard).not.toHaveBeenCalled();
+    }
   });
 });

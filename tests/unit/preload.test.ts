@@ -28,12 +28,12 @@ function fakeWasm(label = "Qwen3-1.7B"): LLMAdapter {
 describe("shouldPreloadModel (flag off by default)", () => {
   it("keeps the base trigger: default search still starts the model", () => {
     expect(MODEL_CARD_PICK).toBe(false);
-    expect(CHAT_FIRST).toBe(true);
+    expect(CHAT_FIRST).toBe(false);
     expect(CHAT_CRISIS_CARD_FIRST).toBe(true);
     expect(chatCrisisEnabled(false)).toBe(true);
     expect(chatCrisisEnabled(true)).toBe(true);
     expect(modelCardPickEnabled("")).toBe(false);
-    expect(chatFirstEnabled("")).toBe(true);
+    expect(chatFirstEnabled("")).toBe(false);
     expect(shouldPreloadModel("")).toBe(true);
     expect(shouldPreloadModel("?modelPick=0")).toBe(true);
     expect(shouldPreloadModel("?model=off")).toBe(false);
@@ -156,7 +156,7 @@ describe("wllama n_ctx (chat-first only)", () => {
     expect(wllamaContextLength(true)).toBe(2048);
   });
 
-  it("startModel passes nCtx 2048 by default and 1024 when ?chatFirst=0", async () => {
+  it("startModel passes nCtx 1024 by default and 2048 when ?chatFirst=1", async () => {
     const loadOn = vi.fn(async (_f: string, _l: string, onP: (n: number) => void) => {
       onP(1);
       return fakeWasm();
@@ -170,7 +170,7 @@ describe("wllama n_ctx (chat-first only)", () => {
     expect(loadOn.mock.calls[0][3]).toMatchObject({ nCtx: 2048, chatFirst: true });
 
     resetPreloadForTests();
-    const loadOff = vi.fn(async (_f: string, _l: string, onP: (n: number) => void) => {
+    const loadDefault = vi.fn(async (_f: string, _l: string, onP: (n: number) => void) => {
       onP(1);
       return fakeWasm();
     });
@@ -178,9 +178,9 @@ describe("wllama n_ctx (chat-first only)", () => {
       search: "?model=qwen3-1.7b&runtime=wasm",
       gpuInfo: async () => ({ ok: false, f16: false }),
       installed: async () => [{ model: "qwen3-1.7b", variants: ["wasm"] }],
-      loadWllama: loadOff,
+      loadWllama: loadDefault,
     });
-    expect(loadOff.mock.calls[0][3]).toMatchObject({ nCtx: 2048, chatFirst: true });
+    expect(loadDefault.mock.calls[0][3]).toMatchObject({ nCtx: 1024, chatFirst: false });
 
     resetPreloadForTests();
     const loadOptOut = vi.fn(async (_f: string, _l: string, onP: (n: number) => void) => {

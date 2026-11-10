@@ -91,11 +91,11 @@ function shownCard(reply: { kind: string; card?: { id: string; answer_th: string
   throw new Error(`expected a card, got ${reply.kind}`);
 }
 
-describe("production defaults (chat-first on)", () => {
-  it("CHAT_FIRST is true and ?chatFirst=0 is the opt-out", () => {
-    expect(CHAT_FIRST).toBe(true);
+describe("production defaults (card-first on)", () => {
+  it("CHAT_FIRST is false and ?chatFirst=1 is the experimental opt-in", () => {
+    expect(CHAT_FIRST).toBe(false);
     expect(CHAT_CRISIS_CARD_FIRST).toBe(true);
-    expect(chatFirstEnabled("")).toBe(true);
+    expect(chatFirstEnabled("")).toBe(false);
     expect(chatFirstEnabled("?chatFirst=0")).toBe(false);
     expect(chatFirstEnabled("?chatFirst=1")).toBe(true);
     expect(chatFirstEnabled("?chatFirst=true")).toBe(true);

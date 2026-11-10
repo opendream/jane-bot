@@ -1,5 +1,5 @@
 /**
- * Extra crisis check on chat-first (default) and card-first (?chatFirst=0).
+ * Extra crisis check on chat-first (?chatFirst=1) and card-first (default / ?chatFirst=0).
  * Stubbed model via ?testRuntime=. SYNTHETIC paraphrase only.
  * Existing crisis screen / helpline order, no new numbers.
  */
@@ -15,7 +15,7 @@ async function openStubbed(page: Page, extraQuery = "") {
 }
 
 async function openChatFirst(page: Page) {
-  await openStubbed(page, "");
+  await openStubbed(page, "&chatFirst=1");
 }
 
 async function openCardFirst(page: Page) {
@@ -36,6 +36,26 @@ async function say(page: Page, text: string) {
 async function modelCalls(page: Page) {
   return page.evaluate(() => window.__JANE_RUNTIME_CALLS__ ?? { chat: 0, pick: 0 });
 }
+
+test("default URL is card-first: crisis line shows help lines with zero model calls", async ({ page }) => {
+  await openStubbed(page, "");
+  await openChat(page);
+  expect(await modelCalls(page)).toEqual({ chat: 0, pick: 0 });
+  await say(page, "อยากตาย");
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  await expect(page.locator('[data-testid^="crisis-"]').first()).toBeVisible();
+  expect(await crisisCallHrefs(page)).toEqual(["tel:1323", "tel:1669"]);
+  const calls = await modelCalls(page);
+  expect(calls.chat + calls.pick).toBe(0);
+});
+
+test("default URL is card-first: a normal SRH question shows an approved bank card", async ({ page }) => {
+  await openStubbed(page, "");
+  await openChat(page);
+  await say(page, "อยากรู้เรื่องคุมกำเนิด");
+  await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
+  await expect(lastJane(page)).toHaveAttribute("data-card", "birth.control.000");
+});
 
 test("chat-first synthetic crisis paraphrase shows the existing crisis card with zero model calls", async ({ page }) => {
   await openChatFirst(page);
@@ -239,7 +259,7 @@ test("chat-first English AMBIGUOUS makes zero model calls and shows the card plu
 });
 
 test("chat-first Thai AMBIGUOUS when the model is not ready shows the card plus the DRAFT line", async ({ page }) => {
-  await page.goto("/?testRuntime=pick-not-ready");
+  await page.goto("/?chatFirst=1&testRuntime=pick-not-ready");
   await page.waitForLoadState("domcontentloaded");
   await openChat(page);
   await say(page, "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง");

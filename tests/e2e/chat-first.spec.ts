@@ -1,6 +1,6 @@
 /**
- * Chat-first is the production default. Mock worker via ?testRuntime=chat-ok.
- * Opt out with ?chatFirst=0. SYNTHETIC chat text only.
+ * Chat-first is experimental (`?chatFirst=1`). Mock worker via ?testRuntime=chat-ok.
+ * Card-first is the production default. SYNTHETIC chat text only.
  */
 import { test, expect, type Page } from "@playwright/test";
 import fs from "node:fs";
@@ -17,7 +17,7 @@ const LEAK_ANSWER = (
 const lastJane = (page: Page) => page.locator('[data-testid="chat-msg"][data-from="jane"]').last();
 
 async function openChatFirst(page: Page) {
-  await page.goto("/?testRuntime=chat-ok&runtime=wasm");
+  await page.goto("/?chatFirst=1&testRuntime=chat-ok&runtime=wasm");
   await page.waitForLoadState("domcontentloaded");
   await expect(page.getByTestId("model-status")).toHaveAttribute("data-state", "ready", { timeout: 10_000 });
 }
@@ -38,7 +38,7 @@ function modelCalls(page: Page) {
 }
 
 test("ขอข้อมูลเลย after a chat turn shows the bank card once", async ({ page }) => {
-  await page.goto("/?testRuntime=chat-ok&runtime=wasm");
+  await page.goto("/?chatFirst=1&testRuntime=chat-ok&runtime=wasm");
   await page.waitForLoadState("domcontentloaded");
   await expect(page.getByTestId("model-status")).toHaveAttribute("data-state", "ready", { timeout: 10_000 });
   await openChat(page);
@@ -159,7 +159,7 @@ test("an English crisis-like message makes zero model calls", async ({ page }) =
 });
 
 async function openChatFirstPick(page: Page) {
-  await page.goto("/?testRuntime=chat-ok&runtime=wasm");
+  await page.goto("/?chatFirst=1&testRuntime=chat-ok&runtime=wasm");
   await page.waitForLoadState("domcontentloaded");
   await expect(page.getByTestId("model-status")).toHaveAttribute("data-state", "ready", { timeout: 10_000 });
 }
@@ -190,7 +190,7 @@ test("chat-guard debug line is off by default and unused when the stub passes", 
 });
 
 test("?debug=1 still hides the debug line when the stub passes the guard", async ({ page }) => {
-  await page.goto("/?testRuntime=chat-ok&runtime=wasm&debug=1");
+  await page.goto("/?chatFirst=1&testRuntime=chat-ok&runtime=wasm&debug=1");
   await page.waitForLoadState("domcontentloaded");
   await expect(page.getByTestId("model-status")).toHaveAttribute("data-state", "ready", { timeout: 10_000 });
   await openChat(page);
@@ -200,7 +200,7 @@ test("?debug=1 still hides the debug line when the stub passes the guard", async
 });
 
 test("thanks sent mid-generation drops the ack and answers the remaining question", async ({ page }) => {
-  await page.goto("/?testRuntime=chat-ok&runtime=wasm&chatReplyMs=1500");
+  await page.goto("/?chatFirst=1&testRuntime=chat-ok&runtime=wasm&chatReplyMs=1500");
   await page.waitForLoadState("domcontentloaded");
   await expect(page.getByTestId("model-status")).toHaveAttribute("data-state", "ready", { timeout: 10_000 });
   await openChat(page);

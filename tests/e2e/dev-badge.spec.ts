@@ -14,7 +14,7 @@ async function openChat(page: Page, band = "18-24") {
   await expect(page.getByTestId("screen-chat")).toBeVisible();
 }
 
-test("filming default chat-first without modelPick hides the model badge", async ({ page }) => {
+test("filming default card-first without modelPick hides the model badge", async ({ page }) => {
   await page.goto("/?testRuntime=chat-ok&runtime=wasm");
   await page.waitForLoadState("domcontentloaded");
   await expect(page.getByTestId("model-status")).toHaveAttribute("data-state", "ready", { timeout: 10_000 });

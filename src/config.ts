@@ -90,11 +90,13 @@ export function pickTimeoutMsFromSearch(search?: string, fallback = 20_000): num
 }
 
 /**
- * Chat-first / model-first is the default: Jane talks, history is passed to the
- * local model, and a reviewed bank card is only a fallback (guard fail, timeout,
- * model not ready). Opt out with ?chatFirst=0 or CHAT_FIRST=false.
+ * Card-first is the default: rules pick a reviewed bank card; when unsure the
+ * model is consulted only to choose from the shortlist. The v40 fine-tune
+ * (`qwen3-0.6b-ft`) was trained on JSON {o,c,q} card choice, not free prose.
+ * Chat-first (experimental; needs a prose-trained model) is opt-in with
+ * ?chatFirst=1. ?chatFirst=0 still forces card-first.
  */
-export const CHAT_FIRST = true;
+export const CHAT_FIRST = false;
 /** Prior user+Jane turns kept as model context (clipped to the context budget). */
 export const CHAT_HISTORY_TURNS = 6;
 /**
@@ -123,7 +125,7 @@ export const CHAT_FIRST_TIMEOUT_MS = 45_000;
 /** Chat-reply budget (plan §2). Same value as CHAT_FIRST_TIMEOUT_MS. */
 export const CHAT_TIMEOUT_MS = CHAT_FIRST_TIMEOUT_MS;
 
-/** Default on. Honour ?chatFirst=0 / false / off as an explicit card-first opt-out. */
+/** Default off (card-first). Honour ?chatFirst=1 / true / on as an explicit chat-first opt-in. */
 export function chatFirstEnabled(search?: string): boolean {
   try {
     const raw = search ?? (typeof location !== "undefined" ? location.search : "");

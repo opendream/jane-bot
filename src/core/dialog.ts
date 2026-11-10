@@ -65,9 +65,11 @@ export type { CardPicker, EngineReason, EngineTag } from "./pick-engine";
  *   4. optional matcher (injected only when the desktop-dev flag is on; abstain → fallback)
  *   5. rules retrieval   6. model pick (only if unsure; every free-text turn when modelPick is on, except locked routes)
  *   7. post-pick age gate (18+ card → redirect)   8. reword (validated, else verbatim)   9. reply with chips and referral offer
- * Chat-first (default): the local model writes the visible line with a bounded
- * history window. Reviewed cards appear only as fallback (guard fail, timeout,
- * model not ready), or on rules-only routes (crisis, chips, locked, show-now).
+ * Card-first (default): rules pick a reviewed bank card; the model is consulted
+ * only when the rules are unsure. Chat-first (`?chatFirst=1`, experimental) lets
+ * the local model write the visible line with a bounded history window; reviewed
+ * cards appear only as fallback (guard fail, timeout, model not ready), or on
+ * rules-only routes (crisis, chips, locked, show-now).
  * ---------------------------------------------------------------------------------------- */
 
 export const WELCOME_ID = "general.welcome.000";
@@ -277,8 +279,9 @@ export interface TurnDeps {
   /** Live model so a mid-wait load is seen. Defaults to deps.model. */
   getModel?: () => DialogModel | null;
   /**
-   * Chat-first (default on). Tests inject true; the production build reads
-   * CHAT_FIRST / chatFirstEnabled (opt out with ?chatFirst=0).
+   * Chat-first (default off). Tests inject true; the production build reads
+   * CHAT_FIRST / chatFirstEnabled (`?chatFirst=1` opt-in; `?chatFirst=0` forces
+   * card-first).
    */
   chatFirst?: boolean;
   /**
