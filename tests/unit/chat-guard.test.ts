@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  CHAT_MAX_CHARS,
   CHAT_MAX_CHARS_EN,
   acceptChatReply,
   chatGuardFailures,
@@ -126,16 +127,33 @@ describe("chatGuard (generated Jane replies)", () => {
     expect(chatGuardFailures("แอดไลน์ @user_alpha ได้เลย")).toContain("handle");
   });
 
-  it("rejects think tags and chat-template tokens", () => {
-    expect(chatGuardFailures("<think>วางแผน</think>พี่อยู่ตรงนี้นะ")).toContain("think");
-    expect(chatGuardFailures("พี่อยู่ตรงนี้นะ /no_think")).toContain("think");
-    expect(chatGuardFailures("<|im_start|>user")).toContain("think");
+  it("strips think tags and accepts the remaining Thai line", () => {
+    expect(acceptChatReply("<think>วางแผน</think>พี่อยู่ตรงนี้นะ")).toEqual({
+      ok: true, text: "พี่อยู่ตรงนี้นะ",
+    });
+    expect(acceptChatReply("พี่อยู่ตรงนี้นะ /no_think")).toEqual({
+      ok: true, text: "พี่อยู่ตรงนี้นะ",
+    });
   });
 
-  it("rejects replies longer than 160 characters", () => {
-    const long = "พี่อยู่ตรงนี้นะ " + "น้องเล่าเพิ่มได้เลย ".repeat(12);
-    expect(long.length).toBeGreaterThan(160);
-    expect(chatGuardFailures(long)).toContain("length");
+  it("rejects a reply that echoes the system prompt", () => {
+    expect(chatGuardFailures("คุณคือเจน เรียกตัวเองว่าเรา อบอุ่น สั้น ไม่ตัดสิน")).toContain("think");
+    expect(acceptChatReply("คุณคือเจน เรียกตัวเองว่าเรา อบอุ่น สั้น ไม่ตัดสิน").ok).toBe(false);
+  });
+
+  it("rejects leftover chat-template tokens that are not Thai chat", () => {
+    expect(acceptChatReply("<|im_start|>user").ok).toBe(false);
+  });
+
+  it("caps a rambling reply instead of rejecting on length", () => {
+    const long = "เราฟังอยู่นะคะ " + "เธอเล่าเพิ่มได้เลยค่ะ ".repeat(20);
+    expect(long.length).toBeGreaterThan(CHAT_MAX_CHARS);
+    const acc = acceptChatReply(long);
+    expect(acc.ok).toBe(true);
+    if (!acc.ok) return;
+    expect(acc.text.length).toBeLessThanOrEqual(CHAT_MAX_CHARS);
+    expect(acc.text.startsWith("เราฟังอยู่นะคะ")).toBe(true);
+    expect(chatGuardFailures(long)).not.toContain("length");
   });
 
   it("rejects mostly non-Thai script", () => {
@@ -213,10 +231,14 @@ describe("chatGuard English path", () => {
     expect(chatGuardFailures("If you want to die I'm here.", "en")).toContain("crisis");
   });
 
-  it("caps English replies at 220 characters (Thai stays 160)", () => {
-    const long = "I'm here. " + "You can tell me more whenever you like. ".repeat(8);
+  it("caps a rambling English reply instead of rejecting on length", () => {
+    const long = "I'm here. " + "You can tell me more whenever you like. ".repeat(20);
     expect(long.length).toBeGreaterThan(CHAT_MAX_CHARS_EN);
-    expect(chatGuardFailures(long, "en")).toContain("length");
+    const acc = acceptChatReply(long, "en");
+    expect(acc.ok).toBe(true);
+    if (!acc.ok) return;
+    expect(acc.text.length).toBeLessThanOrEqual(CHAT_MAX_CHARS_EN);
+    expect(chatGuardFailures(long, "en")).not.toContain("length");
     expect(chatGuardFailures(SAFE, "th")).not.toContain("length");
     expect(SAFE_EN.length).toBeLessThanOrEqual(CHAT_MAX_CHARS_EN);
   });

@@ -2,15 +2,19 @@ import { detectCrisis } from "../core/crisis";
 import { GUARD_RULES, type GuardReason } from "../core/guard";
 import { stripPII } from "../core/summary";
 import { findPhrases } from "../core/text";
-import { type ChatLang, mostlyLatin } from "./chat-lang";
+import { HEALTH_LOANWORDS, type ChatLang, mostlyLatin } from "./chat-lang";
 
 /**
  * Output guard for free-generated Jane chat (PR A). Pinned `src/core/guard.ts` is imported
  * read-only. Chat-first retries once, then shows the rules' top card on its own.
  */
 
-export const CHAT_MAX_CHARS = 160;
-export const CHAT_MAX_CHARS_EN = 220;
+/**
+ * Two short Thai sentences plus a margin for a 128-token 0.6B dump after
+ * sentence-trim. Longer rambling is capped here instead of rejected.
+ */
+export const CHAT_MAX_CHARS = 320;
+export const CHAT_MAX_CHARS_EN = 400;
 
 export type ChatGuardReason =
   | "empty"
@@ -20,7 +24,6 @@ export type ChatGuardReason =
   | "email"
   | "phone"
   | "dose"
-  | "advice"
   | "claim"
   | "price"
   | "roleplay"
@@ -31,6 +34,12 @@ export type ChatGuardReason =
   | "think"
   | "length"
   | "script";
+
+const HEALTH_LOANWORD_SET = new Set<string>(HEALTH_LOANWORDS);
+
+/** Distinctive system-prompt fragments. Echoing these is leakage, not chat. */
+const PROMPT_LEAK_TH = ["คุณคือเจน", "ห้ามให้ข้อมูลทางการแพทย์ของตัวเอง"] as const;
+const PROMPT_LEAK_EN = ["You are P'Jane", "Do not give your own medical facts"] as const;
 
 /**
  * Dose/timing *patterns* — compound phrases, not units.
@@ -134,11 +143,115 @@ function whitespaceNorm(s: string): string {
   return s.replace(/\s+/g, " ").replace(/\s+([,.!?])/g, "$1").trim();
 }
 
+function stripHealthLoanwords(s: string): string {
+  return s.replace(/[A-Za-z]+/g, (tok) => (HEALTH_LOANWORD_SET.has(tok.toLowerCase()) ? " " : tok));
+}
+
 function mostlyThai(s: string): boolean {
-  const thai = (s.match(/[\u0E00-\u0E7F]/g) ?? []).length;
-  const latin = (s.match(/[A-Za-z]/g) ?? []).length;
+  const origThai = (s.match(/[\u0E00-\u0E7F]/g) ?? []).length;
+  if (origThai === 0) return false;
+  const stripped = stripHealthLoanwords(s);
+  const thai = (stripped.match(/[\u0E00-\u0E7F]/g) ?? []).length;
+  const latin = (stripped.match(/[A-Za-z]/g) ?? []).length;
   if (thai + latin === 0) return true;
-  return thai > 0 && thai >= latin;
+  return thai / (thai + latin) >= 0.4;
+}
+
+function stripThink(s: string): string {
+  return s
+    .replace(/<think>[\s\S]*?<\/think>/gi, "\n")
+    .replace(/<\/?think>/gi, " ")
+    .replace(/\/no_think/gi, " ")
+    .replace(/<\|im_(start|end)\|>/gi, " ");
+}
+
+function stripMarkdown(s: string): string {
+  return s
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+    .replace(/^\s*[-*+]\s+/gm, "")
+    .replace(/^\s*\d+[.)]\s+/gm, "")
+    .replace(/^\s*>\s+/gm, "")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/`([^`]+)`/g, "$1");
+}
+
+const ROLE_PREFIX =
+  /^(?:(?:P['’]?Jane|Jane|เจน|assistant|user|system)\s*[:：]\s*)+/i;
+const BARE_ROLE_LINE = /^(?:assistant|user|system|jane|เจน)\s*$/i;
+
+function stripRolePrefixes(s: string): string {
+  return s
+    .split(/\n/)
+    .map((line) => {
+      if (BARE_ROLE_LINE.test(line.trim())) return "";
+      return line.replace(ROLE_PREFIX, "");
+    })
+    .join("\n");
+}
+
+function dropLeadingNonThaiLines(s: string, lang: ChatLang): string {
+  if (lang !== "th") return s;
+  const lines = s.split(/\n/);
+  const i = lines.findIndex((l) => /[\u0E00-\u0E7F]/.test(l));
+  if (i <= 0) return s;
+  return lines.slice(i).join("\n");
+}
+
+function collapseWs(s: string): string {
+  return s.replace(/[ \t]*\n[ \t]*/g, "\n").replace(/\n{2,}/g, "\n").replace(/[ \t]{2,}/g, " ").trim();
+}
+
+function lastSentenceEnd(s: string, lang: ChatLang): number {
+  const re = lang === "en"
+    ? /[.!?](?=\s|$)/g
+    : /นะคะ[?？!！]?|ค่ะ[?？!！]?|ครับ[?？!！]?|คะ[?？!！]?|[?？!！。]/g;
+  let last = -1;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(s))) last = m.index + m[0].length;
+  return last;
+}
+
+function trimToLastCompleteSentence(s: string, lang: ChatLang): string {
+  const end = lastSentenceEnd(s, lang);
+  if (end <= 0) return s.trim();
+  const rest = s.slice(end).trim();
+  if (!rest) return s.trim();
+  return s.slice(0, end).trim();
+}
+
+function capLength(s: string, max: number, lang: ChatLang): string {
+  if (s.length <= max) return s;
+  const sliced = s.slice(0, max);
+  const trimmed = trimToLastCompleteSentence(sliced, lang);
+  if (trimmed.length > 0 && trimmed.length <= max) return trimmed;
+  return sliced.trim();
+}
+
+/**
+ * Strip Qwen3 think tags, role prefixes, and markdown; drop a trailing
+ * truncated clause; cap length. Idempotent. Does not log text.
+ */
+export function normaliseChatReply(text: string | null | undefined, lang: ChatLang = "th"): string {
+  let s = text == null ? "" : nfc(String(text));
+  s = stripThink(s);
+  s = stripMarkdown(s);
+  s = dropLeadingNonThaiLines(s, lang);
+  s = stripRolePrefixes(s);
+  s = collapseWs(s);
+  s = s.replace(/\n+/g, " ").trim();
+  s = trimToLastCompleteSentence(s, lang);
+  s = capLength(s, lang === "en" ? CHAT_MAX_CHARS_EN : CHAT_MAX_CHARS, lang);
+  return s.trim();
+}
+
+function leftoverThink(s: string): boolean {
+  return /<\/?think>|\/no_think|<\|im_(start|end)\|>/i.test(s);
+}
+
+function promptLeak(s: string, lang: ChatLang): boolean {
+  const needles = lang === "en" ? PROMPT_LEAK_EN : PROMPT_LEAK_TH;
+  return needles.some((n) => s.includes(n));
 }
 
 function thaiDose(raw: string): boolean {
@@ -167,37 +280,6 @@ function englishClaim(raw: string): boolean {
   return !!(findPhrases(raw, EN_CLAIM_PHRASES).length || EN_CURE_RE.test(raw) || EN_GUARANTEE_RE.test(raw));
 }
 
-/**
- * Instruction / permission to take a named medicine or contraceptive method.
- * Topic mentions without an imperative (คุยเรื่องยาคุมได้เลย) stay allowed.
- */
-const MED_TH =
-  "(?:ยาคุมฉุกเฉิน|ยาฉุกเฉิน|ยาคุม|ยาแก้ปวด|ยาฆ่าเชื้อ|ยาปฏิชีวนะ|ยาแพ้|ยาฝัง|ยาฉีด|เพรพ|เปป|PrEP|PEP|prep|pep)";
-const THAI_ADVICE_RE = new RegExp(
-  `(?:ให้กิน|ควรกิน|ลองกิน|ให้ทาน|ควรทาน|ลองทาน|ให้ใช้|ควรใช้|ลองใช้).{0,20}?${MED_TH}`
-  + `|(?:กิน|ทาน|ใช้).{0,20}?${MED_TH}.{0,12}?(?:ได้เลย|ไปเลย|เลย)`
-  + `|${MED_TH}.{0,12}?(?:ให้กิน|ควรกิน|ลองกิน|กินได้เลย|ใช้ได้เลย|ใช้เลย)`
-  + `|${MED_TH}.{0,12}?(?:เม็ด|มก\\.?|mg|โดส)|(?:เม็ด|มก\\.?|mg|โดส).{0,12}?${MED_TH}`,
-  "iu",
-);
-
-const MED_EN =
-  "(?:emergency contraception|emergency contraceptive(?: pills?)?|birth control(?: pills?)?|plan b|prep|pep|painkillers?|ibuprofen|paracetamol|the pill|contraceptive(?: pills?)?)";
-const EN_ADVICE_RE = new RegExp(
-  `\\b(?:go ahead and |just |please )?(?:take|taking|use|using|swallow)\\b(?:[\\s,.-]+\\w+){0,6}[\\s,.-]*\\b${MED_EN}\\b`
-  + `|\\b(?:you (?:can|should|could|may|need to)|try )(?:take|taking|use|using)\\b(?:[\\s,.-]+\\w+){0,6}[\\s,.-]*\\b${MED_EN}\\b`
-  + `|\\b${MED_EN}\\b(?:[\\s,.-]+\\w+){0,4}[\\s,.-]+\\b(?:mg|milligrams?|pills?|tablets?|doses?)\\b`,
-  "i",
-);
-
-function thaiAdvice(raw: string): boolean {
-  return THAI_ADVICE_RE.test(raw);
-}
-
-function englishAdvice(raw: string): boolean {
-  return EN_ADVICE_RE.test(raw);
-}
-
 function thaiPrice(raw: string): boolean {
   return THAI_PRICE_RE.test(raw);
 }
@@ -212,7 +294,9 @@ export function chatGuardFailures(
   lang: ChatLang = "th",
 ): ChatGuardReason[] {
   const fails: ChatGuardReason[] = [];
-  const raw = text == null ? "" : nfc(String(text));
+  const incoming = text == null ? "" : nfc(String(text));
+  if (!incoming.trim()) return ["empty"];
+  const raw = normaliseChatReply(incoming, lang);
   if (!raw.trim()) return ["empty"];
   if (/[0-9๐-๙]/.test(raw)) fails.push("digits");
   if (/https?:\/\/|www\.|[\w.-]+\.(com|net|org|io|co|th)\b/i.test(raw)) fails.push("url");
@@ -220,7 +304,6 @@ export function chatGuardFailures(
   if (/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/.test(raw)) fails.push("email");
   if (/(?:\+66|0[689])[\d๐-๙\s-]{7,}/.test(raw) || /โทร\s*[\d๐-๙]/.test(raw)) fails.push("phone");
   if (lang === "en" ? englishDose(raw) : thaiDose(raw)) fails.push("dose");
-  if (lang === "en" ? englishAdvice(raw) : thaiAdvice(raw)) fails.push("advice");
   if (lang === "en" ? englishClaim(raw) : thaiClaim(raw)) fails.push("claim");
   if (lang === "en" ? englishPrice(raw) : thaiPrice(raw)) fails.push("price");
   for (const r of OUTPUT_GUARD_REASONS) {
@@ -229,8 +312,7 @@ export function chatGuardFailures(
   if (lang === "en" && EN_EXPLICIT_EXTRA_RE.test(raw) && !fails.includes("explicit")) fails.push("explicit");
   if (detectCrisis(raw).level !== "none") fails.push("crisis");
   if (stripPII(raw) !== whitespaceNorm(raw)) fails.push("pii");
-  if (/<\/?think>|\/no_think|<\|im_(start|end)\|>/i.test(raw)) fails.push("think");
-  if (raw.length > (lang === "en" ? CHAT_MAX_CHARS_EN : CHAT_MAX_CHARS)) fails.push("length");
+  if (leftoverThink(raw) || promptLeak(raw, lang)) fails.push("think");
   if (lang === "en" ? !mostlyLatin(raw) : !mostlyThai(raw)) fails.push("script");
   return fails;
 }
@@ -241,5 +323,5 @@ export function acceptChatReply(
 ): { ok: true; text: string } | { ok: false; reasons: ChatGuardReason[] } {
   const reasons = chatGuardFailures(text, lang);
   if (reasons.length) return { ok: false, reasons };
-  return { ok: true, text: nfc(String(text)).trim() };
+  return { ok: true, text: normaliseChatReply(text, lang) };
 }

@@ -96,7 +96,7 @@ export async function loadWllama(
         max_tokens: opts?.maxTokens ?? CHAT_MAX_TOKENS, temperature: CHAT_TEMPERATURE, top_p: CHAT_TOP_P, abortSignal: s,
       } as any);
       if (shouldSkipGeneration(groupId, s)) return null;
-      return cleanChat(String(r.choices?.[0]?.message?.content ?? "")) || null;
+      return cleanChat(String(r.choices?.[0]?.message?.content ?? ""), lang ?? detectChatLang(text)) || null;
     }),
   };
 }

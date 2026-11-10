@@ -10,7 +10,7 @@ import { checkInput, REFUSAL_CARDS, type GuardReason } from "./guard";
 import { retrieve } from "./retrieve";
 import { VALID_INTENTS, type ChatReplyOpts } from "../llm/adapter";
 import { CHAT_MAX_TOKENS, type ChatGrounding } from "../llm/chat-system";
-import { acceptChatReply } from "../llm/chatGuard";
+import { acceptChatReply, type ChatGuardReason } from "../llm/chatGuard";
 import { detectChatLang, type ChatLang } from "../llm/chat-lang";
 import { currentGenerationToken, bumpGenerationToken, isCurrentGeneration } from "../llm/generation-token";
 import { ACK_LINE_TH, combineUnanswered, countedGroupMessages, dropAckLines, groupReplyLang, groupTakesNoModelPath } from "./chat-group";
@@ -313,6 +313,8 @@ export type TurnReply =
       engine?: EngineTag; engineReason?: EngineReason; cardNote?: string | null; groupId?: number;
       /** AMBIGUOUS extra-check: DRAFT line + button that opens the existing crisis screen. */
       softCrisis?: SoftCrisis;
+      /** chatGuard reason codes only (never raw text). Shown with ?debug=1. */
+      chatGuardReasons?: ChatGuardReason[];
     }
   | {
       kind: "chat"; text: string; card: BankCard | null; cardText: string | null; via: Via; banner: CrisisCategory[];
@@ -474,6 +476,7 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
   const verbatimCard = async (
     picked: BankCard, via: Via, engine?: EngineTag, engineReason?: EngineReason, guard?: GuardReason,
     overlayLang: ChatLang | null = null,
+    chatGuardReasons?: ChatGuardReason[],
   ) => {
     const card = afterPick(picked, state.ageBand, redirect);
     const shownVia: Via = card.id === AGE_REDIRECT_ID && picked.id !== AGE_REDIRECT_ID ? "age_redirect" : via;
@@ -487,7 +490,7 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
       topic: card.topic === "general" ? state.topic : card.topic, pendingChips: card.next,
       chatFlow: applyClosedCard(state.chatFlow),
     };
-    return { state: next, reply: { kind: "card" as const, card, text, reworded: false, via: shownVia, banner, chips: card.next, offer, offerIntents, capNotice, ...(guard ? { guard } : {}), ...(engine ? { engine } : {}), ...(engineReason ? { engineReason } : {}), ...(overlayLang ? { cardNote } : {}) } };
+    return { state: next, reply: { kind: "card" as const, card, text, reworded: false, via: shownVia, banner, chips: card.next, offer, offerIntents, capNotice, ...(guard ? { guard } : {}), ...(engine ? { engine } : {}), ...(engineReason ? { engineReason } : {}), ...(overlayLang ? { cardNote } : {}), ...(chatGuardReasons?.length ? { chatGuardReasons } : {}) } };
   };
 
   // 2. Input guard (image / method refusals). Abuse and complication detection is deferred to #21.
@@ -651,7 +654,7 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     }
     if (!acc.ok) {
       const top = rulesTop(retrieveText);
-      return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, lang === "en" ? lang : undefined);
+      return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, lang === "en" ? lang : undefined, acc.reasons);
     }
 
     const chatText = acc.text;

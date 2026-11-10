@@ -170,7 +170,7 @@ export async function bindWebLLMEngine(
         }));
         if (dead) throw dead;
         if (shouldSkipGeneration(groupId, s)) return null;
-        return cleanChat(String(r.choices?.[0]?.message?.content ?? "")) || null;
+        return cleanChat(String(r.choices?.[0]?.message?.content ?? ""), lang ?? detectChatLang(text)) || null;
       } catch (e) {
         if (isWebGpuRuntimeFailure(e) || dead) markDead(e);
         throw e;

@@ -181,6 +181,24 @@ test("thanks after a condom topic does not show that card on the thanks turn", a
   expect(after.pick).toBe(before.pick);
 });
 
+test("chat-guard debug line is off by default and unused when the stub passes", async ({ page }) => {
+  await openChatFirst(page);
+  await openChat(page);
+  await say(page, "ช่วงนี้กังวลเรื่องแฟน");
+  await expect(lastJane(page).getByTestId("chat-text")).toContainText("เราฟังอยู่นะคะ");
+  await expect(page.getByTestId("chat-guard-debug")).toHaveCount(0);
+});
+
+test("?debug=1 still hides the debug line when the stub passes the guard", async ({ page }) => {
+  await page.goto("/?testRuntime=chat-ok&runtime=wasm&debug=1");
+  await page.waitForLoadState("domcontentloaded");
+  await expect(page.getByTestId("model-status")).toHaveAttribute("data-state", "ready", { timeout: 10_000 });
+  await openChat(page);
+  await say(page, "ช่วงนี้กังวลเรื่องแฟน");
+  await expect(lastJane(page).getByTestId("chat-text")).toContainText("เราฟังอยู่นะคะ");
+  await expect(page.getByTestId("chat-guard-debug")).toHaveCount(0);
+});
+
 test("thanks sent mid-generation drops the ack and answers the remaining question", async ({ page }) => {
   await page.goto("/?testRuntime=chat-ok&runtime=wasm&chatReplyMs=1500");
   await page.waitForLoadState("domcontentloaded");

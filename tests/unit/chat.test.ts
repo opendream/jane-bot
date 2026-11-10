@@ -535,4 +535,18 @@ describe("ambiguous extra-check: card bubble carries the DRAFT soft line", () =>
     expect(jane?.note).toBe("referral");
     expect(jane?.softCrisis?.line).toBe("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะคะ");
   });
+
+  it("?debug=1 shows chatGuard reason codes; default does not", () => {
+    installChatDom();
+    const off = newChat("18-24", null);
+    expect(off.debug).toBe(false);
+    off.messages.push({ from: "jane", text: "card", cardId: "general.fallback.000", debugGuard: "digits,url" });
+    expect(chatView(off, hooks()).querySelector('[data-testid="chat-guard-debug"]')).toBeNull();
+
+    const on = newChat("18-24", null, null, { search: "?debug=1" });
+    expect(on.debug).toBe(true);
+    on.messages.push({ from: "jane", text: "card", cardId: "general.fallback.000", debugGuard: "digits,url" });
+    const line = chatView(on, hooks()).querySelector('[data-testid="chat-guard-debug"]');
+    expect(line).not.toBeNull();
+  });
 });

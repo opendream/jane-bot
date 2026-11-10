@@ -135,6 +135,19 @@ export function chatFirstEnabled(search?: string): boolean {
 }
 
 /**
+ * Dev-only on-screen chatGuard reason codes. Off by default.
+ * `?debug=1` / true / on. Memory only: no console log of user text, no storage, no network.
+ */
+export function debugEnabled(search?: string): boolean {
+  try {
+    const raw = search ?? (typeof location !== "undefined" ? location.search : "");
+    const v = new URLSearchParams(raw.startsWith("?") ? raw.slice(1) : raw).get("debug")?.toLowerCase() ?? "";
+    return v === "1" || v === "on" || v === "true";
+  } catch { /* node unit tests */ }
+  return false;
+}
+
+/**
  * Extra chat-crisis rules (src/core/chat-crisis.ts) after pinned detectCrisis.
  * On for both paths: chat-first and card-first. Add-only (never clears a pin).
  */

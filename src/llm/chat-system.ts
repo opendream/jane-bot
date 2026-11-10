@@ -18,14 +18,16 @@
 
 import type { ChatReplyOpts } from "./adapter";
 import type { ChatLang } from "./chat-lang";
+import { normaliseChatReply } from "./chatGuard";
 
 export const CHAT_SYSTEM_STATUS = "draft" as const;
 
 export const CHAT_TEMPERATURE = 0.3;
 export const CHAT_TOP_P = 0.9;
 /**
- * Cap output length. Two short Thai sentences fit in chatGuard's 160-char
- * limit; 128 tokens leaves margin for whitespace and EOS.
+ * Cap output length. 128 tokens stays: on-device 0.6B already uses 11–41 s of
+ * the 45 s budget at this cap, so raising it would timeout the slow tail.
+ * Truncated dumps are trimmed to the last complete sentence in chatGuard.
  */
 export const CHAT_MAX_TOKENS = 128;
 
@@ -85,7 +87,7 @@ export function chatUser(text: string): string {
   return text;
 }
 
-/** Strip think blocks / chat-template tokens from a raw chat completion. */
-export function cleanChat(raw: string): string {
-  return raw.replace(/<think>[\s\S]*?<\/think>/g, "").replace(/\/no_think/g, "").replace(/<\|im_(start|end)\|>/g, "").trim();
+/** Strip think tags, role prefixes and markdown; trim a truncated last clause. */
+export function cleanChat(raw: string, lang: ChatLang = "th"): string {
+  return normaliseChatReply(raw, lang);
 }
