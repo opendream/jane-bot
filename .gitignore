@@ -17,3 +17,9 @@ dist-eval/
 jane-df*/
 jane-private/
 *.dfexport.zip
+.env*
+*.gguf
+*.safetensors
+dump.rdb
+exports/
+logs/
