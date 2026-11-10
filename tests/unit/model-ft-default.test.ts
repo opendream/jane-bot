@@ -156,9 +156,9 @@ describe("default model is fine-tuned Qwen3-0.6B (WASM, local)", () => {
 });
 
 describe("per-turn model time limit and max-token cap", () => {
-  it("CHAT_FIRST_TIMEOUT_MS is 45 s and CHAT_MAX_TOKENS is 24", () => {
+  it("CHAT_FIRST_TIMEOUT_MS is 45 s and CHAT_MAX_TOKENS is 128", () => {
     expect(CHAT_FIRST_TIMEOUT_MS).toBe(45_000);
-    expect(CHAT_MAX_TOKENS).toBe(24);
+    expect(CHAT_MAX_TOKENS).toBe(128);
   });
 
   it("timeout shows the rules card alone, ignores late output, and passes the max-token cap", async () => {
@@ -174,7 +174,7 @@ describe("per-turn model time limit and max-token cap", () => {
         return new Promise<string>((resolve) => {
           setTimeout(() => {
             late = true;
-            resolve('{"o":0,"c":0,"q":0}');
+            resolve("เราฟังอยู่นะคะ เธอเล่าเพิ่มได้เลยค่ะ");
           }, 60_000);
         });
       }),
@@ -215,7 +215,7 @@ describe("per-turn model time limit and max-token cap", () => {
         return new Promise<string>((resolve, reject) => {
           const t = setTimeout(() => {
             late = true;
-            resolve('{"o":0,"c":0,"q":0}');
+            resolve("เราฟังอยู่นะคะ เธอเล่าเพิ่มได้เลยค่ะ");
           }, 30_000);
           const onAbort = () => {
             clearTimeout(t);
@@ -238,7 +238,7 @@ describe("per-turn model time limit and max-token cap", () => {
     expect(late).toBe(false);
   });
 
-  it("remaining budget under 8 s skips the model card pick and uses the rules card alone", async () => {
+  it("a slow third turn times out to the rules card and never calls pickCard", async () => {
     vi.useFakeTimers();
     let n = 0;
     const pickCard = vi.fn(async () => "none");
@@ -246,24 +246,24 @@ describe("per-turn model time limit and max-token cap", () => {
       ready: () => true,
       chatReply: async () => {
         n++;
-        if (n === 3) await new Promise<void>((resolve) => setTimeout(resolve, 40_000));
-        return '{"o":0,"c":0,"q":0}';
+        if (n === 3) await new Promise<void>((resolve) => setTimeout(resolve, 60_000));
+        return "เราฟังอยู่นะคะ เธอเล่าเพิ่มได้เลยค่ะ";
       },
       pickCard,
     };
     const t1 = await runTurn(newDialog("18-24"), "ถุงยางแตกทำไงดี", deps(model, { chatTimeoutMs: 45_000 }));
     const t2 = await runTurn(t1.state, "แล้วยังไงต่อดี", deps(model, { chatTimeoutMs: 45_000 }));
-    expect(pickCard.mock.calls.length).toBeGreaterThan(0);
-    const picksBefore = pickCard.mock.calls.length;
+    expect(t1.reply.kind).toBe("chat");
+    expect(t2.reply.kind).toBe("chat");
+    expect(pickCard).not.toHaveBeenCalled();
     const p3 = runTurn(t2.state, "อยากรู้เพิ่ม", deps(model, { chatTimeoutMs: 45_000 }));
-    await vi.advanceTimersByTimeAsync(40_000);
+    await vi.advanceTimersByTimeAsync(45_000);
     const t3 = await p3;
     expect(n).toBe(3);
-    expect(pickCard.mock.calls.length).toBe(picksBefore);
-    expect(t3.reply.kind).toBe("chat");
-    if (t3.reply.kind !== "chat") return;
-    expect(t3.reply.card).toBeTruthy();
-    expect(t3.reply.cardText).toBe(t3.reply.card!.answer_th);
+    expect(pickCard).not.toHaveBeenCalled();
+    expect(t3.reply.kind).toBe("card");
+    if (t3.reply.kind !== "card") return;
+    expect(t3.reply.text).toBe(t3.reply.card.answer_th);
     expect(t3.reply.text).not.toContain(DROPPED_HOLDING_LINE);
     expect(t3.reply.text).not.toContain(DROPPED_HOLDING_LINE_EN);
     expect((t3.reply as { holding?: string }).holding).toBeUndefined();
@@ -275,7 +275,7 @@ describe("per-turn model time limit and max-token cap", () => {
       ready: () => true,
       chatReply: async () => {
         calls.chat++;
-        return '{"o":0,"c":0,"q":0}';
+        return "เราฟังอยู่นะคะ เธอเล่าเพิ่มได้เลยค่ะ";
       },
     };
     const line = "ตอนนี้อยากตายมาก";
@@ -286,18 +286,16 @@ describe("per-turn model time limit and max-token cap", () => {
   });
 });
 
-describe("model text pin (Commit 1 name + re-indexed lists only)", () => {
-  it("persona uses เจน and lists follow the current opener/follow-up arrays", () => {
+describe("model text pin (เจน เรา/เธอ persona, no opener lists)", () => {
+  it("persona uses เจน and เรา/เธอ and does not inject opener lists", () => {
     expect(CHAT_SYSTEM.startsWith("คุณคือเจน ")).toBe(true);
+    expect(CHAT_SYSTEM).toContain("เรียกตัวเองว่าเรา");
+    expect(CHAT_SYSTEM).toContain("เรียกผู้ใช้ว่าเธอ");
     expect(CHAT_SYSTEM).not.toContain("พี่เจน");
     const grounded = chatSystemFor("th", { grounding: { facts: "ข้อความบัตรทดสอบ" } });
-    for (const [i, s] of CHAT_OPENERS_TH.entries()) {
-      expect(grounded).toContain(`${i}. ${s}`);
-    }
-    for (const [i, s] of CHAT_FOLLOWUPS_TH.entries()) {
-      expect(grounded).toContain(`${i}. ${s}`);
-    }
-    expect(grounded).toContain("4. ");
+    expect(grounded).toBe(CHAT_SYSTEM);
+    expect(grounded).not.toContain("0. ");
+    expect(grounded).not.toContain(CHAT_OPENERS_TH[0]!);
     expect(grounded).not.toContain("อยากให้พี่ส่งข้อมูลที่ตรวจแล้วไหม?");
     expect(grounded).not.toContain("ทางนี้พี่เข้าใจ");
   });

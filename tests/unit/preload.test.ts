@@ -156,7 +156,7 @@ describe("wllama n_ctx (chat-first only)", () => {
     expect(wllamaContextLength(true)).toBe(2048);
   });
 
-  it("startModel passes nCtx 2048 iff ?chatFirst=1", async () => {
+  it("startModel passes nCtx 1024 by default and 2048 when ?chatFirst=1", async () => {
     const loadOn = vi.fn(async (_f: string, _l: string, onP: (n: number) => void) => {
       onP(1);
       return fakeWasm();
@@ -169,7 +169,8 @@ describe("wllama n_ctx (chat-first only)", () => {
     });
     expect(loadOn.mock.calls[0][3]).toMatchObject({ nCtx: 2048, chatFirst: true });
 
-    const loadOff = vi.fn(async (_f: string, _l: string, onP: (n: number) => void) => {
+    resetPreloadForTests();
+    const loadDefault = vi.fn(async (_f: string, _l: string, onP: (n: number) => void) => {
       onP(1);
       return fakeWasm();
     });
@@ -177,8 +178,21 @@ describe("wllama n_ctx (chat-first only)", () => {
       search: "?model=qwen3-1.7b&runtime=wasm",
       gpuInfo: async () => ({ ok: false, f16: false }),
       installed: async () => [{ model: "qwen3-1.7b", variants: ["wasm"] }],
-      loadWllama: loadOff,
+      loadWllama: loadDefault,
     });
-    expect(loadOff.mock.calls[0][3]).toMatchObject({ nCtx: 1024, chatFirst: false });
+    expect(loadDefault.mock.calls[0][3]).toMatchObject({ nCtx: 1024, chatFirst: false });
+
+    resetPreloadForTests();
+    const loadOptOut = vi.fn(async (_f: string, _l: string, onP: (n: number) => void) => {
+      onP(1);
+      return fakeWasm();
+    });
+    await startModel(() => {}, {
+      search: "?model=qwen3-1.7b&chatFirst=0&runtime=wasm",
+      gpuInfo: async () => ({ ok: false, f16: false }),
+      installed: async () => [{ model: "qwen3-1.7b", variants: ["wasm"] }],
+      loadWllama: loadOptOut,
+    });
+    expect(loadOptOut.mock.calls[0][3]).toMatchObject({ nCtx: 1024, chatFirst: false });
   });
 });

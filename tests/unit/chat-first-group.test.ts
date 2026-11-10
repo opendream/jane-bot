@@ -18,11 +18,11 @@ import {
   shouldSkipGeneration,
 } from "../../src/llm/generation-token";
 import { createGenerationQueue } from "../../src/llm/generation-queue";
-import { DEFAULT_CHAT_CHOICE_JSON, defaultChatReply } from "../../src/llm/chat-choice";
+import { STUB_CHAT_REPLY_TH } from "../../src/llm/runtime";
 
 const DROPPED_HOLDING_LINE = "พี่ฟังอยู่นะ ขอส่งข้อมูลที่ตรวจแล้วให้ก่อน";
-const SAFE_JSON = DEFAULT_CHAT_CHOICE_JSON;
-const SAFE_CHAT = defaultChatReply("th");
+const SAFE_JSON = STUB_CHAT_REPLY_TH;
+const SAFE_CHAT = STUB_CHAT_REPLY_TH;
 const BAD_CHAT = "กิน 2 เม็ด แล้วไม่ท้องแน่ https://evil.test";
 const A = "ช่วงนี้กังวลเรื่องแฟน";
 const B = "แฟนไม่ยอมคุยด้วย";
@@ -130,7 +130,7 @@ describe("chat-first message grouping", () => {
     expect(s.state.chatFlow.topicTurns).toBe(1);
   });
 
-  it("turn count and card-by-turn-3 count answered groups, not raw messages", async () => {
+  it("turn count counts answered groups, not raw messages, and does not force a card", async () => {
     const { model } = delayedModel({ delayMs: 20, serial: true });
     const s = new DialogSession("18+", deps(model));
     s.start();
@@ -139,9 +139,10 @@ describe("chat-first message grouping", () => {
     expect(s.state.chatFlow.topicTurns).toBe(1);
     await s.send("ยังกังวลอยู่ค่ะ");
     expect(s.state.chatFlow.topicTurns).toBe(2);
-    const closed = await s.send("แล้วควรทำไงดี");
-    expect(s.state.chatFlow.topicTurns).toBe(0);
-    expect(closed?.kind === "chat" && closed.card).toBeTruthy();
+    const third = await s.send("แล้วควรทำไงดี");
+    expect(s.state.chatFlow.topicTurns).toBe(3);
+    expect(third?.kind).toBe("chat");
+    if (third?.kind === "chat") expect(third.card).toBeNull();
   });
 
   it("session caps still count raw messages", async () => {

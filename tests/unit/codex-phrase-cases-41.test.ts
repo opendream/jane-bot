@@ -227,27 +227,25 @@ describe("PR #41 round-1 concrete inputs", () => {
     warn.mockRestore();
   });
 
-  it("3 MEDIUM: !!shown / showCardBubble keeps the quoted card", async () => {
+  it("3 MEDIUM: a model chat turn does not quote the bank card", async () => {
     const r = await runTurn(newDialog("18-24"), SHOW_CARD_Q, deps({
       ready: () => true,
-      chatReply: async () => '{"o":0,"c":1,"q":0}',
+      chatReply: async () => "เราฟังอยู่นะคะ เธอเล่าเพิ่มได้เลยค่ะ",
       pickCard: async () => "none",
     }));
     expect(r.reply.kind).toBe("chat");
     if (r.reply.kind !== "chat") return;
-    expect(r.reply.card?.id).toBe(LEAK.id);
-    expect(r.reply.cardText).toBe(LEAK.answer_th);
-    // Same card as the closer: answer lives on the card bubble (round-3 de-dupe).
+    expect(r.reply.card).toBeNull();
+    expect(r.reply.text).toBe("เราฟังอยู่นะคะ เธอเล่าเพิ่มได้เลยค่ะ");
     expect(r.reply.text).not.toContain(LEAK.answer_th);
-    // Without a closing-card text, showCardBubble only drives the follow-up swap.
+    // Unused choice renderer still quotes when asked (not the live path).
     const quoted = renderChatChoiceForTurn({ o: 0, c: 1, q: 0 }, "th", LEAK.answer_th, true);
     expect(quoted).toContain(LEAK.answer_th);
-    // A different quoted card stays in the chat bubble when a closer also shows.
     const other = renderChatChoiceForTurn({ o: 0, c: 1, q: 0 }, "th", LEAK.answer_th, true, "บัตรปิดคนละใบ");
     expect(other).toContain(LEAK.answer_th);
   });
 
-  it("4 QUESTION: remaining < 8 s skips model card pick; 45 s whole-turn budget; no holding line", async () => {
+  it("4 QUESTION: a slow third turn times out to the rules card; pickCard is never called; no holding line", async () => {
     expect(CHAT_FIRST_TIMEOUT_MS).toBe(45_000);
     expect(PICK_TIMEOUT_MS).toBe(8_000);
     vi.useFakeTimers();
@@ -257,22 +255,24 @@ describe("PR #41 round-1 concrete inputs", () => {
       ready: () => true,
       chatReply: async () => {
         n++;
-        if (n === 3) await new Promise<void>((resolve) => setTimeout(resolve, 40_000));
-        return '{"o":0,"c":0,"q":0}';
+        if (n === 3) await new Promise<void>((resolve) => setTimeout(resolve, 60_000));
+        return "เราฟังอยู่นะคะ เธอเล่าเพิ่มได้เลยค่ะ";
       },
       pickCard,
     };
     const t1 = await runTurn(newDialog("18-24"), "ถุงยางแตกทำไงดี", deps(model, { chatTimeoutMs: 45_000 }));
     const t2 = await runTurn(t1.state, "แล้วยังไงต่อดี", deps(model, { chatTimeoutMs: 45_000 }));
-    const picksBefore = pickCard.mock.calls.length;
-    expect(picksBefore).toBeGreaterThan(0);
+    expect(t1.reply.kind).toBe("chat");
+    expect(t2.reply.kind).toBe("chat");
+    expect(pickCard).not.toHaveBeenCalled();
     const p3 = runTurn(t2.state, "อยากรู้เพิ่ม", deps(model, { chatTimeoutMs: 45_000 }));
-    await vi.advanceTimersByTimeAsync(40_000);
+    await vi.advanceTimersByTimeAsync(45_000);
     const t3 = await p3;
-    expect(pickCard.mock.calls.length).toBe(picksBefore);
-    expect(t3.reply.kind).toBe("chat");
-    if (t3.reply.kind !== "chat") return;
-    expect(t3.reply.card).toBeTruthy();
+    expect(n).toBe(3);
+    expect(pickCard).not.toHaveBeenCalled();
+    expect(t3.reply.kind).toBe("card");
+    if (t3.reply.kind !== "card") return;
+    expect(t3.reply.text).toBe(t3.reply.card.answer_th);
     expect(t3.reply.text).not.toContain(DROPPED_HOLDING);
     expect((t3.reply as { holding?: string }).holding).toBeUndefined();
   });
@@ -308,11 +308,8 @@ describe("PR #41 round-1 concrete inputs", () => {
       expect(acceptChatReply(text, "th").ok, text).toBe(true);
     }
     const grounded = chatSystemFor("th", { grounding: { facts: "ข้อความบัตรทดสอบ" } });
-    expect(grounded).toContain("0. เราอยู่ตรงนี้นะคะ");
-    expect(grounded).toContain("4. ");
-    expect(grounded).toContain("2. ");
-    expect(grounded).toContain("3. ยังมีอะไรที่อยากคุยต่อไหมคะ?");
-    expect(grounded).toContain("4. เธออยากให้ช่วยตรงไหนก่อนคะ?");
+    expect(grounded).toBe(chatSystemFor("th"));
+    expect(grounded).not.toContain("0. เราอยู่ตรงนี้นะคะ");
     expect(grounded).not.toContain("ทางนี้พี่เข้าใจ");
     expect(grounded).not.toContain("อยากให้พี่ส่งข้อมูลที่ตรวจแล้วไหม?");
   });
@@ -325,7 +322,7 @@ describe("PR #41 round-1 concrete inputs", () => {
       ready: () => true,
       chatReply: async () => {
         calls.chat++;
-        return '{"o":0,"c":0,"q":0}';
+        return "เราฟังอยู่นะคะ เธอเล่าเพิ่มได้เลยค่ะ";
       },
       pickCard: async () => {
         calls.pick++;
@@ -414,7 +411,7 @@ describe("PR #41 round-3 Codex MEDIUM findings", () => {
     st.turns = HARD_CAP;
     const model: DialogModel = {
       ready: () => true,
-      chatReply: vi.fn(async () => '{"o":0,"c":0,"q":0}'),
+      chatReply: vi.fn(async () => "เราฟังอยู่นะคะ เธอเล่าเพิ่มได้เลยค่ะ"),
     };
     const r = await runTurn(st, line, deps(model));
     expect(r.reply.kind).toBe("readonly");
@@ -439,18 +436,17 @@ describe("PR #41 round-3 Codex MEDIUM findings", () => {
     expect(jane?.softCrisis?.categories.length).toBeGreaterThan(0);
   });
 
-  it("duplicate: c=1 quoting the same card as the closer shows the answer once", async () => {
+  it("duplicate: a chat turn does not quote the bank card; ขอข้อมูลเลย shows it once", async () => {
     const model: DialogModel = {
       ready: () => true,
-      chatReply: async () => '{"o":0,"c":1,"q":0}',
+      chatReply: async () => "เราฟังอยู่นะคะ เธอเล่าเพิ่มได้เลยค่ะ",
       pickCard: async () => "none",
     };
     const r = await runTurn(newDialog("18-24"), SHOW_CARD_Q, deps(model));
     expect(r.reply.kind).toBe("chat");
     if (r.reply.kind !== "chat") return;
-    expect(r.reply.card?.id).toBe(LEAK.id);
-    expect(r.reply.cardText).toBe(LEAK.answer_th);
-    expect(r.reply.text).toBe(formatChatReply(CHAT_OPENERS_TH[0]!, "", CHAT_FOLLOWUPS_TH[0]!));
+    expect(r.reply.card).toBeNull();
+    expect(r.reply.text).toBe("เราฟังอยู่นะคะ เธอเล่าเพิ่มได้เลยค่ะ");
     expect(r.reply.text).not.toContain(LEAK.answer_th);
 
     const same = renderChatChoiceForTurn({ o: 0, c: 1, q: 0 }, "th", LEAK.answer_th, true, LEAK.answer_th);
@@ -459,6 +455,7 @@ describe("PR #41 round-3 Codex MEDIUM findings", () => {
 
     const chat = newChat("18-24", model, null, { chatFirst: true });
     await sendToChat(chat, SHOW_CARD_Q, chatHooks());
+    await sendToChat(chat, "ขอข้อมูลเลย", chatHooks());
     const jane = janeThisTurn(chat.messages, SHOW_CARD_Q);
     const hits = jane.filter((m) => m.text.includes(LEAK.answer_th));
     expect(hits).toHaveLength(1);
@@ -500,7 +497,7 @@ describe("PR #43 Codex MEDIUM findings", () => {
     const line = "หนูหมดแรงจะอยู่แล้ว";
     const model: DialogModel = {
       ready: () => true,
-      chatReply: vi.fn(async () => '{"o":0,"c":0,"q":0}'),
+      chatReply: vi.fn(async () => "เราฟังอยู่นะคะ เธอเล่าเพิ่มได้เลยค่ะ"),
     };
     const chat = newChat("18-24", model, null, { chatFirst: true });
     const h = chatHooks();
@@ -520,7 +517,7 @@ describe("PR #43 Codex MEDIUM findings", () => {
     const line = "หนูหมดแรงจะอยู่แล้ว";
     const model: DialogModel = {
       ready: () => true,
-      chatReply: vi.fn(async () => '{"o":0,"c":0,"q":0}'),
+      chatReply: vi.fn(async () => "เราฟังอยู่นะคะ เธอเล่าเพิ่มได้เลยค่ะ"),
     };
     const chat = newChat("18-24", model, null, { chatFirst: true });
     const h = chatHooks();

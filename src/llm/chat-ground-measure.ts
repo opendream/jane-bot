@@ -1,5 +1,5 @@
 /**
- * Fixture-set measurement for grounded chat: structured parse + chatGuard.
+ * Fixture-set measurement for grounded chat: free-text chatGuard.
  * No live model. Used by the unit test and by scripts/eval/grounded/measure.ts
  * so later per-arm dumps can reuse the same pipeline. Never logs user text.
  */
@@ -16,7 +16,7 @@ export interface GroundMeasureCase {
   cardId: string;
   reply: string;
   lang?: ChatLang;
-  /** choice = planted valid JSON; invalid = planted unparseable / out-of-range. */
+  /** choice = planted valid free-text; invalid = planted guard-failing text. */
   arm: GroundMeasureArm;
 }
 

@@ -1,9 +1,7 @@
 /**
- * DRAFT — fixed openers and follow-up questions for grounded Jane chat.
- * For Keng's Thai copy review. Not approved product copy.
- *
- * The model may only pick ids from these lists. Free-text openers are not
- * allowed. No facts, numbers, drug or method names, or advice.
+ * DRAFT — unused visible-line lists (kept as voice reference).
+ * Live Jane replies are free text from the local model, not picked from here.
+ * No facts, numbers, drug or method names, or advice.
  */
 
 export const CHAT_VOICE_STATUS = "draft" as const;

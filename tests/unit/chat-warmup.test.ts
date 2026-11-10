@@ -19,7 +19,7 @@ import {
   resetGenerationTokenForTests,
   shouldSkipGeneration,
 } from "../../src/llm/generation-token";
-import { DEFAULT_CHAT_CHOICE_JSON } from "../../src/llm/chat-choice";
+import { STUB_CHAT_REPLY_TH } from "../../src/llm/runtime";
 
 afterEach(() => {
   resetGenerationTokenForTests();
@@ -66,7 +66,7 @@ describe("chat load warm-up", () => {
         if (shouldSkipGeneration(groupId, s)) return null;
         calls.chat++;
         seen.push(text);
-        return DEFAULT_CHAT_CHOICE_JSON;
+        return STUB_CHAT_REPLY_TH;
       }),
     };
     const deps: TurnDeps = { cards: BANK, model, copyStatus: "draft", chatFirst: true };
@@ -99,7 +99,7 @@ describe("chat load warm-up", () => {
       ready: () => true,
       chatReply: (_t, _h, signal, _lang, groupId) => queue.run(groupId, signal, async (s) => {
         if (shouldSkipGeneration(groupId, s)) return null;
-        return DEFAULT_CHAT_CHOICE_JSON;
+        return STUB_CHAT_REPLY_TH;
       }),
     };
     const s = new DialogSession("18+", { cards: BANK, model, copyStatus: "draft", chatFirst: true });

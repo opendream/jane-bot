@@ -9,9 +9,8 @@ import { stripPII } from "./summary";
 import { checkInput, REFUSAL_CARDS, type GuardReason } from "./guard";
 import { retrieve } from "./retrieve";
 import { VALID_INTENTS, type ChatReplyOpts } from "../llm/adapter";
-import { acceptGroundedChat, groundingCard } from "../llm/chat-ground";
-import { firstTurnChoice, renderChatChoiceForTurn } from "../llm/chat-choice";
 import { CHAT_MAX_TOKENS, type ChatGrounding } from "../llm/chat-system";
+import { acceptChatReply, chatGuardDebugRawPreview, type ChatGuardReason } from "../llm/chatGuard";
 import { detectChatLang, type ChatLang } from "../llm/chat-lang";
 import { currentGenerationToken, bumpGenerationToken, isCurrentGeneration } from "../llm/generation-token";
 import { ACK_LINE_TH, combineUnanswered, countedGroupMessages, dropAckLines, groupReplyLang, groupTakesNoModelPath } from "./chat-group";
@@ -22,6 +21,7 @@ import {
   applyChatTurn,
   applyClosedCard,
   applyCrisis,
+  chatHistory,
   isDirectFactualQuestion,
   isShowCardNow,
   newChatFlow,
@@ -65,6 +65,11 @@ export type { CardPicker, EngineReason, EngineTag } from "./pick-engine";
  *   4. optional matcher (injected only when the desktop-dev flag is on; abstain → fallback)
  *   5. rules retrieval   6. model pick (only if unsure; every free-text turn when modelPick is on, except locked routes)
  *   7. post-pick age gate (18+ card → redirect)   8. reword (validated, else verbatim)   9. reply with chips and referral offer
+ * Card-first (default): rules pick a reviewed bank card; the model is consulted
+ * only when the rules are unsure. Chat-first (`?chatFirst=1`, experimental) lets
+ * the local model write the visible line with a bounded history window; reviewed
+ * cards appear only as fallback (guard fail, timeout, model not ready), or on
+ * rules-only routes (crisis, chips, locked, show-now).
  * ---------------------------------------------------------------------------------------- */
 
 export const WELCOME_ID = "general.welcome.000";
@@ -234,9 +239,8 @@ export interface DialogModel {
   /** Reword a card. The model sees only the card (never her text). The result is validated; any failure shows answer_th verbatim. */
   reword?(card: BankCard, signal: AbortSignal): Promise<string | null>;
   /**
-   * Chat-first connective talk. Input is PII-stripped. Output is a JSON
-   * choice, parsed strictly, then chatGuard on opener + follow-up.
-   * History is memory-only (last topic user lines + Jane's last replies).
+   * Chat-first connective talk. Input is PII-stripped. Output is free text,
+   * then chatGuard. History is memory-only (bounded prior user+Jane turns).
    */
   chatReply?(
     text: string,
@@ -275,9 +279,9 @@ export interface TurnDeps {
   /** Live model so a mid-wait load is seen. Defaults to deps.model. */
   getModel?: () => DialogModel | null;
   /**
-   * Chat-first (PR A). Default off: same card-first path as production.
-   * Tests inject true; the production build reads CHAT_FIRST / ?chatFirst=1
-   * (the query is not dev-only).
+   * Chat-first (default off). Tests inject true; the production build reads
+   * CHAT_FIRST / chatFirstEnabled (`?chatFirst=1` opt-in; `?chatFirst=0` forces
+   * card-first).
    */
   chatFirst?: boolean;
   /**
@@ -295,6 +299,11 @@ export interface TurnDeps {
   generationToken?: number;
   /** Chat-first: fires only when the model is about to generate. */
   onGenerating?: (info: { groupId: number; lang: ChatLang }) => void;
+  /**
+   * ?debug=1: attach a short in-memory preview of rejected raw model output.
+   * Off by default. Never logged, stored, or sent.
+   */
+  debug?: boolean;
 }
 
 export type Via = "followup" | "rules" | "model" | "rules_top1" | "fallback" | "guard" | "welcome" | "age_redirect" | "matcher";
@@ -312,6 +321,10 @@ export type TurnReply =
       engine?: EngineTag; engineReason?: EngineReason; cardNote?: string | null; groupId?: number;
       /** AMBIGUOUS extra-check: DRAFT line + button that opens the existing crisis screen. */
       softCrisis?: SoftCrisis;
+      /** chatGuard reason codes. Shown with ?debug=1. */
+      chatGuardReasons?: ChatGuardReason[];
+      /** ?debug=1 only on screen: first ~160 chars of rejected raw output. Memory only. */
+      chatGuardRawPreview?: string;
     }
   | {
       kind: "chat"; text: string; card: BankCard | null; cardText: string | null; via: Via; banner: CrisisCategory[];
@@ -341,6 +354,29 @@ async function withTimeout<T>(fn: (s: AbortSignal) => Promise<T>, ms: number, ou
   try {
     return await Promise.race([fn(ac.signal), new Promise<null>((r) => ac.signal.addEventListener("abort", () => r(null)))]);
   } catch { return null; } finally { clearTimeout(t); outer?.removeEventListener("abort", stop); }
+}
+
+/** Wait out a short in-flight warm-up so the first chat-first turn is not a card. */
+async function waitForChatReady(
+  deps: TurnDeps,
+  initial: DialogModel | null,
+  budgetMs: number,
+  signal?: AbortSignal,
+): Promise<DialogModel | null> {
+  const current = () => deps.getModel?.() ?? deps.model ?? initial;
+  const first = current();
+  if (first?.ready() && first.chatReply) return first;
+  const eta = first?.warmupRemainingMs?.() ?? deps.warmupRemainingMs?.() ?? null;
+  if (eta == null || eta > budgetMs) return first?.ready() && first.chatReply ? first : null;
+  const deadline = Date.now() + Math.min(budgetMs, Math.max(0, eta) + 25);
+  while (Date.now() < deadline) {
+    if (signal?.aborted) return null;
+    const p = current();
+    if (p?.ready() && p.chatReply) return p;
+    await new Promise<void>((r) => setTimeout(r, Math.min(25, Math.max(0, deadline - Date.now()))));
+  }
+  const last = current();
+  return last?.ready() && last.chatReply ? last : null;
 }
 
 const verbatim = async (c: BankCard) => ({ text: c.answer_th, reworded: false });
@@ -450,6 +486,8 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
   const verbatimCard = async (
     picked: BankCard, via: Via, engine?: EngineTag, engineReason?: EngineReason, guard?: GuardReason,
     overlayLang: ChatLang | null = null,
+    chatGuardReasons?: ChatGuardReason[],
+    chatGuardRawPreview?: string,
   ) => {
     const card = afterPick(picked, state.ageBand, redirect);
     const shownVia: Via = card.id === AGE_REDIRECT_ID && picked.id !== AGE_REDIRECT_ID ? "age_redirect" : via;
@@ -463,7 +501,7 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
       topic: card.topic === "general" ? state.topic : card.topic, pendingChips: card.next,
       chatFlow: applyClosedCard(state.chatFlow),
     };
-    return { state: next, reply: { kind: "card" as const, card, text, reworded: false, via: shownVia, banner, chips: card.next, offer, offerIntents, capNotice, ...(guard ? { guard } : {}), ...(engine ? { engine } : {}), ...(engineReason ? { engineReason } : {}), ...(overlayLang ? { cardNote } : {}) } };
+    return { state: next, reply: { kind: "card" as const, card, text, reworded: false, via: shownVia, banner, chips: card.next, offer, offerIntents, capNotice, ...(guard ? { guard } : {}), ...(engine ? { engine } : {}), ...(engineReason ? { engineReason } : {}), ...(overlayLang ? { cardNote } : {}), ...(chatGuardReasons?.length ? { chatGuardReasons } : {}), ...(chatGuardRawPreview ? { chatGuardRawPreview } : {}) } };
   };
 
   // 2. Input guard (image / method refusals). Abuse and complication detection is deferred to #21.
@@ -584,132 +622,61 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
       return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, lang === "en" ? lang : undefined);
     }
 
-    const history: { role: "user" | "assistant"; content: string }[] = [];
-    const prevUsers = state.chatFlow.topicUserLines;
-    const prevJane = state.chatFlow.janeReplies;
-    for (let i = 0; i < prevUsers.length; i++) {
-      history.push({ role: "user", content: prevUsers[i] });
-      if (prevJane[i]) history.push({ role: "assistant", content: prevJane[i] });
-    }
-    const live = deps.getModel?.() ?? deps.model ?? null;
+    const history = chatHistory(state.chatFlow);
+    let live = deps.getModel?.() ?? deps.model ?? null;
     const token = deps.generationToken;
     const stale = () => (token != null && !isCurrentGeneration(token)) || !!deps.signal?.aborted;
     const dropStale = () => ({ state, reply: { kind: "idle" as const, capNotice: null } });
 
+    const timeoutMs = deps.chatTimeoutMs ?? CHAT_FIRST_TIMEOUT_MS;
+    if (plan.callChat && live?.chatReply && !live.ready()) {
+      live = await waitForChatReady(deps, live, timeoutMs, deps.signal);
+    }
     if (!plan.callChat || !live?.ready() || !live.chatReply) {
       const top = rulesTop(retrieveText);
       return verbatimCard(top.card, top.via, tagged ? "rules-not-ready" : undefined);
     }
     if (stale()) return dropStale();
 
-    const groundCard = groundingCard(retrieved, state.ageBand);
-    const cardFacts = groundCard ? bankAnswerForLang(groundCard, lang) : null;
-    const grounding: ChatGrounding = { facts: cardFacts };
-    const chatOpts: ChatReplyOpts = { grounding, maxTokens: CHAT_MAX_TOKENS };
+    const chatOpts: ChatReplyOpts = { maxTokens: CHAT_MAX_TOKENS };
+    const retryGrounding: ChatGrounding = { facts: null, strict: true };
 
     deps.onGenerating?.({ groupId: token ?? currentGenerationToken(), lang });
-    const timeoutMs = deps.chatTimeoutMs ?? CHAT_FIRST_TIMEOUT_MS;
     const deadlineAt = Date.now() + timeoutMs;
     const remainingMs = () => Math.max(0, deadlineAt - Date.now());
-    const attempt = (g: ChatGrounding) =>
+    const attempt = (g?: ChatGrounding) =>
       withTimeout((s) => live.chatReply!(currentClip, history, s, lang, token, { ...chatOpts, grounding: g }), remainingMs(), deps.signal);
 
-    let generated = await attempt(grounding);
+    let generated = await attempt();
     if (stale()) return dropStale();
     if (generated == null) {
       const top = rulesTop(retrieveText);
       return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined);
     }
-    let acc = acceptGroundedChat(generated, lang, cardFacts, chatOpts);
+    let acc = acceptChatReply(generated, lang);
     if (!acc.ok) {
-      generated = await attempt({ ...grounding, strict: true });
+      generated = await attempt(retryGrounding);
       if (stale()) return dropStale();
       if (generated == null) {
         const top = rulesTop(retrieveText);
         return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined);
       }
-      acc = acceptGroundedChat(generated, lang, cardFacts, { ...chatOpts, grounding: { ...grounding, strict: true } });
+      acc = acceptChatReply(generated, lang);
     }
     if (!acc.ok) {
       const top = rulesTop(retrieveText);
-      return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, lang === "en" ? lang : undefined);
+      return verbatimCard(
+        top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined,
+        lang === "en" ? lang : undefined, acc.reasons,
+        deps.debug ? chatGuardDebugRawPreview(generated) : undefined,
+      );
     }
 
-    let card: BankCard | null = null;
-    let via: Via = "rules";
-    let engine: EngineTag | undefined;
-    let engineReason: EngineReason | undefined;
-
-    if (plan.callPick) {
-      // Whole turn stays inside the 45 s budget. The 8 s model card pick
-      // must not start if fewer than 8 s remain; the rules card is used alone.
-      const left = remainingMs();
-      if (left >= PICK_TIMEOUT_MS) {
-        const livePicker = () => deps.cardPicker ?? pickerFromModel(deps.getModel?.() ?? deps.model ?? null, deps.warmupRemainingMs);
-        const decision = await decideCardPick({
-          text: retrieveText,
-          modelText: retrieveText.slice(0, MODEL_INPUT_CHARS),
-          topic: state.topic,
-          ageBand: state.ageBand,
-          cards: deps.cards,
-          copyStatus: deps.copyStatus,
-          picker: livePicker(),
-          getPicker: livePicker,
-          warmupRemainingMs: deps.warmupRemainingMs,
-          previousTitle: state.cardId ? byId.get(state.cardId)?.title_th ?? null : null,
-          timeoutMs: Math.min(deps.pickTimeoutMs ?? PICK_TIMEOUT_MS, left),
-          signal: deps.signal,
-          nonePolicy: plan.close === "always" ? "fallback" : "defer",
-        });
-        if (stale()) return dropStale();
-        if (!decision.deferred) {
-          const picked = byId.get(decision.cardId);
-          card = usable(picked) ? picked : fallback;
-          via = decision.via;
-          engine = decision.engine;
-          engineReason = decision.reason;
-        }
-      }
-    }
-
-    const close = plan.close === "always"
-      || (plan.close === "if-pick" && !!card);
-
-    if (close && !card) {
-      const top = rulesTop(retrieveText);
-      card = top.card;
-      via = top.via;
-    }
-    if (!close) card = null;
-
-    let offer: "none" | "soft" | "strong" = "none";
-    let offerIntents: Intent[] = [];
-    let shown: BankCard | null = null;
-    if (close && card) {
-      shown = afterPick(card, state.ageBand, redirect);
-      via = shown.id === AGE_REDIRECT_ID && card.id !== AGE_REDIRECT_ID ? "age_redirect" : via;
-      offer = state.crisisFired && shown.referral.offer === "none" ? "soft" : shown.referral.offer;
-      if (shown.id === FALLBACK_ID && offer === "none") offer = "soft";
-      offerIntents = offer === "none" ? shown.referral.intents : (shown.referral.intents.length ? shown.referral.intents : asIntents(shown.topic === "general" ? state.topic : shown.topic, ["other"]));
-    }
-
-    const choice = firstTurnChoice(acc.choice, {
-      topicTurn: plan.topicTurn,
-      hasGroundCard: groundCard != null,
-      cardBubble: !!shown,
-    });
-    const closingText = shown ? bankAnswerForLang(shown, lang) : null;
-    const chatText = renderChatChoiceForTurn(choice, lang, cardFacts ?? "", !!shown, closingText);
-
-    const chips = shown ? shown.next : [showCardNowChip(lang)];
-    const nextFlow = shown
-      ? applyClosedCard(state.chatFlow)
-      : applyChatTurn(state.chatFlow, currentClip, chatText, false);
-
+    const chatText = acc.text;
+    const chips = [showCardNowChip(lang)];
+    const nextFlow = applyChatTurn(state.chatFlow, currentClip, chatText, false);
     const next: DialogState = {
       ...state, turns, recentUser,
-      cardId: shown ? shown.id : state.cardId,
-      topic: shown && shown.topic !== "general" ? shown.topic : state.topic,
       pendingChips: chips,
       chatFlow: nextFlow,
     };
@@ -718,17 +685,14 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
       reply: {
         kind: "chat",
         text: chatText,
-        card: shown,
-        cardText: shown ? bankAnswerForLang(shown, lang) : null,
-        cardNote: shown ? cardNoteForLang(shown, lang) : null,
-        via,
+        card: null,
+        cardText: null,
+        via: "model",
         banner,
         chips,
-        offer,
-        offerIntents,
+        offer: "none",
+        offerIntents: [],
         capNotice,
-        ...(engine ? { engine } : {}),
-        ...(engineReason ? { engineReason } : {}),
       },
     };
   }
@@ -803,7 +767,7 @@ export class DialogSession {
   setMatcher(matcher: IntentMatcher | null) { this.deps = { ...this.deps, matcher }; }
   async send(text: string, extra?: { onGenerating?: TurnDeps["onGenerating"] }): Promise<TurnReply | null> {
     const chatFirst = !!this.deps.chatFirst;
-    const token = chatFirst ? bumpGenerationToken() : currentGenerationToken();
+    const token = bumpGenerationToken();
     this.inflight?.abort();
     const ac = new AbortController();
     this.inflight = ac;
@@ -811,7 +775,7 @@ export class DialogSession {
     const out = chatFirst
       ? await this.sendChatFirst(text, ac, token, extra)
       : await runTurn(this.state, text, { ...this.deps, signal: ac.signal, getModel: () => this.deps.model ?? null });
-    if (my !== this.seq || (chatFirst && !isCurrentGeneration(token))) return null;
+    if (my !== this.seq || !isCurrentGeneration(token)) return null;
     this.state = out.state;
     if (chatFirst && out.reply.kind !== "idle") this.unanswered = [];
     this.inflight = null;
@@ -820,7 +784,7 @@ export class DialogSession {
   abort() {
     this.inflight?.abort();
     this.seq++;
-    if (this.deps.chatFirst) bumpGenerationToken();
+    bumpGenerationToken();
   }
 
   private async sendChatFirst(

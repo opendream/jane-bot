@@ -1,4 +1,4 @@
-/** wllama n_ctx. Chat-first needs ~2048; production card-first stays 1024. */
+/** wllama n_ctx. Card-first (the default) stays 1024; ?chatFirst=1 uses 2048. */
 export const WLLAMA_N_CTX = 1024;
 export const WLLAMA_N_CTX_CHAT_FIRST = 2048;
 

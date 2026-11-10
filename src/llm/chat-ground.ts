@@ -1,8 +1,6 @@
 /**
- * Chat-first grounding: the matcher's top approved card is the only factual
- * source. The model returns JSON ids (opener, whole-card flag, follow-up).
- * The app renders list text plus either nothing or the card's answer_th
- * verbatim. Invalid output: one retry, then the existing card fallback.
+ * Chat-first accept path: the local model writes free text. chatGuard is
+ * never loosened. Invalid output: one retry, then the existing card fallback.
  * Never logs user text.
  */
 
@@ -11,8 +9,6 @@ import type { BankCard } from "../core/bank";
 import { isLockedRouteId } from "../core/pick-engine";
 import type { Retrieval } from "../core/retrieve";
 import type { ChatReplyOpts } from "./adapter";
-import { formatChatReply, parseChatChoice, renderChatChoice, type ChatChoice } from "./chat-choice";
-import { followUpsFor, openersFor } from "./chat-voice";
 import { acceptChatReply, type ChatGuardReason } from "./chatGuard";
 import type { ChatLang } from "./chat-lang";
 
@@ -21,7 +17,7 @@ export type { ChatGrounding } from "./chat-system";
 export type GroundedFailReason = ChatGuardReason | "invalid";
 
 export type GroundedAccept =
-  | { ok: true; text: string; choice: ChatChoice }
+  | { ok: true; text: string }
   | { ok: false; reasons: GroundedFailReason[] };
 
 /**
@@ -45,27 +41,16 @@ export function groundingCard(
 }
 
 /**
- * Parse structured ids, then existing chatGuard on opener + follow-up (never
- * loosened). The card, if attached, is copied verbatim and is not model text.
+ * Guard the model's free-text reply. Card text is never mixed in: reviewed
+ * cards are a fallback, shown separately.
  */
 export function acceptGroundedChat(
   raw: string | null | undefined,
   lang: ChatLang,
-  cardText: string | null | undefined,
+  _cardText?: string | null,
   _opts?: ChatReplyOpts,
 ): GroundedAccept {
-  const card = cardText == null ? "" : String(cardText);
-  const hasCard = card.trim().length > 0;
-  const parsed = parseChatChoice(raw, {
-    openerCount: openersFor(lang).length,
-    followUpCount: followUpsFor(lang).length,
-    hasCard,
-  });
-  if (!parsed.ok) return { ok: false, reasons: ["invalid"] };
-  const opener = openersFor(lang)[parsed.choice.o]!;
-  const follow = followUpsFor(lang)[parsed.choice.q]!;
-  const voice = formatChatReply(opener, "", follow);
-  const guard = acceptChatReply(voice, lang);
+  const guard = acceptChatReply(raw, lang);
   if (!guard.ok) return guard;
-  return { ok: true, text: renderChatChoice(parsed.choice, lang, hasCard ? card : ""), choice: parsed.choice };
+  return { ok: true, text: guard.text };
 }

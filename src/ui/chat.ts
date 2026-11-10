@@ -5,7 +5,7 @@ import { DialogSession, SOFT_CAP, type DialogModel, type TurnReply, type CapNoti
 import type { IntentMatcher } from "../core/matcher";
 import { crisisOrder } from "../core/crisis";
 import { BANK, cardsForSession, bankContext } from "../core/bankData";
-import { THAI_COPY_STATUS, chatFirstEnabled, modelCardPickEnabled, pickTimeoutMsFromSearch } from "../config";
+import { THAI_COPY_STATUS, chatFirstEnabled, debugEnabled, modelCardPickEnabled, pickTimeoutMsFromSearch } from "../config";
 import { MODEL_PICK_TIMEOUT_MS, type EngineTag } from "../core/pick-engine";
 import { engineAnswerLabel, nextThinkingHintDelay, thinkingHintAt } from "./thinking";
 import {
@@ -45,6 +45,10 @@ export interface ChatMsg {
   engineLabel?: string | null;
   cardNote?: string | null;
   softCrisis?: { line: string; categories: CrisisCategory[] };
+  /** ?debug=1 only: chatGuard reason codes. */
+  debugGuard?: string;
+  /** ?debug=1 only: first ~160 chars of rejected raw model output. Memory only. */
+  debugGuardRaw?: string;
 }
 
 export interface ChatState {
@@ -62,6 +66,8 @@ export interface ChatState {
   thinkingToken: number;
   thinkingLang: ChatLang;
   thinkingPhrase: string | null;
+  /** ?debug=1: show chatGuard reason codes (and a short raw preview) on card fallbacks. Off by default. */
+  debug: boolean;
 }
 
 export interface NewChatOpts {
@@ -99,12 +105,14 @@ export function newChat(ageBand: AgeState, model: DialogModel | null, matcher: I
     chatFirst,
     warmupRemainingMs: opts.warmupRemainingMs,
     pickTimeoutMs: opts.pickTimeoutMs ?? (modelPick ? pickTimeoutMsFromSearch(opts.search, MODEL_PICK_TIMEOUT_MS) : undefined),
+    debug: debugEnabled(opts.search),
   });
   const chat: ChatState = {
     session, messages: [], busy: false, draft: "", readOnly: false, quiz: null, modelPick, chatFirst,
     thinkingHint: null, thinking: false, thinkingToken: 0, thinkingLang: "th", thinkingPhrase: null,
+    debug: debugEnabled(opts.search),
   };
-  push(chat, chatMsgFromReply(session.start(), modelPick, chatFirst));
+  push(chat, chatMsgFromReply(session.start(), modelPick, chatFirst, chat.debug));
   return chat;
 }
 
@@ -115,12 +123,14 @@ function push(chat: ChatState, m: ChatMsg | null) {
 }
 
 /** Map a dialog reply onto a Jane bubble. AMBIGUOUS replies with a soft line always render, even with empty text and no card. */
-export function chatMsgFromReply(r: TurnReply, modelPick = false, chatFirst = false): ChatMsg | null {
+export function chatMsgFromReply(r: TurnReply, modelPick = false, chatFirst = false, debug = false): ChatMsg | null {
   if (r.kind === "card") {
     return { from: "jane", text: r.text, cardId: r.card.id, placeholder: !!r.card.placeholder, reworded: r.reworded, original: r.card.answer_th,
       banner: r.banner, chips: r.chips, offer: r.offer, offerIntents: r.offerIntents, cap: r.capNotice,
       engine: r.engine, engineLabel: engineAnswerLabel(r.engine, modelPick), cardNote: r.cardNote,
-      softCrisis: r.softCrisis };
+      softCrisis: r.softCrisis,
+      debugGuard: r.chatGuardReasons?.length ? r.chatGuardReasons.join(",") : undefined,
+      debugGuardRaw: debug && r.chatGuardRawPreview ? r.chatGuardRawPreview : undefined };
   }
   if (r.kind === "chat") {
     if (!r.text && !r.card && !r.softCrisis) return null;
@@ -213,7 +223,7 @@ export async function sendToChat(chat: ChatState, text: string, hooks: ChatHooks
     const soft = reply && "softCrisis" in reply ? reply.softCrisis : undefined;
     if (reply && soft) {
       push(chat, { from: "user", text: t });
-      push(chat, chatMsgFromReply(reply, chat.modelPick, chat.chatFirst));
+      push(chat, chatMsgFromReply(reply, chat.modelPick, chat.chatFirst, chat.debug));
       hooks.rerender();
     }
     return;
@@ -294,7 +304,7 @@ export async function sendToChat(chat: ChatState, text: string, hooks: ChatHooks
   clearThinkingIfMine();
   if (reply.kind === "idle") {
     if (reply.capNotice === "hard") { chat.readOnly = true; chat.quiz = null; }
-    push(chat, chatMsgFromReply(reply, chat.modelPick, chat.chatFirst));
+    push(chat, chatMsgFromReply(reply, chat.modelPick, chat.chatFirst, chat.debug));
     hooks.rerender();
     return;
   }
@@ -304,10 +314,10 @@ export async function sendToChat(chat: ChatState, text: string, hooks: ChatHooks
     chat.quiz = null;
   }
   if (reply.kind === "chat") {
-    push(chat, chatMsgFromReply(reply, chat.modelPick, chat.chatFirst));
+    push(chat, chatMsgFromReply(reply, chat.modelPick, chat.chatFirst, chat.debug));
     push(chat, fromChatCard(reply, chat.modelPick, chat.chatFirst));
   } else {
-    push(chat, chatMsgFromReply(reply, chat.modelPick, chat.chatFirst));
+    push(chat, chatMsgFromReply(reply, chat.modelPick, chat.chatFirst, chat.debug));
   }
   hooks.rerender();
   if (reply.kind === "referral") hooks.referral?.(reply.intents, reply.banner);
@@ -333,6 +343,8 @@ function bubble(m: ChatMsg, i: number, last: boolean, chat: ChatState, hooks: Ch
       m.banner?.length ? strip(m.banner) : null,
       m.engineLabel ? h("p", { class: "engine-label", "data-testid": "engine-label" }, m.engineLabel) : null,
       m.cardNote ? h("p", { class: "note", "data-testid": "card-lang-note" }, m.cardNote) : null,
+      chat.debug && m.debugGuard ? h("p", { class: "note", "data-testid": "chat-guard-debug" },
+        m.debugGuardRaw ? `guard: ${m.debugGuard} raw: ${m.debugGuardRaw}` : `guard: ${m.debugGuard}`) : null,
       h("p", { "data-testid": "chat-text" }, shown),
       m.softCrisis ? h("button", {
         class: "btn-ghost",

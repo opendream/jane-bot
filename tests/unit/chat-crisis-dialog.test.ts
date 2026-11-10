@@ -14,7 +14,7 @@ import {
 } from "../../src/core/dialog";
 import { BANK } from "../../src/core/bankData";
 import { ROUND4_PRECISION_CARD_LINES } from "./chat-crisis-adversarial-fp";
-import { DEFAULT_CHAT_CHOICE_JSON } from "../../src/llm/chat-choice";
+import { STUB_CHAT_REPLY_TH } from "../../src/llm/runtime";
 
 // SYNTHETIC paraphrases only. Probe ids in comments.
 
@@ -161,7 +161,7 @@ function spyModel() {
     ready: () => true,
     chatReply: vi.fn(async () => {
       calls.chat++;
-      return DEFAULT_CHAT_CHOICE_JSON;
+      return STUB_CHAT_REPLY_TH;
     }),
     pickCard: vi.fn(async (_t, list) => {
       calls.pick++;

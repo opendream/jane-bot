@@ -7,10 +7,10 @@ import {
   currentGenerationToken,
   resetGenerationTokenForTests,
 } from "../../src/llm/generation-token";
-import { DEFAULT_CHAT_CHOICE_JSON, defaultChatReply } from "../../src/llm/chat-choice";
+import { STUB_CHAT_REPLY_TH } from "../../src/llm/runtime";
 
-const SAFE_JSON = DEFAULT_CHAT_CHOICE_JSON;
-const SAFE_CHAT = defaultChatReply("th");
+const SAFE_JSON = STUB_CHAT_REPLY_TH;
+const SAFE_CHAT = STUB_CHAT_REPLY_TH;
 const CONDOM_Q = "ถุงยางแตกต้องทำยังไง";
 const THANKS = "ขอบคุณค่ะ";
 const LEAK_ID = "condom.leak.000";
@@ -165,15 +165,15 @@ describe("chat-first: thanks / small talk never inherit an earlier card", () => 
     expect(cardAfterUser(chat.messages, THANKS)).not.toContain(LEAK_ID);
   });
 
-  it("turn 3 of a real topic still closes with a bank card", async () => {
+  it("turn 3 of a real topic keeps chatting with no forced card", async () => {
     const { model } = chatModel({ pick: "none" });
     const s = new DialogSession("18+", deps(model));
     s.start();
     await s.send("ช่วงนี้กังวลเรื่องแฟน");
     await s.send("แฟนไม่ยอมคุยด้วย");
-    const closed = await s.send("แล้วหนูควรพูดยังไงดี");
-    expect(closed?.kind).toBe("chat");
-    if (closed?.kind === "chat") expect(closed.card).toBeTruthy();
+    const third = await s.send("แล้วหนูควรพูดยังไงดี");
+    expect(third?.kind).toBe("chat");
+    if (third?.kind === "chat") expect(third.card).toBeNull();
   });
 });
 

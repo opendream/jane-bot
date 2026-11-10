@@ -5,12 +5,12 @@ import type { ChatLang } from "./chat-lang";
 
 /**
  * Extra chat-turn flags. Stays the 6th `chatReply` argument.
- * `grounding` is the approved card (or none) for the structured-choice chat path.
- * AMBIGUOUS turns never call the model, so there is no ambiguous flag.
+ * `grounding.strict` is the one retry after a guard fail. Card facts are not
+ * quoted into the bubble. AMBIGUOUS turns never call the model.
  */
 export type ChatReplyOpts = {
   grounding?: { facts: string | null; strict?: boolean };
-  /** Chat-choice generation cap. Adapters default to CHAT_MAX_TOKENS. */
+  /** Chat generation cap. Adapters default to CHAT_MAX_TOKENS. */
   maxTokens?: number;
 };
 
@@ -36,11 +36,10 @@ export interface LLMAdapter {
   /** Chat: reword one curated card. Output is validated by rewordGuard; failures show the exact text. */
   rewordCard?(card: { answer_th: string; key_facts: string[] }, signal: AbortSignal): Promise<string | null>;
   /**
-   * Chat-first connective talk. Output is a JSON choice (opener / whole-card
-   * flag / follow-up), parsed strictly, then chatGuard on the list text.
+   * Chat-first connective talk. Output is free text, then chatGuard.
    * History is PII-stripped, memory-only, and excludes crisis lines.
    * `groupId` is the generation token; a stale token must return without
-   * generating. `opts` is the 6th argument (approved-card grounding, or none).
+   * generating. `opts` is the 6th argument (max tokens / retry hint).
    */
   chatReply?(
     text: string,

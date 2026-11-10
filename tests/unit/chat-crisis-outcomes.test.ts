@@ -15,7 +15,7 @@ import {
 import { BANK } from "../../src/core/bankData";
 import { modelChatScript } from "../../src/llm/chat-lang";
 import { CHAT_SYSTEM, chatSystemFor } from "../../src/llm/chat-system";
-import { DEFAULT_CHAT_CHOICE_JSON, defaultChatReply } from "../../src/llm/chat-choice";
+import { STUB_CHAT_REPLY_TH } from "../../src/llm/runtime";
 import { readFileSync } from "node:fs";
 import {
   ADVERSARIAL_CUE_MIX,
@@ -29,8 +29,8 @@ import {
 
 const DRAFT_SOFT_LINE = "ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะคะ";
 const DROPPED_HOLDING_LINE = "พี่ฟังอยู่นะ ขอส่งข้อมูลที่ตรวจแล้วให้ก่อน";
-const SAFE_JSON = DEFAULT_CHAT_CHOICE_JSON;
-const SAFE_CHAT = defaultChatReply("th");
+const SAFE_JSON = STUB_CHAT_REPLY_TH;
+const SAFE_CHAT = STUB_CHAT_REPLY_TH;
 const NONE_CONTROL = "ช่วงนี้กังวลเรื่องแฟน";
 /** Vague distress, no crisis word. Option 1: AMBIGUOUS only for weak cues. */
 const THAI_AMBIGUOUS = "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง";
@@ -639,7 +639,7 @@ describe("Codex round-7: AMBIGUOUS mocked model output is discarded (card + soft
     expect(r.reply.kind).toBe("chat");
     expect(calls.chat).toBe(1);
     const opts = vi.mocked(model.chatReply!).mock.calls[0]?.[5];
-    expect(opts?.grounding).toBeDefined();
+    expect(opts?.maxTokens).toBeGreaterThan(0);
   });
 });
 

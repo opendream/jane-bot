@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { CHAT_MAX_TURNS } from "../../src/config";
 import {
   SHOW_CARD_NOW,
   SHOW_CARD_NOW_EN,
@@ -23,8 +22,7 @@ describe("chat-first state machine", () => {
     expect(f.rulesOnly).toBe(false);
   });
 
-  it("counts topic turns and always closes at turn 3", () => {
-    expect(CHAT_MAX_TURNS).toBe(3);
+  it("counts topic turns and never force-closes on a turn cap", () => {
     const flow = newChatFlow();
     const t1 = planTurn({
       flow, crisis: "none", guard: false, human: false, chip: false, showNow: false,
@@ -32,7 +30,7 @@ describe("chat-first state machine", () => {
     });
     expect(t1).toMatchObject({ reason: "chat", topicTurn: 1, callChat: true, callPick: false, close: "never" });
 
-    const after1 = applyChatTurn(flow, "ช่วงนี้กังวลเรื่องแฟน", "พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย", false);
+    const after1 = applyChatTurn(flow, "ช่วงนี้กังวลเรื่องแฟน", "เราอยู่ตรงนี้นะคะ เธอเล่าเพิ่มได้เลยค่ะ", false);
     expect(after1.phase).toBe("chat");
     expect(after1.topicTurns).toBe(1);
 
@@ -40,22 +38,22 @@ describe("chat-first state machine", () => {
       flow: after1, crisis: "none", guard: false, human: false, chip: false, showNow: false,
       locked: false, rulesConfident: false, directQuestion: false,
     });
-    expect(t2).toMatchObject({ reason: "chat", topicTurn: 2, callChat: true, callPick: true, close: "if-pick" });
+    expect(t2).toMatchObject({ reason: "chat", topicTurn: 2, callChat: true, callPick: false, close: "never" });
 
     const after2 = applyChatTurn(after1, "แฟนไม่ยอมใส่ถุงยาง", "เล่าเพิ่มได้เลยนะ", false);
     const t3 = planTurn({
       flow: after2, crisis: "none", guard: false, human: false, chip: false, showNow: false,
       locked: false, rulesConfident: false, directQuestion: false,
     });
-    expect(t3).toMatchObject({ reason: "chat", topicTurn: 3, callChat: true, callPick: true, close: "always" });
+    expect(t3).toMatchObject({ reason: "chat", topicTurn: 3, callChat: true, callPick: false, close: "never" });
   });
 
-  it("turn 1 that is rules-confident and a direct question closes with a card (no pick)", () => {
+  it("turn 1 that is rules-confident and a direct question still chats with no card", () => {
     const t1 = planTurn({
       flow: newChatFlow(), crisis: "none", guard: false, human: false, chip: false, showNow: false,
       locked: false, rulesConfident: true, directQuestion: true,
     });
-    expect(t1).toMatchObject({ reason: "chat", topicTurn: 1, callChat: true, callPick: false, close: "always" });
+    expect(t1).toMatchObject({ reason: "chat", topicTurn: 1, callChat: true, callPick: false, close: "never" });
   });
 
   it("the ขอข้อมูลเลย chip is recognised and is rules-only", () => {

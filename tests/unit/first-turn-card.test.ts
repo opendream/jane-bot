@@ -30,8 +30,7 @@ import {
 const STUDIO = "ถุงยางอนามัยใช้ยังไงให้ถูกต้อง";
 const CHAT_ONLY = "ถุงยางแตกทำไงดี";
 const DIRECT = "ถุงยางแตกต้องทำยังไง";
-const NONE_JSON = '{"o":0,"c":0,"q":0}';
-const EN_OFFER_NO_CARD_JSON = '{"o":0,"c":0,"q":2}';
+const NONE_JSON = "เราฟังอยู่นะคะ เธอเล่าเพิ่มได้เลยค่ะ";
 
 const HOW_TO = BANK.find((c) => c.id === "condom.how_to.000")!;
 const LEAK = BANK.find((c) => c.id === "condom.leak.000")!;
@@ -78,45 +77,37 @@ describe("firstTurnChoice (pure)", () => {
   });
 });
 
-describe("forced first-turn card (dialog, stub JSON)", () => {
-  it("turn 1 confident, no bubble, stub c=0: opener + answer_th + follow-up 0", async () => {
+describe("no forced first-turn card (dialog, stub free text)", () => {
+  it("turn 1 chats without quoting the bank card", async () => {
     const { model, calls } = spyModel(NONE_JSON);
     const r = await runTurn(newDialog("18-24"), CHAT_ONLY, deps(model));
     expect(calls.chat).toBe(1);
     expect(r.reply.kind).toBe("chat");
     if (r.reply.kind !== "chat") return;
     expect(r.reply.card).toBeNull();
-    expect(r.reply.text).toBe(formatChatReply(CHAT_OPENERS_TH[0]!, LEAK.answer_th, CHAT_FOLLOWUPS_TH[0]!));
-    expect(r.reply.text).toContain(LEAK.answer_th);
+    expect(r.reply.text).toBe(NONE_JSON);
+    expect(r.reply.text).not.toContain(LEAK.answer_th);
     expect(r.state.chatFlow.topicTurns).toBe(1);
     expect(r.state.chatFlow.phase).toBe("chat");
   });
 
-  it("turn 1 not confident: honours the model's c=0 and rejects c=1", async () => {
+  it("turn 1 not confident still chats without a card", async () => {
     const { model } = spyModel(NONE_JSON);
     const r = await runTurn(newDialog("18-24"), "ขอสูตรเค้กช็อกโกแลตที่ไม่มีในคลัง", deps(model));
     expect(r.reply.kind).toBe("chat");
     if (r.reply.kind !== "chat") return;
     expect(r.reply.card).toBeNull();
-    expect(r.reply.text).toBe(formatChatReply(CHAT_OPENERS_TH[0]!, "", CHAT_FOLLOWUPS_TH[0]!));
+    expect(r.reply.text).toBe(NONE_JSON);
     expect(r.reply.text).not.toContain(LEAK.answer_th);
-
-    const parsed = parseChatChoice('{"o":0,"c":1,"q":0}', {
-      openerCount: CHAT_OPENERS_TH.length,
-      followUpCount: CHAT_FOLLOWUPS_TH.length,
-      hasCard: false,
-    });
-    expect(parsed.ok).toBe(false);
   });
 
-  it("bubble wins: chat text has c=0 and the card appears only on the bubble", async () => {
+  it("a direct question still chats; the card is not forced onto the bubble", async () => {
     const { model } = spyModel(NONE_JSON);
     const r = await runTurn(newDialog("18-24"), DIRECT, deps(model));
     expect(r.reply.kind).toBe("chat");
     if (r.reply.kind !== "chat") return;
-    expect(r.reply.card?.id).toBe(LEAK.id);
-    expect(r.reply.cardText).toBe(LEAK.answer_th);
-    expect(r.reply.text).toBe(formatChatReply(CHAT_OPENERS_TH[0]!, "", CHAT_FOLLOWUPS_TH[0]!));
+    expect(r.reply.card).toBeNull();
+    expect(r.reply.text).toBe(NONE_JSON);
     expect(r.reply.text).not.toContain(LEAK.answer_th);
   });
 
@@ -202,8 +193,8 @@ describe("follow-up swap when a card is shown", () => {
     }
   });
 
-  it("EN dialog: no card + offer q keeps the offer string", async () => {
-    const { model } = spyModel(EN_OFFER_NO_CARD_JSON);
+  it("EN dialog: a stubbed English reply is chat-only", async () => {
+    const { model } = spyModel("I hear you. You can tell me more.");
     const noCard = await runTurn(
       newDialog(),
       "I am worried about my boyfriend",
@@ -212,8 +203,7 @@ describe("follow-up swap when a card is shown", () => {
     expect(noCard.reply.kind).toBe("chat");
     if (noCard.reply.kind !== "chat") return;
     expect(noCard.reply.card).toBeNull();
-    expect(noCard.reply.text).toContain(CHAT_FOLLOWUPS_EN[2]!);
-    expect(noCard.reply.text).not.toContain(CHAT_FOLLOWUPS_EN[1]!);
+    expect(noCard.reply.text).toBe("I hear you. You can tell me more.");
   });
 });
 
@@ -225,14 +215,13 @@ describe("condom.how_to.000 trigger", () => {
     expect(groundingCard(r, "18-24")?.id).toBe("condom.how_to.000");
   });
 
-  it("studio prompt on turn 1 with stub c=0 shows the how-to card text", async () => {
+  it("studio prompt on turn 1 chats without quoting the how-to card", async () => {
     const { model } = spyModel(NONE_JSON);
     const r = await runTurn(newDialog("18-24"), STUDIO, deps(model));
     expect(r.reply.kind).toBe("chat");
     if (r.reply.kind !== "chat") return;
     expect(r.reply.card).toBeNull();
-    expect(r.reply.text).toContain(HOW_TO.answer_th);
-    expect(r.reply.text.startsWith(CHAT_OPENERS_TH[0]!)).toBe(true);
-    expect(r.reply.text.endsWith(CHAT_FOLLOWUPS_TH[0]!)).toBe(true);
+    expect(r.reply.text).toBe(NONE_JSON);
+    expect(r.reply.text).not.toContain(HOW_TO.answer_th);
   });
 });
