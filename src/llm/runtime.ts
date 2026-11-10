@@ -1,5 +1,7 @@
-import { MODEL, shouldPreloadModel } from "../config";
-import { MODELS, type ModelSpec, type WebGpuBuild } from "./models";
+import { MODEL, chatFirstEnabled, shouldPreloadModel } from "../config";
+import { detectChatLang } from "./chat-lang";
+import { wllamaContextLength } from "./wllama-ctx";
+import { FT_GGUF_BYTES, FT_GGUF_FILE, FT_GGUF_SHA256, MODELS, type ModelSpec, type WebGpuBuild } from "./models";
 import type { LLMAdapter } from "./adapter";
 import {
   GPU_FAIL_FLAG,
@@ -18,6 +20,7 @@ import {
   resetLoaderEta,
 } from "./loader-eta";
 import { READINESS_LINE } from "../ui/thinking";
+import { shouldSkipGeneration } from "./generation-token";
 
 export type Runtime = "webgpu" | "wasm" | "rules";
 export interface ModelStatus {
@@ -33,8 +36,8 @@ export interface StartModelDeps {
   search?: string;
   gpuInfo?: () => Promise<{ ok: boolean; f16: boolean }>;
   installed?: () => Promise<Installed[]>;
-  loadWebLLM?: (build: WebGpuBuild, label: string, onProgress: (p: number) => void, opts?: { onDead?: (err: Error) => void; onWarmup?: (ms: number) => void }) => Promise<LLMAdapter>;
-  loadWllama?: (file: string, label: string, onProgress: (p: number) => void, opts?: { onWarmup?: (ms: number) => void }) => Promise<LLMAdapter>;
+  loadWebLLM?: (build: WebGpuBuild, label: string, onProgress: (p: number) => void, opts?: { onDead?: (err: Error) => void; onWarmup?: (ms: number) => void; chatFirst?: boolean }) => Promise<LLMAdapter>;
+  loadWllama?: (file: string, label: string, onProgress: (p: number) => void, opts?: { onWarmup?: (ms: number) => void; nCtx?: number; chatFirst?: boolean }) => Promise<LLMAdapter>;
   storage?: StorageLike;
   onAdapter?: (a: LLMAdapter | null) => void;
   testRuntime?: string | null;
@@ -45,7 +48,11 @@ export type RuntimeTestHook = {
   wasm?: "ok" | "unavailable";
   gpu?: boolean;
   /** Mock card-pick worker (e2e / unit). */
-  pick?: "ok" | "timeout" | "not-ready" | "warmup" | "warmup-slow" | "loading" | "fail";
+  pick?: "ok" | "timeout" | "not-ready" | "warmup" | "warmup-slow" | "loading" | "fail" | "none";
+  /** Stubbed chatReply delay in ms (e2e thinking indicator). Never user text. */
+  chatDelayMs?: number;
+  /** Stub returns c=1 (whole card) instead of c=0. E2E only. */
+  chatWhole?: boolean;
 };
 
 export {
@@ -59,6 +66,32 @@ export {
 
 const LOST_MSG = "Device was lost. This can happen due to insufficient memory or other GPU constraints [GPUDeviceLostInfo]";
 const DISPOSED_MSG = "The current Object has already been disposed";
+
+/**
+ * Console warning when the requested on-device model cannot load.
+ * Local 0.6B fine-tune is never fetched; the operator places the GGUF.
+ */
+/** Installed 1.7B is the load fallback when the default fine-tuned 0.6B GGUF is missing. */
+export const FT_MISSING_FALLBACK_KEY = "qwen3-1.7b" as const;
+
+export function missingLocalModelWarning(key: string): string {
+  if (key === "qwen3-0.6b-ft") {
+    return (
+      `[jane] Default model qwen3-0.6b-ft GGUF is missing. ` +
+      `Place models/${FT_GGUF_FILE} (sha256 ${FT_GGUF_SHA256}, ${FT_GGUF_BYTES} bytes). ` +
+      `Weights stay local-only (no URL, never downloaded). Using rules-only.`
+    );
+  }
+  return `[jane] Model ${key} is not available on this machine. Using rules-only.`;
+}
+
+export function missingFtFallbackWarning(): string {
+  return (
+    `[jane] Default model qwen3-0.6b-ft GGUF is missing. ` +
+    `Place models/${FT_GGUF_FILE} (sha256 ${FT_GGUF_SHA256}, ${FT_GGUF_BYTES} bytes). ` +
+    `Weights stay local-only (no URL, never downloaded). Falling back to ${FT_MISSING_FALLBACK_KEY}.`
+  );
+}
 
 /** Honest Thai + English copy for the header pill. Rules-only text is the existing label. */
 export function modelPillCopy(m: ModelStatus, opts?: { modelPick?: boolean }): { text: string; title: string } {
@@ -117,15 +150,27 @@ function readTestHook(deps: StartModelDeps, params: URLSearchParams): RuntimeTes
   if (fromUrl === "pick-warmup-slow") return { wasm: "ok", gpu: false, pick: "warmup-slow" };
   if (fromUrl === "pick-loading") return { wasm: "ok", gpu: false, pick: "loading" };
   if (fromUrl === "pick-fail") return { wasm: "ok", gpu: false, pick: "fail" };
+  if (fromUrl === "chat-ok") return { wasm: "ok", gpu: false, pick: "none" };
+  if (fromUrl === "chat-whole") return { wasm: "ok", gpu: false, pick: "none", chatWhole: true };
+  if (fromUrl === "chat-slow") return { wasm: "ok", gpu: false, pick: "none", chatDelayMs: 1_500 };
   try {
     if (typeof window !== "undefined" && window.__JANE_RUNTIME_TEST__) return window.__JANE_RUNTIME_TEST__;
   } catch { /* node unit tests */ }
   return null;
 }
 
+function noteCall(kind: "chat" | "pick"): void {
+  try {
+    const g = globalThis as unknown as { __JANE_RUNTIME_CALLS__?: { chat: number; pick: number } };
+    g.__JANE_RUNTIME_CALLS__ ??= { chat: 0, pick: 0 };
+    g.__JANE_RUNTIME_CALLS__[kind]++;
+  } catch { /* node unit tests without a window */ }
+}
+
 function mockPickCard(hook: RuntimeTestHook): LLMAdapter["pickCard"] | undefined {
   if (!hook.pick || hook.pick === "not-ready" || hook.pick === "fail") return undefined;
   return async (_text, shortlist, _prev, signal) => {
+    noteCall("pick");
     if (hook.pick === "timeout") {
       await new Promise<void>((_resolve, reject) => {
         const onAbort = () => reject(new Error("aborted"));
@@ -133,21 +178,61 @@ function mockPickCard(hook: RuntimeTestHook): LLMAdapter["pickCard"] | undefined
         signal?.addEventListener("abort", onAbort, { once: true });
       });
     }
-    const id = shortlist[0]?.id ?? "none";
+    const id = hook.pick === "none" ? "none" : (shortlist[0]?.id ?? "none");
     return JSON.stringify({ id });
   };
 }
 
+/** Synthetic free-text chat-ok stub. Guard-safe; not a chat-voice list line. Never user text. */
+export const STUB_CHAT_REPLY_TH = "เราฟังอยู่นะคะ เธอเล่าเพิ่มได้เลยค่ะ";
+export const STUB_CHAT_REPLY_EN = "I hear you. You can tell me more.";
+const MOCK_CHAT_REPLY_WHOLE = STUB_CHAT_REPLY_TH;
+
+function mockChatDelayMs(hook: RuntimeTestHook): number {
+  try {
+    const q = Number(new URLSearchParams(typeof location !== "undefined" ? location.search : "").get("chatReplyMs") || "");
+    if (Number.isFinite(q) && q > 0) return q;
+  } catch { /* node unit tests */ }
+  return hook.chatDelayMs ?? 0;
+}
+
+function mockChatReply(hook: RuntimeTestHook): LLMAdapter["chatReply"] | undefined {
+  if (!hook.pick || hook.pick === "not-ready" || hook.pick === "fail") return undefined;
+  return async (text, _history, signal, _lang, groupId) => {
+    if (shouldSkipGeneration(groupId, signal)) return null;
+    const delay = mockChatDelayMs(hook);
+    if (delay > 0) {
+      await new Promise<void>((resolve, reject) => {
+        const t = setTimeout(resolve, delay);
+        const onAbort = () => { clearTimeout(t); reject(new Error("aborted")); };
+        if (signal?.aborted) return onAbort();
+        signal?.addEventListener("abort", onAbort, { once: true });
+      }).catch(() => null);
+      if (shouldSkipGeneration(groupId, signal)) return null;
+    }
+    noteCall("chat");
+    if (hook.chatWhole) return MOCK_CHAT_REPLY_WHOLE;
+    return detectChatLang(text) === "en" ? STUB_CHAT_REPLY_EN : STUB_CHAT_REPLY_TH;
+  };
+}
+
 function hookLoaders(hook: RuntimeTestHook): Pick<StartModelDeps, "gpuInfo" | "installed" | "loadWebLLM" | "loadWllama"> {
+  try {
+    const g = globalThis as unknown as { __JANE_RUNTIME_CALLS__?: { chat: number; pick: number } };
+    g.__JANE_RUNTIME_CALLS__ ??= { chat: 0, pick: 0 };
+  } catch { /* node */ }
   const pickCard = mockPickCard(hook);
+  const chatReply = mockChatReply(hook);
   return {
     gpuInfo: async () => ({ ok: hook.gpu !== false, f16: false }),
     installed: async () => {
       if (hook.pick === "not-ready") return [];
-      return [{
-        model: "qwen3-1.7b",
-        variants: hook.wasm === "unavailable" ? ["webgpu_f32"] : ["webgpu_f32", "wasm"],
-      }];
+      const wasmOk = hook.wasm !== "unavailable";
+      return [
+        { model: "qwen3-0.6b-ft", variants: wasmOk ? ["wasm"] : [] },
+        { model: "qwen3-1.7b", variants: wasmOk ? ["webgpu_f32", "wasm"] : ["webgpu_f32"] },
+        { model: "qwen3-4b", variants: ["webgpu_f32"] },
+      ].filter((i) => i.variants.length > 0);
     },
     loadWebLLM: async (_b, label, onProgress) => {
       onProgress(1);
@@ -164,6 +249,7 @@ function hookLoaders(hook: RuntimeTestHook): Pick<StartModelDeps, "gpuInfo" | "i
         classify: async () => fail(),
         polishSummary: async () => fail(),
         pickCard,
+        chatReply,
         warmupRemainingMs: () => getWarmupRemainingMs(),
         dispose() { dead = true; },
       };
@@ -189,6 +275,7 @@ function hookLoaders(hook: RuntimeTestHook): Pick<StartModelDeps, "gpuInfo" | "i
         classify: async () => ["other"],
         polishSummary: async () => null,
         pickCard,
+        chatReply,
         warmupRemainingMs: () => {
           if (!readyAt) return getWarmupRemainingMs();
           const left = readyAt - Date.now();
@@ -228,6 +315,9 @@ function watchWebGpu(adapter: LLMAdapter, onFail: () => void): LLMAdapter {
       : undefined,
     rewordCard: adapter.rewordCard
       ? (card, signal) => guard(adapter.rewordCard!(card, signal))
+      : undefined,
+    chatReply: adapter.chatReply
+      ? (text, history, signal, lang, groupId, opts) => guard(adapter.chatReply!(text, history, signal, lang, groupId, opts))
       : undefined,
     warmupRemainingMs: adapter.warmupRemainingMs ? () => adapter.warmupRemainingMs!() : () => getWarmupRemainingMs(),
     dispose: () => adapter.dispose?.(),
@@ -295,9 +385,18 @@ export async function startModel(onStatus: (s: ModelStatus) => void, deps: Start
     onAdapter?.(null);
   };
   if (key === "off" || !(key in MODELS)) { rules("off"); return null; }
-  const spec = MODELS[key as ModelSpec["key"]];
+  const warnUnavailable = (why: string) => {
+    console.warn(`${missingLocalModelWarning(String(key))} (${why})`);
+  };
+  let spec = MODELS[key as ModelSpec["key"]];
   const inst = await installedFn();
   const has = (m: string, v: string) => inst.some((i) => i.model === m && i.variants.includes(v));
+  const hasAny = (m: string) => inst.some((i) => i.model === m && i.variants.length > 0);
+  // Default ft 0.6B missing: use 1.7B when that file is present; else rules-only below.
+  if (key === "qwen3-0.6b-ft" && !has("qwen3-0.6b-ft", "wasm") && hasAny(FT_MISSING_FALLBACK_KEY)) {
+    console.warn(missingFtFallbackWarning());
+    spec = MODELS[FT_MISSING_FALLBACK_KEY];
+  }
   const wSpec = spec.wasm ? spec : spec.wasmFallback ? MODELS[spec.wasmFallback] : null;
 
   type Step = { runtime: "webgpu" | "wasm"; run: () => Promise<LLMAdapter> };
@@ -306,15 +405,20 @@ export async function startModel(onStatus: (s: ModelStatus) => void, deps: Start
   const skipGpu = gpuFailedThisSession(storage) && forced !== "webgpu";
   const gpu = forced === "wasm" || skipGpu ? { ok: false, f16: false } : await gpuInfoFn();
   if ((gpu.ok || forced === "webgpu") && !skipGpu) {
-    const v = gpu.f16 && has(spec.key, "webgpu_f16") ? "webgpu_f16" : has(spec.key, "webgpu_f32") ? "webgpu_f32" : null;
-    if (v) plan.push({
+    const v: "webgpu_f16" | "webgpu_f32" | null =
+      gpu.f16 && spec.webgpu_f16 && has(spec.key, "webgpu_f16") ? "webgpu_f16"
+      : spec.webgpu_f32 && has(spec.key, "webgpu_f32") ? "webgpu_f32"
+      : null;
+    const build = v ? spec[v] : undefined;
+    if (v && build) plan.push({
       runtime: "webgpu",
       run: async () => {
         const load = loadWebLLMFn ?? (await import("./webllm-adapter")).loadWebLLM;
         onStatus({ state: "loading", runtime: "webgpu", label: spec.label, progress: 0 });
-        return load(spec[v as "webgpu_f16"], spec.label, (p) => onStatus({ state: "loading", runtime: "webgpu", label: spec.label, progress: p }), {
+        return load(build, spec.label, (p) => onStatus({ state: "loading", runtime: "webgpu", label: spec.label, progress: p }), {
           onDead: () => gpuDead?.(),
           onWarmup: (ms) => beginWarmup(ms),
+          chatFirst: chatFirstEnabled(search),
         });
       },
     });
@@ -327,9 +431,35 @@ export async function startModel(onStatus: (s: ModelStatus) => void, deps: Start
         onStatus({ state: "loading", runtime: "wasm", label: wSpec.label, progress: 0 });
         return load(wSpec.wasm!.file, wSpec.label, (p) => onStatus({ state: "loading", runtime: "wasm", label: wSpec.label, progress: p }), {
           onWarmup: (ms) => beginWarmup(ms),
+          nCtx: wllamaContextLength(chatFirstEnabled(search)),
+          chatFirst: chatFirstEnabled(search),
         });
       },
     });
+    // Manifest can list 0.6B-ft while its GGUF is missing/corrupt. A failed
+    // load must still try installed 1.7B before rules-only.
+    const fb = MODELS[FT_MISSING_FALLBACK_KEY];
+    if (
+      key === "qwen3-0.6b-ft"
+      && spec.key === "qwen3-0.6b-ft"
+      && fb.wasm
+      && has(fb.key, "wasm")
+      && wSpec?.key !== fb.key
+    ) {
+      plan.push({
+        runtime: "wasm",
+        run: async () => {
+          console.warn(missingFtFallbackWarning());
+          const load = loadWllamaFn ?? (await import("./wllama-adapter")).loadWllama;
+          onStatus({ state: "loading", runtime: "wasm", label: fb.label, progress: 0 });
+          return load(fb.wasm!.file, fb.label, (p) => onStatus({ state: "loading", runtime: "wasm", label: fb.label, progress: p }), {
+            onWarmup: (ms) => beginWarmup(ms),
+            nCtx: wllamaContextLength(chatFirstEnabled(search)),
+            chatFirst: chatFirstEnabled(search),
+          });
+        },
+      });
+    }
   }
 
   const wasmStep = plan.find((s) => s.runtime === "wasm");
@@ -371,6 +501,7 @@ export async function startModel(onStatus: (s: ModelStatus) => void, deps: Start
       /* try the next runtime; never log user content (none is involved here) */
     }
   }
-  rules(plan.length ? "failed" : "off");
+  warnUnavailable(plan.length ? "load failed" : "GGUF not installed");
+  rules("failed");
   return null;
 }

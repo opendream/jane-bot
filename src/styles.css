@@ -79,15 +79,15 @@ textarea { width: 100%; font: inherit; padding: 12px; border-radius: var(--radiu
 .foot p { margin: 2px 0; }
 .art-credit { color: var(--text-muted); }
 .nmad { font-weight: 700; color: var(--fg); }
-.draft { color: var(--warn); }
 .neutral { padding: 24px; font-family: Georgia, serif; }
 .sr { position: absolute; left: -9999px; }
 .crisis-strip { background: var(--danger-bg); border: 1px solid #f3c3bf; border-radius: var(--radius); padding: 10px 12px; margin-bottom: 12px; }
 .crisis-strip p { margin: 0 0 6px; color: var(--danger); }
 .btn-call.danger { background: var(--danger); }
-.model-pill { flex-basis: 100%; font-size: 12px; color: var(--brand); background: var(--brand-2); border-radius: 8px; padding: 3px 8px; }
+.model-pill { flex-basis: 100%; order: -1; font-size: 12px; color: var(--brand); background: var(--brand-2); border-radius: 8px; padding: 3px 8px; }
 .model-pill.loading { color: #6b4d00; background: #fff4d6; }
 .model-pill.off, .model-pill.failed { color: #555; background: #eee; }
+.model-pill.is-dev-hidden, .model-pill[hidden] { display: none !important; }
 .note { font-size: 13px; color: var(--brand); margin: 6px 0 0; }
 .note .link { font-size: 13px; padding: 0; }
 .engine-label { font-size: 12px; color: var(--muted); margin: 0 0 4px; }
@@ -110,8 +110,19 @@ textarea { width: 100%; font: inherit; padding: 12px; border-radius: var(--radiu
 .tag.placeholder { margin-left: 0; background: #fff4e0; color: var(--warn); display: inline-block; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .chip { background: var(--bubble-bot); color: var(--primary); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 15px; }
-.chat-form { display: grid; gap: 6px; position: sticky; bottom: 0; background: var(--bg); padding-top: 6px; }
+.chat-form { display: grid; gap: 6px; position: sticky; bottom: 0; z-index: 6; background: var(--bg); padding-top: 6px; }
 .chat-form .btn-primary { margin-top: 0; }
+
+.chat-thinking { margin: 4px 0 8px; min-height: 1.4em; color: var(--muted); font-size: 15px; }
+.chat-thinking-phrase { display: inline-block; }
+.chat-thinking-bob { animation: chat-thinking-bob 1.6s ease-in-out infinite; }
+@keyframes chat-thinking-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-thinking-bob { animation: none; }
+}
 
 .quiz { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; margin: 8px 0 12px; }
 .quiz-prompt { font-weight: 700; margin: 8px 0; }

@@ -24,7 +24,9 @@ async function gpuInfo() {
   let a: any;
   if (runtime === "webgpu") {
     const v = gpu?.f16 ? "webgpu_f16" : "webgpu_f32";
-    a = await loadWebLLM(spec[v], spec.label, () => {});
+    const build = spec[v];
+    if (!build) throw new Error(`no ${v} build for ${spec.key}`);
+    a = await loadWebLLM(build, spec.label, () => {});
     a.variant = v;
   } else {
     a = await loadWllama(spec.wasm!.file, spec.label, () => {});

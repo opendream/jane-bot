@@ -35,7 +35,7 @@ test("flag-off (default) does not show an engine label or the thinking copy", as
 });
 
 test("flag-on model path: mock worker picks the shortlist top, model label, thinking hint", async ({ page }) => {
-  await openPick(page, "?modelPick=1&testRuntime=pick-ok&runtime=wasm");
+  await openPick(page, "?modelPick=1&chatFirst=0&testRuntime=pick-ok&runtime=wasm");
   await expect(pill(page)).toHaveAttribute("data-state", "ready", { timeout: 10_000 });
   await openChat(page);
   await say(page, "อยากรู้เรื่องคุมกำเนิด");
@@ -44,7 +44,7 @@ test("flag-on model path: mock worker picks the shortlist top, model label, thin
 });
 
 test("flag-on timeout falls back to the rules card with the rules label", async ({ page }) => {
-  await openPick(page, "?modelPick=1&testRuntime=pick-timeout&runtime=wasm&pickTimeoutMs=250");
+  await openPick(page, "?modelPick=1&chatFirst=0&testRuntime=pick-timeout&runtime=wasm&pickTimeoutMs=250");
   await expect(pill(page)).toHaveAttribute("data-state", "ready", { timeout: 10_000 });
   await openChat(page);
   await say(page, "อยากรู้เรื่องคุมกำเนิด");
@@ -54,7 +54,7 @@ test("flag-on timeout falls back to the rules card with the rules label", async 
 });
 
 test("flag-on not-ready is an instant rules-labelled answer", async ({ page }) => {
-  await openPick(page, "?modelPick=1&testRuntime=pick-not-ready");
+  await openPick(page, "?modelPick=1&chatFirst=0&testRuntime=pick-not-ready");
   await expect(pill(page)).toHaveAttribute("data-runtime", "rules", { timeout: 10_000 });
   await openChat(page);
   await say(page, "อยากรู้เรื่องคุมกำเนิด");
@@ -63,7 +63,7 @@ test("flag-on not-ready is an instant rules-labelled answer", async ({ page }) =
 });
 
 test("flag-on warm-up wait (≤5 s remaining) still reaches a model pick", async ({ page }) => {
-  await openPick(page, "?modelPick=1&testRuntime=pick-warmup&runtime=wasm");
+  await openPick(page, "?modelPick=1&chatFirst=0&testRuntime=pick-warmup&runtime=wasm");
   await expect(pill(page)).toHaveAttribute("data-state", "ready", { timeout: 10_000 });
   await openChat(page);
   await say(page, "อยากรู้เรื่องคุมกำเนิด");
@@ -72,7 +72,7 @@ test("flag-on warm-up wait (≤5 s remaining) still reaches a model pick", async
 });
 
 test("flag-on warm-up remaining > 5 s is rules-not-ready, no wait for the model", async ({ page }) => {
-  await openPick(page, "?modelPick=1&testRuntime=pick-warmup-slow&runtime=wasm");
+  await openPick(page, "?modelPick=1&chatFirst=0&testRuntime=pick-warmup-slow&runtime=wasm");
   await expect(pill(page)).toHaveAttribute("data-state", "ready", { timeout: 10_000 });
   await openChat(page);
   const t0 = Date.now();
@@ -83,7 +83,7 @@ test("flag-on warm-up remaining > 5 s is rules-not-ready, no wait for the model"
 });
 
 test("flag-on loading pill uses the readiness line", async ({ page }) => {
-  await openPick(page, "?modelPick=1&testRuntime=pick-warmup-slow&runtime=wasm");
+  await openPick(page, "?modelPick=1&chatFirst=0&testRuntime=pick-warmup-slow&runtime=wasm");
   // The hook returns after onWarmup; pill may already be ready. Check copy if still loading.
   const state = await pill(page).getAttribute("data-state");
   if (state === "loading") await expect(pill(page)).toHaveText(READINESS_LINE);
@@ -97,13 +97,13 @@ test("FILMING-CHECKLIST steps 3 and 6: plain / reaches model-ready with a mock w
   await page.waitForLoadState("domcontentloaded");
   await expect(page.getByTestId("screen-start")).toBeVisible();
   await expect(pill(page)).toHaveAttribute("data-state", "ready", { timeout: 10_000 });
-  await expect(pill(page)).toHaveText("🔒 โมเดลในเครื่อง: Qwen3-1.7B · ออฟไลน์");
+  await expect(pill(page)).toHaveText("🔒 โมเดลในเครื่อง: Qwen3-0.6B (Jane fine-tuned) · ออฟไลน์");
   await expect(pill(page)).toHaveAttribute("data-runtime", "wasm");
 });
 
 test("flag-on preload starts on the start screen and does not block onboarding", async ({ page }) => {
   const t0 = Date.now();
-  await openPick(page, "?modelPick=1&testRuntime=pick-loading&runtime=wasm");
+  await openPick(page, "?modelPick=1&chatFirst=0&testRuntime=pick-loading&runtime=wasm");
   await expect(page.getByTestId("screen-start")).toBeVisible();
   await expect(pill(page)).toHaveText(READINESS_LINE);
   await expect(pill(page)).toHaveAttribute("data-state", "loading");
@@ -117,7 +117,7 @@ test("flag-on preload starts on the start screen and does not block onboarding",
 });
 
 test("flag-on crisis during preload is instant and makes zero model calls", async ({ page }) => {
-  await openPick(page, "?modelPick=1&testRuntime=pick-loading&runtime=wasm");
+  await openPick(page, "?modelPick=1&chatFirst=0&testRuntime=pick-loading&runtime=wasm");
   await startAs(page, "18-24");
   await page.getByTestId("need-input").fill("อยากตาย");
   const t0 = Date.now();
@@ -128,7 +128,7 @@ test("flag-on crisis during preload is instant and makes zero model calls", asyn
 });
 
 test("flag-on load failure falls back to rules without crashing", async ({ page }) => {
-  await openPick(page, "?modelPick=1&testRuntime=pick-fail&runtime=wasm");
+  await openPick(page, "?modelPick=1&chatFirst=0&testRuntime=pick-fail&runtime=wasm");
   await expect(pill(page)).toHaveAttribute("data-runtime", "rules", { timeout: 10_000 });
   await openChat(page);
   await say(page, "อยากรู้เรื่องคุมกำเนิด");
@@ -137,7 +137,7 @@ test("flag-on load failure falls back to rules without crashing", async ({ page 
 });
 
 test("flag-on thinking keeps textarea focus, IME composition, draft and node identity", async ({ page }) => {
-  await openPick(page, "?modelPick=1&testRuntime=pick-timeout&runtime=wasm&pickTimeoutMs=2500");
+  await openPick(page, "?modelPick=1&chatFirst=0&testRuntime=pick-timeout&runtime=wasm&pickTimeoutMs=2500");
   await expect(pill(page)).toHaveAttribute("data-state", "ready", { timeout: 10_000 });
   await openChat(page);
   await say(page, "อยากรู้เรื่องคุมกำเนิด");

@@ -32,13 +32,13 @@ export interface JaneImageSpec {
 const AVATAR_SRCSET = `${avatar96Url} 96w, ${avatar192Url} 192w, ${avatarUrl} 256w`;
 
 export const JANE_IMAGES = {
-  header: { src: headerUrl, width: 504, height: 704, alt: "พี่เจน", testid: "jane-header", className: "jane-header" },
-  avatar: { src: avatarUrl, width: 256, height: 256, alt: "พี่เจน", testid: "jane-avatar", className: "jane-avatar-lg", srcset: AVATAR_SRCSET, sizes: "64px" },
-  avatar96: { src: avatar96Url, width: 96, height: 96, alt: "พี่เจน", testid: "jane-avatar", className: "jane-avatar", srcset: AVATAR_SRCSET, sizes: "40px" },
-  empty: { src: emptyUrl, width: 680, height: 600, alt: "พี่เจนกับเพื่อนนั่งที่บันได", testid: "jane-empty", className: "jane-empty" },
-  thinking: { src: thinkingUrl, width: 431, height: 504, alt: "พี่เจนยิ้ม", testid: "jane-quiz-thinking", className: "jane-quiz-img" },
-  surprised: { src: surprisedUrl, width: 357, height: 501, alt: "พี่เจนทำหน้าประหลาดใจ", testid: "jane-quiz-surprised", className: "jane-quiz-img" },
-  back: { src: backUrl, width: 208, height: 539, alt: "พี่เจนยืนหันหลัง", testid: "jane-quiz-back", className: "jane-quiz-back-img" },
+  header: { src: headerUrl, width: 504, height: 704, alt: "เจน", testid: "jane-header", className: "jane-header" },
+  avatar: { src: avatarUrl, width: 256, height: 256, alt: "เจน", testid: "jane-avatar", className: "jane-avatar-lg", srcset: AVATAR_SRCSET, sizes: "64px" },
+  avatar96: { src: avatar96Url, width: 96, height: 96, alt: "เจน", testid: "jane-avatar", className: "jane-avatar", srcset: AVATAR_SRCSET, sizes: "40px" },
+  empty: { src: emptyUrl, width: 680, height: 600, alt: "เจนกับเพื่อนนั่งที่บันได", testid: "jane-empty", className: "jane-empty" },
+  thinking: { src: thinkingUrl, width: 431, height: 504, alt: "เจนยิ้ม", testid: "jane-quiz-thinking", className: "jane-quiz-img" },
+  surprised: { src: surprisedUrl, width: 357, height: 501, alt: "เจนทำหน้าประหลาดใจ", testid: "jane-quiz-surprised", className: "jane-quiz-img" },
+  back: { src: backUrl, width: 208, height: 539, alt: "เจนยืนหันหลัง", testid: "jane-quiz-back", className: "jane-quiz-back-img" },
 } as const satisfies Record<string, JaneImageSpec>;
 
 export type JaneImageKind = keyof typeof JANE_IMAGES;

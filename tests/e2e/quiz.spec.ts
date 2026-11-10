@@ -3,7 +3,7 @@ import fs from "node:fs";
 import { open, shot, assertNoStorage, assertNetwork, startAs, crisisBannerHrefs, STRIP_HREFS } from "./helpers";
 
 const QUIZ = JSON.parse(fs.readFileSync("src/data/bank/quiz.json", "utf8")) as { items: { id: string; prompt_th: string; explanation_th: string }[] };
-const QUIZ_WRAP = "ขอบคุณที่ลองทำควิซนะ กลับไปคุยกับพี่เจนต่อได้เลย";
+const QUIZ_WRAP = "ขอบคุณที่ลองทำควิซนะ กลับไปคุยกับเจนต่อได้เลย";
 const QUIZ_OK = "ถูกต้อง";
 const QUIZ_NO = "ยังไม่ถูก";
 const QUIZ_PRAISE = /เก่งมาก|ใช่เลย|เยี่ยม(?:มาก)?|สุดยอด|well done/i;
@@ -169,7 +169,7 @@ test("D7 production ignores ?copy=reviewed: both quiz entry points still follow 
 });
 
 test("D7 non-crisis text mid-quiz shows the bubble, drops the panel, and does not duplicate on a rapid second send", async ({ page }) => {
-  const rec = await open(page, "14:00");
+  const rec = await open(page, "14:00", "&chatFirst=0");
   await openChat(page, "15-17");
   await page.getByTestId("quiz-menu").click();
   await expect(page.getByTestId("quiz-panel")).toBeVisible();
@@ -254,7 +254,7 @@ test("D7 hard cap mid-quiz closes the panel; read-only hides quiz entry and cris
 });
 
 test("D7 delayed 30th send: quiz stays closed, cap notice and referral offer show, no duplicate bubble", async ({ page }) => {
-  const rec = await open(page, "14:00", "&chatDelayMs=800");
+  const rec = await open(page, "14:00", "&chatFirst=0&chatDelayMs=800");
   await openChat(page, "15-17");
   for (let i = 0; i < 29; i++) {
     await say(page, "อยากรู้เรื่องทั่วไปค่ะ");

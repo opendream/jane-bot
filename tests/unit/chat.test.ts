@@ -2,10 +2,11 @@ import { describe, it, expect, vi } from "vitest";
 import type { CrisisCategory, Intent } from "../../src/core/types";
 import { HARD_CAP, newNeedGate, bumpNeed } from "../../src/core/dialog";
 import { startQuiz } from "../../src/core/quiz";
-import { applyQuizUpdate, beginQuiz, newChat, sendToChat, type ChatHooks } from "../../src/ui/chat";
+import { applyQuizUpdate, beginQuiz, chatView, newChat, sendToChat, type ChatHooks } from "../../src/ui/chat";
 import { MODEL_ANSWER_LABEL, RULES_ANSWER_LABEL, thinkingHintAt } from "../../src/ui/thinking";
-import { MODEL_CARD_PICK } from "../../src/config";
+import { CHAT_CRISIS_CARD_FIRST, CHAT_FIRST, MODEL_CARD_PICK } from "../../src/config";
 import type { DialogModel } from "../../src/core/dialog";
+import { STUB_CHAT_REPLY_TH } from "../../src/llm/runtime";
 
 // SYNTHETIC chat lines only.
 const FILLER = "อยากรู้เรื่องทั่วไปค่ะ";
@@ -24,6 +25,57 @@ function hooks() {
     referral: (intents, banner = []) => { referralIntents.push(intents); referralBanners.push(banner); },
   };
   return h;
+}
+
+/** Enough of the DOM for chatView + a click. Unit tests run in node. */
+function installChatDom(): void {
+  if (typeof document !== "undefined" && typeof document.createElement === "function") return;
+  class MiniNode { childNodes: MiniNode[] = []; }
+  class MiniText extends MiniNode { constructor(readonly data: string) { super(); } }
+  class MiniEl extends MiniNode {
+    tagName: string;
+    attrs: Record<string, string> = {};
+    listeners: Record<string, Array<(ev: { preventDefault(): void }) => void>> = {};
+    className = "";
+    value = "";
+    constructor(tag: string) { super(); this.tagName = tag.toUpperCase(); }
+    setAttribute(k: string, v: string) { this.attrs[k] = String(v); }
+    getAttribute(k: string) { return this.attrs[k] ?? null; }
+    addEventListener(t: string, fn: (ev: { preventDefault(): void }) => void) {
+      (this.listeners[t] ??= []).push(fn);
+    }
+    append(...nodes: MiniNode[]) { this.childNodes.push(...nodes); }
+    appendChild(n: MiniNode) { this.append(n); return n; }
+    querySelector(sel: string): MiniEl | null {
+      const id = /\[data-testid="([^"]+)"\]/.exec(sel)?.[1];
+      const walk = (el: MiniNode): MiniEl | null => {
+        if (el instanceof MiniEl && id && el.attrs["data-testid"] === id) return el;
+        for (const c of el.childNodes) {
+          const hit = walk(c);
+          if (hit) return hit;
+        }
+        return null;
+      };
+      return walk(this);
+    }
+    click() {
+      const ev = { preventDefault() {} };
+      for (const fn of this.listeners.click ?? []) fn(ev);
+    }
+  }
+  const g = globalThis as typeof globalThis & {
+    Node: typeof MiniNode;
+    HTMLElement: typeof MiniEl;
+    HTMLTextAreaElement: typeof MiniEl;
+    document: { createElement: (t: string) => MiniEl; createTextNode: (t: string) => MiniText };
+  };
+  g.Node = MiniNode;
+  g.HTMLElement = MiniEl;
+  g.HTMLTextAreaElement = MiniEl;
+  g.document = {
+    createElement: (t: string) => new MiniEl(t),
+    createTextNode: (t: string) => new MiniText(t),
+  };
 }
 
 describe("chat send path", () => {
@@ -63,6 +115,32 @@ describe("chat send path", () => {
     expect(chat.readOnly).toBe(true);
     expect(chat.messages.some((m) => m.cap === "hard" || m.note === "readonly")).toBe(true);
     await sendToChat(chat, "อยากตาย", h);
+    expect(h.crisisCalls).toBe(1);
+  });
+
+  it("after the hard cap, AMBIGUOUS หนูหมดแรงจะอยู่แล้ว still shows the soft line and crisis button", async () => {
+    const model: DialogModel = {
+      ready: () => true,
+      chatReply: vi.fn(async () => STUB_CHAT_REPLY_TH),
+    };
+    const chat = newChat("18-24", model, null, { chatFirst: true });
+    const h = hooks();
+    for (let i = 0; i < HARD_CAP; i++) await sendToChat(chat, FILLER, h);
+    expect(chat.readOnly).toBe(true);
+    const before = vi.mocked(model.chatReply!).mock.calls.length;
+    await sendToChat(chat, "หนูหมดแรงจะอยู่แล้ว", h);
+    expect(h.crisisCalls).toBe(0);
+    expect(vi.mocked(model.chatReply!).mock.calls.length).toBe(before);
+    const jane = [...chat.messages].reverse().find((m) => m.from === "jane" && m.softCrisis);
+    expect(jane?.softCrisis?.line).toBe("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะคะ");
+    expect(jane?.softCrisis?.categories.length).toBeGreaterThan(0);
+    installChatDom();
+    const view = chatView(chat, h);
+    const btn = view.querySelector('[data-testid="chat-crisis-soft-open"]') as { click(): void } | null;
+    expect(btn, "read-only state still renders the crisis button").not.toBeNull();
+    expect(view.querySelector('[data-testid="chat-crisis-soft-line"]')).not.toBeNull();
+    expect(h.crisisCalls).toBe(0);
+    btn!.click();
     expect(h.crisisCalls).toBe(1);
   });
 
@@ -308,7 +386,9 @@ describe("model-first chat labels (flag off by default)", () => {
 
   it("flag-off keeps the old busy copy and never shows an engine label", async () => {
     expect(MODEL_CARD_PICK).toBe(false);
-    const chat = newChat("18-24", readyModel(), null, { modelPick: false });
+    expect(CHAT_FIRST).toBe(false);
+    expect(CHAT_CRISIS_CARD_FIRST).toBe(true);
+    const chat = newChat("18-24", readyModel(), null, { modelPick: false, chatFirst: false });
     expect(chat.modelPick).toBe(false);
     expect(chat.thinkingHint).toBeNull();
     await sendToChat(chat, "อยากรู้เรื่องคุมกำเนิด", hooks());
@@ -316,6 +396,15 @@ describe("model-first chat labels (flag off by default)", () => {
     expect(jane?.engineLabel).toBeFalsy();
     expect(jane?.engine).toBeUndefined();
     expect(jane?.cardId).toBe("birth.control.000");
+    expect(chat.chatFirst).toBe(false);
+  });
+
+  it("chat-first without modelPick never shows an engine label", async () => {
+    const chat = newChat("18-24", readyModel(), null, { chatFirst: true, modelPick: false });
+    await sendToChat(chat, "I want to know about birth control", hooks());
+    const jane = [...chat.messages].reverse().find((m) => m.from === "jane");
+    expect(jane?.cardId).toBeTruthy();
+    expect(jane?.engineLabel).toBeFalsy();
   });
 
   it("flag-on shows the 0 s thinking hint, then an engine label on the card", async () => {
@@ -324,14 +413,14 @@ describe("model-first chat labels (flag off by default)", () => {
       await new Promise((r) => setTimeout(r, 40));
       return sl[0]?.id ?? null;
     });
-    const chat = newChat("18-24", model, null, { modelPick: true, pickTimeoutMs: 400 });
+    const chat = newChat("18-24", model, null, { modelPick: true, chatFirst: false, pickTimeoutMs: 400 });
     const h = hooks();
     h.rerender = () => { if (chat.thinkingHint) hints.push(chat.thinkingHint); };
     const pending = sendToChat(chat, "อยากรู้เรื่องคุมกำเนิด", h);
     expect(chat.busy).toBe(true);
     expect(chat.thinkingHint).toBe(thinkingHintAt(0));
     await pending;
-    expect(hints[0]).toBe("พี่เจนกำลังคิดนะ");
+    expect(hints[0]).toBe("เจนกำลังคิดนะ");
     expect(chat.thinkingHint).toBeNull();
     const jane = [...chat.messages].reverse().find((m) => m.from === "jane");
     expect(jane?.engineLabel).toBe(MODEL_ANSWER_LABEL);
@@ -347,7 +436,7 @@ describe("model-first chat labels (flag off by default)", () => {
         await new Promise((r) => setTimeout(r, 18_000));
         return sl[0]?.id ?? null;
       });
-      const chat = newChat("18-24", model, null, { modelPick: true, pickTimeoutMs: 20_000 });
+      const chat = newChat("18-24", model, null, { modelPick: true, chatFirst: false, pickTimeoutMs: 20_000 });
       const h = hooks();
       h.rerender = () => { renders++; };
       h.updateThinkingHint = (text) => { patched.push(text); };
@@ -385,17 +474,79 @@ describe("model-first chat labels (flag off by default)", () => {
   });
 
   it("flag-on locked and fallback answers use the rules label, never AI", async () => {
-    const chat = newChat("18-24", readyModel(), null, { modelPick: true, pickTimeoutMs: 80 });
+    const chat = newChat("18-24", readyModel(), null, { modelPick: true, chatFirst: false, pickTimeoutMs: 80 });
     await sendToChat(chat, "ยาคุมฉุกเฉินกินภายในกี่ชั่วโมง", hooks());
     const locked = [...chat.messages].reverse().find((m) => m.from === "jane");
     expect(locked?.engine).toBe("rules-locked");
     expect(locked?.engineLabel).toBe(RULES_ANSWER_LABEL);
     expect(locked?.engineLabel).not.toMatch(/AI/);
 
-    const miss = newChat("18-24", readyModel(), null, { modelPick: true, pickTimeoutMs: 80 });
+    const miss = newChat("18-24", readyModel(), null, { modelPick: true, chatFirst: false, pickTimeoutMs: 80 });
     await sendToChat(miss, "วันนี้อากาศดีจัง", hooks());
     const fb = [...miss.messages].reverse().find((m) => m.from === "jane");
     expect(fb?.engine).toBe("rules-fallback");
     expect(fb?.engineLabel).toBe(RULES_ANSWER_LABEL);
+  });
+});
+
+describe("ambiguous extra-check: card bubble carries the DRAFT soft line", () => {
+  it("does not open the crisis screen until the soft button is used", async () => {
+    const chat = newChat("18-24", null);
+    const h = hooks();
+    await sendToChat(chat, "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง", h);
+    expect(h.crisisCalls).toBe(0);
+    const jane = [...chat.messages].reverse().find((m) => m.from === "jane");
+    expect(jane?.softCrisis?.line).toBe("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะคะ");
+    expect(jane?.softCrisis?.categories).toContain("self_harm");
+    expect(jane?.cardId).toBeTruthy();
+  });
+
+  it("chat-first Thai AMBIGUOUS renders the bank card plus the DRAFT soft line and never calls the model", async () => {
+    const model: DialogModel = {
+      ready: () => true,
+      chatReply: vi.fn(async () => STUB_CHAT_REPLY_TH),
+    };
+    const chat = newChat("18-24", model, null, { chatFirst: true });
+    const h = hooks();
+    await sendToChat(chat, "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง", h);
+    expect(h.crisisCalls).toBe(0);
+    expect(model.chatReply).not.toHaveBeenCalled();
+    const jane = [...chat.messages].reverse().find((m) => m.from === "jane");
+    expect(jane?.text).not.toBe("พี่อยู่ตรงนี้นะ น้องเล่าเพิ่มได้เลย");
+    expect(jane?.cardId).toBeTruthy();
+    expect(jane?.softCrisis?.line).toBe("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะคะ");
+    expect(jane?.softCrisis?.categories).toContain("self_harm");
+  });
+
+  it("CLEAR extra-check still opens the crisis screen immediately", async () => {
+    const chat = newChat("18-24", null);
+    const h = hooks();
+    await sendToChat(chat, "หนู suicidal", h);
+    expect(h.crisisCalls).toBe(1);
+  });
+
+  it("AMBIGUOUS plus a staff request keeps the referral message and the DRAFT soft line", async () => {
+    const chat = newChat("18-24", null);
+    const h = hooks();
+    await sendToChat(chat, "หนูสิ้นหวังมาก อยากคุยกับเจ้าหน้าที่", h);
+    expect(h.crisisCalls).toBe(0);
+    expect(h.referralIntents).toHaveLength(1);
+    const jane = [...chat.messages].reverse().find((m) => m.from === "jane");
+    expect(jane?.note).toBe("referral");
+    expect(jane?.softCrisis?.line).toBe("ถ้าตอนนี้รู้สึกไม่ปลอดภัย กดตรงนี้ได้เลยนะคะ");
+  });
+
+  it("?debug=1 shows chatGuard reason codes; default does not", () => {
+    installChatDom();
+    const off = newChat("18-24", null);
+    expect(off.debug).toBe(false);
+    off.messages.push({ from: "jane", text: "card", cardId: "general.fallback.000", debugGuard: "digits,url" });
+    expect(chatView(off, hooks()).querySelector('[data-testid="chat-guard-debug"]')).toBeNull();
+
+    const on = newChat("18-24", null, null, { search: "?debug=1" });
+    expect(on.debug).toBe(true);
+    on.messages.push({ from: "jane", text: "card", cardId: "general.fallback.000", debugGuard: "digits,url" });
+    const line = chatView(on, hooks()).querySelector('[data-testid="chat-guard-debug"]');
+    expect(line).not.toBeNull();
   });
 });

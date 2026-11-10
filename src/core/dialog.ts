@@ -2,15 +2,38 @@ import type { CrisisCategory, CrisisResult, Intent } from "./types";
 import { type BankCard, type BankTopic, type CardNext, shippable } from "./bank";
 import { AGE_REDIRECT_CARD, AGE_REDIRECT_ID, afterPick, type AgeState } from "./age";
 import { detectCrisis } from "./crisis";
-import { normalize, findPhrases } from "./text";
+import { AMBIGUOUS_CRISIS_LINE_TH, detectChatCrisisForTurn, noteChatCrisisHit, type ChatCrisisHit } from "./chat-crisis";
+import { CHAT_FIRST_TIMEOUT_MS, ENGLISH_MODEL_CHAT, chatCrisisEnabled } from "../config";
+import { normalize, findPhrases, prepCheckText } from "./text";
 import { stripPII } from "./summary";
 import { checkInput, REFUSAL_CARDS, type GuardReason } from "./guard";
 import { retrieve } from "./retrieve";
-import { VALID_INTENTS } from "../llm/adapter";
+import { VALID_INTENTS, type ChatReplyOpts } from "../llm/adapter";
+import { CHAT_MAX_TOKENS, type ChatGrounding } from "../llm/chat-system";
+import { acceptChatReply, chatGuardDebugRawPreview, type ChatGuardReason } from "../llm/chatGuard";
+import { detectChatLang, type ChatLang } from "../llm/chat-lang";
+import { currentGenerationToken, bumpGenerationToken, isCurrentGeneration } from "../llm/generation-token";
+import { ACK_LINE_TH, combineUnanswered, countedGroupMessages, dropAckLines, groupReplyLang, groupTakesNoModelPath } from "./chat-group";
+import { bankAnswerForLang, cardNoteForLang } from "./card-lang";
 import { acceptReword, type RewordContext } from "../llm/rewordGuard";
 import type { IntentMatcher } from "./matcher";
 import {
+  applyChatTurn,
+  applyClosedCard,
+  applyCrisis,
+  chatHistory,
+  isDirectFactualQuestion,
+  isShowCardNow,
+  newChatFlow,
+  planTurn,
+  showCardNowChip,
+  topicText,
+  SHOW_CARD_NOW_ID,
+  type ChatFlowState,
+} from "./chat-flow";
+import {
   decideCardPick,
+  isLockedRouteId,
   MODEL_PICK_TIMEOUT_MS,
   type CardPicker,
   type EngineReason,
@@ -23,10 +46,30 @@ export type { CardPicker, EngineReason, EngineTag } from "./pick-engine";
  * Per-turn chat pipeline (build plan v2 §3). Pure apart from the optional model, which is
  * injected. State is memory-only and never logged.
  *   1. crisis rules (every message, synchronous, BEFORE anything else; never the model or matcher)
- *   2. input guard   3. follow-up chips
+ *      pinned detectCrisis first (raw AND NFKC/folded/lowercased; hit on either
+ *      is crisis), then an add-only chat-crisis check (never clears a pin):
+ *      CLEAR → existing crisis screen (no model); AMBIGUOUS (both paths) →
+ *      the turn's bank card plus a fixed DRAFT soft line and a button that
+ *      opens the existing crisis screen. Never the model; model output is
+ *      discarded if a caller still injects one. Staff request → referral
+ *      card + the same soft line. NONE → continue.
+ *      AMBIGUOUS is decided once per turn/group; attachSoftCrisis is the
+ *      single exit that puts the DRAFT line on every non-CLEAR reply.
+ *      Whole-line thanks/ack make 0 model calls (fixed DRAFT Thai line, no
+ *      card). Inside a group, ack lines are dropped and the rest keep every
+ *      gate (lock, English, crisis). Both run on every turn, whatever the
+ *      letter-script class, on both paths. Then the script/allowlist gate:
+ *      English → English model chat, clearly Thai → Thai chat, mixed/unclear
+ *      → 0 model calls.
+ *   2. input guard (refusals; chat-first banner-level wording comes after this)   3. follow-up chips
  *   4. optional matcher (injected only when the desktop-dev flag is on; abstain → fallback)
  *   5. rules retrieval   6. model pick (only if unsure; every free-text turn when modelPick is on, except locked routes)
  *   7. post-pick age gate (18+ card → redirect)   8. reword (validated, else verbatim)   9. reply with chips and referral offer
+ * Card-first (default): rules pick a reviewed bank card; the model is consulted
+ * only when the rules are unsure. Chat-first (`?chatFirst=1`, experimental) lets
+ * the local model write the visible line with a bounded history window; reviewed
+ * cards appear only as fallback (guard fail, timeout, model not ready), or on
+ * rules-only routes (crisis, chips, locked, show-now).
  * ---------------------------------------------------------------------------------------- */
 
 export const WELCOME_ID = "general.welcome.000";
@@ -53,10 +96,13 @@ export interface DialogState {
   /** Once crisis has fired this session, later turns keep the help strip / offer visible. */
   crisisFired: boolean;
   crisisCategories: CrisisCategory[];
+  /** Chat-first topic machine. Unused when `chatFirst` is off. */
+  chatFlow: ChatFlowState;
 }
 
 export const newDialog = (ageBand: AgeState = null): DialogState => ({
   ageBand, cardId: null, topic: null, pendingChips: [], turns: 0, recentUser: [], crisisFired: false, crisisCategories: [],
+  chatFlow: newChatFlow(),
 });
 
 /** Drop a late classify / polish once a newer request exists, the user left describe, or the session was erased / quick-exited. */
@@ -86,19 +132,99 @@ function uniqueCats(cats: CrisisCategory[]): CrisisCategory[] {
   return [...new Set(cats)];
 }
 
-function joinedWindow(input: string, prev: string[]): string {
-  return prev.length ? [...prev.slice(-2), input].join(" ") : input;
+function crisisRank(r: CrisisResult): number {
+  if (r.crisis || r.level === "override") return 2;
+  if (r.level === "banner") return 1;
+  return 0;
 }
 
-/** Current line, then current + previous 1–2 user lines (in memory only). */
+/** Stronger level wins (override > banner > none). Categories union. Add-only. */
+export function mergeCrisisResults(a: CrisisResult, b: CrisisResult): CrisisResult {
+  const categories = uniqueCats([...a.categories, ...b.categories]);
+  if (crisisRank(a) >= 2 || crisisRank(b) >= 2) return { crisis: true, level: "override", categories };
+  if (crisisRank(a) >= 1 || crisisRank(b) >= 1) return { crisis: false, level: "banner", categories };
+  return { crisis: false, level: "none", categories: [] };
+}
+
+/**
+ * Pinned detectCrisis on the raw line and on NFKC/folded/lowercased text.
+ * A hit on either is crisis. crisis.ts stays byte-identical.
+ */
+export function detectCrisisRawOrFolded(text: string): CrisisResult {
+  return mergeCrisisResults(detectCrisis(text), detectCrisis(prepCheckText(text)));
+}
+
+function joinedWindow(input: string, prev: string[]): string {
+  return prev.length ? [...prev, input].join(" ") : input;
+}
+
+/**
+ * Current line, then current + previous user lines (in memory only).
+ * The joined window may raise crisis on this turn when the combined text
+ * matches (split "หนูอยาก" + "ตาย"). A previous turn's banner/hit is not
+ * inherited: later normal turns keep their own result and model call.
+ * Unanswered chat-first lines are all included in the window.
+ */
 function crisisForTurn(input: string, prev: string[]): CrisisResult {
-  const cur = detectCrisis(input);
+  const cur = detectCrisisRawOrFolded(input);
   if (cur.crisis) return cur;
   if (prev.length) {
-    const joined = detectCrisis(joinedWindow(input, prev));
+    const joined = detectCrisisRawOrFolded(joinedWindow(input, prev));
     if (joined.crisis) return joined;
   }
   return cur;
+}
+
+function crisisHitFor(
+  text: string,
+  prev: string[],
+  chatFirst: boolean,
+): { crisis: CrisisResult; engine: EngineTag; extraAmbiguous: ChatCrisisHit | null } {
+  const pinned = crisisForTurn(text, prev);
+  if (pinned.crisis) return { crisis: pinned, engine: "rules-crisis", extraAmbiguous: null };
+  if (chatCrisisEnabled(chatFirst)) {
+    const extra = detectChatCrisisForTurn(text, prev);
+    if (extra.outcome === "clear") {
+      noteChatCrisisHit(extra.rules);
+      return {
+        crisis: { crisis: true, level: "override", categories: extra.categories },
+        engine: "chat-crisis",
+        extraAmbiguous: null,
+      };
+    }
+    if (extra.outcome === "ambiguous") {
+      return { crisis: pinned, engine: "rules-crisis", extraAmbiguous: extra };
+    }
+  }
+  return { crisis: pinned, engine: "rules-crisis", extraAmbiguous: null };
+}
+
+function crisisForMessages(
+  messages: string[],
+  committed: string[],
+  chatFirst: boolean,
+): { crisis: CrisisResult; engine: EngineTag; extraAmbiguous: ChatCrisisHit | null } {
+  let prev = [...committed];
+  let acc: CrisisResult = { crisis: false, level: "none", categories: [] };
+  let engine: EngineTag = "rules-crisis";
+  let extraAmbiguous: ChatCrisisHit | null = null;
+  for (const m of messages) {
+    const hit = crisisHitFor(m, prev, chatFirst);
+    if (hit.crisis.crisis) return { ...hit, extraAmbiguous: null };
+    if (hit.extraAmbiguous && !extraAmbiguous) extraAmbiguous = hit.extraAmbiguous;
+    acc = mergeCrisisResults(acc, hit.crisis);
+    engine = hit.engine;
+    prev = [...prev, m];
+  }
+  // The joined group also goes through the current-turn window (committed
+  // previous lines only for split detection; a previous banner is not inherited).
+  if (messages.length > 1) {
+    const joined = crisisHitFor(messages.join(" "), committed, chatFirst);
+    if (joined.crisis.crisis) return { ...joined, extraAmbiguous: null };
+    if (joined.extraAmbiguous && !extraAmbiguous) extraAmbiguous = joined.extraAmbiguous;
+    acc = mergeCrisisResults(acc, joined.crisis);
+  }
+  return { crisis: acc, engine, extraAmbiguous };
 }
 
 export interface ShortlistItem { id: string; title_th: string; key_fact?: string }
@@ -112,6 +238,18 @@ export interface DialogModel {
   pickCard?(text: string, shortlist: ShortlistItem[], previousTitle: string | null, signal: AbortSignal): Promise<string | null>;
   /** Reword a card. The model sees only the card (never her text). The result is validated; any failure shows answer_th verbatim. */
   reword?(card: BankCard, signal: AbortSignal): Promise<string | null>;
+  /**
+   * Chat-first connective talk. Input is PII-stripped. Output is free text,
+   * then chatGuard. History is memory-only (bounded prior user+Jane turns).
+   */
+  chatReply?(
+    text: string,
+    history: { role: "user" | "assistant"; content: string }[],
+    signal: AbortSignal,
+    lang?: ChatLang,
+    groupId?: number,
+    opts?: ChatReplyOpts,
+  ): Promise<string | null>;
 }
 
 export interface TurnDeps {
@@ -140,20 +278,73 @@ export interface TurnDeps {
   warmupRemainingMs?: () => number | null;
   /** Live model so a mid-wait load is seen. Defaults to deps.model. */
   getModel?: () => DialogModel | null;
+  /**
+   * Chat-first (default off). Tests inject true; the production build reads
+   * CHAT_FIRST / chatFirstEnabled (`?chatFirst=1` opt-in; `?chatFirst=0` forces
+   * card-first).
+   */
+  chatFirst?: boolean;
+  /**
+   * Override ENGLISH_MODEL_CHAT for tests. Production omits this and uses the
+   * config const (false on this branch). English model-chat code paths stay.
+   */
+  englishModelChat?: boolean;
+  /** Override CHAT_FIRST_TIMEOUT_MS / CHAT_TIMEOUT_MS (tests). */
+  chatTimeoutMs?: number;
+  /** Unanswered user lines waiting for a Jane reply (chat-first grouping). */
+  unansweredLines?: string[];
+  /** Raw messages in this answered group (chat-first). Caps count these. */
+  groupMessages?: string[];
+  /** Generation epoch this turn was started for. Stale results are discarded. */
+  generationToken?: number;
+  /** Chat-first: fires only when the model is about to generate. */
+  onGenerating?: (info: { groupId: number; lang: ChatLang }) => void;
+  /**
+   * ?debug=1: attach a short in-memory preview of rejected raw model output.
+   * Off by default. Never logged, stored, or sent.
+   */
+  debug?: boolean;
 }
 
 export type Via = "followup" | "rules" | "model" | "rules_top1" | "fallback" | "guard" | "welcome" | "age_redirect" | "matcher";
 
+export type SoftCrisis = { line: string; categories: CrisisCategory[] };
+
 export type TurnReply =
-  | { kind: "crisis"; categories: CrisisCategory[]; engine?: EngineTag }
-  | { kind: "readonly" }
-  | { kind: "referral"; intents: Intent[]; banner: CrisisCategory[]; capNotice: CapNotice }
+  | { kind: "crisis"; categories: CrisisCategory[]; engine?: EngineTag; groupId?: number }
+  | { kind: "readonly"; groupId?: number; softCrisis?: SoftCrisis }
+  | { kind: "referral"; intents: Intent[]; banner: CrisisCategory[]; capNotice: CapNotice; groupId?: number; softCrisis?: SoftCrisis }
+  | { kind: "idle"; capNotice: CapNotice; groupId?: number; softCrisis?: SoftCrisis }
   | {
       kind: "card"; card: BankCard; text: string; reworded: boolean; via: Via; banner: CrisisCategory[];
       chips: CardNext[]; offer: "none" | "soft" | "strong"; offerIntents: Intent[]; capNotice: CapNotice; guard?: GuardReason;
-      engine?: EngineTag; engineReason?: EngineReason;
+      engine?: EngineTag; engineReason?: EngineReason; cardNote?: string | null; groupId?: number;
+      /** AMBIGUOUS extra-check: DRAFT line + button that opens the existing crisis screen. */
+      softCrisis?: SoftCrisis;
+      /** chatGuard reason codes. Shown with ?debug=1. */
+      chatGuardReasons?: ChatGuardReason[];
+      /** ?debug=1 only on screen: first ~160 chars of rejected raw output. Memory only. */
+      chatGuardRawPreview?: string;
+    }
+  | {
+      kind: "chat"; text: string; card: BankCard | null; cardText: string | null; via: Via; banner: CrisisCategory[];
+      chips: CardNext[]; offer: "none" | "soft" | "strong"; offerIntents: Intent[]; capNotice: CapNotice;
+      engine?: EngineTag; engineReason?: EngineReason; holding?: boolean; cardNote?: string | null; groupId?: number;
+      /** AMBIGUOUS extra-check: DRAFT line + button that opens the existing crisis screen. */
+      softCrisis?: SoftCrisis;
     };
 export type CapNotice = "soft" | "hard" | null;
+
+/** Attach the AMBIGUOUS soft line once. CLEAR crisis stays the crisis screen. Stale idle stays dropped. */
+export function attachSoftCrisis(
+  out: { state: DialogState; reply: TurnReply },
+  softCrisis: SoftCrisis | undefined,
+): { state: DialogState; reply: TurnReply } {
+  if (!softCrisis) return out;
+  if (out.reply.kind === "crisis") return out;
+  if (out.reply.kind === "idle" && out.reply.capNotice == null) return out;
+  return { state: out.state, reply: { ...out.reply, softCrisis } };
+}
 
 async function withTimeout<T>(fn: (s: AbortSignal) => Promise<T>, ms: number, outer?: AbortSignal): Promise<T | null> {
   const ac = new AbortController();
@@ -163,6 +354,29 @@ async function withTimeout<T>(fn: (s: AbortSignal) => Promise<T>, ms: number, ou
   try {
     return await Promise.race([fn(ac.signal), new Promise<null>((r) => ac.signal.addEventListener("abort", () => r(null)))]);
   } catch { return null; } finally { clearTimeout(t); outer?.removeEventListener("abort", stop); }
+}
+
+/** Wait out a short in-flight warm-up so the first chat-first turn is not a card. */
+async function waitForChatReady(
+  deps: TurnDeps,
+  initial: DialogModel | null,
+  budgetMs: number,
+  signal?: AbortSignal,
+): Promise<DialogModel | null> {
+  const current = () => deps.getModel?.() ?? deps.model ?? initial;
+  const first = current();
+  if (first?.ready() && first.chatReply) return first;
+  const eta = first?.warmupRemainingMs?.() ?? deps.warmupRemainingMs?.() ?? null;
+  if (eta == null || eta > budgetMs) return first?.ready() && first.chatReply ? first : null;
+  const deadline = Date.now() + Math.min(budgetMs, Math.max(0, eta) + 25);
+  while (Date.now() < deadline) {
+    if (signal?.aborted) return null;
+    const p = current();
+    if (p?.ready() && p.chatReply) return p;
+    await new Promise<void>((r) => setTimeout(r, Math.min(25, Math.max(0, deadline - Date.now()))));
+  }
+  const last = current();
+  return last?.ready() && last.chatReply ? last : null;
 }
 
 const verbatim = async (c: BankCard) => ({ text: c.answer_th, reworded: false });
@@ -206,23 +420,37 @@ function pickerFromModel(m: DialogModel | null, warmupRemainingMs?: () => number
 export async function runTurn(state: DialogState, input: string, deps: TurnDeps): Promise<{ state: DialogState; reply: TurnReply }> {
   // 1. Crisis rules first, synchronously, on every message. Nothing before this line may await.
   const pickOn = !!deps.modelPick;
-  const recentUser = [...state.recentUser, input].slice(-2);
-  const crisis = crisisForTurn(input, state.recentUser);
+  const chatFirst = !!deps.chatFirst;
+  const tagged = pickOn || chatFirst;
+  const groupMessages = deps.groupMessages ?? [input];
+  const recentUser = [...state.recentUser, ...groupMessages].slice(-2);
+  const { crisis, engine: crisisEngine, extraAmbiguous } = crisisForMessages(groupMessages, state.recentUser, chatFirst);
   if (crisis.crisis) {
     return {
       // Drop the lines that already fired so a later turn cannot re-join them.
-      state: { ...state, pendingChips: [], recentUser: [], crisisFired: true, crisisCategories: crisis.categories },
-      reply: { kind: "crisis", categories: crisis.categories, ...(pickOn ? { engine: "rules-crisis" as const } : {}) },
+      state: {
+        ...state, pendingChips: [], recentUser: [], crisisFired: true, crisisCategories: crisis.categories,
+        chatFlow: applyCrisis(state.chatFlow),
+      },
+      reply: { kind: "crisis", categories: crisis.categories, ...(tagged ? { engine: crisisEngine } : {}) },
     };
   }
   const banner = uniqueCats([
     ...(crisis.level === "banner" ? crisis.categories : []),
     ...(state.crisisFired ? state.crisisCategories : []),
   ]);
+  // Decide AMBIGUOUS once for this turn/group. The window only escalates to CLEAR.
+  const softCrisis = extraAmbiguous
+    ? { line: AMBIGUOUS_CRISIS_LINE_TH, categories: extraAmbiguous.categories }
+    : undefined;
 
+  const out = await (async (): Promise<{ state: DialogState; reply: TurnReply }> => {
   if (state.turns >= HARD_CAP) return { state: { ...state, recentUser }, reply: { kind: "readonly" } };
-  const turns = state.turns + 1;
-  const capNotice: CapNotice = turns === HARD_CAP ? "hard" : turns === SOFT_CAP ? "soft" : null;
+  const rawCount = groupMessages.length;
+  const turns = state.turns + rawCount;
+  const capNotice: CapNotice = turns >= HARD_CAP ? "hard"
+    : state.turns < SOFT_CAP && turns >= SOFT_CAP ? "soft"
+    : null;
   const byId = new Map(deps.cards.map((c) => [c.id, c]));
   if (!byId.has(AGE_REDIRECT_ID)) byId.set(AGE_REDIRECT_ID, AGE_REDIRECT_CARD);
   // 18+ cards stay in the pool so a match can redirect after pick. Crisis and human-ask never reach this.
@@ -232,7 +460,9 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
   const redirect = byId.get(AGE_REDIRECT_ID) ?? AGE_REDIRECT_CARD;
   const render = deps.render ?? ((c: BankCard, sig: AbortSignal) => modelReword(c, deps, sig));
 
-  const reply = async (picked: BankCard, via: Via, guard?: GuardReason, engine?: EngineTag, engineReason?: EngineReason) => {
+  const reply = async (
+    picked: BankCard, via: Via, guard?: GuardReason, engine?: EngineTag, engineReason?: EngineReason,
+  ) => {
     const card = afterPick(picked, state.ageBand, redirect);
     const shownVia: Via = card.id === AGE_REDIRECT_ID && picked.id !== AGE_REDIRECT_ID ? "age_redirect" : via;
     const r = card.reword ? await render(card, deps.signal ?? new AbortController().signal) : { text: card.answer_th, reworded: false };
@@ -245,19 +475,227 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
     return { state: next, reply: { kind: "card" as const, card, text: r.text, reworded: r.reworded, via: shownVia, banner, chips: card.next, offer, offerIntents, capNotice, ...(guard ? { guard } : {}), ...(engine ? { engine } : {}), ...(engineReason ? { engineReason } : {}) } };
   };
 
-  // 2. Input guard (image / method refusals). Abuse and complication detection is deferred to #21.
-  const g = checkInput(input);
-  if (g) return reply(REFUSAL_CARDS[g], "guard", g, pickOn ? "rules-guard" : undefined);
+  const pool = () => deps.cards.filter((c) => usable(c) && c.id !== FALLBACK_ID && c.id !== WELCOME_ID);
+  const rulesTop = (text: string): { card: BankCard; via: Via; confident: boolean } => {
+    const r = retrieve(text, pool(), state.topic);
+    if (r.ranked.length && usable(r.ranked[0].card)) {
+      return { card: r.ranked[0].card, via: r.confident ? "rules" : "rules_top1", confident: r.confident };
+    }
+    return { card: fallback, via: "fallback", confident: false };
+  };
+  const verbatimCard = async (
+    picked: BankCard, via: Via, engine?: EngineTag, engineReason?: EngineReason, guard?: GuardReason,
+    overlayLang: ChatLang | null = null,
+    chatGuardReasons?: ChatGuardReason[],
+    chatGuardRawPreview?: string,
+  ) => {
+    const card = afterPick(picked, state.ageBand, redirect);
+    const shownVia: Via = card.id === AGE_REDIRECT_ID && picked.id !== AGE_REDIRECT_ID ? "age_redirect" : via;
+    let offer = state.crisisFired && card.referral.offer === "none" ? "soft" : card.referral.offer;
+    if (chatFirst && card.id === FALLBACK_ID && offer === "none") offer = "soft";
+    const offerIntents = offer === "none" ? card.referral.intents : (card.referral.intents.length ? card.referral.intents : asIntents(state.topic, ["other"]));
+    const text = overlayLang ? bankAnswerForLang(card, overlayLang) : card.answer_th;
+    const cardNote = overlayLang ? cardNoteForLang(card, overlayLang) : null;
+    const next: DialogState = {
+      ...state, turns, recentUser, cardId: card.id,
+      topic: card.topic === "general" ? state.topic : card.topic, pendingChips: card.next,
+      chatFlow: applyClosedCard(state.chatFlow),
+    };
+    return { state: next, reply: { kind: "card" as const, card, text, reworded: false, via: shownVia, banner, chips: card.next, offer, offerIntents, capNotice, ...(guard ? { guard } : {}), ...(engine ? { engine } : {}), ...(engineReason ? { engineReason } : {}), ...(overlayLang ? { cardNote } : {}), ...(chatGuardReasons?.length ? { chatGuardReasons } : {}), ...(chatGuardRawPreview ? { chatGuardRawPreview } : {}) } };
+  };
 
-  // "Talk to a real person" → referral offer for the current topic.
+  // 2. Input guard (image / method refusals). Abuse and complication detection is deferred to #21.
+  // Chat-first keeps this after a real crisis override and before banner-level wording, same order as card-first.
+  const g = checkInput(input);
+  if (g) {
+    if (chatFirst) return verbatimCard(REFUSAL_CARDS[g], "guard", tagged ? "rules-guard" : undefined, undefined, g, null);
+    return reply(REFUSAL_CARDS[g], "guard", g, pickOn ? "rules-guard" : undefined);
+  }
+
+  // "Talk to a real person" → referral offer for the current topic. Before
+  // card-first AMBIGUOUS so a staff ask still gets the referral, plus the
+  // DRAFT soft line on the way out.
   if (findPhrases(input, HUMAN_ASK).length) {
     return { state: { ...state, turns, recentUser, pendingChips: [] }, reply: { kind: "referral", intents: asIntents(state.topic, retrieve(input, []).prior.intents), banner, capNotice } };
+  }
+
+  // AMBIGUOUS: the turn's bank card plus a DRAFT soft line. Never the model,
+  // chat-first or card-first. English chat-first still uses the English overlay.
+  // Soft line is attached on the way out via attachSoftCrisis.
+  if (extraAmbiguous) {
+    const top = rulesTop(input);
+    const overlayLang = chatFirst && detectChatLang(input) === "en" ? "en" as const : null;
+    return verbatimCard(
+      top.card,
+      top.via,
+      tagged ? "rules-fallback" : undefined,
+      undefined,
+      undefined,
+      overlayLang,
+    );
+  }
+
+  // Chat-first: banner-level wording is a rules-only turn (no generation). After refusals.
+  if (chatFirst && crisis.level === "banner") {
+    const top = rulesTop(input);
+    return verbatimCard(top.card, top.via, "rules-fallback");
   }
 
   // 3. Follow-up chips: a tap sends the chip label; short replies that equal a label also match.
   const said = normalize(input).replace(/\s+/g, "");
   const chip = state.pendingChips.find((c) => normalize(c.label_th).replace(/\s+/g, "") === said);
-  if (chip && usable(byId.get(chip.card_id))) return reply(byId.get(chip.card_id)!, "followup", undefined, pickOn ? "rules-chip" : undefined);
+  if (chatFirst && (isShowCardNow(input) || chip?.card_id === SHOW_CARD_NOW_ID)) {
+    const pending = dropAckLines([...state.chatFlow.topicUserLines, ...(deps.unansweredLines ?? [])]);
+    const q = pending.length ? pending.join(" ") : input;
+    const top = rulesTop(q);
+    return verbatimCard(top.card, top.via, "rules-chip", undefined, undefined, detectChatLang(input));
+  }
+  if (chip && usable(byId.get(chip.card_id))) {
+    if (chatFirst) return verbatimCard(byId.get(chip.card_id)!, "followup", tagged ? "rules-chip" : undefined);
+    return reply(byId.get(chip.card_id)!, "followup", undefined, pickOn ? "rules-chip" : undefined);
+  }
+
+  if (chatFirst) {
+    // Drop whole-line acks. Remaining lines keep lock, English, and crisis gates.
+    const topicMessages = dropAckLines(groupMessages);
+    const ackLang = groupReplyLang(groupMessages);
+    if (topicMessages.length === 0) {
+      const chips = [showCardNowChip(ackLang)];
+      return {
+        state: { ...state, turns, recentUser, pendingChips: chips },
+        reply: {
+          kind: "chat",
+          text: ACK_LINE_TH,
+          card: null,
+          cardText: null,
+          via: "rules",
+          banner,
+          chips,
+          offer: "none",
+          offerIntents: [],
+          capNotice,
+        },
+      };
+    }
+    const clips = topicMessages.map((m) => stripPII(m).slice(0, MODEL_INPUT_CHARS));
+    const currentClip = combineUnanswered(clips);
+    const retrieveText = topicText(state.chatFlow.topicUserLines, clips.join(" "));
+    const retrieved = retrieve(retrieveText, pool(), state.topic);
+    const lockedFrom = (text: string): BankCard | undefined => {
+      const top = retrieve(text, pool(), state.topic).ranked[0]?.card;
+      return top && isLockedRouteId(top.id) && usable(top) ? top : undefined;
+    };
+    // Card-first locks on the current message. Also lock if the last-3 window's top is a locked id.
+    const lockedCard = topicMessages.map(lockedFrom).find(Boolean) ?? lockedFrom(retrieveText);
+    const locked = !!lockedCard;
+    const plan = planTurn({
+      flow: state.chatFlow,
+      crisis: "none",
+      guard: false,
+      human: false,
+      chip: false,
+      showNow: false,
+      locked,
+      rulesConfident: retrieved.confident,
+      directQuestion: topicMessages.some(isDirectFactualQuestion),
+    });
+
+    if (plan.reason === "post-crisis" || plan.reason === "locked") {
+      const chosen = plan.reason === "locked" && lockedCard ? lockedCard : rulesTop(retrieveText).card;
+      const via = plan.reason === "locked" ? "rules" as const : rulesTop(retrieveText).via;
+      return verbatimCard(chosen, via, plan.reason === "locked" ? "rules-locked" : undefined);
+    }
+
+    const lang = groupReplyLang(topicMessages);
+    // Crisis already returned above (pin, then extra check) on every script
+    // class. Model chat is then gated per message: if any counted message
+    // would take the no-model path, the group takes it (card). Emoji-only
+    // messages do not count either way. AMBIGUOUS already returned above
+    // (card + DRAFT soft line, 0 model calls). English script stays off the
+    // model while ENGLISH_MODEL_CHAT is false. Acks never skip this gate.
+    const allowEnglishChat = deps.englishModelChat ?? ENGLISH_MODEL_CHAT;
+    if (countedGroupMessages(topicMessages).length === 0) {
+      return { state: { ...state, turns, recentUser }, reply: { kind: "idle", capNotice } };
+    }
+    if (groupTakesNoModelPath(topicMessages, allowEnglishChat)) {
+      const top = rulesTop(retrieveText);
+      return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined, lang === "en" ? lang : undefined);
+    }
+
+    const history = chatHistory(state.chatFlow);
+    let live = deps.getModel?.() ?? deps.model ?? null;
+    const token = deps.generationToken;
+    const stale = () => (token != null && !isCurrentGeneration(token)) || !!deps.signal?.aborted;
+    const dropStale = () => ({ state, reply: { kind: "idle" as const, capNotice: null } });
+
+    const timeoutMs = deps.chatTimeoutMs ?? CHAT_FIRST_TIMEOUT_MS;
+    if (plan.callChat && live?.chatReply && !live.ready()) {
+      live = await waitForChatReady(deps, live, timeoutMs, deps.signal);
+    }
+    if (!plan.callChat || !live?.ready() || !live.chatReply) {
+      const top = rulesTop(retrieveText);
+      return verbatimCard(top.card, top.via, tagged ? "rules-not-ready" : undefined);
+    }
+    if (stale()) return dropStale();
+
+    const chatOpts: ChatReplyOpts = { maxTokens: CHAT_MAX_TOKENS };
+    const retryGrounding: ChatGrounding = { facts: null, strict: true };
+
+    deps.onGenerating?.({ groupId: token ?? currentGenerationToken(), lang });
+    const deadlineAt = Date.now() + timeoutMs;
+    const remainingMs = () => Math.max(0, deadlineAt - Date.now());
+    const attempt = (g?: ChatGrounding) =>
+      withTimeout((s) => live.chatReply!(currentClip, history, s, lang, token, { ...chatOpts, grounding: g }), remainingMs(), deps.signal);
+
+    let generated = await attempt();
+    if (stale()) return dropStale();
+    if (generated == null) {
+      const top = rulesTop(retrieveText);
+      return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined);
+    }
+    let acc = acceptChatReply(generated, lang);
+    if (!acc.ok) {
+      generated = await attempt(retryGrounding);
+      if (stale()) return dropStale();
+      if (generated == null) {
+        const top = rulesTop(retrieveText);
+        return verbatimCard(top.card, top.via, tagged ? "rules-fallback" : undefined);
+      }
+      acc = acceptChatReply(generated, lang);
+    }
+    if (!acc.ok) {
+      const top = rulesTop(retrieveText);
+      return verbatimCard(
+        top.card, top.via, tagged ? "rules-fallback" : undefined, undefined, undefined,
+        lang === "en" ? lang : undefined, acc.reasons,
+        deps.debug ? chatGuardDebugRawPreview(generated) : undefined,
+      );
+    }
+
+    const chatText = acc.text;
+    const chips = [showCardNowChip(lang)];
+    const nextFlow = applyChatTurn(state.chatFlow, currentClip, chatText, false);
+    const next: DialogState = {
+      ...state, turns, recentUser,
+      pendingChips: chips,
+      chatFlow: nextFlow,
+    };
+    return {
+      state: next,
+      reply: {
+        kind: "chat",
+        text: chatText,
+        card: null,
+        cardText: null,
+        via: "model",
+        banner,
+        chips,
+        offer: "none",
+        offerIntents: [],
+        capNotice,
+      },
+    };
+  }
 
   // Optional matcher (desktop-dev flag only). Crisis already returned above, so a hit cannot override it.
   if (deps.matcher) {
@@ -291,8 +729,7 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
   }
 
   // 4. Rules retrieval (18+ cards stay in the pool so a match can redirect).
-  const pool = deps.cards.filter((c) => usable(c) && c.id !== FALLBACK_ID && c.id !== WELCOME_ID);
-  const r = retrieve(input, pool, state.topic);
+  const r = retrieve(input, pool(), state.topic);
   if (r.confident) return reply(r.ranked[0].card, "rules");
 
   // 5. Model picks from the shortlist only when the rules are unsure.
@@ -308,30 +745,78 @@ export async function runTurn(state: DialogState, input: string, deps: TurnDeps)
   // 6. Rules top-1 if anything scored, else the honest "don't know yet" card (เริ่มใหม่ only).
   if (r.ranked.length) return reply(r.ranked[0].card, "rules_top1");
   return reply(fallback, "fallback");
+  })();
+  return attachSoftCrisis(out, softCrisis);
 }
 
 /**
  * One chat session: owns the state and the in-flight turn. A new message aborts the previous turn's
  * model call (so a crisis message mid-turn wins at once), and replies from aborted turns are dropped.
+ * Chat-first also tags each generate with a generation token so a stale wllama/WebGPU result is
+ * never rendered or counted.
  */
 export class DialogSession {
   state: DialogState;
   private inflight: AbortController | null = null;
   private seq = 0;
+  /** Unanswered user lines waiting for one Jane reply (chat-first grouping). */
+  private unanswered: string[] = [];
   constructor(ageBand: AgeState, private deps: Omit<TurnDeps, "signal">) { this.state = newDialog(ageBand); }
   start(): TurnReply { const w = welcome(this.state, this.deps.cards); this.state = w.state; return w.reply; }
   setModel(model: DialogModel | null) { this.deps = { ...this.deps, model }; }
   setMatcher(matcher: IntentMatcher | null) { this.deps = { ...this.deps, matcher }; }
-  async send(text: string): Promise<TurnReply | null> {
+  async send(text: string, extra?: { onGenerating?: TurnDeps["onGenerating"] }): Promise<TurnReply | null> {
+    const chatFirst = !!this.deps.chatFirst;
+    const token = bumpGenerationToken();
     this.inflight?.abort();
     const ac = new AbortController();
     this.inflight = ac;
     const my = ++this.seq;
-    const out = await runTurn(this.state, text, { ...this.deps, signal: ac.signal, getModel: () => this.deps.model ?? null });
-    if (my !== this.seq) return null; // superseded by a newer message
+    const out = chatFirst
+      ? await this.sendChatFirst(text, ac, token, extra)
+      : await runTurn(this.state, text, { ...this.deps, signal: ac.signal, getModel: () => this.deps.model ?? null });
+    if (my !== this.seq || !isCurrentGeneration(token)) return null;
     this.state = out.state;
+    if (chatFirst && out.reply.kind !== "idle") this.unanswered = [];
     this.inflight = null;
-    return out.reply;
+    return chatFirst ? { ...out.reply, groupId: token } : out.reply;
   }
-  abort() { this.inflight?.abort(); this.seq++; }
+  abort() {
+    this.inflight?.abort();
+    this.seq++;
+    bumpGenerationToken();
+  }
+
+  private async sendChatFirst(
+    text: string,
+    ac: AbortController,
+    token: number,
+    extra?: { onGenerating?: TurnDeps["onGenerating"] },
+  ): Promise<{ state: DialogState; reply: TurnReply }> {
+    const said = normalize(text).replace(/\s+/g, "");
+    const chip = this.state.pendingChips.find((c) => normalize(c.label_th).replace(/\s+/g, "") === said);
+    const instantChip = isShowCardNow(text) || !!chip;
+    const base: TurnDeps = {
+      ...this.deps,
+      signal: ac.signal,
+      getModel: () => this.deps.model ?? null,
+      generationToken: token,
+      onGenerating: extra?.onGenerating,
+    };
+    if (instantChip) {
+      const pending = [...this.unanswered];
+      return runTurn(this.state, text, {
+        ...base,
+        unansweredLines: pending,
+        groupMessages: [...pending, text],
+      });
+    }
+    this.unanswered = [...this.unanswered, text];
+    const group = [...this.unanswered];
+    return runTurn(this.state, combineUnanswered(group), {
+      ...base,
+      unansweredLines: group.slice(0, -1),
+      groupMessages: group,
+    });
+  }
 }

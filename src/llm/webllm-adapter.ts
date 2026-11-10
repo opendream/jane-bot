@@ -4,9 +4,14 @@ import type { Intent } from "../core/types";
 import type { WebGpuBuild } from "./models";
 import { modelUrl } from "./weights-cache";
 import { CLASSIFY_SYSTEM, POLISH_SYSTEM, PICK_SYSTEM, PICK_MAX_TOKENS, REWORD_SYSTEM, REWORD_MAX_TOKENS, cleanPolished, cleanReword, parseIntent, pickSchema, pickUser, rewordUser } from "./prompts";
+import { CHAT_MAX_TOKENS, CHAT_TEMPERATURE, CHAT_TOP_P, chatSystemFor } from "./chat-system";
+import { CHAT_WARMUP_LANG, CHAT_WARMUP_MAX_TOKENS, CHAT_WARMUP_USER } from "./chat-warmup";
+import { createChatRuntime } from "./chat-engine";
+import { detectChatLang } from "./chat-lang";
 import { needLine, replaceNeedLine } from "./summary-lines";
 import { isWebGpuRuntimeFailure } from "./gpu-failure";
 import { WARMUP_BUDGET_MS } from "./loader-eta";
+import { shouldSkipGeneration } from "./generation-token";
 
 export { isWebGpuRuntimeFailure } from "./gpu-failure";
 
@@ -15,6 +20,13 @@ export interface WebLLMEngineLike {
   unload?: () => unknown;
   device?: { lost?: Promise<unknown> };
   gpuDevice?: { lost?: Promise<unknown> };
+  /**
+   * Best-effort cancel of in-flight GPU generate. WebLLM does not honour
+   * AbortSignal on chat.completions.create; if interruptGenerate is missing
+   * or ignored, the late result is discarded via the generation token and
+   * must not be rendered or counted.
+   */
+  interruptGenerate?: () => void | Promise<void>;
 }
 
 export interface WebLLMWorkerLike {
@@ -26,6 +38,8 @@ export interface BindWebLLMOpts {
   onDead?: (err: Error) => void;
   /** Final one-token warm-up is about to start. */
   onWarmup?: (budgetMs: number) => void;
+  /** Chat-first only: run a background chat generate after the classify warm-up. */
+  chatFirst?: boolean;
 }
 
 function asError(err: unknown): Error {
@@ -93,21 +107,76 @@ export async function bindWebLLMEngine(
   }
   released = true;
 
+  // Do not wait for a previous GPU generate: interrupt is best-effort and a
+  // late result is discarded by the generation token. Chat warm-up is
+  // chat-first only so card-first classify/pick never overlap it (#49).
+  const runtime = createChatRuntime({ chatFirst: opts?.chatFirst, waitForPrevious: false });
+  const withInterrupt = async <T>(s: AbortSignal, fn: () => Promise<T>): Promise<T> => {
+    const stop = () => {
+      try { void engine.interruptGenerate?.(); } catch { /* best-effort */ }
+    };
+    if (s.aborted) { stop(); throw new Error("aborted"); }
+    s.addEventListener("abort", stop, { once: true });
+    try {
+      return await fn();
+    } finally {
+      s.removeEventListener("abort", stop);
+    }
+  };
+  runtime.startWarmup(async (s) => {
+    await withInterrupt(s, async () => {
+      await engine.chat.completions.create({
+        messages: [
+          { role: "system", content: chatSystemFor(CHAT_WARMUP_LANG) },
+          { role: "user", content: CHAT_WARMUP_USER },
+        ],
+        max_tokens: CHAT_WARMUP_MAX_TOKENS, temperature: 0,
+        extra_body: { enable_thinking: false },
+      });
+    });
+  });
+
   return {
     name: `${label} (WebGPU)`,
     runtime: "webgpu" as const,
-    classifyRaw: async (text: string) => askRaw(CLASSIFY_SYSTEM, text, 20),
-    polishRaw: async (line: string) => askRaw(POLISH_SYSTEM, line, 60),
+    classifyRaw: (text: string) => runtime.classifyOrPick(() => askRaw(CLASSIFY_SYSTEM, text, 20)),
+    polishRaw: (line: string) => runtime.classifyOrPick(() => askRaw(POLISH_SYSTEM, line, 60)),
     ready: () => !dead,
-    classify: async (text) => parseIntent(await ask(CLASSIFY_SYSTEM, text, 20)) as Intent[] | null,
-    polishSummary: async (draft) => {
+    classify: async (text) => parseIntent(await runtime.classifyOrPick(() => ask(CLASSIFY_SYSTEM, text, 20))) as Intent[] | null,
+    polishSummary: async (draft) => runtime.classifyOrPick(async () => {
       const line = needLine(draft);
       if (!line) return null;
       const out = cleanPolished(await ask(POLISH_SYSTEM, line, 60));
       return out ? replaceNeedLine(draft, out) : null;
-    },
-    pickCard: async (text, shortlist, prev) => ask(PICK_SYSTEM, pickUser(text, shortlist, prev), PICK_MAX_TOKENS, pickSchema(shortlist.map((s) => s.id))),
-    rewordCard: async (card) => cleanReword(await ask(REWORD_SYSTEM, rewordUser(card), REWORD_MAX_TOKENS)) || null,
+    }),
+    pickCard: (text, shortlist, prev) => runtime.classifyOrPick(
+      () => ask(PICK_SYSTEM, pickUser(text, shortlist, prev), PICK_MAX_TOKENS, pickSchema(shortlist.map((s) => s.id))),
+    ),
+    rewordCard: (card) => runtime.classifyOrPick(
+      async () => cleanReword(await ask(REWORD_SYSTEM, rewordUser(card), REWORD_MAX_TOKENS)) || null,
+    ),
+    chatReply: (text, history, signal, lang, groupId, opts) => runtime.chat(groupId, signal, async (s) => {
+      if (shouldSkipGeneration(groupId, s)) return null;
+      if (dead) throw dead;
+      try {
+        const r: any = await withInterrupt(s, () => engine.chat.completions.create({
+          messages: [
+            { role: "system", content: chatSystemFor(lang ?? detectChatLang(text), opts) },
+            ...history.map((h) => ({ role: h.role, content: h.content })),
+            { role: "user", content: text },
+          ],
+          max_tokens: opts?.maxTokens ?? CHAT_MAX_TOKENS, temperature: CHAT_TEMPERATURE, top_p: CHAT_TOP_P,
+          extra_body: { enable_thinking: false },
+        }));
+        if (dead) throw dead;
+        if (shouldSkipGeneration(groupId, s)) return null;
+        // Raw model text: chatGuard / debug preview run in dialog. Do not strip here.
+        return String(r.choices?.[0]?.message?.content ?? "") || null;
+      } catch (e) {
+        if (isWebGpuRuntimeFailure(e) || dead) markDead(e);
+        throw e;
+      }
+    }),
     dispose,
   };
 }

@@ -184,7 +184,7 @@ describe("session flow: explain, next, stop, wrap-up with no score", () => {
     s = answerChoice(s, 0);
     s = advanceQuiz(s);
     expect(s.phase).toBe("done");
-    expect(QUIZ_WRAP).toBe("ขอบคุณที่ลองทำควิซนะ กลับไปคุยกับพี่เจนต่อได้เลย");
+    expect(QUIZ_WRAP).toBe("ขอบคุณที่ลองทำควิซนะ กลับไปคุยกับเจนต่อได้เลย");
     expect(startQuiz("15-17", null)).not.toBeNull();
   });
   it("ordering session records the current order on confirm", () => {

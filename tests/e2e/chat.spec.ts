@@ -31,7 +31,7 @@ test("CH1 chat: welcome → chip → follow-up chip → typed question, all verb
   await openChat(page);
   await expect(lastJane(page)).toHaveAttribute("data-card", "general.welcome.000");
   await expect(lastJane(page).getByTestId("placeholder-tag")).toHaveCount(0);
-  await expect(lastJane(page)).toContainText("สวัสดี เราชื่อพี่เจน :D");
+  await expect(lastJane(page)).toContainText("สวัสดี เราชื่อเจน :D");
   await shot(page, "ch1-01-welcome");
   await page.getByTestId("chat-chip-1").click(); // "กังวลเรื่องท้อง"
   await expect(lastJane(page)).toHaveAttribute("data-card", "pregnancy.ornot.000");
@@ -40,12 +40,27 @@ test("CH1 chat: welcome → chip → follow-up chip → typed question, all verb
   await say(page, "ช่วงนี้เครียดมาก นอนไม่หลับ");
   await expect(lastJane(page)).toHaveAttribute("data-card", "general.fallback.000");
   await expect(lastJane(page)).toHaveAttribute("data-reworded", "false");
-  await expect(lastJane(page)).toContainText("ตอนนี้พี่เจนยังไม่สามารถตอบเรื่องนั้นได้ค่ะ");
+  await expect(lastJane(page)).toContainText("ตอนนี้เจนยังไม่สามารถตอบเรื่องนั้นได้ค่ะ");
   await expect(page.getByTestId("not-medical-advice")).toBeVisible();
   await shot(page, "ch1-02-multi-turn");
   await assertNoStorage(page);
   await assertNetwork(page, rec);
   expect(rec.consoleText.join("\n")).not.toContain("เครียดมาก");
+});
+
+test("CH2b extra-check paraphrase in card-first chat → existing crisis card, 191 then 1300", async ({ page }) => {
+  const rec = await open(page, "14:00");
+  await openChat(page, "18-24");
+  await say(page, "อยากรู้เรื่องคุมกำเนิด");
+  await expect(lastJane(page)).toHaveAttribute("data-card", "birth.control.000");
+  // bt532 paraphrase: first-person harassment, missed by pinned crisis.ts.
+  await say(page, "หนูถูกคุกคามที่ทำงาน");
+  await expect(page.getByTestId("screen-crisis")).toBeVisible();
+  await expect(page.locator('[data-testid^="crisis-"]').first()).toHaveAttribute("data-testid", "crisis-191");
+  expect(await crisisCallHrefs(page)).toEqual(["tel:191", "tel:1300"]);
+  await expect(page.getByTestId("crisis-female-officer")).toHaveCount(0);
+  await assertNoStorage(page);
+  await assertNetwork(page, rec);
 });
 
 test("CH2 crisis mid-chat (turn 3) → crisis screen, 1323 first; 'I'm safe now' returns to the same chat", async ({ page }) => {
