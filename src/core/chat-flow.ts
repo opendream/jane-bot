@@ -1,5 +1,5 @@
 import type { CardNext } from "./bank";
-import { CHAT_MAX_TURNS } from "../config";
+import { CHAT_HISTORY_TURNS } from "../config";
 import type { ChatLang } from "../llm/chat-lang";
 import { normalize } from "./text";
 
@@ -35,9 +35,9 @@ export interface ChatFlowState {
   rulesOnly: boolean;
   /** chatGuard / not-ready / timeout fails in this topic. A second fail closes with the card. */
   rejectCount: number;
-  /** PII-stripped, clipped user lines of this topic (max 3). Crisis lines are never stored. */
+  /** PII-stripped, clipped user lines of this topic (bounded window). Crisis lines are never stored. */
   topicUserLines: string[];
-  /** Last guarded Jane chat lines (max 2). */
+  /** Last guarded Jane chat lines (same window as topicUserLines). */
   janeReplies: string[];
 }
 
@@ -111,16 +111,7 @@ export function planTurn(input: PlanTurnInput): ChatPlan {
   }
 
   const topicTurn = flow.phase === "chat" ? flow.topicTurns + 1 : 1;
-  if (topicTurn >= CHAT_MAX_TURNS) {
-    return { reason: "chat", callChat: true, callPick: true, close: "always", topicTurn: CHAT_MAX_TURNS };
-  }
-  if (topicTurn === 2) {
-    return { reason: "chat", callChat: true, callPick: true, close: "if-pick", topicTurn: 2 };
-  }
-  if (input.rulesConfident && input.directQuestion) {
-    return { reason: "chat", callChat: true, callPick: false, close: "always", topicTurn: 1 };
-  }
-  return { reason: "chat", callChat: true, callPick: false, close: "never", topicTurn: 1 };
+  return { reason: "chat", callChat: true, callPick: false, close: "never", topicTurn };
 }
 
 export function applyCrisis(flow: ChatFlowState): ChatFlowState {
@@ -138,9 +129,21 @@ export function applyChatTurn(flow: ChatFlowState, userLine: string, janeReply: 
     phase: "chat",
     topicTurns: continuing ? flow.topicTurns + 1 : 1,
     rejectCount: rejected ? flow.rejectCount + 1 : flow.rejectCount,
-    topicUserLines: [...(continuing ? flow.topicUserLines : []), userLine].slice(-3),
-    janeReplies: [...(continuing ? flow.janeReplies : []), janeReply].slice(-2),
+    topicUserLines: [...(continuing ? flow.topicUserLines : []), userLine].slice(-CHAT_HISTORY_TURNS),
+    janeReplies: [...(continuing ? flow.janeReplies : []), janeReply].slice(-CHAT_HISTORY_TURNS),
   };
+}
+
+/** Prior user+Jane turns for the model (bounded window). Current user is passed separately. */
+export function chatHistory(flow: ChatFlowState): { role: "user" | "assistant"; content: string }[] {
+  const n = Math.min(flow.topicUserLines.length, flow.janeReplies.length);
+  const start = Math.max(0, n - CHAT_HISTORY_TURNS);
+  const out: { role: "user" | "assistant"; content: string }[] = [];
+  for (let i = start; i < n; i++) {
+    out.push({ role: "user", content: flow.topicUserLines[i]! });
+    out.push({ role: "assistant", content: flow.janeReplies[i]! });
+  }
+  return out;
 }
 
 export function shouldCloseAfterReject(flow: ChatFlowState, rejected: boolean): boolean {

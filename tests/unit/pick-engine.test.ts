@@ -130,7 +130,7 @@ const guardTurns: [string, string][] = [
 describe("model-card-pick flag (PR 2: off by default)", () => {
   it("is off in config so this PR does not change visible chat behaviour", () => {
     expect(MODEL_CARD_PICK).toBe(false);
-    expect(CHAT_FIRST).toBe(false);
+    expect(CHAT_FIRST).toBe(true);
   });
   it("without modelPick, confident rules still skip the picker", async () => {
     const { picker, calls } = stubPicker('{"id":"none"}');

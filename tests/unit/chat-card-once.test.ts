@@ -2,22 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import { BANK } from "../../src/core/bankData";
 import { newDialog, runTurn, type DialogModel, type TurnDeps } from "../../src/core/dialog";
 import { newChat, sendToChat, type ChatHooks } from "../../src/ui/chat";
-import {
-  DEFAULT_CHAT_CHOICE_JSON,
-  defaultChatReply,
-  formatChatReply,
-} from "../../src/llm/chat-choice";
-import { CHAT_FOLLOWUPS_TH, CHAT_OPENERS_TH } from "../../src/llm/chat-voice";
+import { SHOW_CARD_NOW } from "../../src/core/chat-flow";
+import { STUB_CHAT_REPLY_TH } from "../../src/llm/runtime";
 
-// SYNTHETIC chat lines only. Model stubs return JSON; Jane's text is rendered.
-const NONE_JSON = DEFAULT_CHAT_CHOICE_JSON;
-const WHOLE_JSON = '{"o":0,"c":1,"q":0}';
-const OPENER = CHAT_OPENERS_TH[0]!;
-const FOLLOW = CHAT_FOLLOWUPS_TH[0]!;
+const SAFE = STUB_CHAT_REPLY_TH;
 const LEAK = BANK.find((c) => c.id === "condom.leak.000")!;
-/** Direct question → card bubble on this turn. */
-const SHOW_CARD_Q = "ถุงยางแตกต้องทำยังไง";
-/** Same topic, not a direct question → chat only, no card bubble. */
 const CHAT_ONLY_Q = "ถุงยางแตกทำไงดี";
 
 function spyModel(reply: string): DialogModel {
@@ -46,62 +35,32 @@ function countNeedle(texts: string[], needle: string): number {
   return texts.filter((t) => t.includes(needle)).length;
 }
 
-describe("c=1 same-card closer shows the answer once", () => {
-  it("c=1 plus a shown card: answer_th is on the card bubble only", async () => {
-    const model = spyModel(WHOLE_JSON);
-    const chat = newChat("18-24", model, null, { chatFirst: true });
-    await sendToChat(chat, SHOW_CARD_Q, hooks());
-    const jane = janeThisTurn(chat.messages, SHOW_CARD_Q);
-    expect(countNeedle(jane.map((m) => m.text), LEAK.answer_th)).toBe(1);
-    const chatBubble = jane.find((m) => !m.cardId);
-    const cardBubble = jane.find((m) => m.cardId);
-    expect(chatBubble?.text).toBe(formatChatReply(OPENER, "", FOLLOW));
-    expect(chatBubble?.text).not.toContain(LEAK.answer_th);
-    expect(cardBubble?.cardId).toBe(LEAK.id);
-    expect(cardBubble?.text).toBe(LEAK.answer_th);
-  });
-
-  it("runTurn: c=1 plus a shown same card omits the quote from chat text", async () => {
-    const r = await runTurn(newDialog(), SHOW_CARD_Q, deps(spyModel(WHOLE_JSON)));
-    expect(r.reply.kind).toBe("chat");
-    if (r.reply.kind !== "chat") return;
-    expect(r.reply.card?.id).toBe(LEAK.id);
-    expect(r.reply.cardText).toBe(LEAK.answer_th);
-    expect(r.reply.text).toBe(formatChatReply(OPENER, "", FOLLOW));
-    expect(r.reply.text).not.toContain(LEAK.answer_th);
-  });
-
-  it("c=1 with no card bubble still shows the card in the chat bubble", async () => {
-    const chat = newChat("18-24", spyModel(WHOLE_JSON), null, { chatFirst: true });
+describe("chat text does not quote the bank card", () => {
+  it("a model reply is chat-only and does not include answer_th", async () => {
+    const chat = newChat("18-24", spyModel(SAFE), null, { chatFirst: true });
     await sendToChat(chat, CHAT_ONLY_Q, hooks());
     const jane = janeThisTurn(chat.messages, CHAT_ONLY_Q);
     expect(jane).toHaveLength(1);
     expect(jane[0]!.cardId).toBeFalsy();
-    expect(jane[0]!.text).toBe(formatChatReply(OPENER, LEAK.answer_th, FOLLOW));
-    expect(jane[0]!.text).toContain(LEAK.answer_th);
+    expect(jane[0]!.text).toBe(SAFE);
+    expect(jane[0]!.text).not.toContain(LEAK.answer_th);
 
-    const r = await runTurn(newDialog(), CHAT_ONLY_Q, deps(spyModel(WHOLE_JSON)));
+    const r = await runTurn(newDialog(), CHAT_ONLY_Q, deps(spyModel(SAFE)));
     expect(r.reply.kind).toBe("chat");
     if (r.reply.kind !== "chat") return;
     expect(r.reply.card).toBeNull();
-    expect(r.reply.cardText).toBeNull();
-    expect(r.reply.text).toBe(formatChatReply(OPENER, LEAK.answer_th, FOLLOW));
+    expect(r.reply.text).toBe(SAFE);
+    expect(r.reply.text).not.toContain(LEAK.answer_th);
   });
 
-  it("c=0 plus a card bubble keeps answer_th on the bubble; turn-1 chat-only forces the card into the chat text", async () => {
-    const chatShown = newChat("18-24", spyModel(NONE_JSON), null, { chatFirst: true });
-    await sendToChat(chatShown, SHOW_CARD_Q, hooks());
-    const shown = janeThisTurn(chatShown.messages, SHOW_CARD_Q);
-    expect(countNeedle(shown.map((m) => m.text), LEAK.answer_th)).toBe(1);
-    expect(shown.find((m) => !m.cardId)?.text).toBe(defaultChatReply("th"));
-    expect(shown.find((m) => m.cardId)?.text).toBe(LEAK.answer_th);
-
-    const chatOnly = newChat("18-24", spyModel(NONE_JSON), null, { chatFirst: true });
-    await sendToChat(chatOnly, CHAT_ONLY_Q, hooks());
-    const only = janeThisTurn(chatOnly.messages, CHAT_ONLY_Q);
-    expect(only).toHaveLength(1);
-    expect(only[0]!.cardId).toBeFalsy();
-    expect(only[0]!.text).toBe(formatChatReply(OPENER, LEAK.answer_th, FOLLOW));
-    expect(only[0]!.text).toContain(LEAK.answer_th);
+  it("ขอข้อมูลเลย shows the bank answer once, on the card bubble", async () => {
+    const model = spyModel(SAFE);
+    const chat = newChat("18-24", model, null, { chatFirst: true });
+    await sendToChat(chat, CHAT_ONLY_Q, hooks());
+    await sendToChat(chat, SHOW_CARD_NOW, hooks());
+    const jane = janeThisTurn(chat.messages, SHOW_CARD_NOW);
+    expect(countNeedle(jane.map((m) => m.text), LEAK.answer_th)).toBe(1);
+    expect(jane.find((m) => m.cardId)?.cardId).toBe(LEAK.id);
+    expect(jane.find((m) => m.cardId)?.text).toBe(LEAK.answer_th);
   });
 });

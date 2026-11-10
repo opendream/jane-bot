@@ -14,8 +14,8 @@ async function openChat(page: Page, band = "18-24") {
   await expect(page.getByTestId("screen-chat")).toBeVisible();
 }
 
-test("filming ?chatFirst=1 without modelPick hides the model badge", async ({ page }) => {
-  await page.goto("/?chatFirst=1&testRuntime=chat-ok&runtime=wasm");
+test("filming default chat-first without modelPick hides the model badge", async ({ page }) => {
+  await page.goto("/?testRuntime=chat-ok&runtime=wasm");
   await page.waitForLoadState("domcontentloaded");
   await expect(page.getByTestId("model-status")).toHaveAttribute("data-state", "ready", { timeout: 10_000 });
   await expect(page.getByTestId("model-status")).toBeHidden();
@@ -26,7 +26,7 @@ test("filming ?chatFirst=1 without modelPick hides the model badge", async ({ pa
 });
 
 test("modelPick badge at 412x915 never overlaps the send button", async ({ page }) => {
-  await page.goto("/?modelPick=1&chatFirst=1&testRuntime=pick-ok&runtime=wasm");
+  await page.goto("/?modelPick=1&chatFirst=0&testRuntime=pick-ok&runtime=wasm");
   await page.waitForLoadState("domcontentloaded");
   const badge = page.getByTestId("model-status");
   await expect(badge).toHaveAttribute("data-state", "ready", { timeout: 10_000 });

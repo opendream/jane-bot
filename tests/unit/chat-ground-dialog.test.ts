@@ -9,13 +9,14 @@ import {
   type TurnDeps,
 } from "../../src/core/dialog";
 import type { ChatGrounding } from "../../src/llm/chat-system";
-import { DEFAULT_CHAT_CHOICE_JSON, defaultChatReply } from "../../src/llm/chat-choice";
+import { STUB_CHAT_REPLY_TH } from "../../src/llm/runtime";
 
-const SAFE_JSON = DEFAULT_CHAT_CHOICE_JSON;
-const SAFE = defaultChatReply("th");
-const HEAT = "ถุงยางแตกแล้วให้นำไปอุ่นก่อนใช้นะ";
-const PARENT = "ต้องมีผู้ปกครองไปรับเพร็พด้วยนะ";
-const INCOMPLETE = "น้องเล่าเพิ่";
+const SAFE_JSON = STUB_CHAT_REPLY_TH;
+const SAFE = STUB_CHAT_REPLY_TH;
+const GUARD_FAIL = "กิน 2 เม็ด แล้วไม่ท้องแน่ https://evil.test";
+const HEAT = GUARD_FAIL;
+const PARENT = GUARD_FAIL;
+const INCOMPLETE = GUARD_FAIL;
 
 function spyModel(reply: string | string[] = SAFE_JSON) {
   const calls = { chat: 0, pick: 0, groundings: [] as Array<ChatGrounding | undefined> };
@@ -43,22 +44,19 @@ describe("chat-first grounding in runTurn", () => {
     expect(ENGLISH_MODEL_CHAT).toBe(false);
   });
 
-  it("passes the leak card facts as the only allowed source", async () => {
+  it("does not pass card facts into the first generate", async () => {
     const { model, calls } = spyModel();
     const r = await runTurn(newDialog(), "ถุงยางแตกทำไงดี", deps(model));
     expect(r.reply.kind).toBe("chat");
     expect(calls.chat).toBe(1);
-    const g = calls.groundings[0];
-    expect(g?.facts).toContain("ถุงยางแตกนี่มีหลายสาเหตุ");
-    expect(g?.facts).toContain("ไปล้างจู๋ก่อนแล้วเปลี่ยนถุงอันใหม่");
-    expect(g?.strict).toBeFalsy();
+    expect(calls.groundings[0]?.facts).toBeUndefined();
   });
 
-  it("passes facts: null when no card matches well enough", async () => {
+  it("still chats when no card matches well enough", async () => {
     const { model, calls } = spyModel();
     const r = await runTurn(newDialog(), "ขอสูตรเค้กช็อกโกแลตที่ไม่มีในคลัง", deps(model));
     expect(r.reply.kind).toBe("chat");
-    expect(calls.groundings[0]?.facts).toBeNull();
+    expect(calls.groundings[0]?.facts).toBeUndefined();
   });
 
   it("heat-a-broken-condom retries once strictly then shows the card", async () => {
@@ -89,8 +87,8 @@ describe("chat-first grounding in runTurn", () => {
     expect(r.reply.kind).toBe("card");
   });
 
-  it("a particle-only leftover retries once then shows the card", async () => {
-    const { model, calls } = spyModel("ค่ะ เรื่องแฟนนี่พี่เข้าใจ");
+  it("a particle-only leftover that fails the guard retries once then shows the card", async () => {
+    const { model, calls } = spyModel(GUARD_FAIL);
     const r = await runTurn(newDialog(), "ช่วงนี้กังวลเรื่องแฟน", deps(model));
     expect(calls.chat).toBe(2);
     expect(r.reply.kind).toBe("card");
@@ -110,10 +108,10 @@ describe("chat-first grounding in runTurn", () => {
     }
     const { model, calls } = spyModel();
     await runTurn(newDialog("18-24"), "เนื้อหาทดสอบสิบแปดบวก", deps(model, { cards }));
-    expect(calls.groundings[0]?.facts).toContain("ข้อความทดสอบสำหรับอายุ 18 ปีขึ้นไปเท่านั้น");
+    expect(calls.groundings[0]?.facts).toBeUndefined();
   });
 
-  it("invalid then a valid JSON choice keeps the second reply", async () => {
+  it("invalid then a valid free-text reply keeps the second reply", async () => {
     const { model, calls } = spyModel([INCOMPLETE, SAFE_JSON]);
     const r = await runTurn(newDialog(), "ช่วงนี้กังวลเรื่องแฟน", deps(model));
     expect(calls.chat).toBe(2);
@@ -122,7 +120,7 @@ describe("chat-first grounding in runTurn", () => {
   });
 
   it("a mid-word cut-off is invalid, retries once, then shows the card", async () => {
-    const { model, calls } = spyModel("พี่อยู่ตรงนี้นะ น้องเล่าเพิ่");
+    const { model, calls } = spyModel(GUARD_FAIL);
     const r = await runTurn(newDialog(), "ช่วงนี้กังวลเรื่องแฟน", deps(model));
     expect(calls.chat).toBe(2);
     expect(r.reply.kind).toBe("card");

@@ -1,5 +1,5 @@
 /**
- * Extra crisis check on chat-first (?chatFirst=1) and card-first (CHAT_FIRST off).
+ * Extra crisis check on chat-first (default) and card-first (?chatFirst=0).
  * Stubbed model via ?testRuntime=. SYNTHETIC paraphrase only.
  * Existing crisis screen / helpline order, no new numbers.
  */
@@ -15,7 +15,11 @@ async function openStubbed(page: Page, extraQuery = "") {
 }
 
 async function openChatFirst(page: Page) {
-  await openStubbed(page, "&chatFirst=1");
+  await openStubbed(page, "");
+}
+
+async function openCardFirst(page: Page) {
+  await openStubbed(page, "&chatFirst=0");
 }
 
 async function openChat(page: Page, band = "18-24") {
@@ -33,7 +37,7 @@ async function modelCalls(page: Page) {
   return page.evaluate(() => window.__JANE_RUNTIME_CALLS__ ?? { chat: 0, pick: 0 });
 }
 
-test("?chatFirst=1 synthetic crisis paraphrase shows the existing crisis card with zero model calls", async ({ page }) => {
+test("chat-first synthetic crisis paraphrase shows the existing crisis card with zero model calls", async ({ page }) => {
   await openChatFirst(page);
   await openChat(page);
   expect(await modelCalls(page)).toEqual({ chat: 0, pick: 0 });
@@ -51,7 +55,7 @@ test("?chatFirst=1 synthetic crisis paraphrase shows the existing crisis card wi
 });
 
 test("card-first synthetic crisis paraphrase shows the existing crisis card with zero model calls", async ({ page }) => {
-  await openStubbed(page);
+  await openCardFirst(page);
   await openChat(page);
   expect(await modelCalls(page)).toEqual({ chat: 0, pick: 0 });
 
@@ -67,7 +71,7 @@ test("card-first synthetic crisis paraphrase shows the existing crisis card with
   expect(JSON.stringify(calls)).not.toContain("คุกคาม");
 });
 
-test("?chatFirst=1 a normal SRH question still reaches the stubbed model (control)", async ({ page }) => {
+test("chat-first a normal SRH question still reaches the stubbed model (control)", async ({ page }) => {
   await openChatFirst(page);
   await openChat(page);
   await say(page, "ช่วงนี้กังวลเรื่องแฟน");
@@ -77,7 +81,7 @@ test("?chatFirst=1 a normal SRH question still reaches the stubbed model (contro
   expect(calls.chat).toBeGreaterThan(0);
 });
 
-test("?chatFirst=1 mostly-Thai English crisis word shows the existing crisis card with zero model calls", async ({ page }) => {
+test("chat-first mostly-Thai English crisis word shows the existing crisis card with zero model calls", async ({ page }) => {
   await openChatFirst(page);
   await openChat(page);
   expect(await modelCalls(page)).toEqual({ chat: 0, pick: 0 });
@@ -88,7 +92,7 @@ test("?chatFirst=1 mostly-Thai English crisis word shows the existing crisis car
 });
 
 test("card-first mostly-Thai English crisis word shows the existing crisis card with zero model calls", async ({ page }) => {
-  await openStubbed(page);
+  await openCardFirst(page);
   await openChat(page);
   expect(await modelCalls(page)).toEqual({ chat: 0, pick: 0 });
   await say(page, "หนูรู้สึก suicidal มาหลายวันแล้ว");
@@ -97,7 +101,7 @@ test("card-first mostly-Thai English crisis word shows the existing crisis card 
   expect(calls.chat + calls.pick).toBe(0);
 });
 
-test("?chatFirst=1 exact English crisis phrase shows the existing crisis card with zero model calls", async ({ page }) => {
+test("chat-first exact English crisis phrase shows the existing crisis card with zero model calls", async ({ page }) => {
   await openChatFirst(page);
   await openChat(page);
   await say(page, "I'm suicidal");
@@ -107,7 +111,7 @@ test("?chatFirst=1 exact English crisis phrase shows the existing crisis card wi
 });
 
 test("card-first exact English crisis phrase shows the existing crisis card with zero model calls", async ({ page }) => {
-  await openStubbed(page);
+  await openCardFirst(page);
   await openChat(page);
   await say(page, "wanna die");
   await expect(page.getByTestId("screen-crisis")).toBeVisible();
@@ -115,7 +119,7 @@ test("card-first exact English crisis phrase shows the existing crisis card with
   expect(calls.chat + calls.pick).toBe(0);
 });
 
-test("?chatFirst=1 bare help line stays on the card with zero model calls", async ({ page }) => {
+test("chat-first bare help line stays on the card with zero model calls", async ({ page }) => {
   await openChatFirst(page);
   await openChat(page);
   await say(page, "help");
@@ -126,7 +130,7 @@ test("?chatFirst=1 bare help line stays on the card with zero model calls", asyn
 });
 
 test("card-first bare help line stays on the card with zero model calls", async ({ page }) => {
-  await openStubbed(page);
+  await openCardFirst(page);
   await openChat(page);
   await say(page, "please help");
   await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
@@ -136,7 +140,7 @@ test("card-first bare help line stays on the card with zero model calls", async 
 });
 
 test("card-first negated wanna-die HIV question is CLEAR under option 1", async ({ page }) => {
-  await openStubbed(page);
+  await openCardFirst(page);
   await openChat(page);
   await say(page, "I don't really wanna die, is HIV curable");
   await expect(page.getByTestId("screen-crisis")).toBeVisible();
@@ -144,7 +148,7 @@ test("card-first negated wanna-die HIV question is CLEAR under option 1", async 
   expect(calls.chat + calls.pick).toBe(0);
 });
 
-test("?chatFirst=1 don't-want-to-live shows the existing crisis card with zero model calls", async ({ page }) => {
+test("chat-first don't-want-to-live shows the existing crisis card with zero model calls", async ({ page }) => {
   await openChatFirst(page);
   await openChat(page);
   expect(await modelCalls(page)).toEqual({ chat: 0, pick: 0 });
@@ -155,7 +159,7 @@ test("?chatFirst=1 don't-want-to-live shows the existing crisis card with zero m
 });
 
 test("card-first razor self-harm disclosure shows the existing crisis card with zero model calls", async ({ page }) => {
-  await openStubbed(page);
+  await openCardFirst(page);
   await openChat(page);
   await say(page, "หนู cut ตัวเองด้วยมีดโกนทุกคืน");
   await expect(page.getByTestId("screen-crisis")).toBeVisible();
@@ -164,7 +168,7 @@ test("card-first razor self-harm disclosure shows the existing crisis card with 
 });
 
 test("card-first side-effect question with a crisis word is CLEAR under option 1", async ({ page }) => {
-  await openStubbed(page);
+  await openCardFirst(page);
   await openChat(page);
   await say(page, "ยาคุมทำให้รู้สึก suicidal ได้ไหม");
   await expect(page.getByTestId("screen-crisis")).toBeVisible();
@@ -173,7 +177,7 @@ test("card-first side-effect question with a crisis word is CLEAR under option 1
 });
 
 test("card-first vague distress shows the card, DRAFT soft line, and button; button opens existing crisis screen; zero model calls", async ({ page }) => {
-  await openStubbed(page);
+  await openCardFirst(page);
   await openChat(page);
   await say(page, "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง");
   await expect(page.getByTestId("screen-crisis")).toHaveCount(0);
@@ -189,7 +193,7 @@ test("card-first vague distress shows the card, DRAFT soft line, and button; but
   expect(after.chat + after.pick).toBe(0);
 });
 
-test("?chatFirst=1 Thai AMBIGUOUS shows the card plus the DRAFT line, 0 model calls; the button opens the existing crisis screen", async ({ page }) => {
+test("chat-first Thai AMBIGUOUS shows the card plus the DRAFT line, 0 model calls; the button opens the existing crisis screen", async ({ page }) => {
   await openChatFirst(page);
   await openChat(page);
   await say(page, "ช่วงนี้กังวลเรื่องแฟน");
@@ -214,7 +218,7 @@ test("?chatFirst=1 Thai AMBIGUOUS shows the card plus the DRAFT line, 0 model ca
   await expect(page.locator('[data-testid^="crisis-"]').first()).toBeVisible();
 });
 
-test("?chatFirst=1 English don't-want-to-live-in-fear is CLEAR under option 1", async ({ page }) => {
+test("chat-first English don't-want-to-live-in-fear is CLEAR under option 1", async ({ page }) => {
   await openChatFirst(page);
   await openChat(page);
   await say(page, "I don't want to live in fear of HIV, should I take PrEP");
@@ -223,7 +227,7 @@ test("?chatFirst=1 English don't-want-to-live-in-fear is CLEAR under option 1", 
   expect(calls.chat + calls.pick).toBe(0);
 });
 
-test("?chatFirst=1 English AMBIGUOUS makes zero model calls and shows the card plus the DRAFT line", async ({ page }) => {
+test("chat-first English AMBIGUOUS makes zero model calls and shows the card plus the DRAFT line", async ({ page }) => {
   await openChatFirst(page);
   await openChat(page);
   await say(page, "I feel so hopeless about everything");
@@ -234,8 +238,8 @@ test("?chatFirst=1 English AMBIGUOUS makes zero model calls and shows the card p
   expect(calls.chat + calls.pick).toBe(0);
 });
 
-test("?chatFirst=1 Thai AMBIGUOUS when the model is not ready shows the card plus the DRAFT line", async ({ page }) => {
-  await page.goto("/?testRuntime=pick-not-ready&chatFirst=1");
+test("chat-first Thai AMBIGUOUS when the model is not ready shows the card plus the DRAFT line", async ({ page }) => {
+  await page.goto("/?testRuntime=pick-not-ready");
   await page.waitForLoadState("domcontentloaded");
   await openChat(page);
   await say(page, "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง");
@@ -247,7 +251,7 @@ test("?chatFirst=1 Thai AMBIGUOUS when the model is not ready shows the card plu
 });
 
 test("card-first reflexive self-cut naming the razor stays on the existing crisis screen", async ({ page }) => {
-  await openStubbed(page);
+  await openCardFirst(page);
   await openChat(page);
   await say(page, "หนู cut ตัวเองด้วยมีดโกนที่ใช้โกนขนทุกคืน");
   await expect(page.getByTestId("screen-crisis")).toBeVisible();
@@ -256,7 +260,7 @@ test("card-first reflexive self-cut naming the razor stays on the existing crisi
 });
 
 test("card-first AMBIGUOUS is not inherited by a later unrelated turn", async ({ page }) => {
-  await openStubbed(page);
+  await openCardFirst(page);
   await openChat(page);
   await say(page, "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง");
   await expect(page.getByTestId("chat-crisis-soft-line")).toBeVisible();
@@ -265,7 +269,7 @@ test("card-first AMBIGUOUS is not inherited by a later unrelated turn", async ({
   await expect(lastJane(page).getByTestId("chat-crisis-soft-line")).toHaveCount(0);
 });
 
-test("?chatFirst=1 turn-31 AMBIGUOUS หนูหมดแรงจะอยู่แล้ว renders the crisis button; click opens the crisis card", async ({ page }) => {
+test("chat-first turn-31 AMBIGUOUS หนูหมดแรงจะอยู่แล้ว renders the crisis button; click opens the crisis card", async ({ page }) => {
   test.setTimeout(60_000);
   await openChatFirst(page);
   await openChat(page);
@@ -282,7 +286,7 @@ test("?chatFirst=1 turn-31 AMBIGUOUS หนูหมดแรงจะอยู�
   expect(after.chat + after.pick).toBe(before.chat + before.pick);
 });
 
-test("?chatFirst=1 later unrelated turn after AMBIGUOUS has no soft line and calls the model", async ({ page }) => {
+test("chat-first later unrelated turn after AMBIGUOUS has no soft line and calls the model", async ({ page }) => {
   await openChatFirst(page);
   await openChat(page);
   await say(page, "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง");

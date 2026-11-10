@@ -6,7 +6,7 @@ import { applyQuizUpdate, beginQuiz, chatView, newChat, sendToChat, type ChatHoo
 import { MODEL_ANSWER_LABEL, RULES_ANSWER_LABEL, thinkingHintAt } from "../../src/ui/thinking";
 import { CHAT_CRISIS_CARD_FIRST, CHAT_FIRST, MODEL_CARD_PICK } from "../../src/config";
 import type { DialogModel } from "../../src/core/dialog";
-import { DEFAULT_CHAT_CHOICE_JSON } from "../../src/llm/chat-choice";
+import { STUB_CHAT_REPLY_TH } from "../../src/llm/runtime";
 
 // SYNTHETIC chat lines only.
 const FILLER = "อยากรู้เรื่องทั่วไปค่ะ";
@@ -121,7 +121,7 @@ describe("chat send path", () => {
   it("after the hard cap, AMBIGUOUS หนูหมดแรงจะอยู่แล้ว still shows the soft line and crisis button", async () => {
     const model: DialogModel = {
       ready: () => true,
-      chatReply: vi.fn(async () => DEFAULT_CHAT_CHOICE_JSON),
+      chatReply: vi.fn(async () => STUB_CHAT_REPLY_TH),
     };
     const chat = newChat("18-24", model, null, { chatFirst: true });
     const h = hooks();
@@ -386,9 +386,9 @@ describe("model-first chat labels (flag off by default)", () => {
 
   it("flag-off keeps the old busy copy and never shows an engine label", async () => {
     expect(MODEL_CARD_PICK).toBe(false);
-    expect(CHAT_FIRST).toBe(false);
+    expect(CHAT_FIRST).toBe(true);
     expect(CHAT_CRISIS_CARD_FIRST).toBe(true);
-    const chat = newChat("18-24", readyModel(), null, { modelPick: false });
+    const chat = newChat("18-24", readyModel(), null, { modelPick: false, chatFirst: false });
     expect(chat.modelPick).toBe(false);
     expect(chat.thinkingHint).toBeNull();
     await sendToChat(chat, "อยากรู้เรื่องคุมกำเนิด", hooks());
@@ -413,7 +413,7 @@ describe("model-first chat labels (flag off by default)", () => {
       await new Promise((r) => setTimeout(r, 40));
       return sl[0]?.id ?? null;
     });
-    const chat = newChat("18-24", model, null, { modelPick: true, pickTimeoutMs: 400 });
+    const chat = newChat("18-24", model, null, { modelPick: true, chatFirst: false, pickTimeoutMs: 400 });
     const h = hooks();
     h.rerender = () => { if (chat.thinkingHint) hints.push(chat.thinkingHint); };
     const pending = sendToChat(chat, "อยากรู้เรื่องคุมกำเนิด", h);
@@ -436,7 +436,7 @@ describe("model-first chat labels (flag off by default)", () => {
         await new Promise((r) => setTimeout(r, 18_000));
         return sl[0]?.id ?? null;
       });
-      const chat = newChat("18-24", model, null, { modelPick: true, pickTimeoutMs: 20_000 });
+      const chat = newChat("18-24", model, null, { modelPick: true, chatFirst: false, pickTimeoutMs: 20_000 });
       const h = hooks();
       h.rerender = () => { renders++; };
       h.updateThinkingHint = (text) => { patched.push(text); };
@@ -474,14 +474,14 @@ describe("model-first chat labels (flag off by default)", () => {
   });
 
   it("flag-on locked and fallback answers use the rules label, never AI", async () => {
-    const chat = newChat("18-24", readyModel(), null, { modelPick: true, pickTimeoutMs: 80 });
+    const chat = newChat("18-24", readyModel(), null, { modelPick: true, chatFirst: false, pickTimeoutMs: 80 });
     await sendToChat(chat, "ยาคุมฉุกเฉินกินภายในกี่ชั่วโมง", hooks());
     const locked = [...chat.messages].reverse().find((m) => m.from === "jane");
     expect(locked?.engine).toBe("rules-locked");
     expect(locked?.engineLabel).toBe(RULES_ANSWER_LABEL);
     expect(locked?.engineLabel).not.toMatch(/AI/);
 
-    const miss = newChat("18-24", readyModel(), null, { modelPick: true, pickTimeoutMs: 80 });
+    const miss = newChat("18-24", readyModel(), null, { modelPick: true, chatFirst: false, pickTimeoutMs: 80 });
     await sendToChat(miss, "วันนี้อากาศดีจัง", hooks());
     const fb = [...miss.messages].reverse().find((m) => m.from === "jane");
     expect(fb?.engine).toBe("rules-fallback");
@@ -504,7 +504,7 @@ describe("ambiguous extra-check: card bubble carries the DRAFT soft line", () =>
   it("chat-first Thai AMBIGUOUS renders the bank card plus the DRAFT soft line and never calls the model", async () => {
     const model: DialogModel = {
       ready: () => true,
-      chatReply: vi.fn(async () => DEFAULT_CHAT_CHOICE_JSON),
+      chatReply: vi.fn(async () => STUB_CHAT_REPLY_TH),
     };
     const chat = newChat("18-24", model, null, { chatFirst: true });
     const h = hooks();

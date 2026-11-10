@@ -1,5 +1,5 @@
 /**
- * Chat-first thinking indicator (?chatFirst=1). Stubbed slow generation via chatReplyMs.
+ * Chat-first thinking indicator (default). Stubbed slow generation via chatReplyMs.
  * SYNTHETIC chat text only. Never user content.
  */
 import { test, expect, type Page } from "@playwright/test";
@@ -10,7 +10,7 @@ import { CHAT_THINKING_PHRASES, thinkingLabelFor, thinkingPhraseAt } from "../..
 const lastJane = (page: Page) => page.locator('[data-testid="chat-msg"][data-from="jane"]').last();
 
 async function openChatFirstSlow(page: Page, extra = "") {
-  await page.goto(`/?chatFirst=1&testRuntime=chat-ok&runtime=wasm&chatReplyMs=1500${extra}`);
+  await page.goto(`/?testRuntime=chat-ok&runtime=wasm&chatReplyMs=1500${extra}`);
   await page.waitForLoadState("domcontentloaded");
   await expect(page.getByTestId("model-status")).toHaveAttribute("data-state", "ready", { timeout: 10_000 });
 }
@@ -39,7 +39,7 @@ test("thinking indicator is visible during a stubbed slow generation, gone after
   await expect(page.getByTestId("chat-thinking")).toBeVisible({ timeout: 2_000 });
   await expect(page.getByTestId("chat-thinking-label")).toHaveText(thinkingLabelFor("th"));
   await expect(page.getByTestId("chat-thinking-phrase")).toHaveText(thinkingPhraseAt("th", 0));
-  await expect(lastJane(page).getByTestId("chat-text")).toContainText("เราอยู่ตรงนี้นะคะ", { timeout: 8_000 });
+  await expect(lastJane(page).getByTestId("chat-text")).toContainText("เราฟังอยู่นะคะ", { timeout: 8_000 });
   await expect(page.getByTestId("chat-thinking")).toHaveCount(0);
   const log = page.getByTestId("chat-log");
   await expect(log.getByTestId("chat-thinking")).toHaveCount(0);
@@ -52,7 +52,7 @@ test("thinking indicator is visible during a stubbed slow generation, gone after
 
 test("reduced-motion shows one static phrase with no bobbing animation", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("/?chatFirst=1&testRuntime=chat-ok&runtime=wasm&chatReplyMs=4000");
+  await page.goto("/?testRuntime=chat-ok&runtime=wasm&chatReplyMs=4000");
   await page.waitForLoadState("domcontentloaded");
   await expect(page.getByTestId("model-status")).toHaveAttribute("data-state", "ready", { timeout: 10_000 });
   await openChat(page);
@@ -64,7 +64,7 @@ test("reduced-motion shows one static phrase with no bobbing animation", async (
   expect(anim === "none" || anim === "").toBe(true);
   await page.waitForTimeout(2_800);
   await expect(page.getByTestId("chat-thinking-phrase")).toHaveText(thinkingPhraseAt("th", 0));
-  await expect(lastJane(page).getByTestId("chat-text")).toContainText("เราอยู่ตรงนี้นะคะ", { timeout: 10_000 });
+  await expect(lastJane(page).getByTestId("chat-text")).toContainText("เราฟังอยู่นะคะ", { timeout: 10_000 });
   await expect(page.getByTestId("chat-thinking")).toHaveCount(0);
 });
 
@@ -117,7 +117,7 @@ test("Thai AMBIGUOUS grouped with a prior unanswered line aborts generation and 
 });
 
 test("Thai AMBIGUOUS when the model is not ready shows the card plus the DRAFT line, no thinking", async ({ page }) => {
-  await page.goto("/?testRuntime=pick-not-ready&chatFirst=1");
+  await page.goto("/?testRuntime=pick-not-ready");
   await page.waitForLoadState("domcontentloaded");
   await openChat(page);
   await say(page, "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง");
@@ -134,7 +134,7 @@ test("ขอข้อมูลเลย stays available mid-generation and shows
   await openChat(page);
   await say(page, "ช่วงนี้กังวลเรื่องแฟน");
   await expect(page.getByTestId("chat-thinking")).toBeVisible({ timeout: 2_000 });
-  await expect(lastJane(page).getByTestId("chat-text")).toContainText("เราอยู่ตรงนี้นะคะ", { timeout: 8_000 });
+  await expect(lastJane(page).getByTestId("chat-text")).toContainText("เราฟังอยู่นะคะ", { timeout: 8_000 });
   const before = await modelCalls(page);
   expect(before.chat).toBeGreaterThan(0);
   await say(page, "แฟนไม่ยอมคุยด้วย");

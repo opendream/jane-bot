@@ -183,10 +183,10 @@ function mockPickCard(hook: RuntimeTestHook): LLMAdapter["pickCard"] | undefined
   };
 }
 
-/** Synthetic structured choice for the chat-first e2e stub. Never user text. */
-const MOCK_CHAT_REPLY = '{"o":0,"c":0,"q":0}';
-const MOCK_CHAT_REPLY_EN = '{"o":0,"c":0,"q":0}';
-const MOCK_CHAT_REPLY_WHOLE = '{"o":0,"c":1,"q":0}';
+/** Synthetic free-text chat-ok stub. Guard-safe; not a chat-voice list line. Never user text. */
+export const STUB_CHAT_REPLY_TH = "เราฟังอยู่นะคะ เธอเล่าเพิ่มได้เลยค่ะ";
+export const STUB_CHAT_REPLY_EN = "I hear you. You can tell me more.";
+const MOCK_CHAT_REPLY_WHOLE = STUB_CHAT_REPLY_TH;
 
 function mockChatDelayMs(hook: RuntimeTestHook): number {
   try {
@@ -212,7 +212,7 @@ function mockChatReply(hook: RuntimeTestHook): LLMAdapter["chatReply"] | undefin
     }
     noteCall("chat");
     if (hook.chatWhole) return MOCK_CHAT_REPLY_WHOLE;
-    return detectChatLang(text) === "en" ? MOCK_CHAT_REPLY_EN : MOCK_CHAT_REPLY;
+    return detectChatLang(text) === "en" ? STUB_CHAT_REPLY_EN : STUB_CHAT_REPLY_TH;
   };
 }
 

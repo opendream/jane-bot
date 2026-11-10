@@ -17,12 +17,12 @@ import { newChat, sendToChat, chatMsgFromReply, type ChatHooks } from "../../src
 import {
   resetGenerationTokenForTests,
 } from "../../src/llm/generation-token";
-import { DEFAULT_CHAT_CHOICE_JSON } from "../../src/llm/chat-choice";
+import { STUB_CHAT_REPLY_TH } from "../../src/llm/runtime";
 
 // SYNTHETIC paraphrases only. Never user logs.
 const TH_AMB = "หนูสิ้นหวังมาก ไม่รู้จะไปต่อยังไง";
 const THANKS = "ขอบคุณค่ะ";
-const SAFE_JSON = DEFAULT_CHAT_CHOICE_JSON;
+const SAFE_JSON = STUB_CHAT_REPLY_TH;
 const BAD_CHAT = "กิน 2 เม็ด แล้วไม่ท้องแน่ https://evil.test";
 const DRAFT_SOFT = AMBIGUOUS_CRISIS_LINE_TH;
 

@@ -90,12 +90,13 @@ export function pickTimeoutMsFromSearch(search?: string, fallback = 20_000): num
 }
 
 /**
- * Chat-first (PR A): Jane talks, then hands over a reviewed bank card at the end of the topic.
- * Off by default so production stays card-first until Keng flips this.
- * Filming/demo override: ?chatFirst=1 works on the production build as well as
- * the Vite dev server (same pattern as ?modelPick=). Flag-off stays card-first.
+ * Chat-first / model-first is the default: Jane talks, history is passed to the
+ * local model, and a reviewed bank card is only a fallback (guard fail, timeout,
+ * model not ready). Opt out with ?chatFirst=0 or CHAT_FIRST=false.
  */
-export const CHAT_FIRST = false;
+export const CHAT_FIRST = true;
+/** Prior user+Jane turns kept as model context (clipped to the context budget). */
+export const CHAT_HISTORY_TURNS = 6;
 /**
  * English model chat is off on this branch. Everyday English (including
  * open-ended disclosures the pin misses) takes the no-model card path with
@@ -111,8 +112,6 @@ export const CHAT_FIRST = false;
  * planned as its own PR after filming.
  */
 export const ENGLISH_MODEL_CHAT = false;
-/** User turns in one topic before Jane must close with a card. */
-export const CHAT_MAX_TURNS = 3;
 /**
  * Chat-first reply budget. Covers the whole model part of the turn, including
  * the retry (the clock does not restart). Card-first pick/reword timeouts are
@@ -124,7 +123,7 @@ export const CHAT_FIRST_TIMEOUT_MS = 45_000;
 /** Chat-reply budget (plan §2). Same value as CHAT_FIRST_TIMEOUT_MS. */
 export const CHAT_TIMEOUT_MS = CHAT_FIRST_TIMEOUT_MS;
 
-/** Honours ?chatFirst=1 on production builds too (not a Vite-dev-only flag). */
+/** Default on. Honour ?chatFirst=0 / false / off as an explicit card-first opt-out. */
 export function chatFirstEnabled(search?: string): boolean {
   try {
     const raw = search ?? (typeof location !== "undefined" ? location.search : "");

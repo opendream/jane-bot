@@ -27,15 +27,15 @@ import { BANK } from "../../src/core/bankData";
 import { CARD_THAI_NOTE_EN } from "../../src/core/card-lang";
 import { LOCKED_ROUTE_IDS } from "../../src/core/pick-engine";
 import { REFUSAL_CARDS } from "../../src/core/guard";
-import { DEFAULT_CHAT_CHOICE_JSON, defaultChatReply } from "../../src/llm/chat-choice";
+import { STUB_CHAT_REPLY_EN, STUB_CHAT_REPLY_TH } from "../../src/llm/runtime";
 
 const DROPPED_HOLDING_LINE = "พี่ฟังอยู่นะ ขอส่งข้อมูลที่ตรวจแล้วให้ก่อน";
 const DROPPED_HOLDING_LINE_EN = "I hear you. Let me share the checked information first.";
 
-// SYNTHETIC chat lines only. Model stubs return JSON; Jane's text is rendered.
-const SAFE_JSON = DEFAULT_CHAT_CHOICE_JSON;
-const SAFE_CHAT = defaultChatReply("th");
-const SAFE_CHAT_EN = defaultChatReply("en");
+// SYNTHETIC chat lines only. Model stubs return free text that passes chatGuard.
+const SAFE_CHAT = STUB_CHAT_REPLY_TH;
+const SAFE_CHAT_EN = STUB_CHAT_REPLY_EN;
+const SAFE_JSON = STUB_CHAT_REPLY_TH;
 const FILLER = "อยากรู้เรื่องทั่วไปค่ะ";
 
 function spyModel(chat: string | null | undefined = undefined, pick: string | null = null) {
@@ -47,7 +47,7 @@ function spyModel(chat: string | null | undefined = undefined, pick: string | nu
       calls.lastChat = text;
       calls.lastLang = lang ?? detectChatLang(text);
       if (chat !== undefined) return chat;
-      return SAFE_JSON;
+      return (lang ?? detectChatLang(text)) === "en" ? SAFE_CHAT_EN : SAFE_JSON;
     }),
     pickCard: vi.fn(async (text, list) => {
       calls.pick++;
@@ -91,11 +91,11 @@ function shownCard(reply: { kind: string; card?: { id: string; answer_th: string
   throw new Error(`expected a card, got ${reply.kind}`);
 }
 
-describe("production defaults (chat-first flag off)", () => {
-  it("CHAT_FIRST is false and the query parser is opt-in", () => {
-    expect(CHAT_FIRST).toBe(false);
+describe("production defaults (chat-first on)", () => {
+  it("CHAT_FIRST is true and ?chatFirst=0 is the opt-out", () => {
+    expect(CHAT_FIRST).toBe(true);
     expect(CHAT_CRISIS_CARD_FIRST).toBe(true);
-    expect(chatFirstEnabled("")).toBe(false);
+    expect(chatFirstEnabled("")).toBe(true);
     expect(chatFirstEnabled("?chatFirst=0")).toBe(false);
     expect(chatFirstEnabled("?chatFirst=1")).toBe(true);
     expect(chatFirstEnabled("?chatFirst=true")).toBe(true);
@@ -105,7 +105,7 @@ describe("production defaults (chat-first flag off)", () => {
     expect(CHAT_SYSTEM).toContain("ห้ามคุยเชิงชู้สาว");
     expect(CHAT_SYSTEM).toContain("สายด่วน");
     expect(CHAT_SYSTEM).toContain(CHAT_LANG_LINE_TH);
-    expect(CHAT_MAX_TOKENS).toBe(24);
+    expect(CHAT_MAX_TOKENS).toBe(128);
     expect(CHAT_SYSTEM_EN_STATUS).toBe("draft");
     expect(chatSystemFor("th")).toBe(CHAT_SYSTEM);
     expect(chatSystemFor("en")).toBe(CHAT_SYSTEM_EN);
@@ -282,17 +282,17 @@ describe("chat-first conversation", () => {
     expect(r.state.chatFlow.topicTurns).toBe(1);
   });
 
-  it("turn 2 may keep chatting when the model picks none", async () => {
+  it("turn 2 keeps chatting with no pick and no card", async () => {
     const { model, calls } = spyModel(SAFE_JSON, "none");
     const a = await runTurn(newDialog(), "ช่วงนี้กังวลเรื่องแฟน", deps(model));
     const b = await runTurn(a.state, "แฟนไม่ยอมคุยด้วย", deps(model));
     expect(b.reply.kind).toBe("chat");
     if (b.reply.kind === "chat") expect(b.reply.card).toBeNull();
-    expect(calls.pick).toBe(1);
+    expect(calls.pick).toBe(0);
     expect(b.state.chatFlow.topicTurns).toBe(2);
   });
 
-  it("turn 3 always closes with a bank card (model pick, else rules, else fallback)", async () => {
+  it("turn 3 keeps chatting with no forced card", async () => {
     const { model } = spyModel(SAFE_JSON, "none");
     const { replies } = await talk(
       ["ช่วงนี้กังวลเรื่องแฟน", "แฟนไม่ยอมคุยด้วย", "แล้วหนูควรพูดยังไงดี"],
@@ -300,8 +300,8 @@ describe("chat-first conversation", () => {
     );
     expect(replies[2].kind).toBe("chat");
     if (replies[2].kind === "chat") {
-      expect(replies[2].card).not.toBeNull();
-      expect(replies[2].cardText).toBe(replies[2].card!.answer_th);
+      expect(replies[2].card).toBeNull();
+      expect(replies[2].text).toBe(SAFE_CHAT);
     }
   });
 
@@ -319,45 +319,27 @@ describe("chat-first conversation", () => {
 
   it("card text always comes from the bank, never from the model", async () => {
     const { model, calls } = spyModel(SAFE_JSON, "birth.control.000");
-    const { replies } = await talk(
-      ["อยากรู้เรื่องคุมกำเนิดไหม", "แบบไหนที่น้อง ๆ ใช้กัน", "ขอคำตอบที่ตรวจแล้ว"],
-      deps(model),
-    );
-    for (const r of replies) {
-      if (r.kind === "card") {
-        expect(r.text).toBe(r.card.answer_th);
-        expect(r.text).not.toContain("พี่อยู่ตรงนี้นะ");
-      }
-      if (r.kind === "chat" && r.card) {
-        expect(r.cardText).toBe(r.card.answer_th);
-        expect(r.cardText).not.toBe(r.text);
-        expect(BANK.some((c) => c.id === r.card!.id && c.answer_th === r.cardText)).toBe(true);
-      }
+    const first = await runTurn(newDialog(), "อยากรู้เรื่องคุมกำเนิดไหม", deps(model));
+    expect(first.reply.kind).toBe("chat");
+    const closed = await runTurn(first.state, SHOW_CARD_NOW, deps(model));
+    expect(closed.reply.kind).toBe("card");
+    if (closed.reply.kind === "card") {
+      expect(closed.reply.text).toBe(closed.reply.card.answer_th);
+      expect(closed.reply.text).not.toContain("พี่อยู่ตรงนี้นะ");
     }
     expect(calls.reword).toBe(0);
   });
 
-  it("fallback close offers referral", async () => {
-    const { model, calls } = spyModel(SAFE_JSON, "none");
-    const { replies } = await talk(
-      [FILLER, "เรื่องแปลก ๆ ที่ไม่มีในคลัง", "ยังไม่ใช่เรื่องในคลังอีก"],
-      deps(model),
-    );
-    expect(replies).toHaveLength(3);
-    const closed = replies.find((r) =>
-      (r.kind === "chat" && r.card?.id === FALLBACK_ID) || (r.kind === "card" && r.card.id === FALLBACK_ID),
-    );
-    expect(closed).toBeTruthy();
-    expect(closed!.offer === "soft" || closed!.offer === "strong").toBe(true);
-    if (closed && closed.kind === "chat") {
-      expect(closed.cardText).toBe(closed.card!.answer_th);
-      expect(closed.via).toBe("fallback");
-    } else if (closed && closed.kind === "card") {
-      expect(closed.text).toBe(closed.card.answer_th);
-      expect(closed.via).toBe("fallback");
+  it("fallback card on model-not-ready offers referral", async () => {
+    const model: DialogModel = { ready: () => false, chatReply: vi.fn(async () => SAFE_CHAT) };
+    const r = await runTurn(newDialog(), FILLER, deps(model));
+    expect(r.reply.kind).toBe("card");
+    if (r.reply.kind === "card") {
+      expect(r.reply.card.id).toBe(FALLBACK_ID);
+      expect(r.reply.offer === "soft" || r.reply.offer === "strong").toBe(true);
+      expect(r.reply.text).toBe(r.reply.card.answer_th);
     }
-    expect(calls.chat).toBeGreaterThan(0);
-    expect(calls.pick).toBe(0);
+    expect(model.chatReply).not.toHaveBeenCalled();
   });
 });
 
