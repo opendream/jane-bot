@@ -16,13 +16,14 @@ describe("chatGuard (generated Jane replies)", () => {
     expect(acceptChatReply(SAFE)).toEqual({ ok: true, text: SAFE });
   });
 
-  it("rejects Arabic digits", () => {
-    expect(chatGuardFailures("กินภายใน 72 ชั่วโมงนะ")).toContain("digits");
-    expect(acceptChatReply("รอ 1 นาที").ok).toBe(false);
+  it("accepts Arabic digits in ordinary Thai chat", () => {
+    expect(chatGuardFailures("กินภายใน 72 ชั่วโมงนะ")).toEqual([]);
+    expect(acceptChatReply("รอ 1 นาที")).toEqual({ ok: true, text: "รอ 1 นาที" });
   });
 
-  it("rejects Thai digits", () => {
-    expect(chatGuardFailures("รอแป๊บ ๓ นาทีนะ")).toContain("digits");
+  it("accepts Thai digits in ordinary Thai chat", () => {
+    expect(chatGuardFailures("รอแป๊บ ๓ นาทีนะ")).toEqual([]);
+    expect(acceptChatReply("รอแป๊บ ๓ นาทีนะ").ok).toBe(true);
   });
 
   it("rejects URLs", () => {
@@ -35,8 +36,9 @@ describe("chatGuard (generated Jane replies)", () => {
     expect(chatGuardFailures("ส่งมาที่ name@example.com นะ")).toContain("email");
   });
 
-  it("rejects a digit phone number", () => {
-    expect(chatGuardFailures("โทร 0812345678 ได้เลย")).toContain("digits");
+  it("rejects a digit phone number as phone, not digits", () => {
+    expect(chatGuardFailures("โทร 0812345678 ได้เลย")).toContain("phone");
+    expect(chatGuardFailures("โทร 0812345678 ได้เลย")).not.toContain("digits");
     expect(acceptChatReply("โทร 0812345678 ได้เลย").ok).toBe(false);
   });
 
@@ -75,21 +77,22 @@ describe("chatGuard (generated Jane replies)", () => {
     expect(chatGuardFailures("กินกี่โมงดีนะ พี่ฟังอยู่")).toEqual([]);
   });
 
-  it("rejects dose and timing patterns, not bare topic nouns", () => {
-    expect(chatGuardFailures("กินสองเม็ดก่อนนอนนะ")).toContain("dose");
-    expect(chatGuardFailures("ขนาดประมาณสองมก. พอ")).toContain("dose");
-    expect(chatGuardFailures("กินกี่เม็ดก่อนนอนนะ")).toContain("dose");
-    expect(chatGuardFailures("กินภายในหลังมีเพศสัมพันธ์นะ")).toContain("dose");
-    expect(chatGuardFailures("กินวันละหลังอาหารนะ")).toContain("dose");
-    expect(chatGuardFailures("กินครั้งละหลังอาหารนะ")).toContain("dose");
-    expect(chatGuardFailures("ใช้ยาคุมตามที่กล่องบอก")).not.toContain("dose");
+  it("accepts dose and timing mentions; still accepts bare topic nouns", () => {
+    expect(chatGuardFailures("กินสองเม็ดก่อนนอนนะ")).toEqual([]);
+    expect(chatGuardFailures("ขนาดประมาณสองมก. พอ")).toEqual([]);
+    expect(chatGuardFailures("กินกี่เม็ดก่อนนอนนะ")).toEqual([]);
+    expect(chatGuardFailures("กินภายในหลังมีเพศสัมพันธ์นะ")).toEqual([]);
+    expect(chatGuardFailures("กินวันละหลังอาหารนะ")).toEqual([]);
+    expect(chatGuardFailures("กินครั้งละหลังอาหารนะ")).toEqual([]);
+    expect(chatGuardFailures("ใช้ยาคุมตามที่กล่องบอก")).toEqual([]);
+    expect(acceptChatReply("กินสองเม็ดก่อนนอนนะ").ok).toBe(true);
   });
 
-  it("rejects Thai number words used as a quantity or time next to a unit", () => {
-    expect(chatGuardFailures("กินวันละสองครั้งหลังอาหารนะ")).toContain("dose");
-    expect(chatGuardFailures("กินภายในสามวันหลังมีเพศสัมพันธ์นะ")).toContain("dose");
-    expect(acceptChatReply("กินวันละสองครั้งหลังอาหารนะ").ok).toBe(false);
-    expect(acceptChatReply("กินภายในสามวันหลังมีเพศสัมพันธ์นะ").ok).toBe(false);
+  it("accepts Thai number words used as a quantity or time next to a unit", () => {
+    expect(chatGuardFailures("กินวันละสองครั้งหลังอาหารนะ")).toEqual([]);
+    expect(chatGuardFailures("กินภายในสามวันหลังมีเพศสัมพันธ์นะ")).toEqual([]);
+    expect(acceptChatReply("กินวันละสองครั้งหลังอาหารนะ").ok).toBe(true);
+    expect(acceptChatReply("กินภายในสามวันหลังมีเพศสัมพันธ์นะ").ok).toBe(true);
   });
 
   it("does not reject Thai number syllables inside ordinary words, or สองคน without a time unit", () => {
@@ -123,7 +126,8 @@ describe("chatGuard (generated Jane replies)", () => {
   });
 
   it("rejects a PII echo (phone / handle that stripPII would change)", () => {
-    expect(chatGuardFailures("พี่จำเบอร์ 0812345678 ไว้นะ")).toContain("digits");
+    expect(chatGuardFailures("พี่จำเบอร์ 0812345678 ไว้นะ")).toContain("phone");
+    expect(chatGuardFailures("พี่จำเบอร์ 0812345678 ไว้นะ")).not.toContain("digits");
     expect(chatGuardFailures("แอดไลน์ @user_alpha ได้เลย")).toContain("handle");
   });
 
@@ -184,22 +188,23 @@ describe("chatGuard English path", () => {
     expect(acceptChatReply(ec, "en").ok).toBe(true);
   });
 
-  it("rejects digits", () => {
-    expect(chatGuardFailures("Wait 2 minutes and tell me more.", "en")).toContain("digits");
+  it("accepts digits in ordinary English chat", () => {
+    expect(chatGuardFailures("Wait 2 minutes and tell me more.", "en")).toEqual([]);
+    expect(acceptChatReply("Wait 2 minutes and tell me more.", "en").ok).toBe(true);
   });
 
-  it("rejects English number words used as amounts or times next to a unit", () => {
-    expect(chatGuardFailures("Take two pills after food.", "en")).toContain("dose");
-    expect(chatGuardFailures("Take it within three days.", "en")).toContain("dose");
-    expect(chatGuardFailures("Once a day is enough.", "en")).toContain("dose");
-    expect(chatGuardFailures("Twice a week after food.", "en")).toContain("dose");
-    expect(chatGuardFailures("A half hour is enough.", "en")).toContain("dose");
-    expect(chatGuardFailures("Twenty mg with food.", "en")).toContain("dose");
+  it("accepts English number words used as amounts or times next to a unit", () => {
+    expect(chatGuardFailures("Take two pills after food.", "en")).toEqual([]);
+    expect(chatGuardFailures("Take it within three days.", "en")).toEqual([]);
+    expect(chatGuardFailures("Once a day is enough.", "en")).toEqual([]);
+    expect(chatGuardFailures("Twice a week after food.", "en")).toEqual([]);
+    expect(chatGuardFailures("A half hour is enough.", "en")).toEqual([]);
+    expect(chatGuardFailures("Twenty mg with food.", "en")).toEqual([]);
   });
 
-  it("rejects pill(s) per day and take within as dose patterns", () => {
-    expect(chatGuardFailures("Pills per day with food is the way.", "en")).toContain("dose");
-    expect(chatGuardFailures("Take within a short window.", "en")).toContain("dose");
+  it("accepts pill(s) per day and take within as dose mentions", () => {
+    expect(chatGuardFailures("Pills per day with food is the way.", "en")).toEqual([]);
+    expect(chatGuardFailures("Take within a short window.", "en")).toEqual([]);
   });
 
   it("does not treat a bare pill mention as a dose", () => {
@@ -209,7 +214,8 @@ describe("chatGuard English path", () => {
   it("rejects links, @handles and phone numbers", () => {
     expect(chatGuardFailures("See www.example.com for more.", "en")).toContain("url");
     expect(chatGuardFailures("Ping @teen_helper if you want.", "en")).toContain("handle");
-    expect(chatGuardFailures("Call 0812345678 later.", "en")).toContain("digits");
+    expect(chatGuardFailures("Call 0812345678 later.", "en")).toContain("phone");
+    expect(chatGuardFailures("Call 0812345678 later.", "en")).not.toContain("digits");
   });
 
   it("rejects absolute medical claims", () => {
@@ -251,10 +257,9 @@ describe("chatGuard English path", () => {
   });
 });
 
-describe("chatGuard round-3 dose / claim / price holes", () => {
+describe("chatGuard round-3 claim / price holes (doses are allowed)", () => {
   it.each([
     "ตรวจเลือดพรุ่งนี้ก็รู้ผลแล้วค่ะ",
-    "กินเม็ดเดียวก่อนนอนนะ",
     "ถ้ากินทันทีจะไม่ท้องค่ะ",
     "ราคาประมาณห้าร้อยบาทนะ",
   ])("rejects the Thai output %s", (line) => {
@@ -262,16 +267,20 @@ describe("chatGuard round-3 dose / claim / price holes", () => {
   });
 
   it.each([
-    "Take two emergency contraceptive pills now.",
     "You will definitely not get pregnant.",
     "It costs fifty baht.",
   ])("rejects the English output %s", (line) => {
     expect(acceptChatReply(line, "en").ok).toBe(false);
   });
 
-  it("names the dose / claim / price reasons for the round-3 cases", () => {
-    expect(chatGuardFailures("กินเม็ดเดียวก่อนนอนนะ")).toContain("dose");
-    expect(chatGuardFailures("Take two emergency contraceptive pills now.", "en")).toContain("dose");
+  it("accepts dose mentions that round 3 used to reject", () => {
+    expect(chatGuardFailures("กินเม็ดเดียวก่อนนอนนะ")).toEqual([]);
+    expect(acceptChatReply("กินเม็ดเดียวก่อนนอนนะ").ok).toBe(true);
+    expect(chatGuardFailures("Take two emergency contraceptive pills now.", "en")).toEqual([]);
+    expect(acceptChatReply("Take two emergency contraceptive pills now.", "en").ok).toBe(true);
+  });
+
+  it("names the claim / price reasons for the round-3 cases", () => {
     expect(chatGuardFailures("ตรวจเลือดพรุ่งนี้ก็รู้ผลแล้วค่ะ")).toContain("claim");
     expect(chatGuardFailures("ถ้ากินทันทีจะไม่ท้องค่ะ")).toContain("claim");
     expect(chatGuardFailures("You will definitely not get pregnant.", "en")).toContain("claim");

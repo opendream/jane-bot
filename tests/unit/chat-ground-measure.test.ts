@@ -30,8 +30,10 @@ describe("grounded fixture-set measurement (no live model)", () => {
     expect(byId.get("keep-leak-card")?.accepted).toBe(true);
     expect(byId.get("keep-ornot-card")?.accepted).toBe(true);
     expect(byId.get("keep-no-card")?.accepted).toBe(true);
+    expect(byId.get("fb-parent-prep")?.accepted).toBe(true);
+    expect(byId.get("fb-digits-guard")?.accepted).toBe(true);
     expect(byId.get("fb-heat-condom")?.accepted).toBe(false);
-    expect(byId.get("fb-parent-prep")?.accepted).toBe(false);
+    expect(byId.get("fb-plant-hospital")?.accepted).toBe(false);
     expect(byId.get("fb-incomplete")?.accepted).toBe(false);
     expect(byId.get("fb-bad-json")?.accepted).toBe(false);
     expect(byId.get("fb-c-out-of-range")?.accepted).toBe(false);

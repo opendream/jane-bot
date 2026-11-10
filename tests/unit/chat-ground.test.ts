@@ -98,18 +98,17 @@ describe("acceptGroundedChat (chatGuard on free text)", () => {
     expect(acc).toEqual({ ok: true, text: STUB_CHAT_REPLY_TH });
   });
 
-  it("rejects free-text digits", () => {
+  it("accepts free-text digits in a grounded Thai line", () => {
     const acc = acceptGroundedChat("กันท้องได้ 98% เลย", "th", condom.answer_th);
-    expect(acc.ok).toBe(false);
-    if (!acc.ok) expect(acc.reasons).toContain("digits");
+    expect(acc).toEqual({ ok: true, text: "กันท้องได้ 98% เลย" });
   });
 
-  it("rejects a URL / dose line", () => {
+  it("rejects a URL / claim line", () => {
     const acc = acceptGroundedChat("กิน 2 เม็ด แล้วไม่ท้องแน่ https://evil.test", "th", leak.answer_th);
     expect(acc.ok).toBe(false);
   });
 
-  it("rejects JSON leftovers that contain digits", () => {
+  it("rejects JSON leftovers that are not Thai chat", () => {
     expect(acceptGroundedChat('{"o":0,"c":0,"q":0}', "th", condom.answer_th).ok).toBe(false);
   });
 });
