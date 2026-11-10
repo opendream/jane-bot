@@ -12,8 +12,10 @@
  *
  * Grounded at: chat-first plan, 29 Oct 2026 (warm, non-judgemental, short, no
  * roleplay). Safety stays: not medical advice, no sexual roleplay, Thai only,
- * no new hotlines. Thinking off is enforced by the adapter
- * (`enable_thinking: false` / `/no_think`), not by asking the model to "think".
+ * no new hotlines. Thinking off is the Qwen3 Jinja hard switch
+ * (`chat_template_kwargs.enable_thinking = false`). The template implements
+ * that as a prefilled empty think-block assistant prefix.
+ * `/no_think` is only a soft switch and is not used on the wllama path.
  */
 
 import type { ChatReplyOpts } from "./adapter";
@@ -85,6 +87,37 @@ export function chatSystemFor(lang: ChatLang, opts?: ChatReplyOpts): string {
 
 export function chatUser(text: string): string {
   return text;
+}
+
+/**
+ * wllama 3.8.1 `createChatCompletion` forwards this to llama.cpp Jinja as
+ * extra template kwargs. Qwen3's chat template honours `enable_thinking`:
+ * false prefills an empty think block so the 128-token budget is the reply,
+ * not English reasoning. `/no_think` in the user turn is a soft switch the
+ * 0.6B ignored on device. A manual assistant prefix would fight
+ * add_generation_prompt, so we do not add one in `messages`.
+ */
+export const WLLAMA_NO_THINK_KWARGS = { enable_thinking: false } as const;
+
+export type WllamaChatMessage = {
+  role: "system" | "user" | "assistant";
+  content: string;
+};
+
+/** Messages + Jinja kwargs for one wllama chat turn. User text is unchanged. */
+export function buildWllamaChatPrompt(
+  system: string,
+  history: { role: "user" | "assistant"; content: string }[],
+  userText: string,
+): { messages: WllamaChatMessage[]; chat_template_kwargs: { enable_thinking: false } } {
+  return {
+    messages: [
+      { role: "system", content: system },
+      ...history.map((h) => ({ role: h.role, content: h.content })),
+      { role: "user", content: chatUser(userText) },
+    ],
+    chat_template_kwargs: { enable_thinking: false },
+  };
 }
 
 /** Strip think tags, role prefixes and markdown; trim a truncated last clause. */

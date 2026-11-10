@@ -4,7 +4,7 @@ import type { Intent } from "../core/types";
 import type { WebGpuBuild } from "./models";
 import { modelUrl } from "./weights-cache";
 import { CLASSIFY_SYSTEM, POLISH_SYSTEM, PICK_SYSTEM, PICK_MAX_TOKENS, REWORD_SYSTEM, REWORD_MAX_TOKENS, cleanPolished, cleanReword, parseIntent, pickSchema, pickUser, rewordUser } from "./prompts";
-import { CHAT_MAX_TOKENS, CHAT_TEMPERATURE, CHAT_TOP_P, chatSystemFor, cleanChat } from "./chat-system";
+import { CHAT_MAX_TOKENS, CHAT_TEMPERATURE, CHAT_TOP_P, chatSystemFor } from "./chat-system";
 import { CHAT_WARMUP_LANG, CHAT_WARMUP_MAX_TOKENS, CHAT_WARMUP_USER } from "./chat-warmup";
 import { createChatRuntime } from "./chat-engine";
 import { detectChatLang } from "./chat-lang";
@@ -170,7 +170,8 @@ export async function bindWebLLMEngine(
         }));
         if (dead) throw dead;
         if (shouldSkipGeneration(groupId, s)) return null;
-        return cleanChat(String(r.choices?.[0]?.message?.content ?? ""), lang ?? detectChatLang(text)) || null;
+        // Raw model text: chatGuard / debug preview run in dialog. Do not strip here.
+        return String(r.choices?.[0]?.message?.content ?? "") || null;
       } catch (e) {
         if (isWebGpuRuntimeFailure(e) || dead) markDead(e);
         throw e;

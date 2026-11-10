@@ -118,12 +118,27 @@ function mostlyThai(s: string): boolean {
   return thai / (thai + latin) >= 0.4;
 }
 
+/**
+ * Strip Qwen3 think markup before the guard, including truncated dumps:
+ * - closed `<think>...</think>` is removed
+ * - an unclosed `<think>` drops everything from it to the end
+ * - a stray `</think>` with no opener drops everything before it
+ */
 function stripThink(s: string): string {
-  return s
-    .replace(/<think>[\s\S]*?<\/think>/gi, "\n")
-    .replace(/<\/?think>/gi, " ")
+  let out = s.replace(/<think\b[^>]*>[\s\S]*?<\/think>/gi, "\n");
+  out = out.replace(/<think\b[^>]*>[\s\S]*$/gi, "");
+  out = out.replace(/^[\s\S]*?<\/think>/gi, "");
+  return out
     .replace(/\/no_think/gi, " ")
     .replace(/<\|im_(start|end)\|>/gi, " ");
+}
+
+/** First ~160 characters of rejected raw model output. Memory / on-screen only. */
+export const CHAT_GUARD_DEBUG_RAW_CHARS = 160;
+
+export function chatGuardDebugRawPreview(text: string | null | undefined): string {
+  const s = text == null ? "" : String(text).replace(/\s+/g, " ").trim();
+  return s.slice(0, CHAT_GUARD_DEBUG_RAW_CHARS);
 }
 
 function stripMarkdown(s: string): string {

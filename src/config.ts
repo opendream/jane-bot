@@ -135,8 +135,9 @@ export function chatFirstEnabled(search?: string): boolean {
 }
 
 /**
- * Dev-only on-screen chatGuard reason codes. Off by default.
- * `?debug=1` / true / on. Memory only: no console log of user text, no storage, no network.
+ * Dev-only on-screen chatGuard reason codes, plus a short raw-output preview.
+ * Off by default. `?debug=1` / true / on. Memory only: no console log of user
+ * text, no storage, no network.
  */
 export function debugEnabled(search?: string): boolean {
   try {
