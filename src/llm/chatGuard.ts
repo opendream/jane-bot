@@ -242,10 +242,19 @@ function leftoverJson(s: string): boolean {
   return /^\s*[{\[]/.test(s);
 }
 
-/** Full Thai/international numbers, plus โทร + 3 or more digits (hotlines like 1663). */
+/**
+ * Full Thai/international numbers, plus a call/hotline word then 3+ digits
+ * (Thai or Arabic, spaces/dashes ok) in a short window. No blanket digit ban:
+ * "72 ชั่วโมง" without a call word still passes.
+ */
+const PHONE_DIGIT_RUN = String.raw`[+＋]?[0-9๐-๙](?:[\s.-]*[0-9๐-๙]){2,}`;
+const CALL_TO_DIGITS_GAP = String.raw`[^0-9๐-๙]{0,24}`;
+const TH_CALL_PHONE_RE = new RegExp(`(?:โทร|ติดต่อ|สายด่วน)${CALL_TO_DIGITS_GAP}${PHONE_DIGIT_RUN}`);
+const EN_CALL_PHONE_RE = new RegExp(`\\b(?:call|hotline)s?\\b${CALL_TO_DIGITS_GAP}${PHONE_DIGIT_RUN}`, "i");
+
 function hasPhoneNumber(s: string): boolean {
   if (findPhoneSpans(s).length) return true;
-  return /โทร\s*(?:[+＋]?[0-9๐-๙][\s.-]*){3,}/.test(s);
+  return TH_CALL_PHONE_RE.test(s) || EN_CALL_PHONE_RE.test(s);
 }
 
 function promptLeak(s: string, lang: ChatLang): boolean {
